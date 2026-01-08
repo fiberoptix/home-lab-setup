@@ -39,9 +39,9 @@ This repository documents the complete build of a **professional-grade DevOps ho
 | **Total Storage** | 3.5TB usable ZFS pools |
 
 **Storage Architecture (ZFS):**
-- `local-zfs` (rpool): 2x500GB mirror - Proxmox OS, ISOs
-- `vm-critical` (rpool1): 2x1TB mirror - GitLab, SonarQube, Monitoring (data protection)
-- `vm-ephemeral` (rpool2): 2x1TB stripe - Runner, QA Host (disposable workloads)
+- `local-zfs` (rpool1): 2x500GB mirror - Proxmox OS, ISOs
+- `vm-critical` (rpool2): 2x1TB mirror - GitLab, SonarQube, Monitoring (data protection)
+- `vm-ephemeral` (rpool3): 2x1TB stripe - Runner, QA Host (disposable workloads)
 
 ---
 
