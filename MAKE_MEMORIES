@@ -1,0 +1,20 @@
+Update AI memory files. These are for YOU (AI) only - no human reads them.
+
+MEMORY.md (static reference):
+- IPs, credential file paths, commands, architecture
+- Key decisions and WHY (if you need the context)
+- Update only if infrastructure/config changed
+
+/phases/current_phase.md (session progress):
+- Current phase + goal
+- Done this session
+- Next steps
+- Blockers/issues
+- Include explanations if YOU need them to understand later
+
+Check before writing:
+- /proxmox/credentials
+- /www/scripts/
+- /phases/
+
+Write what YOU need to reload context cold. No more, no less.
