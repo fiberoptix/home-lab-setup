@@ -23,7 +23,7 @@ This system was designed out of interest to build and deploy the **Capricorn** p
 
 **Please check out the Capricorn project:**
 - 📦 **GitLab Repository:** http://gitlab.gothamtechnologies.com/capricorn
-- 🌐 **Production (GCP):** https://capricorn.gothamtechnologies.com
+- 🌐 **Production (GCP):** http://capricorn.gothamtechnologies.com
 
 **Total Hardware Cost:** $3,894  
 **Monthly Operating Cost:** ~$15-20 (electricity)  
