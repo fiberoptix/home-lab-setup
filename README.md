@@ -19,7 +19,7 @@ This repository documents the complete build of a **professional-grade DevOps ho
 - 🌐 **Dual Access:** Tailscale VPN (admin) + Public HTTPS (QA testing)
 - 🔐 **Security:** Zero-trust VPN, Let's Encrypt SSL, infrastructure isolation
 
-**Total Hardware Cost:** $2,989  
+**Total Hardware Cost:** $3,894  
 **Monthly Operating Cost:** ~$15-20 (electricity)  
 **Commercial Equivalent:** ~$70-100/month SaaS services
 
