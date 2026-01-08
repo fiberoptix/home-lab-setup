@@ -1,0 +1,93 @@
+*** AI STARTUP PROCEDURE - READ THIS FIRST ***
+
+*** AI Must NEVER EDIT this file ***
+
+Project: home-lab-setup - Building Proxmox VE DevOps/QA Environment
+
+Hardware: HP Z6 G4 (1x Xeon Platinum 8168, 128GB RAM, 6x NVMe ZFS)
+DEV Host: HP Z8 G4 running Ubuntu 25.10 (where we work from)
+Proxmox Server: HP Z6 G4 at 192.168.1.150 (root/capricorn2025)
+
+Apps: Capricorn (unified finance app)
+- Production: capricorn.gothamtechnologies.com (GCP)
+- QA: capricorn-qa.gothamtechnologies.com (home lab)
+
+
+=== STARTUP CHECKLIST ===
+
+1. ✅ Check current date/time including TimeZone using terminal
+2. ✅ Read these files IN ORDER:
+   a. MEMORY.md - Critical decisions & project context
+   b. /proxmox/Home_Lab_Proxmox_Build_Plan.md - Execution checklist with phase status
+   c. /proxmox/Home_Lab_Proxmox_Design.md - Full architecture reference (if needed)
+   d. /proxmox/Home_Lab_Proxmox_Storage.md - ZFS storage configuration (if working on storage)
+   e. /proxmox/Home_Lab_Proxmox_Install.md - Installation notes & troubleshooting
+
+3. ✅ Quick Context:
+   - Building Proxmox VE 9.1 DevOps/QA lab on HP Z6 G4
+   - 6 VMs: GitLab, Runner, QA Host, SonarQube, Monitoring, Traefik
+   - ZFS storage: local-zfs, vm-critical (mirror), vm-ephemeral (stripe)
+   - Dual-access: Tailscale VPN (admin) + Public HTTPS (QA testing)
+   - Capricorn = unified finance app (retired Finance/Portfolio/Retirement managers)
+   - Domain: gothamtechnologies.com (AWS Route53)
+   - Proxmox Web UI: https://192.168.1.150:8006 (root/capricorn2025)
+
+=== DIRECTORY RULES ===
+- NEVER write outside project directory on this host
+- Connect using SSH to hosts we build with generic username/pass in .env file
+
+=== GitHub Account Info ===
+available in github_credentials.md in project root
+
+=== ⚠️ MANDATORY PROCESS FOR EACH PHASE (CRITICAL!) ===
+
+**BEFORE implementing ANY phase, YOU MUST:**
+
+1. CREATE detailed /phases/phaseX_name.md file FIRST
+   - Include: Overview, detailed tasks, implementation approach
+   - Include: Questions for user, decisions needed
+   - Include: Code structure, file locations
+   - Include: Testing approach, validation steps
+   - Review /proxmox/Home_Lab_Proxmox_Build_Plan.md and Design.md for full context
+
+2. PRESENT the phase plan to user for review
+   - User will add "Things I Know" and specific requirements
+   - User may modify approach or add constraints
+   - User will ask questions and discuss details
+
+3. WAIT for user approval before implementing
+   - Do NOT start coding until user says "go ahead" or similar
+   - User may request changes to the plan
+
+4. IMPLEMENT only after user approval
+
+5. DOCUMENT actual results in current phase* file
+   - What was actually built (may differ from plan)
+   - Issues encountered and solutions
+   - Code locations and key decisions
+   - Validation results
+
+WHY THIS MATTERS:
+- Prevents rebuilding work due to misunderstandings
+- Captures user's domain knowledge before implementing
+- Creates detailed documentation for future reference
+- Ensures we don't lose context in long sessions
+
+=== KEY CONFIG ===
+- All passwords: capricorn2025
+- NO Current AUTHENTICATION (single-user home lab app)
+- NEVER commit to git without asking Andrew first
+
+=== QA SERVER ACCESS ===
+Credentials in .env (not committed to git)
+
+=== ACCESS & ARCHITECTURE ===
+- Admin access: Tailscale VPN (GitLab, SonarQube, Grafana = private)
+- Public access: capricorn-qa.gothamtechnologies.com via Traefik (QA testing only)
+- Infrastructure NOT exposed publicly (security by design)
+- All VMs run Ubuntu 24.04 LTS (not 25.10)
+
+=== IF CONTEXT UNCLEAR ===
+Read MEMORY.md first, then /proxmox/Home_Lab_Proxmox_Build_Plan.md for current phase status.
+
+Ready? Ask Andrew: "What would you like to work on today?" or wait for "Action CURSOR_RULES"
