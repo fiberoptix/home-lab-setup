@@ -6,12 +6,13 @@
 
 ## CURRENT STATE
 
-- Proxmox running at 192.168.1.150
+- Proxmox running at 192.168.1.150 (HP Z8 G4: Dual Xeon, 256GB RAM, ZFS)
 - Script server running at http://192.168.1.195/scripts/
 - **GitLab CE LIVE at http://192.168.1.181** (root/Powerme!1)
 - **GitLab Runner LIVE at 192.168.1.182** (gitlab-runner-1)
 - Container Registry on port 5050
-- Next: Configure SMTP email OR CI/CD pipeline testing
+- **GitHub repo published:** https://github.com/fiberoptix/home-lab-setup
+- Next: Phase 5 - CI/CD pipeline testing
 
 ---
 
@@ -81,11 +82,11 @@ bash host_setup.sh
 
 ## STORAGE
 
-| Pool | Type | Use |
-|------|------|-----|
-| local-zfs | mirror | Proxmox, ISOs |
-| vm-critical | mirror | GitLab (500GB) |
-| vm-ephemeral | stripe | Runner, QA |
+| Pool | Name | Type | Use |
+|------|------|------|-----|
+| local-zfs | rpool1 | mirror | Proxmox, ISOs (2x500GB) |
+| vm-critical | rpool2 | mirror | GitLab (2x1TB) |
+| vm-ephemeral | rpool3 | stripe | Runner, QA (2x1TB) |
 
 ---
 
@@ -101,6 +102,23 @@ bash host_setup.sh
 | 7 | Cloud Deploy | 🔲 |
 
 **Phase docs:** `/phases/`
+
+---
+
+## GITHUB
+
+- **Repo:** https://github.com/fiberoptix/home-lab-setup
+- **User:** fiberoptix (SSH: ~/.ssh/id_ed25519)
+- **Email:** andrew.gamache@gmail.com
+- **Credentials:** See `github_credentials.md` (git-ignored)
+
+---
+
+## CAPRICORN PROJECT
+
+- **GitLab:** http://gitlab.gothamtechnologies.com/capricorn
+- **Production:** http://capricorn.gothamtechnologies.com (GCP)
+- **QA:** http://192.168.1.180:5001 (local)
 
 ---
 
