@@ -21,6 +21,10 @@ This repository documents the complete build of a **professional-grade DevOps ho
 
 This system was designed out of interest to build and deploy the **Capricorn** project (a unified personal finance application hosted in the same GitLab repository) to multiple environments: **QA** (local Kubernetes/Docker on this home lab) and **PROD** (Google Cloud Platform). The infrastructure provides a complete DevOps pipeline for automated testing, quality gates, and deployment orchestration across both environments.
 
+**Please check out the Capricorn project:**
+- 📦 **GitLab Repository:** http://gitlab.gothamtechnologies.com/capricorn
+- 🌐 **Production (GCP):** https://capricorn.gothamtechnologies.com
+
 **Total Hardware Cost:** $3,894  
 **Monthly Operating Cost:** ~$15-20 (electricity)  
 **Commercial Equivalent:** ~$70-100/month SaaS services
