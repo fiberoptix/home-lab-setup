@@ -27,7 +27,7 @@ This repository documents the complete build of a **professional-grade DevOps ho
 
 ## 🖥️ Hardware Specifications
 
-**Platform:** HP Z6 G4 Workstation
+**Platform:** HP Z8 G4 Workstation
 
 | Component | Specification |
 |-----------|---------------|
