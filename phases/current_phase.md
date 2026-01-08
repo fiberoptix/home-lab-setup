@@ -1,31 +1,43 @@
 # Current Phase
 
-**Updated:** December 13, 2025
+**Updated:** January 8, 2026
 
 ---
 
-## ✅ JUST COMPLETED: Phase 4 - GitLab Runner
+## 🔄 CURRENT: Phase 5 - CI/CD Pipeline Testing
 
-**Runner:** gitlab-runner-1 @ 192.168.1.182
-**Status:** Online, picking up jobs
+**Infrastructure:** Ready for pipeline development
+**Status:** Phases 0-4 complete, ready to start Phase 5
 
 ---
 
-## ✅ Completed This Session
+## ✅ Completed This Session (Jan 8, 2026)
 
-**GitLab Runner (Phase 4):**
-- Created vm-gitrun-1 (192.168.1.182, 16GB RAM, 8 CPU, 100GB ephemeral)
-- Ran host_setup.sh successfully
-- Installed GitLab Runner v18.6.6
-- Created runner with name "gitlab-runner-1" (had to delete/recreate #1 to fix name)
-- Configured Docker executor with privileged mode + socket mount
-- Tags: docker, linux, build
-- Test pipeline: test-job passes, DIND build-docker fails (known issue)
+**GitHub Repository Setup:**
+- Initialized git repo in home-lab-setup project
+- Created comprehensive README.md with:
+  - Hardware specs (HP Z8 G4, Dual Xeon Platinum 8168, 256GB RAM)
+  - ZFS storage architecture (rpool1/rpool2/rpool3)
+  - Infrastructure overview (6 VMs planned)
+  - Capricorn project context and links
+- Created .gitignore (excludes credentials, ISOs, ZIPs)
+- Published to GitHub: https://github.com/fiberoptix/home-lab-setup
+- 7 commits pushed (initial + 6 updates)
 
-**Findings:**
-- Runner executes standard jobs fine
-- Docker-in-Docker (services: docker:dind) needs more config work
-- For now, use socket mount `/var/run/docker.sock` for Docker access
+**Documentation Updates:**
+- Hardware cost: $3,894
+- Removed password references from README
+- Added Capricorn project description and links
+- Corrected ZFS pool naming convention
+
+---
+
+## Previous Sessions
+
+**December 13, 2025 - Phase 4 Complete:**
+- GitLab Runner (gitlab-runner-1) installed @ 192.168.1.182
+- Docker executor configured with socket mount
+- Test pipeline verified (standard jobs work, DIND needs work)
 
 ---
 
@@ -33,10 +45,11 @@
 
 | Option | Description | Priority |
 |--------|-------------|----------|
-| **Phase 5** | CI/CD Pipeline Testing | High |
-| **Phase 3f** | Gmail SMTP for notifications | Medium |
-| **Phase 6** | Backup Configuration | Medium |
-| DIND Fix | Get docker:dind services working | Low |
+| **Phase 5** | CI/CD Pipeline Testing (Capricorn) | High |
+| **Phase 6** | SonarQube VM | Medium |
+| **Phase 7** | Monitoring Stack (Prometheus/Grafana) | Medium |
+| **Phase 8** | Traefik + SSL | Medium |
+| Gmail SMTP | Email notifications for GitLab | Low |
 
 ---
 
