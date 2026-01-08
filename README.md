@@ -140,7 +140,6 @@ home-lab-setup/
 # Web UI
 https://192.168.1.150:8006
 Username: root
-Password: [see credentials file]
 
 # SSH
 ssh root@192.168.1.150
@@ -151,7 +150,6 @@ ssh root@192.168.1.150
 # Web UI
 http://192.168.1.181
 Username: root
-Password: Powerme!1
 
 # Container Registry
 http://gitlab.gothamtechnologies.com:5050
