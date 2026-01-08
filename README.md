@@ -30,8 +30,8 @@ This repository documents the complete build of a **professional-grade DevOps ho
 
 | Component | Specification |
 |-----------|---------------|
-| **CPU** | Intel Xeon Platinum 8168 (24 cores / 48 threads @ 2.7GHz) |
-| **RAM** | 128GB DDR4 ECC (4x 32GB) |
+| **CPU** | Dual Intel Xeon Platinum 8168 (48 cores / 96 threads @ 2.7GHz) |
+| **RAM** | 256GB DDR4 ECC (8x 32GB) |
 | **Boot Storage** | 2x 500GB NVMe (ZFS mirror) |
 | **VM Storage** | 4x 1TB NVMe (HP Z Turbo Drive Quad Pro) |
 | **Network** | 2x 1GbE onboard NICs |
