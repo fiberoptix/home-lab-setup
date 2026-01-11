@@ -1,0 +1,68 @@
+stages:
+  - build
+  - push
+  - deploy
+
+variables:
+  IMAGE_NAME: gitlab.gothamtechnologies.com:5050/root/test-app
+  IMAGE_TAG: $CI_COMMIT_SHORT_SHA
+
+# Build Docker image
+build:
+  stage: build
+  image: docker:27
+  tags:
+    - docker
+  script:
+    - echo "Building Docker image..."
+    - docker build -t $IMAGE_NAME:$IMAGE_TAG .
+    - docker build -t $IMAGE_NAME:latest .
+    - echo "Build complete!"
+  only:
+    - main
+    - master
+
+# Push to Container Registry
+push:
+  stage: push
+  image: docker:27
+  tags:
+    - docker
+  script:
+    - echo "Logging into Container Registry..."
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD gitlab.gothamtechnologies.com:5050
+    - echo "Pushing images to registry..."
+    - docker push $IMAGE_NAME:$IMAGE_TAG
+    - docker push $IMAGE_NAME:latest
+    - echo "Push complete!"
+  only:
+    - main
+    - master
+
+# Deploy to QA host
+deploy_qa:
+  stage: deploy
+  image: alpine:latest
+  tags:
+    - docker
+  before_script:
+    - apk add --no-cache openssh-client
+    - eval $(ssh-agent -s)
+    - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+  script:
+    - echo "Deploying to QA host at 192.168.1.180..."
+    - ssh -o StrictHostKeyChecking=no agamache@192.168.1.180 "
+        docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD gitlab.gothamtechnologies.com:5050 &&
+        docker pull $IMAGE_NAME:latest &&
+        docker stop test-app || true &&
+        docker rm test-app || true &&
+        docker run -d --name test-app -p 8080:80 --restart unless-stopped $IMAGE_NAME:latest
+      "
+    - echo "Deployment complete! App running at http://192.168.1.180:8080"
+  only:
+    - main
+    - master
+  when: manual
+
