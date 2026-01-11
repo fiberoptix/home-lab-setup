@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitLab CI/CD Test App</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+        }
+        .container {
+            text-align: center;
+            padding: 3rem;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            max-width: 600px;
+        }
+        h1 {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+        .emoji {
+            font-size: 5rem;
+            margin: 1rem 0;
+            animation: bounce 2s infinite;
+        }
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-20px); }
+        }
+        .info {
+            font-size: 1.2rem;
+            margin: 1rem 0;
+            opacity: 0.9;
+        }
+        .badge {
+            display: inline-block;
+            background: rgba(255, 255, 255, 0.2);
+            padding: 0.5rem 1rem;
+            border-radius: 25px;
+            margin: 0.5rem;
+            font-size: 0.9rem;
+        }
+        .success {
+            color: #4ade80;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="emoji">🚀</div>
+        <h1>Hello from GitLab CI/CD!</h1>
+        <p class="info">This app was built and deployed automatically.</p>
+        <div>
+            <span class="badge">✅ GitLab Server</span>
+            <span class="badge">✅ GitLab Runner</span>
+            <span class="badge">✅ Container Registry</span>
+            <span class="badge">✅ Deployed to QA</span>
+        </div>
+        <p class="info success" style="margin-top: 2rem;">
+            🎉 Pipeline Test: SUCCESS! 🎉
+        </p>
+        <p style="margin-top: 2rem; font-size: 0.9rem; opacity: 0.7;">
+            Powered by Proxmox + GitLab + Docker
+        </p>
+    </div>
+</body>
+</html>
+
