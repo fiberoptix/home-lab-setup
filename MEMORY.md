@@ -9,10 +9,12 @@
 - Proxmox running at 192.168.1.150 (HP Z8 G4: Dual Xeon, 256GB RAM, ZFS)
 - Script server running at http://192.168.1.195/scripts/
 - **GitLab CE LIVE at http://192.168.1.181** (root/Powerme!1)
-- **GitLab Runner LIVE at 192.168.1.182** (gitlab-runner-1)
-- Container Registry on port 5050
+- **GitLab Runner LIVE at 192.168.1.182** (gitlab-runner-1, v18.7.2)
+- **Container Registry WORKING** on port 5050
+- **CI/CD Pipeline VERIFIED** - Full end-to-end working!
+- **Test app deployed:** http://192.168.1.180:8080
 - **GitHub repo published:** https://github.com/fiberoptix/home-lab-setup
-- Next: Phase 5 - CI/CD pipeline testing
+- Next: Deploy Capricorn OR add monitoring/quality tools
 
 ---
 
@@ -95,11 +97,12 @@ bash host_setup.sh
 | # | Name | Status |
 |---|------|--------|
 | 0-2 | Hardware/Proxmox/Automation | ✅ |
-| 3 | GitLab Server | ✅ |
-| 4 | GitLab Runner | ✅ |
-| 5 | CI/CD Pipelines | 🔲 Next |
-| 6 | Backups | 🔲 |
-| 7 | Cloud Deploy | 🔲 |
+| 3 | GitLab Server | ✅ VERIFIED |
+| 4 | GitLab Runner | ✅ VERIFIED |
+| 5 | CI/CD Pipelines | ✅ COMPLETE |
+| 6 | SonarQube/Monitoring | 🔲 Next |
+| 7 | Traefik + SSL | 🔲 |
+| 8 | Capricorn Deploy | 🔲 |
 
 **Phase docs:** `/phases/`
 

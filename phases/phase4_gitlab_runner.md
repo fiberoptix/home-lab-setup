@@ -1,6 +1,6 @@
 # Phase 4: GitLab Runner
 
-**Status:** ✅ COMPLETE (Dec 13, 2025)  
+**Status:** ✅ COMPLETE & VERIFIED (Jan 11, 2026)  
 **Depends On:** Phase 3 (GitLab Server)  
 **Goal:** Install GitLab Runner with Docker executor for CI/CD pipelines
 
@@ -109,10 +109,13 @@ Add to AWS Route53:
 ## Verification Checklist
 
 - [x] Runner VM created and accessible
-- [x] GitLab Runner installed
+- [x] GitLab Runner installed (v18.7.2)
 - [x] Runner registered and showing "online" in GitLab UI
-- [x] Test pipeline completes successfully (test stage)
-- [ ] Docker-in-Docker working (DIND fails, socket mount works)
+- [x] Test pipeline completes successfully (all stages)
+- [x] Docker builds working (using docker:27 image, not docker:24.0)
+- [x] Docker socket mount working (/var/run/docker.sock)
+- [x] Registry push operations working
+- [x] SSH deployment to QA host working
 
 ---
 
