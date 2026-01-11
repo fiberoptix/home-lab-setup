@@ -4,9 +4,9 @@
 
 Project: home-lab-setup - Building Proxmox VE DevOps/QA Environment
 
-Hardware: HP Z6 G4 (1x Xeon Platinum 8168, 128GB RAM, 6x NVMe ZFS)
+Hardware: HP Z8 G4 (Dual Xeon Platinum 8168, 256GB RAM, 6x NVMe ZFS)
 DEV Host: HP Z8 G4 running Ubuntu 25.10 (where we work from)
-Proxmox Server: HP Z6 G4 at 192.168.1.150 (root/capricorn2025)
+Proxmox Server: HP Z8 G4 at 192.168.1.150 (root/capricorn2025)
 
 Apps: Capricorn (unified finance app)
 - Production: capricorn.gothamtechnologies.com (GCP)
@@ -24,13 +24,14 @@ Apps: Capricorn (unified finance app)
    e. /proxmox/Home_Lab_Proxmox_Install.md - Installation notes & troubleshooting
 
 3. ✅ Quick Context:
-   - Building Proxmox VE 9.1 DevOps/QA lab on HP Z6 G4
+   - Building Proxmox VE 9.1 DevOps/QA lab on HP Z8 G4
    - 6 VMs: GitLab, Runner, QA Host, SonarQube, Monitoring, Traefik
-   - ZFS storage: local-zfs, vm-critical (mirror), vm-ephemeral (stripe)
+   - ZFS storage: local-zfs (rpool1), vm-critical (rpool2), vm-ephemeral (rpool3)
    - Dual-access: Tailscale VPN (admin) + Public HTTPS (QA testing)
    - Capricorn = unified finance app (retired Finance/Portfolio/Retirement managers)
    - Domain: gothamtechnologies.com (AWS Route53)
    - Proxmox Web UI: https://192.168.1.150:8006 (root/capricorn2025)
+   - Phase 5 CI/CD: ✅ COMPLETE (QA + GCP automated deployments operational)
 
 === DIRECTORY RULES ===
 - NEVER write outside project directory on this host
