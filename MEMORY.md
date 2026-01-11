@@ -11,11 +11,12 @@
 - **GitLab CE LIVE at http://192.168.1.181** (root/[See PASSWORDS.md])
 - **GitLab Runner LIVE at 192.168.1.182** (gitlab-runner-1, v18.7.2)
 - **Container Registry OPERATIONAL** on port 5050
-- **CI/CD Pipeline PRODUCTION-READY** - Both test-app and Capricorn working!
+- **CI/CD Pipeline PRODUCTION-READY** - Full automation working!
 - **Test app deployed:** http://192.168.1.180:8080 (via pipeline)
-- **Capricorn deployed:** http://192.168.1.180:5001 (via pipeline!)
-- **GitHub repos:** home-lab-setup + Capricorn (dual-remote setup)
-- Next: Add monitoring/quality tools OR enable GCP deployment
+- **Capricorn QA:** http://192.168.1.180:5001 (auto-deploy on develop push)
+- **Capricorn GCP:** http://capricorn.gothamtechnologies.com (manual deploy on production)
+- **GitHub repos:** home-lab-setup + Capricorn (both updated)
+- Next: Add SonarQube, Monitoring, or Traefik+SSL
 
 ---
 
@@ -100,10 +101,10 @@ bash host_setup.sh
 | 0-2 | Hardware/Proxmox/Automation | ✅ |
 | 3 | GitLab Server | ✅ VERIFIED |
 | 4 | GitLab Runner | ✅ VERIFIED |
-| 5 | CI/CD Pipelines | ✅ COMPLETE (test-app + Capricorn) |
-| 6 | SonarQube/Monitoring | 🔲 Next |
-| 7 | Traefik + SSL | 🔲 |
-| 8 | GCP Pipeline | 🔲 |
+| 5 | CI/CD Pipelines | ✅ COMPLETE (QA + GCP both working!) |
+| 6 | SonarQube | 🔲 Next |
+| 7 | Monitoring Stack | 🔲 |
+| 8 | Traefik + SSL | 🔲 |
 
 **Phase docs:** `/phases/`
 

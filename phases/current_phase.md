@@ -1,13 +1,13 @@
 # Current Phase
 
-**Updated:** January 11, 2026 - 1:00 PM EST
+**Updated:** January 11, 2026 - 1:35 PM EST
 
 ---
 
-## ✅ COMPLETE: Phase 5 - CI/CD Pipelines (Test App + Capricorn)
+## ✅ COMPLETE: Phase 5 - CI/CD Pipelines (QA + GCP Both Working!)
 
-**Infrastructure:** Production-ready with automated deployments
-**Status:** Phases 0-5 complete, full application deployment working
+**Infrastructure:** Production-ready with full automation (QA + GCP)
+**Status:** Phases 0-5 complete, automated deployments to QA and GCP operational
 
 ---
 
@@ -27,7 +27,7 @@
 - Setup SSH keys for deployment
 - **SUCCESS:** http://192.168.1.180:8080 deployed via pipeline!
 
-**Capricorn CI/CD Integration (11:45 AM - 1:00 PM):**
+**Capricorn CI/CD Integration (11:45 AM - 1:35 PM):**
 - Setup dual-remote configuration (GitHub + GitLab)
 - Created "production" group in GitLab
 - Established branch strategy (develop → QA, production → GCP)
@@ -38,18 +38,27 @@
   - Updated all text: "PROD Environment" → "QA Environment (192.168.1.180)"
 - Fixed .gitignore blocking lib/ directories (4 missing API files!)
 - Created docker-compose.qa.deploy.yml (registry-based deployment)
-- Built Capricorn .gitlab-ci.yml pipeline
+- Built Capricorn .gitlab-ci.yml pipeline (QA + GCP stages)
 - Fixed SSH key loading in pipeline
-- **SUCCESS:** Capricorn deployed via CI/CD! http://192.168.1.180:5001
+- **SUCCESS QA:** Capricorn auto-deploys to http://192.168.1.180:5001
+- **SUCCESS GCP:** Capricorn deploys to http://capricorn.gothamtechnologies.com
+- Added GCP deployment stage (manual trigger on production branch)
+- Installed all tools in pipeline: terraform, gcloud, kubectl, docker buildx
+- Fixed service account key file creation
+- Added git to prerequisites (removes buildx warning)
 
 **Issues Resolved:**
 1. Docker API version mismatch (docker:24.0 → docker:27)
 2. Registry authentication (CI/CD variables)
 3. SSH key deployment (runner to QA host)
 4. YAML script syntax (nested strings)
-5. Missing lib/api-client.ts files (.gitignore issue)
+5. Missing lib/api-client.ts files (.gitignore blocking lib/)
 6. SSH key format in CI/CD variable
-7. Confusion between PROD (actually QA) vs GCP (real prod)
+7. Naming confusion (PROD → QA refactoring)
+8. Build stages not running on production branch
+9. Tool installation (terraform, gcloud, kubectl in Alpine)
+10. Service account key file creation from variable
+11. Git missing for docker buildx metadata
 
 ---
 
