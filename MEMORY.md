@@ -10,11 +10,12 @@
 - Script server running at http://192.168.1.195/scripts/
 - **GitLab CE LIVE at http://192.168.1.181** (root/Powerme!1)
 - **GitLab Runner LIVE at 192.168.1.182** (gitlab-runner-1, v18.7.2)
-- **Container Registry WORKING** on port 5050
-- **CI/CD Pipeline VERIFIED** - Full end-to-end working!
-- **Test app deployed:** http://192.168.1.180:8080
-- **GitHub repo published:** https://github.com/fiberoptix/home-lab-setup
-- Next: Deploy Capricorn OR add monitoring/quality tools
+- **Container Registry OPERATIONAL** on port 5050
+- **CI/CD Pipeline PRODUCTION-READY** - Both test-app and Capricorn working!
+- **Test app deployed:** http://192.168.1.180:8080 (via pipeline)
+- **Capricorn deployed:** http://192.168.1.180:5001 (via pipeline!)
+- **GitHub repos:** home-lab-setup + Capricorn (dual-remote setup)
+- Next: Add monitoring/quality tools OR enable GCP deployment
 
 ---
 
@@ -99,10 +100,10 @@ bash host_setup.sh
 | 0-2 | Hardware/Proxmox/Automation | ✅ |
 | 3 | GitLab Server | ✅ VERIFIED |
 | 4 | GitLab Runner | ✅ VERIFIED |
-| 5 | CI/CD Pipelines | ✅ COMPLETE |
+| 5 | CI/CD Pipelines | ✅ COMPLETE (test-app + Capricorn) |
 | 6 | SonarQube/Monitoring | 🔲 Next |
 | 7 | Traefik + SSL | 🔲 |
-| 8 | Capricorn Deploy | 🔲 |
+| 8 | GCP Pipeline | 🔲 |
 
 **Phase docs:** `/phases/`
 
@@ -119,9 +120,13 @@ bash host_setup.sh
 
 ## CAPRICORN PROJECT
 
-- **GitLab:** http://gitlab.gothamtechnologies.com/capricorn
-- **Production:** http://capricorn.gothamtechnologies.com (GCP)
-- **QA:** http://192.168.1.180:5001 (local)
+- **GitLab:** http://gitlab.gothamtechnologies.com/production/capricorn
+- **GitHub:** https://github.com/fiberoptix/capricorn
+- **Remotes:** Dual-remote setup (origin=GitHub, gitlab=GitLab)
+- **Branches:** develop (QA auto-deploy), production (GCP manual deploy)
+- **Production (GCP):** http://capricorn.gothamtechnologies.com
+- **QA (CI/CD):** http://192.168.1.180:5001 ✅ PIPELINE DEPLOYED
+- **Local Path:** /home/agamache/DevShare/cursor-projects/unified_ui_DEV_PROD_GCP_2026.1.12/capricorn
 
 ---
 
