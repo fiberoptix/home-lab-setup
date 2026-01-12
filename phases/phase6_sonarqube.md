@@ -27,7 +27,7 @@ SonarQube will add a quality gate to the CI/CD pipeline, automatically scanning 
 | Property | Value | Reasoning |
 |----------|-------|-----------|
 | **Hostname** | sonarqube.gothamtechnologies.com | Descriptive |
-| **IP Address** | 192.168.1.184 | Sequential allocation |
+| **IP Address** | 192.168.1.183 | Sequential allocation (.180s series) |
 | **RAM** | 6GB | SonarQube minimum (can spike to 8GB) |
 | **CPU** | 4 cores | Parallel scanning |
 | **Disk** | 30GB | Database + analysis cache + growth room |
@@ -51,7 +51,7 @@ SonarQube will add a quality gate to the CI/CD pipeline, automatically scanning 
   - RAM: 6144 MB (6GB)
   - Network: vmbr0
 - [ ] Start VM and complete Ubuntu installation
-- [ ] Set static IP: 192.168.1.184
+- [ ] Set static IP: 192.168.1.183
 
 ### Phase 6b: Base OS Setup
 
@@ -65,7 +65,7 @@ SonarQube will add a quality gate to the CI/CD pipeline, automatically scanning 
   
 - [ ] Verify SSH access from DEV machine:
   ```bash
-  ssh agamache@192.168.1.184
+  ssh agamache@192.168.1.183
   ```
   
 - [ ] Set hostname:
@@ -109,7 +109,7 @@ SonarQube will add a quality gate to the CI/CD pipeline, automatically scanning 
 ### Phase 6d: Initial SonarQube Configuration
 
 **Tasks:**
-- [ ] Access SonarQube UI: http://192.168.1.184:9000
+- [ ] Access SonarQube UI: http://192.168.1.183:9000
 - [ ] Login with default credentials: admin / admin
 - [ ] Change admin password (set to: Powerme!1)
 - [ ] Skip tutorial (we'll configure manually)
@@ -139,7 +139,7 @@ Add these variables:
 
 | Variable | Value | Visibility | Purpose |
 |----------|-------|------------|---------|
-| `SONAR_HOST_URL` | `http://192.168.1.184:9000` | Visible | SonarQube server |
+| `SONAR_HOST_URL` | `http://192.168.1.183:9000` | Visible | SonarQube server |
 | `SONAR_TOKEN` | (token from 6e) | Masked | Authentication |
 
 ### Phase 6g: Add SonarQube Stage to Pipeline
@@ -232,13 +232,13 @@ build → push → scan → deploy
 
 Add to local `/etc/hosts` on DEV machine:
 ```
-192.168.1.184  sonarqube sonarqube.gothamtechnologies.com
+192.168.1.183  sonarqube sonarqube.gothamtechnologies.com
 ```
 
 Or AWS Route53 (internal only):
 - Type: A
 - Name: sonarqube
-- Value: 192.168.1.184
+- Value: 192.168.1.183
 
 ### Tailscale VPN Access
 
@@ -281,7 +281,7 @@ Or AWS Route53 (internal only):
 - **Reason:** Comprehensive scan, it's free!
 
 **Q6: Access Method** ✅ DECIDED
-- **Answer:** Access via IP (192.168.1.184:9000)
+- **Answer:** Access via IP (192.168.1.183:9000)
 - **Reason:** Simple, DNS can be added later if needed
 
 ---
@@ -355,7 +355,7 @@ docker logs sonarqube
 ### Pipeline Scan Fails
 ```bash
 # Check sonar-scanner can reach SonarQube
-curl http://192.168.1.184:9000/api/system/status
+curl http://192.168.1.183:9000/api/system/status
 
 # Check CI/CD variables are set
 # Verify token hasn't expired
