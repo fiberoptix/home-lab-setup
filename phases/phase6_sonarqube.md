@@ -112,7 +112,7 @@ SonarQube will add a quality gate to the CI/CD pipeline, automatically scanning 
 **Tasks:**
 - [ ] Access SonarQube UI: http://192.168.1.183:9000
 - [ ] Login with default credentials: admin / admin
-- [ ] Change admin password (set to: <See PASSWORDS.md>)
+- [ ] Change admin password (set to: [See PASSWORDS.md])
 - [ ] Skip tutorial (we'll configure manually)
 
 ### Phase 6e: Create Capricorn Project in SonarQube
@@ -419,7 +419,7 @@ curl http://192.168.1.183:9000/api/system/status
 ssh agamache@192.168.1.183
 
 # Document current projects and settings
-docker exec sonarqube curl -u admin:<See PASSWORDS.md> \
+docker exec sonarqube curl -u admin:[See PASSWORDS.md] \
   http://localhost:9000/api/projects/search | jq . > ~/sonarqube_projects.json
 
 # Note: Can't migrate H2 data to PostgreSQL - will need to recreate projects
@@ -437,7 +437,7 @@ docker run -d \
   --name sonarqube-db \
   --restart unless-stopped \
   -e POSTGRES_USER=sonarqube \
-  -e POSTGRES_PASSWORD=<See PASSWORDS.md> \
+  -e POSTGRES_PASSWORD=[See PASSWORDS.md] \
   -e POSTGRES_DB=sonarqube \
   -v /opt/sonarqube/postgres:/var/lib/postgresql/data \
   postgres:15-alpine
@@ -469,7 +469,7 @@ docker run -d \
   -p 9000:9000 \
   -e SONAR_JDBC_URL=jdbc:postgresql://db:5432/sonarqube \
   -e SONAR_JDBC_USERNAME=sonarqube \
-  -e SONAR_JDBC_PASSWORD=<See PASSWORDS.md> \
+  -e SONAR_JDBC_PASSWORD=[See PASSWORDS.md] \
   -v /opt/sonarqube/data:/opt/sonarqube/data \
   -v /opt/sonarqube/logs:/opt/sonarqube/logs \
   -v /opt/sonarqube/extensions:/opt/sonarqube/extensions \
@@ -483,7 +483,7 @@ docker logs -f sonarqube
 #### Step 4: Recreate Projects
 
 **For test-app:**
-1. Login to http://192.168.1.183:9000 (admin / <See PASSWORDS.md>)
+1. Login to http://192.168.1.183:9000 (admin / [See PASSWORDS.md])
 2. Create Project → Manually
    - Project key: `test-app`
    - Display name: `Test App`
@@ -547,7 +547,7 @@ SonarQube (.183):
 ```
 PostgreSQL (sonarqube-db):
 - User: sonarqube
-- Password: <See PASSWORDS.md>
+- Password: [See PASSWORDS.md]
 - Database: sonarqube
 - Port: 5432 (internal to Docker network)
 ```

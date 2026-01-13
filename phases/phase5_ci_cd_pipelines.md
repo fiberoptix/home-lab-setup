@@ -91,7 +91,7 @@ variables:
 
 **Required CI/CD Variables:**
 - `CI_REGISTRY_USER` = `root` (visible, username not sensitive)
-- `CI_REGISTRY_PASSWORD` = `<See PASSWORDS.md>` (masked)
+- `CI_REGISTRY_PASSWORD` = `[See PASSWORDS.md]` (masked)
 
 ### Stage 3: Deploy (Manual)
 
@@ -212,7 +212,7 @@ All variables configured in: **GitLab → Settings → CI/CD → Variables**
 | Variable | Value | Visibility | Purpose |
 |----------|-------|------------|---------|
 | `CI_REGISTRY_USER` | `root` | Visible | Registry login username |
-| `CI_REGISTRY_PASSWORD` | `<See PASSWORDS.md>` | Masked | Registry login password |
+| `CI_REGISTRY_PASSWORD` | `[See PASSWORDS.md]` | Masked | Registry login password |
 | `SSH_PRIVATE_KEY` | (ed25519 private key) | Visible* | SSH access to QA host |
 
 *Note: SSH_PRIVATE_KEY couldn't be masked (format restrictions), but is only visible to project maintainers.

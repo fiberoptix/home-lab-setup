@@ -8,7 +8,7 @@
 
 - Proxmox running at 192.168.1.150 (HP Z8 G4: Dual Xeon, 256GB RAM, ZFS)
 - Script server running at http://192.168.1.195/scripts/
-- **GitLab CE LIVE at http://192.168.1.181** (root/<See PASSWORDS.md>)
+- **GitLab CE LIVE at http://192.168.1.181** (root/[See PASSWORDS.md])
 - **GitLab Runner LIVE at 192.168.1.182** (gitlab-runner-1, v18.7.2)
 - **Container Registry OPERATIONAL** on port 5050
 - **CI/CD Pipeline PRODUCTION-READY** - Full automation working!
@@ -16,7 +16,7 @@
 - **Capricorn QA:** http://192.168.1.180:5001 (auto-deploy on develop push)
 - **Capricorn GCP:** http://capricorn.gothamtechnologies.com (manual deploy on production)
 - **GitHub repos:** home-lab-setup + Capricorn (both updated)
-- **SonarQube LIVE at http://192.168.1.183:9000** (v26.1.0, admin/<See PASSWORDS.md>)
+- **SonarQube LIVE at http://192.168.1.183:9000** (v26.1.0, admin/[See PASSWORDS.md])
 - **Phase 6 COMPLETE:** Both test-app and Capricorn integrated with SonarQube!
 - Next: Phase 7 (Monitoring Stack) or Phase 8 (Traefik+SSL)
 
@@ -38,11 +38,11 @@
 
 **File:** `/proxmox/credentials`
 
-- Proxmox: root / <See PASSWORDS.md>
-- All VMs: agamache / <See PASSWORDS.md>
-- **GitLab Web: root / <See PASSWORDS.md>**
-- **SonarQube Web: admin / <See PASSWORDS.md>**
-- NAS (SMB): fiberoptix / <See PASSWORDS.md> @ 192.168.1.120
+- Proxmox: root / [See PASSWORDS.md]
+- All VMs: agamache / [See PASSWORDS.md]
+- **GitLab Web: root / [See PASSWORDS.md]**
+- **SonarQube Web: admin / [See PASSWORDS.md]**
+- NAS (SMB): fiberoptix / [See PASSWORDS.md] @ 192.168.1.120
 
 ---
 
@@ -224,7 +224,7 @@ apt-mark showhold
 
 - **URL:** http://192.168.1.183:9000
 - **Version:** 26.1.0 (community, latest)
-- **Login:** admin / <See PASSWORDS.md>
+- **Login:** admin / [See PASSWORDS.md]
 - **Container:** `sonarqube:community` (Docker)
 - **Data:** `/opt/sonarqube/data` (persisted)
 

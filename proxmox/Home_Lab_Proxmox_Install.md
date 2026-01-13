@@ -79,7 +79,7 @@
 | Gateway | 192.168.1.1 |
 | DNS | 192.168.1.1 |
 | Management Interface | e1000e (1GbE) |
-| Password | <See PASSWORDS.md> |
+| Password | [See PASSWORDS.md] |
 
 ---
 
@@ -154,7 +154,7 @@ ZFS UI doesn't have RAID0 option for 2 disks. Created via Shell:
 
 - **URL:** https://192.168.1.150:8006
 - **Username:** root
-- **Password:** <See PASSWORDS.md>
+- **Password:** [See PASSWORDS.md]
 - **Note:** Self-signed certificate warning is normal - click "Advanced" → "Proceed"
 
 ---

@@ -12,8 +12,8 @@
 
 | Service | URL | Credentials |
 |---------|-----|-------------|
-| Proxmox Web UI | https://192.168.1.150:8006 | root / <See PASSWORDS.md> |
-| Proxmox SSH | ssh root@192.168.1.150 | <See PASSWORDS.md> |
+| Proxmox Web UI | https://192.168.1.150:8006 | root / [See PASSWORDS.md] |
+| Proxmox SSH | ssh root@192.168.1.150 | [See PASSWORDS.md] |
 
 ### IP Allocation
 
