@@ -109,7 +109,7 @@ Runs all scripts in order with confirmation prompt.
 **NAS credentials:**
 - Server: 192.168.1.120
 - User: fiberoptix
-- Password: <See PASSWORDS.md>
+- Password: [See PASSWORDS.md]
 
 #### 5. setup_desktop.sh
 **Run as:** user (not sudo)  
@@ -145,7 +145,7 @@ Created a test VM to validate all scripts:
 | Name | vm-kubernetes-1 |
 | IP | 192.168.1.180 |
 | User | agamache |
-| Password | <See PASSWORDS.md> |
+| Password | [See PASSWORDS.md] |
 | OS | Ubuntu 24.04 Desktop |
 | Storage | vm-ephemeral pool |
 

@@ -6,7 +6,7 @@ Project: home-lab-setup - Building Proxmox VE DevOps/QA Environment
 
 Hardware: HP Z8 G4 (Dual Xeon Platinum 8168, 256GB RAM, 6x NVMe ZFS)
 DEV Host: HP Z8 G4 running Ubuntu 25.10 (where we work from)
-Proxmox Server: HP Z8 G4 at 192.168.1.150 (root/<See PASSWORDS.md>)
+Proxmox Server: HP Z8 G4 at 192.168.1.150 (root/[See PASSWORDS.md])
 
 Apps: Capricorn (unified finance app)
 - Production: capricorn.gothamtechnologies.com (GCP)
@@ -31,7 +31,7 @@ Apps: Capricorn (unified finance app)
    - Dual-access: Tailscale VPN (admin) + Public HTTPS (QA testing)
    - Capricorn = unified finance app (retired Finance/Portfolio/Retirement managers)
    - Domain: gothamtechnologies.com (AWS Route53)
-   - Proxmox Web UI: https://192.168.1.150:8006 (root/<See PASSWORDS.md>)
+   - Proxmox Web UI: https://192.168.1.150:8006 (root/[See PASSWORDS.md])
    - Phase 5 CI/CD: ✅ COMPLETE (QA + GCP automated deployments operational)
 
 === DIRECTORY RULES ===
@@ -76,7 +76,7 @@ WHY THIS MATTERS:
 - Ensures we don't lose context in long sessions
 
 === KEY CONFIG ===
-- All passwords: <See PASSWORDS.md>
+- All passwords: [See PASSWORDS.md]
 - NO Current AUTHENTICATION (single-user home lab app)
 - NEVER commit to git without asking Andrew first
 
