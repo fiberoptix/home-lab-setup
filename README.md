@@ -53,16 +53,29 @@ This system was designed out of interest to build and deploy the **Capricorn** p
 
 ## 🏗️ Infrastructure Architecture
 
-**6 Virtual Machines:**
+**4 Virtual Machines (Currently Active):**
 
 | VM | Purpose | RAM | Disk | Storage Pool | IP |
 |----|---------|-----|------|--------------|-----|
-| **Traefik** | Public HTTPS reverse proxy | 1GB | 5GB | local-zfs | .51 |
-| **GitLab** | Git + CI/CD + Registries | 12GB | 200GB | vm-critical | .52 |
-| **Runner** | CI/CD job execution | 8GB | 100GB | vm-ephemeral | .53 |
-| **SonarQube** | Code quality & security | 6GB | 20GB | vm-critical | .54 |
-| **Monitoring** | Prometheus + Grafana | 6GB | 30GB | vm-critical | .55 |
-| **QA Host** | Deployed applications | 16GB | 100GB | vm-ephemeral | .56 |
+| **GitLab** | Git + CI/CD + Registries | 16GB | 500GB | vm-critical | .181 |
+| **Runner** | CI/CD job execution | 8GB | 100GB | vm-ephemeral | .182 |
+| **SonarQube** | Code quality & security | 8GB | 30GB | vm-critical | .183 |
+| **QA Host** | Deployed applications | 8GB | 100GB | vm-ephemeral | .180 |
+
+**Planned VMs:**
+| **Traefik** | Public HTTPS reverse proxy | 2GB | 10GB | local-zfs | TBD |
+| **Monitoring** | Prometheus + Grafana | 6GB | 30GB | vm-critical | TBD |
+
+**VM Configuration Standard:**
+- CPU: `host` type (native performance)
+- NUMA: Disabled (single-socket optimization)
+- Disk: `iothread=1,discard=on,cache=none,aio=native` (optimized for ZFS + NVMe)
+- Network: `firewall=1` (all VMs protected)
+- Boot: `onboot=1` (auto-start on Proxmox boot)
+
+**Resource Utilization:**
+- Total RAM Allocated: 40 GB of 126 GB (32% - room for 11 more 8GB VMs)
+- Total CPU Cores: 28 of 48 vCPUs (58% - plenty of headroom)
 
 **Dual-Access Strategy:**
 - 🔒 **Tailscale VPN** - Admin access to ALL services (GitLab, SonarQube, Grafana)
@@ -89,13 +102,13 @@ This system was designed out of interest to build and deploy the **Capricorn** p
 | 10 | Backup Configuration | ⏳ Planned |
 
 **Infrastructure Status:**
-- ✅ Proxmox VE 9.1 running at 192.168.1.150
-- ✅ GitLab CE at 192.168.1.181 (source control + CI/CD)
-- ✅ GitLab Runner at 192.168.1.182 (Docker executor, v18.7.2)
-- ✅ QA Host at 192.168.1.180 (vm-kubernetes-1)
+- ✅ Proxmox VE 9.1 at 192.168.1.150 (kernel 6.17.2-1-pve pinned)
+- ✅ GitLab CE at 192.168.1.181 (source control + CI/CD, 16GB RAM, auto-start)
+- ✅ GitLab Runner at 192.168.1.182 (Docker executor v18.7.2, 8GB RAM, auto-start)
+- ✅ SonarQube at 192.168.1.183:9000 (v26.1.0, 8GB RAM, auto-start)
+- ✅ QA Host at 192.168.1.180 (vm-kubernetes-1, 8GB RAM, auto-start)
 - ✅ Container Registry at gitlab.gothamtechnologies.com:5050 (operational)
-- ✅ SonarQube at 192.168.1.183:9000 (v26.1.0, code quality + security)
-- ✅ Script server at http://192.168.1.195/scripts/
+- ✅ Script server at http://192.168.1.195/scripts/ (host setup automation)
 
 **Applications Deployed via CI/CD:**
 - ✅ Test App: http://192.168.1.180:8080 (validation + quality scan)
@@ -261,6 +274,30 @@ This lab supports:
 
 ---
 
+## ⚙️ Infrastructure Optimizations
+
+**VM Performance Tuning (January 12, 2026):**
+- ✅ Standardized all VMs with optimized disk configuration
+- ✅ Enabled native AIO for lower CPU overhead
+- ✅ Enabled discard (TRIM) for ZFS space reclamation
+- ✅ Configured firewall on all VMs
+- ✅ Enabled auto-start on boot (onboot=1)
+- ✅ Adjusted RAM allocation based on actual usage patterns
+
+**Proxmox Kernel Management:**
+- ⚠️ **Kernel 6.17.4-2-pve incompatible** with HP Z8 G4 NVMe hardware (boot failure)
+- ✅ **Running stable kernel:** 6.17.2-1-pve (pinned via `proxmox-boot-tool`)
+- ✅ **Kernel packages held** to prevent automatic upgrades
+- ✅ **Update script created:** `/usr/local/bin/proxmox-update.sh` (alias: `update`)
+  - Automatically updates Proxmox + Debian packages
+  - Disables subscription nag after updates
+  - Checks for reboot requirements
+  - Kernel won't upgrade due to package holds
+
+**Reboot Tested:** All VMs auto-start successfully, all services operational within 2-3 minutes
+
+---
+
 ## 📝 Notes
 
 **Why Proxmox over ESXi?**
@@ -290,9 +327,9 @@ This is a personal project, but feel free to use the documentation as reference 
 
 ---
 
-**Last Updated:** January 13, 2026  
-**Proxmox Version:** VE 9.1  
-**Build Status:** Phase 6 - SonarQube Integration Complete
+**Last Updated:** January 12, 2026 (9:30 PM EST)  
+**Proxmox Version:** VE 9.1 (Kernel: 6.17.2-1-pve - pinned)  
+**Build Status:** Phase 6 Complete | Infrastructure Optimized & Production-Ready
 
 ---
 
