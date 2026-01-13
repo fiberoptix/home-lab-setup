@@ -6,7 +6,7 @@ Project: home-lab-setup - Building Proxmox VE DevOps/QA Environment
 
 Hardware: HP Z8 G4 (Dual Xeon Platinum 8168, 256GB RAM, 6x NVMe ZFS)
 DEV Host: HP Z8 G4 running Ubuntu 25.10 (where we work from)
-Proxmox Server: HP Z8 G4 at 192.168.1.150 (root/capricorn2025)
+Proxmox Server: HP Z8 G4 at 192.168.1.150 (root/<See PASSWORDS.md>)
 
 Apps: Capricorn (unified finance app)
 - Production: capricorn.gothamtechnologies.com (GCP)
@@ -22,6 +22,7 @@ Apps: Capricorn (unified finance app)
    c. /proxmox/Home_Lab_Proxmox_Design.md - Full architecture reference (if needed)
    d. /proxmox/Home_Lab_Proxmox_Storage.md - ZFS storage configuration (if working on storage)
    e. /proxmox/Home_Lab_Proxmox_Install.md - Installation notes & troubleshooting
+   f. PASSWORDS.md - All Passwords and Credentials stored here
 
 3. ✅ Quick Context:
    - Building Proxmox VE 9.1 DevOps/QA lab on HP Z8 G4
@@ -30,7 +31,7 @@ Apps: Capricorn (unified finance app)
    - Dual-access: Tailscale VPN (admin) + Public HTTPS (QA testing)
    - Capricorn = unified finance app (retired Finance/Portfolio/Retirement managers)
    - Domain: gothamtechnologies.com (AWS Route53)
-   - Proxmox Web UI: https://192.168.1.150:8006 (root/capricorn2025)
+   - Proxmox Web UI: https://192.168.1.150:8006 (root/<See PASSWORDS.md>)
    - Phase 5 CI/CD: ✅ COMPLETE (QA + GCP automated deployments operational)
 
 === DIRECTORY RULES ===
@@ -75,7 +76,7 @@ WHY THIS MATTERS:
 - Ensures we don't lose context in long sessions
 
 === KEY CONFIG ===
-- All passwords: capricorn2025
+- All passwords: <See PASSWORDS.md>
 - NO Current AUTHENTICATION (single-user home lab app)
 - NEVER commit to git without asking Andrew first
 

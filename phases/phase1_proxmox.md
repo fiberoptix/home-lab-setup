@@ -104,7 +104,7 @@ The 4x 1TB drives had Intel VROC RAID metadata. Wiped via Proxmox UI:
 
 Stored in `/proxmox/credentials`:
 - Username: root
-- Password: Powerme!1
+- Password: <See PASSWORDS.md>
 
 ### Storage Summary
 

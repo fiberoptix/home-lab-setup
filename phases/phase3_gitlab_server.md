@@ -94,7 +94,7 @@ GitLab CE will be our central DevOps platform providing:
 ### Phase 3d: Configure GitLab ✅
 - [x] Access GitLab UI: http://192.168.1.181
 - [x] Login as `root` with initial password
-- [x] Change root password immediately (set to Powerme!1)
+- [x] Change root password immediately (set to <See PASSWORDS.md>)
 - [x] Configure admin settings:
   - Admin Area → Settings → General → Sign-up restrictions → **Disabled public sign-up**
 

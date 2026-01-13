@@ -12,8 +12,8 @@
 
 | Service | URL | Credentials |
 |---------|-----|-------------|
-| Proxmox Web UI | https://192.168.1.150:8006 | root / capricorn2025 |
-| Proxmox SSH | ssh root@192.168.1.150 | capricorn2025 |
+| Proxmox Web UI | https://192.168.1.150:8006 | root / <See PASSWORDS.md> |
+| Proxmox SSH | ssh root@192.168.1.150 | <See PASSWORDS.md> |
 
 ### IP Allocation
 
