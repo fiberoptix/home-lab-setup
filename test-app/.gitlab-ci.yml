@@ -1,6 +1,7 @@
 stages:
   - build
   - push
+  - scan
   - deploy
 
 variables:
@@ -38,6 +39,26 @@ push:
   only:
     - main
     - master
+
+# SonarQube code quality scan
+sonar_scan:
+  stage: scan
+  image: sonarsource/sonar-scanner-cli:latest
+  tags:
+    - docker
+  variables:
+    SONAR_USER_HOME: "${CI_PROJECT_DIR}/.sonar"
+    GIT_DEPTH: "0"  # Full history for better analysis
+  script:
+    - sonar-scanner
+      -Dsonar.projectKey=test-app
+      -Dsonar.sources=.
+      -Dsonar.host.url=$SONAR_HOST_URL
+      -Dsonar.token=$SONAR_TOKEN
+  only:
+    - main
+    - master
+  allow_failure: true  # Don't block deployment initially
 
 # Deploy to QA host
 deploy_qa:

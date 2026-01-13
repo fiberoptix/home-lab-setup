@@ -16,7 +16,9 @@
 - **Capricorn QA:** http://192.168.1.180:5001 (auto-deploy on develop push)
 - **Capricorn GCP:** http://capricorn.gothamtechnologies.com (manual deploy on production)
 - **GitHub repos:** home-lab-setup + Capricorn (both updated)
-- Next: Add SonarQube, Monitoring, or Traefik+SSL
+- **SonarQube LIVE at http://192.168.1.183:9000** (v26.1.0, admin/Powerme!12345)
+- **Phase 6 COMPLETE:** Both test-app and Capricorn integrated with SonarQube!
+- Next: Phase 7 (Monitoring Stack) or Phase 8 (Traefik+SSL)
 
 ---
 
@@ -28,6 +30,7 @@
 | QA/K8s | .180 | ✅ Built (vm-kubernetes-1) |
 | GitLab | .181 | ✅ LIVE |
 | **Runner** | **.182** | **✅ LIVE (gitlab-runner-1)** |
+| **SonarQube** | **.183** | **✅ LIVE (vm-sonarqube-1, v26.1.0)** |
 
 ---
 
@@ -38,6 +41,7 @@
 - Proxmox: root / Powerme!1
 - All VMs: agamache / Powerme!1
 - **GitLab Web: root / Powerme!1**
+- **SonarQube Web: admin / Powerme!12345**
 - NAS (SMB): fiberoptix / Powerme!1 @ 192.168.1.120
 
 ---
@@ -102,11 +106,35 @@ bash host_setup.sh
 | 3 | GitLab Server | ✅ VERIFIED |
 | 4 | GitLab Runner | ✅ VERIFIED |
 | 5 | CI/CD Pipelines | ✅ COMPLETE (QA + GCP both working!) |
-| 6 | SonarQube | 🔲 Next |
+| 6 | SonarQube | ✅ COMPLETE (test-app + Capricorn both integrated!) |
 | 7 | Monitoring Stack | 🔲 |
 | 8 | Traefik + SSL | 🔲 |
 
 **Phase docs:** `/phases/`
+
+---
+
+## SONARQUBE
+
+- **URL:** http://192.168.1.183:9000
+- **Version:** 26.1.0 (community, latest)
+- **Login:** admin / Powerme!12345
+- **Container:** `sonarqube:community` (Docker)
+- **Data:** `/opt/sonarqube/data` (persisted)
+
+**Projects:**
+- test-app (token: sqp_1f2e5062c88890cd98477759b593428ac494576d)
+  - Quality Gate: PASSED ✅
+  - 86 lines of code (HTML, Docker)
+  - 0 security issues, 0 bugs, 1 maintainability issue
+- capricorn (token: sqp_fcfecef2186a725979f59666e04bb1f451eded3b)
+  - Quality Gate: PASSED ✅
+  - 28k lines of code (TypeScript, Python)
+  - 5 security issues, 144 reliability issues, 490 maintainability issues
+
+**Note:** Upgraded from 9.9.8 → 26.1.0 (required fresh database)
+
+**Pipeline Integration:** Scan stage runs after build/push, before deploy (allow_failure: true)
 
 ---
 
@@ -135,5 +163,5 @@ bash host_setup.sh
 
 1. `/proxmox/credentials`
 2. `/phases/current_phase.md`
-3. `/phases/phase3_gitlab_server.md`
-4. `/phases/phase4_gitlab_runner.md`
+3. `/phases/phase5_ci_cd_pipelines.md`
+4. `/phases/phase6_sonarqube.md` ✅ COMPLETE
