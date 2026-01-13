@@ -1,5 +1,7 @@
 Update AI memory files. These are for YOU (AI) only - no human reads them.
 
+Check current date/time including TimeZone using terminal
+
 MEMORY.md (static reference):
 - IPs, credential file paths, commands, architecture
 - Key decisions and WHY (if you need the context)

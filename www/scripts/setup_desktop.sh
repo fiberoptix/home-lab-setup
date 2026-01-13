@@ -7,7 +7,7 @@
 # This script will:
 # 1. Set timezone to America/New_York
 # 2. Set DNS to Google (8.8.8.8) and Cloudflare (1.1.1.1)
-# 3. Install CLI tools (curl, wget, htop, vim, jq, net-tools, tree)
+# 3. Install CLI tools (curl, wget, htop, vim, jq, net-tools, tree, sysbench)
 # 4. Install Google Chrome
 # 5. Install Cursor (AI code editor)
 # 6. Set display resolution to 1920x1080
@@ -16,7 +16,7 @@
 # 9. Create "Andrew" terminal profile
 # 10. Configure dock icons
 # 11. Disable login keyring prompt
-# 12. Add bash aliases (godev, update)
+# 12. Add bash aliases (godev, update, sysbench)
 #
 
 echo "=========================================="
@@ -55,8 +55,8 @@ fi
 echo ""
 echo "[3/12] Installing CLI tools..."
 sudo apt-get update -qq
-sudo apt-get install -y curl wget htop vim jq net-tools tree unzip 2>/dev/null && \
-    echo "    Installed: curl, wget, htop, vim, jq, net-tools, tree, unzip" || \
+sudo apt-get install -y curl wget htop vim jq net-tools tree unzip sysbench 2>/dev/null && \
+    echo "    Installed: curl, wget, htop, vim, jq, net-tools, tree, unzip, sysbench" || \
     echo "    WARNING: Some tools may have failed to install"
 
 # Step 3: Install Google Chrome
@@ -285,6 +285,14 @@ else
     echo "    Alias update already exists"
 fi
 
+# Add sysbench alias
+if ! grep -q "alias sysbench=" "$BASHRC" 2>/dev/null; then
+    echo "alias sysbench='sysbench --threads=\$(nproc) cpu run'" >> "$BASHRC"
+    echo "    Added alias: sysbench -> sysbench --threads=\$(nproc) cpu run"
+else
+    echo "    Alias sysbench already exists"
+fi
+
 # Make resolution persistent (create autostart entry)
 echo ""
 echo "[Bonus] Making resolution persistent..."
@@ -308,7 +316,7 @@ echo ""
 echo "Settings applied:"
 echo "  ✓ Timezone: America/New_York"
 echo "  ✓ DNS: Google (8.8.8.8) + Cloudflare (1.1.1.1)"
-echo "  ✓ CLI tools: curl, wget, htop, vim, jq, net-tools, tree, unzip"
+echo "  ✓ CLI tools: curl, wget, htop, vim, jq, net-tools, tree, unzip, sysbench"
 echo "  ✓ Google Chrome: Installed"
 echo "  ✓ Cursor: Installed (AI code editor)"
 echo "  ✓ Resolution: 1920x1080"
@@ -319,7 +327,7 @@ echo "  ✓ Screen saver: Disabled"
 echo "  ✓ Terminal profile: Andrew (200x50, transparent dark)"
 echo "  ✓ Dock icons: Files, Chrome, Firefox, Cursor, Terminal, SysMon, Settings, Editor"
 echo "  ✓ Login keyring: Auto-unlock (no password prompt)"
-echo "  ✓ Bash aliases: godev, update"
+echo "  ✓ Bash aliases: godev, update, sysbench"
 echo ""
 echo "Note: Log out and back in if changes don't take effect."
 echo "Run 'source ~/.bashrc' to use aliases immediately."
