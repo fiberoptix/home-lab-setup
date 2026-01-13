@@ -72,7 +72,7 @@ This system was designed out of interest to build and deploy the **Capricorn** p
 
 ## 📊 Project Status
 
-**Current Phase:** 5 - ✅ **COMPLETE** (CI/CD Pipelines Operational!)
+**Current Phase:** 6 - ✅ **COMPLETE** (SonarQube Code Quality Integration!)
 
 | Phase | Description | Status |
 |-------|-------------|--------|
@@ -82,9 +82,9 @@ This system was designed out of interest to build and deploy the **Capricorn** p
 | 3 | Host Setup Automation | ✅ Complete |
 | 4 | GitLab Server Setup | ✅ Complete |
 | 5 | GitLab Runner Setup | ✅ Complete |
-| 6 | **CI/CD Pipelines** | ✅ **Complete** |
-| 7 | SonarQube Integration | ⏳ Next |
-| 8 | Monitoring Stack | ⏳ Planned |
+| 6 | CI/CD Pipelines | ✅ Complete |
+| 7 | **SonarQube Integration** | ✅ **Complete** |
+| 8 | Monitoring Stack | ⏳ Next |
 | 9 | Traefik + SSL | ⏳ Planned |
 | 10 | Backup Configuration | ⏳ Planned |
 
@@ -94,12 +94,17 @@ This system was designed out of interest to build and deploy the **Capricorn** p
 - ✅ GitLab Runner at 192.168.1.182 (Docker executor, v18.7.2)
 - ✅ QA Host at 192.168.1.180 (vm-kubernetes-1)
 - ✅ Container Registry at gitlab.gothamtechnologies.com:5050 (operational)
+- ✅ SonarQube at 192.168.1.183:9000 (v26.1.0, code quality + security)
 - ✅ Script server at http://192.168.1.195/scripts/
 
 **Applications Deployed via CI/CD:**
-- ✅ Test App: http://192.168.1.180:8080 (validation)
-- ✅ Capricorn: http://192.168.1.180:5001 (QA automated)
+- ✅ Test App: http://192.168.1.180:8080 (validation + quality scan)
+- ✅ Capricorn: http://192.168.1.180:5001 (QA automated + quality scan)
 - ✅ Capricorn: http://capricorn.gothamtechnologies.com (GCP production)
+
+**Code Quality Scanning:**
+- ✅ test-app: 86 LOC, Quality Gate PASSED (0 bugs, 0 security issues)
+- ✅ Capricorn: 28k LOC, Quality Gate PASSED (639 issues identified for improvement)
 
 ---
 
@@ -118,7 +123,9 @@ home-lab-setup/
 │   ├── phase1_proxmox.md        # Proxmox setup
 │   ├── phase2_host_setup_automation.md
 │   ├── phase3_gitlab_server.md  # GitLab installation & config
-│   └── phase4_gitlab_runner.md  # Runner setup & troubleshooting
+│   ├── phase4_gitlab_runner.md  # Runner setup & troubleshooting
+│   ├── phase5_ci_cd_pipelines.md # CI/CD implementation
+│   └── phase6_sonarqube.md      # Code quality integration
 │
 ├── proxmox/                     # Proxmox documentation
 │   ├── Home_Lab_Proxmox_Build_Plan.md    # Master build checklist
@@ -166,6 +173,15 @@ Username: root
 
 # Container Registry
 http://gitlab.gothamtechnologies.com:5050
+```
+
+### Access SonarQube
+```bash
+# Web UI
+http://192.168.1.183:9000
+Username: admin
+
+# Integrated with CI/CD pipelines for automated code scanning
 ```
 
 ### Setup New Host
@@ -274,9 +290,9 @@ This is a personal project, but feel free to use the documentation as reference 
 
 ---
 
-**Last Updated:** January 8, 2026  
+**Last Updated:** January 13, 2026  
 **Proxmox Version:** VE 9.1  
-**Build Status:** Phase 5 - CI/CD Pipeline Testing
+**Build Status:** Phase 6 - SonarQube Integration Complete
 
 ---
 
