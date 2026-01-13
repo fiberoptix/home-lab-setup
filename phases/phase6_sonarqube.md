@@ -373,6 +373,239 @@ curl http://192.168.1.183:9000/api/system/status
 
 ---
 
+## Phase 6j: PostgreSQL Migration (Optional Enhancement)
+
+**Status:** 📋 PLANNED (Not yet implemented)  
+**Priority:** Low (H2 embedded database works fine for 2-5 projects)  
+**When to Do This:** If you add 5+ projects, need historical data preservation, or upgrade SonarQube frequently
+
+### Why PostgreSQL?
+
+**Current Setup (H2 Embedded Database):**
+- ✅ Works perfectly for evaluation/home lab
+- ✅ Zero configuration required
+- ❌ May lose data on major version upgrades (26.x → 27.x)
+- ❌ No export/import capability
+- ❌ Not production-ready
+
+**With PostgreSQL:**
+- ✅ Automatic schema migrations on upgrades
+- ✅ Guaranteed data preservation across all upgrades
+- ✅ Production-ready configuration
+- ✅ Better performance at scale (50+ projects)
+- ❌ Requires ~30 minutes setup time
+- ❌ Additional container to manage
+
+### When to Migrate?
+
+**Keep H2 if:**
+- You have 2-5 projects only
+- This is primarily for learning
+- You're okay recreating projects after major upgrades (~15 min work)
+- You don't need long-term historical trends
+
+**Switch to PostgreSQL if:**
+- You have 5+ projects
+- Historical scan data/trends are important
+- You plan to upgrade SonarQube frequently
+- You want production-ready configuration
+
+### Implementation Steps
+
+#### Step 1: Backup Current Configuration
+
+```bash
+# SSH to SonarQube VM
+ssh agamache@192.168.1.183
+
+# Document current projects and settings
+docker exec sonarqube curl -u admin:Powerme!12345 \
+  http://localhost:9000/api/projects/search | jq . > ~/sonarqube_projects.json
+
+# Note: Can't migrate H2 data to PostgreSQL - will need to recreate projects
+```
+
+#### Step 2: Deploy PostgreSQL Container
+
+```bash
+# Create PostgreSQL data directory
+sudo mkdir -p /opt/sonarqube/postgres
+sudo chown -R 999:999 /opt/sonarqube/postgres
+
+# Run PostgreSQL container
+docker run -d \
+  --name sonarqube-db \
+  --restart unless-stopped \
+  -e POSTGRES_USER=sonarqube \
+  -e POSTGRES_PASSWORD=Powerme!1 \
+  -e POSTGRES_DB=sonarqube \
+  -v /opt/sonarqube/postgres:/var/lib/postgresql/data \
+  postgres:15-alpine
+
+# Wait for PostgreSQL to start
+sleep 10
+
+# Verify PostgreSQL is running
+docker logs sonarqube-db | grep "ready to accept connections"
+```
+
+#### Step 3: Reconfigure SonarQube to Use PostgreSQL
+
+```bash
+# Stop and remove existing SonarQube container
+docker stop sonarqube
+docker rm sonarqube
+
+# OPTIONAL: Backup old H2 database (just in case)
+sudo mv /opt/sonarqube/data /opt/sonarqube/data.h2.backup
+sudo mkdir -p /opt/sonarqube/data
+sudo chown -R 1000:1000 /opt/sonarqube/data
+
+# Start new SonarQube container with PostgreSQL
+docker run -d \
+  --name sonarqube \
+  --restart unless-stopped \
+  --link sonarqube-db:db \
+  -p 9000:9000 \
+  -e SONAR_JDBC_URL=jdbc:postgresql://db:5432/sonarqube \
+  -e SONAR_JDBC_USERNAME=sonarqube \
+  -e SONAR_JDBC_PASSWORD=Powerme!1 \
+  -v /opt/sonarqube/data:/opt/sonarqube/data \
+  -v /opt/sonarqube/logs:/opt/sonarqube/logs \
+  -v /opt/sonarqube/extensions:/opt/sonarqube/extensions \
+  sonarqube:community
+
+# Wait for SonarQube to initialize with PostgreSQL
+docker logs -f sonarqube
+# Watch for: "SonarQube is operational"
+```
+
+#### Step 4: Recreate Projects
+
+**For test-app:**
+1. Login to http://192.168.1.183:9000 (admin / Powerme!12345)
+2. Create Project → Manually
+   - Project key: `test-app`
+   - Display name: `Test App`
+3. Generate token: `gitlab-ci`
+4. Update GitLab CI/CD variable `SONAR_TOKEN` with new token
+
+**For Capricorn:**
+1. Create Project → Manually
+   - Project key: `capricorn`
+   - Display name: `Capricorn`
+   - Main branch: `develop`
+2. Generate token: `gitlab-ci`
+3. Update Capricorn's GitLab CI/CD variable `SONAR_TOKEN` with new token
+
+#### Step 5: Verify Migration
+
+```bash
+# Check PostgreSQL connection from SonarQube
+docker exec sonarqube-db psql -U sonarqube -c "\dt"
+# Should show SonarQube tables
+
+# Check SonarQube logs for any errors
+docker logs sonarqube | grep -i error
+
+# Trigger pipeline runs for both projects
+# Verify scans complete successfully
+```
+
+#### Step 6: Test Upgrade Path
+
+```bash
+# Simulate a future upgrade (without actually upgrading)
+# This verifies PostgreSQL is configured correctly
+
+# Check current version
+docker exec sonarqube curl -s http://localhost:9000/api/system/status | jq .version
+
+# Backup PostgreSQL data
+docker exec sonarqube-db pg_dump -U sonarqube sonarqube > /tmp/sonarqube_backup.sql
+
+# When ready to upgrade in the future:
+# 1. Stop SonarQube: docker stop sonarqube
+# 2. Pull new image: docker pull sonarqube:community
+# 3. Remove old container: docker rm sonarqube
+# 4. Start new container (same command as Step 3)
+# 5. SonarQube will auto-migrate PostgreSQL schema
+# 6. All data preserved!
+```
+
+### Configuration Updates
+
+**Update MEMORY.md:**
+```markdown
+SonarQube (.183):
+- Database: PostgreSQL 15 (container: sonarqube-db)
+- Projects: test-app, capricorn
+- No more embedded database warning!
+```
+
+**Update credentials file:**
+```
+PostgreSQL (sonarqube-db):
+- User: sonarqube
+- Password: Powerme!1
+- Database: sonarqube
+- Port: 5432 (internal to Docker network)
+```
+
+### Resource Impact
+
+**Additional Resources Required:**
+
+| Resource | PostgreSQL | Total (SonarQube + PostgreSQL) |
+|----------|------------|--------------------------------|
+| RAM | ~100-200MB | ~3-4GB idle, ~6GB during scans |
+| CPU | ~1-2% idle | Negligible impact |
+| Disk | ~500MB-2GB | +500MB-2GB |
+
+**Note:** PostgreSQL is very lightweight - minimal impact on VM resources.
+
+### Rollback Plan
+
+If PostgreSQL causes issues, rollback to H2:
+
+```bash
+# Stop and remove PostgreSQL-based setup
+docker stop sonarqube sonarqube-db
+docker rm sonarqube sonarqube-db
+
+# Restore H2 backup
+sudo rm -rf /opt/sonarqube/data
+sudo mv /opt/sonarqube/data.h2.backup /opt/sonarqube/data
+
+# Start original SonarQube container (without PostgreSQL)
+docker run -d \
+  --name sonarqube \
+  --restart unless-stopped \
+  -p 9000:9000 \
+  -v /opt/sonarqube/data:/opt/sonarqube/data \
+  -v /opt/sonarqube/logs:/opt/sonarqube/logs \
+  -v /opt/sonarqube/extensions:/opt/sonarqube/extensions \
+  sonarqube:community
+```
+
+### Time Estimate
+
+- **Setup:** 30 minutes
+- **Testing:** 15 minutes
+- **Total:** ~45 minutes
+
+### Success Criteria
+
+- [ ] PostgreSQL container running
+- [ ] SonarQube connects to PostgreSQL (no embedded DB warning)
+- [ ] Projects recreated (test-app, capricorn)
+- [ ] New tokens generated and updated in GitLab
+- [ ] Pipelines scan successfully
+- [ ] Results visible in SonarQube UI
+- [ ] Database persists after SonarQube container restart
+
+---
+
 ## Next Phase
 
 After SonarQube working → **Phase 7: Monitoring Stack** (Prometheus + Grafana)
