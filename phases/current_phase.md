@@ -134,7 +134,7 @@
   - Old version showed "no longer active" warning
   - Had to wipe database (incompatible formats)
   - Changed Docker tag from `sonarqube:lts-community` to `sonarqube:community`
-- ✅ Changed admin password: [See PASSWORDS.md] (12 chars required in new version)
+- ✅ Changed admin password: <See PASSWORDS.md> (12 chars required in new version)
 - ✅ Created test-app project in SonarQube
 - ✅ Generated test-app token: `[See PASSWORDS.md]`
 - ✅ Created Capricorn project in SonarQube

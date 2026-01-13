@@ -5,6 +5,7 @@
 # ------------------------------------------------------------------------------
 # CREDENTIALS & SECRETS (NEVER COMMIT!)
 # ------------------------------------------------------------------------------
+PASSWORDS.md
 github_credentials.md
 /proxmox/credentials
 /proxmox/nas_credentials
