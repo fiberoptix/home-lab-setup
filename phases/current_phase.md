@@ -1,6 +1,56 @@
 # Current Phase
 
-**Updated:** January 13, 2026 - 7:07 PM EST
+**Updated:** January 14, 2026 - 4:30 PM EST
+
+---
+
+## 📋 Documentation Verification & Standardization (Jan 14, 2026 - 3:15-4:30 PM)
+
+**What:** Verified actual Proxmox configuration matches documentation, updated all phase files with real hardware specs
+
+**Problem:** Phase files had generic hardware info, drive serials not documented, startup procedure unclear
+
+**Solution Implemented:**
+1. ✅ Updated CURSOR_RULES with comprehensive Git Status Check procedure
+2. ✅ SSH verified actual Proxmox configuration (storage, VMs, drives, kernel)
+3. ✅ Updated phase0_hardware.md with real specs:
+   - WD Blue SN5100 500GB boot drives (not generic)
+   - Complete drive serial numbers for all 6 drives
+   - Detailed BIOS settings table with menu locations
+4. ✅ Updated phase1_proxmox.md with accurate config:
+   - Real ZFS pool sizes and usage statistics
+   - Documented compression settings (rpool=OFF is mistake, should be lz4)
+   - Added ZFS management commands section
+   - Added backup strategy section
+   - Added best practices for creating new pools
+5. ✅ Created SYSTEM_VERIFICATION.md:
+   - Complete drive inventory with serial numbers
+   - VM specifications with actual disk configurations
+   - Health check schedule
+   - Commands for future VM creation
+6. ✅ Changed CURSOR_RULES startup reading order:
+   - Now reads phase files first (reality) instead of old planning docs
+   - Design.md optional for architecture philosophy
+
+**Key Findings:**
+- Boot drives: WD Blue SN5100 500GB (serials: 25434V801543, 25434V802501)
+- VM drives: All Lexar NM620 1TB with serials documented
+- rpool compression: OFF (mistake - should be lz4)
+- vm-critical: 52GB used (58%) - mostly GitLab's 500GB disk
+- vm-ephemeral: 40GB used (2%)
+- All VMs using correct disk config: `aio=native,cache=none,discard=on,iothread=1`
+
+**Git Commits:**
+- `f47a3f7` - Update CURSOR_RULES: Add comprehensive Git Status Check procedure
+- `577717d` - Verify and update documentation to match actual Proxmox configuration
+
+**Why This Matters:**
+- Documentation now accurately reflects production configuration
+- Future VM creation will use correct settings
+- Drive serial numbers documented for emergency replacement
+- ZFS best practices clearly documented (always use lz4 compression)
+
+**Time:** ~75 minutes (documentation verification and update)
 
 ---
 

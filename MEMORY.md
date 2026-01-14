@@ -90,7 +90,8 @@ bash host_setup.sh
 
 ## VM CONFIGURATION STANDARD
 
-**Last Updated:** January 12, 2026 (9:22 PM EST)  
+**Last Updated:** January 14, 2026 (4:30 PM EST)  
+**Documentation Verified:** All specs match running production configuration  
 **ALL NEW VMs MUST USE THESE SETTINGS:**
 
 ### Proxmox VM Settings (qm create/set)
@@ -134,8 +135,17 @@ bash host_setup.sh
 - **Total Allocated:** 40 GB of 126 GB available (32%)
 
 ### Storage Pool Selection
-- **vm-critical (rpool2, mirror):** GitLab, SonarQube, Monitoring (data persistence)
-- **vm-ephemeral (rpool3, stripe):** Runner, QA Host (disposable/rebuildable)
+- **vm-critical (mirror):** GitLab, SonarQube, Monitoring (data persistence)
+- **vm-ephemeral (stripe):** Runner, QA Host (disposable/rebuildable)
+
+### ZFS Pool Creation (NEW POOLS)
+**ALWAYS enable lz4 compression on new pools:**
+```bash
+# Create pool (mirror or stripe)
+zpool create <pool-name> [mirror] /dev/<disk1> /dev/<disk2>
+# Enable compression (REQUIRED)
+zfs set compression=lz4 <pool-name>
+```
 
 ### Guest OS Setup
 After VM creation, run setup script:
@@ -196,11 +206,17 @@ apt-mark showhold
 
 ## STORAGE
 
-| Pool | Name | Type | Use |
-|------|------|------|-----|
-| local-zfs | rpool1 | mirror | Proxmox, ISOs (2x500GB) |
-| vm-critical | rpool2 | mirror | GitLab, SonarQube (2x1TB) |
-| vm-ephemeral | rpool3 | stripe | Runner, QA (2x1TB) |
+**Last Verified:** January 14, 2026
+
+| Pool | Drives | Type | Size | Usage | Compression | Use |
+|------|--------|------|------|-------|-------------|-----|
+| rpool | 2x WD Blue SN5100 500GB | mirror | 460GB | 10GB (2%) | OFF ⚠️ | Proxmox, ISOs |
+| vm-critical | 2x Lexar NM620 1TB | mirror | 952GB | 52GB (5%) | lz4 ✅ | GitLab, SonarQube |
+| vm-ephemeral | 2x Lexar NM620 1TB | stripe | 1.86TB | 40GB (2%) | lz4 ✅ | Runner, QA |
+
+**⚠️ Note:** rpool compression=OFF is a mistake from Proxmox install. Should be lz4. All future pools MUST use lz4.
+
+**Drive Serial Numbers:** See `/SYSTEM_VERIFICATION.md` for complete inventory.
 
 ---
 
@@ -279,7 +295,9 @@ apt-mark showhold
 ## FILES TO READ
 
 1. `PASSWORDS.md` - All credentials
-2. `/proxmox/credentials` - Backup credential reference
+2. `SYSTEM_VERIFICATION.md` - Complete hardware inventory, drive serials, VM configs (Jan 14, 2026)
 3. `/phases/current_phase.md` - Current work status
-4. `/phases/phase5_ci_cd_pipelines.md`
-5. `/phases/phase6_sonarqube.md` ✅ COMPLETE
+4. `/phases/phase0_hardware.md` - Hardware specs and BIOS settings
+5. `/phases/phase1_proxmox.md` - ZFS configuration and best practices
+6. `/phases/phase5_ci_cd_pipelines.md` ✅ COMPLETE
+7. `/phases/phase6_sonarqube.md` ✅ COMPLETE
