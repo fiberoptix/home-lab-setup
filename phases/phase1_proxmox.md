@@ -84,20 +84,12 @@ zfs set compression=lz4 vm-critical
 zfs set compression=lz4 vm-ephemeral
 ```
 
-**⚠️ CURRENT STATUS (Jan 14, 2026):**
-- rpool: compression=OFF (mistake during install - should be lz4)
-- vm-critical: compression=lz4 ✅
-- vm-ephemeral: compression=lz4 ✅
+**✅ CURRENT STATUS (Jan 14, 2026 - 4:35 PM):**
+- rpool: compression=lz4 ✅ (enabled, existing data uncompressed, new data will be compressed)
+- vm-critical: compression=lz4 ✅ (1.58x compression ratio)
+- vm-ephemeral: compression=lz4 ✅ (1.63x compression ratio)
 
-**To fix rpool (optional):**
-```bash
-# Enable compression on rpool (only affects new data)
-zfs set compression=lz4 rpool
-
-# Existing data won't be recompressed automatically
-# To recompress existing data (optional):
-# zfs send/receive or copy files to force recompression
-```
+**All pools properly configured with lz4 compression!**
 
 **Why lz4?**
 - Transparent compression (no performance impact)

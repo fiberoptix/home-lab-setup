@@ -17,16 +17,13 @@ Status: ✅ Stable (kernel 6.17.4-2-pve has NVMe issues on this hardware)
 
 ### Storage Pools (ZFS)
 
-| Pool | Size | Type | Drives | Compression | Usage | Status |
-|------|------|------|--------|-------------|-------|--------|
-| **rpool** | 460GB | mirror | 2x WD Blue SN5100 500GB | OFF ⚠️ | 10.2GB (2%) | ✅ ONLINE |
-| **vm-critical** | 952GB | mirror | 2x Lexar NM620 1TB | lz4 ✅ | 51.6GB (5%) | ✅ ONLINE |
-| **vm-ephemeral** | 1.86TB | stripe | 2x Lexar NM620 1TB | lz4 ✅ | 40.3GB (2%) | ✅ ONLINE |
+| Pool | Size | Type | Drives | Compression | Ratio | Usage | Status |
+|------|------|------|--------|-------------|-------|-------|--------|
+| **rpool** | 460GB | mirror | 2x WD Blue SN5100 500GB | lz4 ✅ | 1.00x | 10.2GB (2%) | ✅ ONLINE |
+| **vm-critical** | 952GB | mirror | 2x Lexar NM620 1TB | lz4 ✅ | 1.58x | 51.6GB (5%) | ✅ ONLINE |
+| **vm-ephemeral** | 1.86TB | stripe | 2x Lexar NM620 1TB | lz4 ✅ | 1.63x | 40.3GB (2%) | ✅ ONLINE |
 
-**⚠️ Note:** rpool compression should be lz4 (mistake during install). Can be fixed with:
-```bash
-zfs set compression=lz4 rpool  # Only affects new data
-```
+**Note:** rpool compression enabled Jan 14, 2026. Ratio is 1.00x because existing 10GB data is uncompressed (new data will be compressed).
 
 **Last Scrub:** January 11, 2026 - 0 errors on all pools
 
