@@ -18,11 +18,10 @@ Apps: Capricorn (unified finance app)
 1. ✅ Check current date/time including TimeZone using terminal
 2. ✅ Read these files IN ORDER:
    a. MEMORY.md - Critical decisions & project context
-   b. /proxmox/Home_Lab_Proxmox_Build_Plan.md - Execution checklist with phase status
-   c. /proxmox/Home_Lab_Proxmox_Design.md - Full architecture reference (if needed)
-   d. /proxmox/Home_Lab_Proxmox_Storage.md - ZFS storage configuration (if working on storage)
-   e. /proxmox/Home_Lab_Proxmox_Install.md - Installation notes & troubleshooting
-   f. PASSWORDS.md - All Passwords and Credentials stored here
+   b. phases/current_phase.md - Latest work, decisions, and blockers
+   c. PASSWORDS.md - All Passwords and Credentials stored here
+   d. (Optional) /proxmox/Home_Lab_Proxmox_Design.md - Architecture philosophy & dual-access strategy
+   e. (Optional) phases/phaseX_*.md - Read relevant phase files for detailed context on completed work
 3. ✅ Git Status Check:
    a. Run `git fetch --all` to update remote tracking branches (GitHub/GitLab)
    b. Run `git status` to check:

@@ -55,7 +55,7 @@ Contents:
 ```
 
 **ZFS Properties:**
-- Compression: lz4
+- Compression: lz4 (ALWAYS enable)
 - ashift: 12
 
 ---
@@ -77,7 +77,7 @@ Contents:
 ```
 
 **ZFS Properties:**
-- Compression: lz4
+- Compression: lz4 (ALWAYS enable)
 - ashift: 12
 
 **Why mirror:**
@@ -104,7 +104,7 @@ Contents:
 ```
 
 **ZFS Properties:**
-- Compression: lz4
+- Compression: lz4 (ALWAYS enable)
 - ashift: 12
 
 **Why stripe (RAID0):**

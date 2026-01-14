@@ -13,8 +13,8 @@
 |-----------|---------------|
 | CPU | Intel Xeon Platinum 8168 (24 cores / 48 threads) |
 | RAM | 128GB DDR4 ECC (4x 32GB DIMMs) |
-| Boot Storage | 2x 500GB NVMe (motherboard M.2 slots) |
-| VM Storage | 4x 1TB NVMe (HP Z Turbo Drive Quad Pro PCIe card) |
+| Boot Storage | 2x WD Blue SN5100 500GB NVMe (motherboard M.2 slots) |
+| VM Storage | 4x Lexar SSD NM620 1TB NVMe (HP Z Turbo Drive Quad Pro PCIe card) |
 | Network | 2x 1GbE onboard NICs (Intel e1000e + i40e) |
 | UPS | APC BR1500MS2 (ordered) |
 
@@ -24,14 +24,14 @@
 
 ### Physical Layout
 
-| Slot | Drive | Size | Purpose |
-|------|-------|------|---------|
-| Motherboard M.2 #1 | nvme0 | 500GB | Proxmox OS (mirror) |
-| Motherboard M.2 #2 | nvme1 | 500GB | Proxmox OS (mirror) |
-| HP Turbo Quad Slot 1 | nvme2 | 1TB | vm-critical (mirror) |
-| HP Turbo Quad Slot 2 | nvme3 | 1TB | vm-critical (mirror) |
-| HP Turbo Quad Slot 3 | nvme4 | 1TB | vm-ephemeral (stripe) |
-| HP Turbo Quad Slot 4 | nvme5 | 1TB | vm-ephemeral (stripe) |
+| Slot | Device | Model | Size | Purpose |
+|------|--------|-------|------|---------|
+| Motherboard M.2 #1 | nvme0n1 | WD Blue SN5100 | 500GB | Proxmox OS (mirror) |
+| Motherboard M.2 #2 | nvme3n1 | WD Blue SN5100 | 500GB | Proxmox OS (mirror) |
+| HP Turbo Quad Slot 1 | nvme1n1 | Lexar SSD NM620 | 1TB | vm-critical (mirror) |
+| HP Turbo Quad Slot 2 | nvme2n1 | Lexar SSD NM620 | 1TB | vm-critical (mirror) |
+| HP Turbo Quad Slot 3 | nvme4n1 | Lexar SSD NM620 | 1TB | vm-ephemeral (stripe) |
+| HP Turbo Quad Slot 4 | nvme5n1 | Lexar SSD NM620 | 1TB | vm-ephemeral (stripe) |
 
 ### HP Z Turbo Drive Quad Pro
 
@@ -55,13 +55,15 @@
 
 ## BIOS Settings
 
-| Setting | Value | Reason |
-|---------|-------|--------|
-| Boot Mode | UEFI | Required for Proxmox/ZFS |
-| Secure Boot | Disabled | Proxmox compatibility |
-| VT-x | Enabled | VM hardware virtualization |
-| VT-d | Enabled | PCIe passthrough capability |
-| Legacy Support | Disabled | Pure UEFI boot |
+| Setting | Value | Location | Reason |
+|---------|-------|----------|--------|
+| Boot Mode | UEFI | Boot Options | Required for Proxmox/ZFS |
+| Secure Boot | Disabled | Boot Options | Proxmox compatibility |
+| Legacy Support | Disabled | Boot Options | Pure UEFI boot |
+| VT-x (Virtualization) | Enabled | Security → Virtualization | VM hardware virtualization |
+| VT-d (IOMMU) | Enabled | Security → Virtualization | PCIe passthrough capability |
+| PCIe Bifurcation | x4x4x4x4 | Advanced → PCIe Configuration | Required for HP Z Turbo Drive Quad Pro |
+| VROC RAID Controller | Enabled | Advanced → Device Configuration | (Later wiped metadata for ZFS) |
 
 ---
 
@@ -79,17 +81,46 @@ This led to switching from VMware ESXi to Proxmox VE.
 
 ---
 
+## Drive Serial Numbers
+
+**Boot Drives (2x WD Blue SN5100 500GB):**
+
+| Device | Pool | Serial Number |
+|--------|------|---------------|
+| nvme0n1 | rpool (mirror) | 25434V801543 |
+| nvme3n1 | rpool (mirror) | 25434V802501 |
+
+**VM Storage Drives (4x Lexar SSD NM620 1TB):**
+
+| Device | Pool | Serial Number |
+|--------|------|---------------|
+| nvme1n1 | vm-critical (mirror) | PKG237W103886P1100 |
+| nvme2n1 | vm-critical (mirror) | PKG237W103845P1100 |
+| nvme4n1 | vm-ephemeral (stripe) | PKG237W103863P1100 |
+| nvme5n1 | vm-ephemeral (stripe) | PKG237W103887P1100 |
+
+**To check all serials:**
+```bash
+lsblk -o NAME,SIZE,MODEL,SERIAL
+```
+
+**Why this matters:** If a drive fails in a ZFS mirror, you need the serial number to identify which physical drive to replace.
+
+---
+
 ## Lessons Learned
 
 1. **VROC + ESXi = problematic** on HP Z6 G4
 2. **ZFS is better** - Native to Linux, no special drivers needed
 3. **HP Z Turbo Quad Pro works great** with direct NVMe access
 4. **Document drive serial numbers** for future replacement
+5. **PCIe bifurcation must be enabled** in BIOS for HP Turbo card
 
 ---
 
 ## Related Files
 
 - `/proxmox/Home_Lab_Proxmox_Design.md` - Full architecture design
+- `/proxmox/Home_Lab_Proxmox_Storage.md` - Detailed ZFS configuration & commands
 - `/vmware/` - Abandoned ESXi documentation (reference only)
 
