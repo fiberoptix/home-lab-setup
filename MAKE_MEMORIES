@@ -20,3 +20,11 @@ Check before writing:
 - /phases/
 
 Write what YOU need to reload context cold. No more, no less.
+
+---
+
+GIT COMMIT:
+- CHECK if uncommitted changes exist
+- If changes exist: PROMPT user "Ready to commit changes?"
+- NEVER commit automatically - user must explicitly approve
+- Exception: User says "commit everything" or "commit these changes"
