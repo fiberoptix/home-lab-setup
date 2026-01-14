@@ -265,9 +265,21 @@ apt-mark showhold
 
 ---
 
+## PASSWORD MANAGEMENT
+
+**PASSWORDS.md** - Central credential storage (git-ignored)
+- Contains ALL system passwords and credentials
+- All documentation now references: [See PASSWORDS.md]
+- Old password: capricorn2025 (deprecated, documented in PASSWORDS.md)
+- Current password: Powerme!1 (SSH verified Jan 13, 2026)
+- Also stored in: `/proxmox/credentials` and `/proxmox/nas_credentials` (git-ignored)
+
+---
+
 ## FILES TO READ
 
-1. `/proxmox/credentials`
-2. `/phases/current_phase.md`
-3. `/phases/phase5_ci_cd_pipelines.md`
-4. `/phases/phase6_sonarqube.md` ✅ COMPLETE
+1. `PASSWORDS.md` - All credentials
+2. `/proxmox/credentials` - Backup credential reference
+3. `/phases/current_phase.md` - Current work status
+4. `/phases/phase5_ci_cd_pipelines.md`
+5. `/phases/phase6_sonarqube.md` ✅ COMPLETE

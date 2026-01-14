@@ -1,6 +1,6 @@
 # Current Phase
 
-**Updated:** January 12, 2026 - 9:22 PM EST
+**Updated:** January 13, 2026 - 7:07 PM EST
 
 ---
 
@@ -10,6 +10,58 @@
 **Infrastructure:** VM .183 (8GB RAM, 30GB vm-critical, 4 CPU) - optimized
 **SonarQube:** v26.1.0 operational at http://192.168.1.183:9000
 **Next:** Phase 7 (Monitoring) or Phase 8 (Traefik+SSL)
+
+---
+
+## 🔐 Password Security Cleanup (Jan 13, 2026 - 3:40-7:07 PM)
+
+**What:** Removed hardcoded passwords from all documentation and centralized in git-ignored file
+
+**Problem Identified:**
+- Passwords hardcoded in 10+ documentation files
+- `Powerme!1` and old `capricorn2025` scattered throughout project
+- All committed to public GitHub repository
+- `www/scripts/setup_smb_mount.sh` had hardcoded NAS password in git history
+
+**Solution Implemented:**
+1. ✅ Created `PASSWORDS.md` - Central credential storage with all passwords
+2. ✅ Added `PASSWORDS.md` to `.gitignore` (will never be committed)
+3. ✅ Replaced 28 password instances with `[See PASSWORDS.md]` references
+4. ✅ SSH tested to verify current password: `Powerme!1` (capricorn2025 deprecated)
+5. ✅ Fixed markdown display issue (angle brackets → square brackets)
+
+**Files Updated (28 replacements across 10 files):**
+- MEMORY.md (8 instances)
+- CURSOR_RULES (3 instances)
+- phases/current_phase.md (1 instance)
+- phases/phase6_sonarqube.md (6 instances)
+- phases/phase5_ci_cd_pipelines.md (2 instances)
+- phases/phase3_gitlab_server.md (1 instance)
+- phases/phase2_host_setup_automation.md (2 instances)
+- phases/phase1_proxmox.md (1 instance)
+- proxmox/Home_Lab_Proxmox_Build_Plan.md (2 instances)
+- proxmox/Home_Lab_Proxmox_Install.md (2 instances)
+
+**Files Intentionally Left Unchanged:**
+- `www/scripts/setup_smb_mount.sh` - Operational script needs hardcoded password
+- `/proxmox/credentials` - Already git-ignored
+- `/proxmox/nas_credentials` - Already git-ignored
+
+**Git Commits:**
+- `c71ef79` - Added sysbench to setup_desktop.sh
+- `ad74d99` - Security: Remove hardcoded passwords from documentation
+- `899d5c1` - Fix: Change angle brackets to square brackets
+
+**Security Status:**
+- ✅ Documentation cleaned of passwords
+- ✅ Central PASSWORDS.md file (git-ignored)
+- ⚠️ Old password still in git history (www/scripts/setup_smb_mount.sh)
+- ⚠️ Can clean git history with filter-branch or BFG if needed
+
+**Password Summary:**
+- **Current Standard:** Powerme!1 (Proxmox, VMs, GitLab, NAS)
+- **SonarQube:** Powerme!12345 (12+ chars required by v26.1.0)
+- **Old/Deprecated:** capricorn2025 (no longer valid, SSH test failed)
 
 ---
 
