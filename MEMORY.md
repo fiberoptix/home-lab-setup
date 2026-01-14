@@ -206,15 +206,15 @@ apt-mark showhold
 
 ## STORAGE
 
-**Last Verified:** January 14, 2026
+**Last Verified:** January 14, 2026 (4:35 PM EST)
 
-| Pool | Drives | Type | Size | Usage | Compression | Use |
-|------|--------|------|------|-------|-------------|-----|
-| rpool | 2x WD Blue SN5100 500GB | mirror | 460GB | 10GB (2%) | OFF ⚠️ | Proxmox, ISOs |
-| vm-critical | 2x Lexar NM620 1TB | mirror | 952GB | 52GB (5%) | lz4 ✅ | GitLab, SonarQube |
-| vm-ephemeral | 2x Lexar NM620 1TB | stripe | 1.86TB | 40GB (2%) | lz4 ✅ | Runner, QA |
+| Pool | Drives | Type | Size | Usage | Compression | Ratio | Use |
+|------|--------|------|------|-------|-------------|-------|-----|
+| rpool | 2x WD Blue SN5100 500GB | mirror | 460GB | 10GB (2%) | lz4 ✅ | 1.00x | Proxmox, ISOs |
+| vm-critical | 2x Lexar NM620 1TB | mirror | 952GB | 52GB (5%) | lz4 ✅ | 1.58x | GitLab, SonarQube |
+| vm-ephemeral | 2x Lexar NM620 1TB | stripe | 1.86TB | 40GB (2%) | lz4 ✅ | 1.63x | Runner, QA |
 
-**⚠️ Note:** rpool compression=OFF is a mistake from Proxmox install. Should be lz4. All future pools MUST use lz4.
+**Note:** All pools now have lz4 compression enabled. rpool shows 1.00x ratio because existing data is uncompressed (new data will be compressed).
 
 **Drive Serial Numbers:** See `/SYSTEM_VERIFICATION.md` for complete inventory.
 

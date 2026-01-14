@@ -52,6 +52,12 @@
 
 **Time:** ~75 minutes (documentation verification and update)
 
+**Follow-up Action:**
+- ✅ Enabled lz4 compression on rpool (Jan 14, 2026 - 4:35 PM)
+- All three pools now have lz4 compression enabled
+- Existing 10GB on rpool remains uncompressed (by design)
+- All future data will be compressed
+
 ---
 
 ## ✅ COMPLETE: Phase 6 - SonarQube Code Quality Integration
