@@ -23,8 +23,19 @@ Write what YOU need to reload context cold. No more, no less.
 
 ---
 
-GIT COMMIT:
-- CHECK if uncommitted or unpushed changes exist
-- If changes exist: PROMPT user "Ready to commit AND push changes?"
-- NEVER commit automatically - user must explicitly approve
-- Exception: User says "commit everything" or "commit these changes"
+🚨 CRITICAL: GIT COMMIT RULES 🚨
+
+AFTER updating memory files, ALWAYS follow this workflow:
+
+1. Run `git status` to check for changes
+2. IF changes exist:
+   a. STOP - Do NOT commit automatically
+   b. ASK user: "Memory files updated. Ready to commit AND push changes?"
+   c. WAIT for explicit approval ("yes", "commit", "push", etc.)
+   d. ONLY THEN: git add, commit, push
+
+❌ NEVER commit and/or push without asking first
+❌ NEVER assume user wants to commit
+❌ "action MAKE_MEMORIES" = UPDATE files only, NOT commit
+
+✅ Exception: User explicitly says "commit everything" or "commit these changes"
