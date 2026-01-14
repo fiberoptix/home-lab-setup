@@ -23,8 +23,26 @@ Apps: Capricorn (unified finance app)
    d. /proxmox/Home_Lab_Proxmox_Storage.md - ZFS storage configuration (if working on storage)
    e. /proxmox/Home_Lab_Proxmox_Install.md - Installation notes & troubleshooting
    f. PASSWORDS.md - All Passwords and Credentials stored here
-
-3. ✅ Quick Context:
+3. ✅ Git Status Check:
+   a. Run `git fetch --all` to update remote tracking branches (GitHub/GitLab)
+   b. Run `git status` to check:
+      - Current branch
+      - Uncommitted changes (staged/unstaged)
+      - Unpushed commits (ahead of remote)
+      - Unpulled commits (behind remote)
+   c. Run `git log --oneline --graph --all -10` to see recent commit history
+   d. For each configured remote (origin, gitlab, etc.):
+      - Compare local HEAD with remote HEAD using `git rev-list --left-right --count <branch>...origin/<branch>`
+   e. REPORT to user if ANY of these conditions exist:
+      - "⚠️ Local has UNCOMMITTED changes (X files modified/staged)"
+      - "⚠️ Local is AHEAD of <remote> by X commits (unpushed work)"
+      - "⚠️ Local is BEHIND <remote> by X commits (need to pull)"
+      - "⚠️ Local has DIVERGED from <remote> (both ahead and behind)"
+      - "✅ Local matches all remotes - working on current version"
+   f. If ANY warnings exist:
+      - STOP and ask user: "How do you want to proceed? (pull/push/stash/review changes)"
+      - DO NOT continue until user responds
+4. ✅ Quick Context:
    - Building Proxmox VE 9.1 DevOps/QA lab on HP Z8 G4
    - 6 VMs: GitLab, Runner, QA Host, SonarQube, Monitoring, Traefik
    - ZFS storage: local-zfs (rpool1), vm-critical (rpool2), vm-ephemeral (rpool3)
