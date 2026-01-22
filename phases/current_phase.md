@@ -1,6 +1,45 @@
 # Current Phase
 
-**Updated:** January 14, 2026 - 4:55 PM EST
+**Updated:** January 22, 2026 - 6:34 PM EST
+
+---
+
+## 🌐 Phase 7 Planning: Local WWW/Production Server (Jan 22, 2026)
+
+**What:** Plan to replace expensive GCP hosting with local production server
+
+**Goal:** 
+- Host Capricorn PROD locally at cap.gothamtechnologies.com
+- Host splash page at www.gothamtechnologies.com
+- Keep GCP (capricorn.gothamtechnologies.com) for interview demos only
+- Save ~$30-45/month in GCP costs
+
+**Phase 7 Plan Created:** `/phases/phase7_local_www.md`
+
+**Key Decisions:**
+| Decision | Choice |
+|----------|--------|
+| VM | vm-www-1 @ 192.168.1.184 (4GB RAM, 4 cores, 50GB vm-critical) |
+| Reverse Proxy | Traefik on same VM (not separate) |
+| SSL Method | HTTP-01 (Let's Encrypt, no AWS creds needed) |
+| Dynamic DNS | NoIP hostname: capricorn.ddns.net |
+| Router | Verizon G3100, ports 80/443 forwarded |
+| Network Isolation | Proxmox firewall (SSH internal only, no external) |
+| Pipeline | Two manual buttons: "Deploy to Local PROD" + "Deploy to GCP PROD" |
+
+**DNS Layout:**
+- cap.gothamtechnologies.com → CNAME → capricorn.ddns.net (local)
+- www.gothamtechnologies.com → CNAME → capricorn.ddns.net (local)
+- capricorn.gothamtechnologies.com → A → GCP IP (unchanged, interviews)
+
+**Manual Tasks for Andrew:**
+1. Configure G3100 port forwarding (80, 443 → 192.168.1.184)
+2. Create Route53 CNAMEs (cap, www → capricorn.ddns.net)
+
+**Status:** Planning complete, awaiting approval to implement
+
+**Git Commits:**
+- `46846d7` - Enhance setup_desktop.sh: file manager preferences + sysbench fix
 
 ---
 
