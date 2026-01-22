@@ -11,7 +11,7 @@
 # 4. Install Google Chrome
 # 5. Install Cursor (AI code editor)
 # 6. Set display resolution to 1920x1080
-# 7. Hide Home folder icon on desktop
+# 7. Hide Home folder icon on desktop, configure file manager (list view, show hidden)
 # 8. Disable screen lock and screen saver
 # 9. Create "Andrew" terminal profile
 # 10. Configure dock icons
@@ -156,6 +156,15 @@ if command -v gsettings &> /dev/null; then
     # Set dock icon size to 32
     gsettings set org.gnome.shell.extensions.dash-to-dock dash-max-icon-size 32 2>/dev/null && \
         echo "    Set dock icon size to 32" || true
+    
+    # Configure Nautilus file manager preferences
+    # Set default view to list view
+    gsettings set org.gnome.nautilus.preferences default-folder-viewer 'list-view' 2>/dev/null && \
+        echo "    Set default file view to list view" || true
+    
+    # Show hidden files by default
+    gsettings set org.gtk.Settings.FileChooser show-hidden true 2>/dev/null && \
+        echo "    Enabled showing hidden files" || true
 else
     echo "    WARNING: gsettings not found (not GNOME?)"
 fi
@@ -287,8 +296,8 @@ fi
 
 # Add sysbench alias
 if ! grep -q "alias sysbench=" "$BASHRC" 2>/dev/null; then
-    echo "alias sysbench='sysbench --threads=\$(nproc) cpu run'" >> "$BASHRC"
-    echo "    Added alias: sysbench -> sysbench --threads=\$(nproc) cpu run"
+    echo "alias sysbench='sysbench --threads=$(nproc) cpu run'" >> "$BASHRC"
+    echo "    Added alias: sysbench -> sysbench --threads=$(nproc) cpu run"
 else
     echo "    Alias sysbench already exists"
 fi
@@ -322,6 +331,7 @@ echo "  ✓ Cursor: Installed (AI code editor)"
 echo "  ✓ Resolution: 1920x1080"
 echo "  ✓ Home folder: Hidden"
 echo "  ✓ Dock panel mode: Disabled (floating, 32px icons)"
+echo "  ✓ File manager: List view, show hidden files"
 echo "  ✓ Screen lock: Disabled"
 echo "  ✓ Screen saver: Disabled"
 echo "  ✓ Terminal profile: Andrew (200x50, transparent dark)"
