@@ -18,7 +18,8 @@
 - **GitHub repos:** home-lab-setup + Capricorn (both updated)
 - **SonarQube LIVE at http://192.168.1.183:9000** (v26.1.0, admin/[See PASSWORDS.md])
 - **Phase 6 COMPLETE:** Both test-app and Capricorn integrated with SonarQube!
-- Next: Phase 7 (Monitoring Stack) or Phase 8 (Traefik+SSL)
+- **Phase 7 PLANNING:** Local WWW Server (replace GCP, save ~$400/year)
+- Next: Implement Phase 7 (vm-www-1 @ .184)
 
 ---
 
@@ -229,8 +230,8 @@ apt-mark showhold
 | 4 | GitLab Runner | ✅ VERIFIED |
 | 5 | CI/CD Pipelines | ✅ COMPLETE (QA + GCP both working!) |
 | 6 | SonarQube | ✅ COMPLETE (test-app + Capricorn both integrated!) |
-| 7 | Monitoring Stack | 🔲 |
-| 8 | Traefik + SSL | 🔲 |
+| 7 | Local WWW Server | 📋 PLANNING (vm-www-1 @ .184, replace GCP) |
+| 8 | Monitoring Stack | 🔲 |
 
 **Phase docs:** `/phases/`
 
