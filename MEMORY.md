@@ -18,8 +18,10 @@
 - **GitHub repos:** home-lab-setup + Capricorn (both updated)
 - **SonarQube LIVE at http://192.168.1.183:9000** (v26.1.0, admin/[See PASSWORDS.md])
 - **Phase 6 COMPLETE:** Both test-app and Capricorn integrated with SonarQube!
-- **Phase 7 PLANNING:** Local WWW Server (replace GCP, save ~$400/year)
-- Next: Implement Phase 7 (vm-www-1 @ .184)
+- **Phase 7 COMPLETE:** Local WWW Server operational! (vm-www-1 @ .184)
+- **PROD URLs:** https://cap.gothamtechnologies.com (Capricorn) + https://www.gothamtechnologies.com (splash)
+- **Cost Savings:** ~$400/year by replacing GCP hosting
+- Next: Phase 8 (Monitoring Stack)
 
 ---
 
@@ -32,7 +34,7 @@
 | GitLab | .181 | ✅ LIVE |
 | Runner | .182 | ✅ LIVE (gitlab-runner-1) |
 | SonarQube | .183 | ✅ LIVE (vm-sonarqube-1, v26.1.0) |
-| **WWW** | **.184** | **🔧 BUILDING (vm-www-1, Phase 7)** |
+| **WWW** | **.184** | **✅ LIVE (vm-www-1, Traefik, Capricorn PROD, Splash)** |
 
 ---
 
@@ -241,8 +243,8 @@ apt-mark showhold
 | 4 | GitLab Runner | ✅ VERIFIED |
 | 5 | CI/CD Pipelines | ✅ COMPLETE (QA + GCP both working!) |
 | 6 | SonarQube | ✅ COMPLETE (test-app + Capricorn both integrated!) |
-| 7 | Local WWW Server | 📋 PLANNING (vm-www-1 @ .184, replace GCP) |
-| 8 | Monitoring Stack | 🔲 |
+| 7 | Local WWW Server | ✅ COMPLETE (vm-www-1 @ .184, cap + www live!) |
+| 8 | Monitoring Stack | 🔲 NEXT |
 
 **Phase docs:** `/phases/`
 
@@ -272,6 +274,134 @@ apt-mark showhold
 
 ---
 
+## WWW SERVER (LOCAL PRODUCTION)
+
+- **VM:** vm-www-1 @ 192.168.1.184
+- **RAM:** 8 GB | **CPU:** 8 cores | **Disk:** 50 GB (vm-critical)
+- **OS:** Ubuntu 24.04 Desktop
+- **URLs:** 
+  - https://cap.gothamtechnologies.com (Capricorn PROD)
+  - https://www.gothamtechnologies.com (Splash page)
+  - https://192.168.1.184 (Direct IP access from internal network)
+- **Reverse Proxy:** Traefik v3 (ports 80/443/8080)
+- **SSL:** Let's Encrypt (HTTP-01 challenge, auto-renewal)
+- **DDNS:** bullpup.ddns.net (Verizon G3100 router-managed)
+- **DNS:** AWS Route53 CNAMEs → bullpup.ddns.net
+
+### Docker Network Architecture
+
+**Key Learning:** Traefik must be on BOTH networks to route traffic correctly!
+
+```
+web (172.18.0.0/16) - Public-facing network
+├── traefik (172.18.0.5)
+├── splash (172.18.0.2)
+├── capricorn-frontend (172.18.0.4)
+└── capricorn-backend (172.18.0.3)
+
+capricorn_capricorn-network (172.19.0.0/16) - Internal application network
+├── traefik (172.19.0.6) ← MUST be here to reach backend services!
+├── capricorn-frontend (172.19.0.5)
+├── capricorn-backend (172.19.0.4)
+├── postgres (172.19.0.3) ← NOT on web network (security)
+└── redis (172.19.0.2) ← NOT on web network (security)
+```
+
+**Why two networks:**
+- `web` network: Public-facing services (Traefik, frontend, splash)
+- `capricorn_capricorn-network`: Application services + database isolation
+- Traefik bridges both networks to route traffic
+- Databases stay isolated from public network (security best practice)
+
+### Traefik Configuration
+
+**Location:** `/opt/traefik/`
+
+**docker-compose.yml:**
+```yaml
+services:
+  traefik:
+    image: traefik:latest
+    networks:
+      - web
+      - capricorn_capricorn-network  # ← CRITICAL: Must join both networks!
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080"  # API/dashboard for debugging
+```
+
+**traefik.yml:**
+- DEBUG logging enabled (helpful for troubleshooting)
+- HTTP-01 challenge for Let's Encrypt
+- Auto HTTP→HTTPS redirect
+- Docker provider with `exposedByDefault: false`
+
+### Capricorn PROD Deployment
+
+**Location:** `/opt/capricorn/`
+
+**Key Features:**
+- Images pulled from GitLab Container Registry
+- Traefik labels for routing (both hostname and IP)
+- Database initialization via mounted SQL scripts
+- Persistent volumes for postgres + redis
+
+**Routing:**
+- `cap.gothamtechnologies.com` → frontend + backend (/api)
+- `192.168.1.184` → frontend + backend (/api) - for internal access
+
+### Security - Proxmox Firewall
+
+**vm-www-1 Firewall Rules:**
+- ✅ IN: SSH (22) from 192.168.1.0/24 ONLY
+- ✅ IN: HTTP (80) from anywhere
+- ✅ IN: HTTPS (443) from anywhere
+- ✅ OUT: Allow all (for apt, docker pulls, Let's Encrypt)
+- ❌ NO SSH from internet (blocked by source IP filter)
+
+**Router Port Forwarding (Verizon G3100):**
+- 80 → 192.168.1.184:80
+- 443 → 192.168.1.184:443
+- NO port 22 forwarding (SSH internal only)
+
+### Troubleshooting Notes (Jan 22, 2026)
+
+**Problem:** HTTPS timeout, but HTTP worked (redirected to HTTPS)
+
+**Root Cause:** Traefik and Capricorn containers on different networks
+- Traefik on `web` network (172.18.0.x)
+- Capricorn on `capricorn_capricorn-network` (172.19.0.x)
+- Traefik logs showed wrong IPs (172.19.0.5 instead of actual container IPs)
+
+**Solution:**
+1. Connected Traefik to capricorn network: `docker network connect capricorn_capricorn-network traefik`
+2. Updated `/opt/traefik/docker-compose.yml` to include both networks permanently
+3. Containers restarted successfully, traffic flowing
+
+**Lesson:** Multi-service applications with their own networks require reverse proxy to join ALL networks!
+
+### GitLab CI/CD Integration
+
+**Pipeline Stages:** build → push → scan → deploy_qa → deploy_prod
+
+**New Deployment Jobs (production branch):**
+- `deploy_prod_local` (manual) → vm-www-1 @ 192.168.1.184
+- `deploy_prod_gcp` (manual) → Google Cloud Platform (for interviews)
+
+**Deployment Method:**
+- SSH to vm-www-1
+- Pull latest images from GitLab registry
+- `docker compose up -d` in `/opt/capricorn/`
+
+### Cost Savings
+
+- **Before:** GCP hosting ~$30-45/month (~$400/year)
+- **After:** Local hosting ~$2-3/month electricity
+- **Savings:** ~$400/year 💰
+
+---
+
 ## GITHUB
 
 - **Repo:** https://github.com/fiberoptix/home-lab-setup
@@ -286,10 +416,13 @@ apt-mark showhold
 - **GitLab:** http://gitlab.gothamtechnologies.com/production/capricorn
 - **GitHub:** https://github.com/fiberoptix/capricorn
 - **Remotes:** Dual-remote setup (origin=GitHub, gitlab=GitLab)
-- **Branches:** develop (QA auto-deploy), production (GCP manual deploy)
-- **Production (GCP):** http://capricorn.gothamtechnologies.com
+- **Branches:** develop (QA auto-deploy), production (Local PROD + GCP manual deploy)
+- **Production (Local):** https://cap.gothamtechnologies.com (Phase 7 - in progress)
+- **Production (GCP):** http://capricorn.gothamtechnologies.com (for interviews)
 - **QA (CI/CD):** http://192.168.1.180:5001 ✅ PIPELINE DEPLOYED
-- **Local Path:** /home/agamache/DevShare/cursor-projects/unified_ui_DEV_PROD_GCP_2026.1.12/capricorn
+- **Local Path:** /home/agamache/DevShare/cursor-projects/unified_ui_DEV_PROD_GCP/capricorn
+
+**Note:** Standard project path is now `unified_ui_DEV_PROD_GCP` (no date suffix)
 
 ---
 
