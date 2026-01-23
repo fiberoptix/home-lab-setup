@@ -1,14 +1,14 @@
 # Current Phase
 
-**Updated:** January 22, 2026 - 8:47 PM EST
+**Updated:** January 22, 2026 - 9:18 PM EST
 
 ---
 
 ## ✅ Phase 7 COMPLETE: Local WWW/Production Server (Jan 22, 2026)
 
 **Status:** COMPLETE 🎉  
-**Duration:** 5:30 PM - 8:45 PM EST (~3 hours)  
-**Result:** Capricorn PROD + Splash page live at cap.gothamtechnologies.com and www.gothamtechnologies.com
+**Duration:** 5:30 PM - 9:18 PM EST (~4 hours total, including HTTPS fix)  
+**Result:** Capricorn PROD + Splash page live and fully functional at cap.gothamtechnologies.com and www.gothamtechnologies.com
 
 ### Final Working Configuration
 
@@ -75,8 +75,39 @@
 15. ✅ Added IP-based routing (direct access via 192.168.1.184)
 16. ✅ **FIXED Docker networking** (Traefik on both networks)
 17. ✅ Full end-to-end testing (external + internal access)
+18. ✅ **FIXED HTTPS mixed content** (frontend API auto-detection)
 
 **Cost Savings:** ~$400/year by replacing GCP hosting!
+
+### Post-Deployment Bug Fix: HTTPS Mixed Content (9:00 PM - 9:18 PM)
+
+**Problem Discovered:**
+- User attempted to import demo data → failed silently
+- Browser console showed "Mixed Content" security errors
+- All API calls from HTTPS page to HTTP backend blocked by browser
+
+**Root Cause:**
+- Frontend hardcoded `http://hostname:5002` for API URL
+- HTTPS page (cap.gothamtechnologies.com) calling HTTP API blocked by browser security
+- Vite environment variables are build-time, not runtime (setting at container runtime didn't work)
+
+**Solution Implemented:**
+- Updated `frontend/src/config/api.ts` to auto-detect protocol
+- HTTPS page → use `https://hostname/api` (via Traefik)
+- HTTP page → use `http://hostname:5002` (direct, DEV/QA)
+- Single code change, single image works for ALL environments
+
+**Deployment:**
+- Commit `c83fe2f` pushed to develop → QA auto-deploy (verified HTTP still works)
+- Merged develop → production
+- Deployed via GitLab `deploy_prod_local` button
+- **Result:** All API calls working, data import functional ✅
+
+**Impact:**
+- ✅ PROD-Local: FIXED
+- ✅ DEV/QA: UNCHANGED  
+- ✅ GCP: UNCHANGED
+- ✅ Future: Automatic, no ongoing maintenance
 
 ---
 
