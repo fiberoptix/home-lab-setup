@@ -51,8 +51,8 @@ Internet
 
 | Domain | Record Type | Value | Purpose |
 |--------|-------------|-------|---------|
-| `cap.gothamtechnologies.com` | CNAME | `capricorn.ddns.net` | Local Capricorn |
-| `www.gothamtechnologies.com` | CNAME | `capricorn.ddns.net` | Splash page |
+| `cap.gothamtechnologies.com` | CNAME | `bullpup.ddns.net` | Local Capricorn |
+| `www.gothamtechnologies.com` | CNAME | `bullpup.ddns.net` | Splash page |
 | `capricorn.gothamtechnologies.com` | A | GCP IP (existing) | Interview demos |
 
 ### Environment Naming (Final)
@@ -113,11 +113,23 @@ qm create 184 \
 
 ### Task 2: Run Host Setup Scripts
 
+**From Proxmox console on vm-www-1 (SSH not available yet):**
+
 ```bash
-# On vm-www-1 after Ubuntu install
+# Download, make executable, and run
 wget http://192.168.1.195/scripts/host_setup.sh
-bash host_setup.sh
+chmod +x host_setup.sh
+./host_setup.sh
 ```
+
+**Or one-liner:**
+```bash
+wget http://192.168.1.195/scripts/host_setup.sh && chmod +x host_setup.sh && ./host_setup.sh
+```
+
+**Note:** The main script automatically downloads all sub-scripts before running them.
+
+**After reboot:** Run `update` from terminal to apply system updates.
 
 This installs:
 - ✅ SSH server
@@ -471,70 +483,34 @@ deploy_prod_gcp:
 
 **Verify:** After setup, check https://www.yougetsignal.com/tools/open-ports/ to confirm ports 80/443 are open.
 
-### Task 9: Install and Configure NoIP on vm-www-1
+### Task 9: Verify NoIP DDNS (Router-Managed)
 
-NoIP Dynamic Update Client (DUC) will run on vm-www-1 to keep your dynamic IP updated.
+**DDNS is handled by the Verizon G3100 router** - no client installation needed on vm-www-1!
 
-**Prerequisites:**
-1. NoIP.com account (Andrew has this)
-2. Hostname created in NoIP (e.g., `gothamtech.ddns.net`)
+**NoIP Hostname:** `bullpup.ddns.net` (existing, already configured on router)
 
-**Install NoIP DUC on vm-www-1:**
+**Verification Steps:**
+
 ```bash
-# SSH to vm-www-1
-ssh agamache@192.168.1.184
+# From DEV workstation, verify NoIP hostname resolves to your public IP:
+dig bullpup.ddns.net +short
 
-# Install build dependencies
-sudo apt update
-sudo apt install -y build-essential
-
-# Download NoIP DUC
-cd /usr/local/src
-sudo wget https://dmej8g5cpdyqd.cloudfront.net/downloads/noip-duc_3.3.0.tar.gz
-sudo tar xzf noip-duc_3.3.0.tar.gz
-cd noip-duc_3.3.0
-
-# Build and install
-sudo make
-sudo make install
-
-# Configure (will prompt for NoIP credentials)
-sudo noip-duc --configure
-
-# Create systemd service
-sudo tee /etc/systemd/system/noip-duc.service << 'EOF'
-[Unit]
-Description=NoIP Dynamic Update Client
-After=network.target
-
-[Service]
-Type=simple
-ExecStart=/usr/local/bin/noip-duc
-Restart=on-failure
-RestartSec=10
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-# Enable and start service
-sudo systemctl daemon-reload
-sudo systemctl enable noip-duc
-sudo systemctl start noip-duc
-
-# Verify it's running
-sudo systemctl status noip-duc
-```
-
-**Verify IP Update:**
-```bash
-# Check NoIP dashboard shows your current public IP
-# Or use:
+# Get your actual public IP:
 curl -s ifconfig.me
-# Compare with what NoIP shows for your hostname
+
+# Both should match!
 ```
 
-**Note:** NoIP DUC checks your IP periodically and updates the hostname if it changes. This ensures `cap.gothamtechnologies.com` and `www.gothamtechnologies.com` always resolve to your current home IP.
+**If they don't match:**
+1. Login to G3100 router (http://192.168.1.1)
+2. Navigate to: Advanced → Dynamic DNS
+3. Verify NoIP credentials and hostname are correct
+4. Force an update or wait for automatic refresh
+
+**Note:** Router DDNS is preferred because:
+- Router is always on and connected
+- Knows immediately when IP changes
+- No additional software to maintain on VMs
 
 ### Task 10: Configure AWS Route53 (MANUAL - Andrew)
 
@@ -546,8 +522,8 @@ curl -s ifconfig.me
 
 | Name | Type | Value | TTL |
 |------|------|-------|-----|
-| cap | CNAME | capricorn.ddns.net | 300 |
-| www | CNAME | capricorn.ddns.net | 300 |
+| cap | CNAME | bullpup.ddns.net | 300 |
+| www | CNAME | bullpup.ddns.net | 300 |
 
 **Keep existing (unchanged):**
 | Name | Type | Value | TTL |
@@ -557,9 +533,9 @@ curl -s ifconfig.me
 **TTL Note:** Using 300 seconds (5 min) for faster propagation during testing. Can increase later.
 
 **Checklist:**
-- [ ] Andrew: Create `cap` CNAME → `capricorn.ddns.net`
-- [ ] Andrew: Create `www` CNAME → `capricorn.ddns.net`
-- [ ] Verify with: `dig cap.gothamtechnologies.com` (should return CNAME to capricorn.ddns.net)
+- [ ] Andrew: Create `cap` CNAME → `bullpup.ddns.net`
+- [ ] Andrew: Create `www` CNAME → `bullpup.ddns.net`
+- [ ] Verify with: `dig cap.gothamtechnologies.com` (should return CNAME to bullpup.ddns.net)
 
 ---
 
@@ -571,10 +547,9 @@ curl -s ifconfig.me
 - [ ] host_setup.sh completed successfully
 - [ ] Docker running, can pull from GitLab registry
 - [ ] Proxmox firewall rules in place (80, 443 open; SSH internal only)
-- [ ] NoIP DUC installed and running on vm-www-1
-- [ ] NoIP hostname (capricorn.ddns.net) showing correct public IP
+- [ ] NoIP hostname (bullpup.ddns.net) showing correct public IP (router-managed)
 - [ ] **Andrew:** Router port forwarding configured (80, 443 → .184)
-- [ ] **Andrew:** Route53 CNAMEs created (cap, www → capricorn.ddns.net)
+- [ ] **Andrew:** Route53 CNAMEs created (cap, www → bullpup.ddns.net)
 
 ### SSL Certificate Test
 
@@ -643,8 +618,8 @@ If issues occur:
 
 | Question | Answer | Date |
 |----------|--------|------|
-| NoIP installation | Install on vm-www-1 | Jan 22, 2026 |
-| NoIP hostname | capricorn.ddns.net | Jan 22, 2026 |
+| NoIP hostname | bullpup.ddns.net | Jan 22, 2026 |
+| NoIP DDNS updates | Router-managed (G3100), no VM client needed | Jan 22, 2026 |
 | Route53 configuration | Manual task for Andrew | Jan 22, 2026 |
 | Router model | Verizon G3100 | Jan 22, 2026 |
 | SSH from WAN | NO - internal only | Jan 22, 2026 |
@@ -663,10 +638,10 @@ None - all questions resolved! Ready for implementation.
 | 1 | Create VM in Proxmox | AI | 🔲 |
 | 2 | Run host_setup.sh | AI | 🔲 |
 | 3 | Configure Proxmox firewall | AI | 🔲 |
-| 4 | Install NoIP DUC on vm-www-1 | AI | 🔲 |
-| 5 | Install Traefik + create Docker network | AI | 🔲 |
-| 6 | Deploy splash page container | AI | 🔲 |
-| 7 | Configure Verizon G3100 port forwarding | Andrew | 🔲 |
+| 4 | Install Traefik + create Docker network | AI | 🔲 |
+| 5 | Deploy splash page container | AI | 🔲 |
+| 6 | Configure Verizon G3100 port forwarding | Andrew | 🔲 |
+| 7 | Verify NoIP DDNS (bullpup.ddns.net) | AI | 🔲 |
 | 8 | Configure Route53 CNAMEs | Andrew | 🔲 |
 | 9 | Test SSL certificates (wait for DNS propagation) | AI | 🔲 |
 | 10 | Update GitLab CI/CD pipeline | AI | 🔲 |

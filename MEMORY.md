@@ -30,8 +30,9 @@
 | Proxmox | .150 | ✅ Running |
 | QA/K8s | .180 | ✅ Built (vm-kubernetes-1) |
 | GitLab | .181 | ✅ LIVE |
-| **Runner** | **.182** | **✅ LIVE (gitlab-runner-1)** |
-| **SonarQube** | **.183** | **✅ LIVE (vm-sonarqube-1, v26.1.0)** |
+| Runner | .182 | ✅ LIVE (gitlab-runner-1) |
+| SonarQube | .183 | ✅ LIVE (vm-sonarqube-1, v26.1.0) |
+| **WWW** | **.184** | **🔧 BUILDING (vm-www-1, Phase 7)** |
 
 ---
 
@@ -84,8 +85,18 @@ Use docker socket mount for builds: `volumes = ["/var/run/docker.sock:/var/run/d
 **Setup new host:** 
 ```bash
 wget http://192.168.1.195/scripts/host_setup.sh
-bash host_setup.sh
+chmod +x host_setup.sh
+./host_setup.sh
 ```
+
+**Or one-liner:**
+```bash
+wget http://192.168.1.195/scripts/host_setup.sh && chmod +x host_setup.sh && ./host_setup.sh
+```
+
+**Note:** The main script automatically downloads all sub-scripts (setup_ssh.sh, setup_docker.sh, etc.) before running them.
+
+**After reboot:** Run `update` from terminal to apply system updates.
 
 ---
 

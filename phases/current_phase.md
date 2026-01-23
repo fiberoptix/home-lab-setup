@@ -4,9 +4,9 @@
 
 ---
 
-## 🌐 Phase 7 Planning: Local WWW/Production Server (Jan 22, 2026)
+## 🌐 Phase 7 Implementation: Local WWW/Production Server (Jan 22, 2026)
 
-**What:** Plan to replace expensive GCP hosting with local production server
+**What:** Replace expensive GCP hosting with local production server
 
 **Goal:** 
 - Host Capricorn PROD locally at cap.gothamtechnologies.com
@@ -14,32 +14,53 @@
 - Keep GCP (capricorn.gothamtechnologies.com) for interview demos only
 - Save ~$30-45/month in GCP costs
 
-**Phase 7 Plan Created:** `/phases/phase7_local_www.md`
+**Phase 7 Plan:** `/phases/phase7_local_www.md`
 
 **Key Decisions:**
 | Decision | Choice |
 |----------|--------|
-| VM | vm-www-1 @ 192.168.1.184 (4GB RAM, 4 cores, 50GB vm-critical) |
+| VM | vm-www-1 @ 192.168.1.184 (8GB RAM, 8 cores, 50GB vm-critical) |
 | Reverse Proxy | Traefik on same VM (not separate) |
 | SSL Method | HTTP-01 (Let's Encrypt, no AWS creds needed) |
-| Dynamic DNS | NoIP hostname: capricorn.ddns.net |
+| Dynamic DNS | NoIP hostname: bullpup.ddns.net (router-managed) |
 | Router | Verizon G3100, ports 80/443 forwarded |
 | Network Isolation | Proxmox firewall (SSH internal only, no external) |
 | Pipeline | Two manual buttons: "Deploy to Local PROD" + "Deploy to GCP PROD" |
 
 **DNS Layout:**
-- cap.gothamtechnologies.com → CNAME → capricorn.ddns.net (local)
-- www.gothamtechnologies.com → CNAME → capricorn.ddns.net (local)
+- cap.gothamtechnologies.com → CNAME → bullpup.ddns.net (local)
+- www.gothamtechnologies.com → CNAME → bullpup.ddns.net (local)
 - capricorn.gothamtechnologies.com → A → GCP IP (unchanged, interviews)
 
-**Manual Tasks for Andrew:**
-1. Configure G3100 port forwarding (80, 443 → 192.168.1.184)
-2. Create Route53 CNAMEs (cap, www → capricorn.ddns.net)
+**Implementation Progress (Jan 22, 2026 - 5:30 PM onwards):**
 
-**Status:** Planning complete, awaiting approval to implement
+| Step | Task | Status |
+|------|------|--------|
+| 1 | Create VM in Proxmox | ✅ DONE (VM 184 created) |
+| 2 | Run host_setup.sh | ✅ DONE (running updates) |
+| 3 | Configure Proxmox firewall | 🔲 Next |
+| 4 | Install Traefik + Docker network | 🔲 |
+| 5 | Deploy splash page | 🔲 |
+| 6 | Configure G3100 port forwarding | 🔲 Andrew |
+| 7 | Verify NoIP DDNS | ✅ DONE (bullpup.ddns.net = 108.6.178.182) |
+| 8 | Configure Route53 CNAMEs | 🔲 Andrew |
+| 9 | Test SSL certificates | 🔲 |
+| 10 | Update GitLab CI/CD pipeline | 🔲 |
+| 11 | Copy SSH key from runner | 🔲 |
+| 12 | Deploy Capricorn via pipeline | 🔲 |
+| 13 | End-to-end testing | 🔲 |
+
+**VM Created:**
+- VMID: 184
+- Name: vm-www-1
+- IP: 192.168.1.184
+- RAM: 8GB, CPU: 8 cores
+- Disk: 50GB on vm-critical (mirrored)
+- OS: Ubuntu 24.04 Desktop
 
 **Git Commits:**
 - `46846d7` - Enhance setup_desktop.sh: file manager preferences + sysbench fix
+- `92c389a` - Phase 7 planning: Local WWW server to replace GCP hosting
 
 ---
 
