@@ -24,7 +24,7 @@ This system was designed out of interest to build and deploy the **Capricorn** p
 **Please check out the Capricorn project:**
 - 📦 **GitLab Repository:** http://gitlab.gothamtechnologies.com/capricorn
 - 🌐 **Live Demo (PROD-Local):** https://cap.gothamtechnologies.com ← **Check it out!**
-- ☁️ **GCP Backup:** https://capricorn.gothamtechnologies.com (available on-demand for interviews)
+- ☁️ **GCP Instance:** https://capricorn.gothamtechnologies.com (available on-demand for public demos)
 
 **Total Hardware Cost:** $3,894  
 **Monthly Operating Cost:** ~$15-20 (electricity)  
@@ -115,7 +115,7 @@ This system was designed out of interest to build and deploy the **Capricorn** p
 - ✅ Test App: http://192.168.1.180:8080 (validation + quality scan)
 - ✅ Capricorn: http://192.168.1.180:5001 (QA automated + quality scan)
 - ✅ Capricorn: https://cap.gothamtechnologies.com (PROD-Local, primary)
-- ☁️ Capricorn: https://capricorn.gothamtechnologies.com (GCP backup, on-demand)
+- ☁️ Capricorn: https://capricorn.gothamtechnologies.com (GCP instance, on-demand)
 
 **Code Quality Scanning:**
 - ✅ test-app: 86 LOC, Quality Gate PASSED (0 bugs, 0 security issues)
@@ -260,7 +260,7 @@ This lab supports:
 
 **Target Application:** Capricorn (unified personal finance application)
 - Production (Primary): https://cap.gothamtechnologies.com (home lab)
-- Production (Backup): https://capricorn.gothamtechnologies.com (GCP, on-demand)
+- Production (Instance): https://capricorn.gothamtechnologies.com (GCP, on-demand)
 - QA: http://192.168.1.180:5001 (home lab)
 
 ---
