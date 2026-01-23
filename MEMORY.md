@@ -18,9 +18,11 @@
 - **GitHub repos:** home-lab-setup + Capricorn (both updated)
 - **SonarQube LIVE at http://192.168.1.183:9000** (v26.1.0, admin/[See PASSWORDS.md])
 - **Phase 6 COMPLETE:** Both test-app and Capricorn integrated with SonarQube!
-- **Phase 7 COMPLETE:** Local WWW Server operational! (vm-www-1 @ .184)
-- **PROD URLs:** https://cap.gothamtechnologies.com (Capricorn) + https://www.gothamtechnologies.com (splash)
+- **Phase 7 COMPLETE:** Local WWW Server operational + all documentation updated! (vm-www-1 @ .184)
+- **PROD URLs (PRIMARY):** https://cap.gothamtechnologies.com (Capricorn) + https://www.gothamtechnologies.com (splash)
+- **GCP Instance (on-demand):** https://capricorn.gothamtechnologies.com (for public demos)
 - **Cost Savings:** ~$400/year by replacing GCP hosting
+- **README Files:** Both projects direct users to cap.* as primary production URL
 - Next: Phase 8 (Monitoring Stack)
 
 ---
