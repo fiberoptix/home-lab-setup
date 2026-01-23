@@ -510,6 +510,122 @@ echo "192.168.1.184 cap.gothamtechnologies.com" | sudo tee -a /etc/hosts
 
 **Result:** Can now access via IP directly from internal network
 
+### Issue 5: HTTPS Mixed Content Security Error (Jan 22, 9:00 PM - 9:18 PM)
+
+**Symptoms:**
+- Page loaded but all API calls failed silently
+- Data import functionality broken
+- Browser console showed "Mixed Content" errors
+- All dashboard data showed "$0.00" / empty
+- Database summary showed loading spinner forever
+
+**Browser Errors:**
+```
+Mixed Content: The page at 'https://cap.gothamtechnologies.com/' 
+was loaded over HTTPS, but requested an insecure resource 
+'http://cap.gothamtechnologies.com:5002/api/v1/...'
+This request has been blocked; the content must be served over HTTPS.
+```
+
+**Root Cause:**
+- Frontend JavaScript hardcoded `http://hostname:5002` for API URL
+- Worked fine for DEV/QA (served over HTTP)
+- **Broken for PROD-Local** (served over HTTPS via Traefik)
+- Browser security blocks HTTP requests from HTTPS pages (mixed content)
+- Frontend tried to call backend directly on port 5002 instead of using Traefik's `/api` proxy route
+
+**Code Problem:**
+```typescript
+// frontend/src/config/api.ts (OLD - BROKEN)
+if (typeof window !== 'undefined') {
+  const dynamicUrl = `http://${window.location.hostname}:5002`;  // ← Hardcoded HTTP!
+  return dynamicUrl;
+}
+```
+
+**Why Environment Variables Didn't Work:**
+- Tried setting `VITE_API_URL=/api` in docker-compose.yml
+- **Failed** because Vite environment variables are **build-time**, not runtime
+- Variables are baked into the JavaScript during `npm build`
+- Container environment variables can't change already-built JavaScript
+
+**Solution Considered:**
+1. ❌ **Option 1:** Build separate PROD-Local image with different API URL
+   - Pro: Quick fix
+   - Con: Must maintain 2 build processes forever
+   - Con: 2 different images in registry
+   - Con: More complex CI/CD pipeline
+   - Con: Future updates require managing 2 builds
+
+2. ✅ **Option 2:** Auto-detect protocol in source code (CHOSEN)
+   - Pro: ONE code change fixes ALL environments
+   - Pro: Single image works for DEV, QA, PROD-Local, PROD-GCP
+   - Pro: No ongoing maintenance
+   - Pro: Future updates automatically work
+   - Pro: Simpler infrastructure
+
+**Solution Implemented:**
+```typescript
+// frontend/src/config/api.ts (NEW - FIXED)
+if (typeof window !== 'undefined') {
+  // Auto-detect: HTTPS = Traefik proxy, HTTP = direct port
+  if (window.location.protocol === 'https:') {
+    const relativeUrl = `${window.location.protocol}//${window.location.host}`;
+    console.log('🔒 Using HTTPS with Traefik proxy:', relativeUrl);
+    return relativeUrl;  // → https://cap.gothamtechnologies.com/api
+  }
+  
+  // HTTP = direct backend port (DEV/QA)
+  const dynamicUrl = `http://${window.location.hostname}:5002`;
+  return dynamicUrl;  // → http://192.168.1.180:5002
+}
+```
+
+**How It Works:**
+- **DEV (localhost:5001):** HTTP → uses `http://localhost:5002` (direct) ✅
+- **QA (192.168.1.180:5001):** HTTP → uses `http://192.168.1.180:5002` (direct) ✅
+- **PROD-Local (cap.gothamtechnologies.com):** HTTPS → uses `https://cap.gothamtechnologies.com/api` (Traefik) ✅
+- **PROD-GCP:** Uses `VITE_API_URL` build variable (unchanged) ✅
+
+**Deployment Steps:**
+1. Committed fix to `frontend/src/config/api.ts`
+2. Pushed to `develop` branch → triggered QA pipeline
+3. QA deployment succeeded (verified HTTP still works)
+4. Merged `develop` → `production` branch
+5. Pushed to GitLab/GitHub → triggered production pipeline
+6. Clicked `deploy_prod_local` manual button in GitLab
+7. New frontend image pulled to vm-www-1
+8. Containers restarted with fixed code
+
+**Testing Results:**
+```bash
+# Before fix:
+Browser Console: "Mixed Content... blocked"
+API Calls: ALL FAILED
+Data Import: BROKEN
+
+# After fix:
+Browser Console: "🔒 Using HTTPS with Traefik proxy: https://cap.gothamtechnologies.com"
+API Calls: ALL WORKING
+Data Import: WORKING ✅
+```
+
+**Impact:**
+- ✅ PROD-Local: **FIXED** - All API calls route through Traefik
+- ✅ DEV: **UNCHANGED** - Still uses direct port 5002
+- ✅ QA: **UNCHANGED** - Still uses direct port 5002  
+- ✅ GCP: **UNCHANGED** - Uses build-time VITE_API_URL
+
+**Lesson Learned:**
+- **Mixed content security** is strict - HTTP→HTTPS redirect not enough
+- **Vite env vars** are build-time, can't be changed at container runtime
+- **Protocol auto-detection** is more maintainable than separate builds
+- Always test HTTPS deployments early (would have caught this immediately)
+
+**Time to Fix:** ~18 minutes (diagnosis, code change, test, deploy)
+
+**Commit:** `c83fe2f` - "Fix: Auto-detect HTTPS for PROD-Local API routing"
+
 ---
 
 ## FINAL TESTING RESULTS
