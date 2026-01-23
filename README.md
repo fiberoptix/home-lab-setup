@@ -19,11 +19,12 @@ This repository documents the complete build of a **professional-grade DevOps ho
 - 🌐 **Dual Access:** Tailscale VPN (admin) + Public HTTPS (QA testing)
 - 🔐 **Security:** Zero-trust VPN, Let's Encrypt SSL, infrastructure isolation
 
-This system was designed out of interest to build and deploy the **Capricorn** project (a unified personal finance application hosted in the same GitLab repository) to multiple environments: **QA** (local Kubernetes/Docker on this home lab) and **PROD** (Google Cloud Platform). The infrastructure provides a complete DevOps pipeline for automated testing, quality gates, and deployment orchestration across both environments.
+This system was designed out of interest to build and deploy the **Capricorn** project (a unified personal finance application hosted in the same GitLab repository) to multiple environments: **QA** (local Kubernetes/Docker on this home lab) and **PROD** (local production server). The infrastructure provides a complete DevOps pipeline for automated testing, quality gates, and deployment orchestration.
 
 **Please check out the Capricorn project:**
 - 📦 **GitLab Repository:** http://gitlab.gothamtechnologies.com/capricorn
-- 🌐 **Production (GCP):** http://capricorn.gothamtechnologies.com
+- 🌐 **Live Demo (PROD-Local):** https://cap.gothamtechnologies.com ← **Check it out!**
+- ☁️ **GCP Backup:** https://capricorn.gothamtechnologies.com (available on-demand for interviews)
 
 **Total Hardware Cost:** $3,894  
 **Monthly Operating Cost:** ~$15-20 (electricity)  
@@ -113,7 +114,8 @@ This system was designed out of interest to build and deploy the **Capricorn** p
 **Applications Deployed via CI/CD:**
 - ✅ Test App: http://192.168.1.180:8080 (validation + quality scan)
 - ✅ Capricorn: http://192.168.1.180:5001 (QA automated + quality scan)
-- ✅ Capricorn: http://capricorn.gothamtechnologies.com (GCP production)
+- ✅ Capricorn: https://cap.gothamtechnologies.com (PROD-Local, primary)
+- ☁️ Capricorn: https://capricorn.gothamtechnologies.com (GCP backup, on-demand)
 
 **Code Quality Scanning:**
 - ✅ test-app: 86 LOC, Quality Gate PASSED (0 bugs, 0 security issues)
@@ -257,8 +259,9 @@ This lab supports:
 - ✅ Private admin access (Tailscale VPN from anywhere)
 
 **Target Application:** Capricorn (unified personal finance application)
-- Production: capricorn.gothamtechnologies.com (GCP)
-- QA: capricorn-qa.gothamtechnologies.com (home lab)
+- Production (Primary): https://cap.gothamtechnologies.com (home lab)
+- Production (Backup): https://capricorn.gothamtechnologies.com (GCP, on-demand)
+- QA: http://192.168.1.180:5001 (home lab)
 
 ---
 
