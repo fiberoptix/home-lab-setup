@@ -1,14 +1,14 @@
 # Current Phase
 
-**Updated:** January 22, 2026 - 9:18 PM EST
+**Updated:** January 22, 2026 - 9:31 PM EST
 
 ---
 
 ## ✅ Phase 7 COMPLETE: Local WWW/Production Server (Jan 22, 2026)
 
-**Status:** COMPLETE 🎉  
-**Duration:** 5:30 PM - 9:18 PM EST (~4 hours total, including HTTPS fix)  
-**Result:** Capricorn PROD + Splash page live and fully functional at cap.gothamtechnologies.com and www.gothamtechnologies.com
+**Status:** COMPLETE 🎉🎉🎉  
+**Duration:** 5:30 PM - 9:31 PM EST (~4 hours total)  
+**Result:** Capricorn PROD + Splash page live, fully functional, and all documentation updated. Primary production URL is cap.gothamtechnologies.com
 
 ### Final Working Configuration
 
@@ -76,6 +76,7 @@
 16. ✅ **FIXED Docker networking** (Traefik on both networks)
 17. ✅ Full end-to-end testing (external + internal access)
 18. ✅ **FIXED HTTPS mixed content** (frontend API auto-detection)
+19. ✅ **Updated README files** (both projects direct users to cap.* primary URL)
 
 **Cost Savings:** ~$400/year by replacing GCP hosting!
 
@@ -108,6 +109,39 @@
 - ✅ DEV/QA: UNCHANGED  
 - ✅ GCP: UNCHANGED
 - ✅ Future: Automatic, no ongoing maintenance
+
+### Final Documentation Updates: README Files (9:20 PM - 9:31 PM)
+
+**Task:** Update public-facing documentation to direct users to local production
+
+**Changes Made:**
+
+**Home Lab Setup README (3 commits):**
+1. `95f0dda` - Point to cap.* as primary production URL
+   - Project overview: Added "Live Demo (PROD-Local)" with cap.*
+   - Applications section: Separated PROD-Local (primary) and GCP (on-demand)
+   - Target application: Clarified primary vs backup
+2. `218110b` - Changed "GCP Backup" to "GCP Instance"
+   - Wording: "GCP Instance" (not "Backup")
+   - Purpose: "available on-demand for public demos" (not "interviews")
+
+**Capricorn Project README (2 commits):**
+1. `2b64657` - Emphasize cap.* as primary, GCP on-demand only
+   - Added warning: "Not always running - deployed on-demand"
+   - Added note: "For testing, please use cap.* (always available)"
+   - Merged to both develop and production branches
+
+**Result:**
+- ✅ Both README files direct users to https://cap.gothamtechnologies.com
+- ✅ GCP clearly marked as on-demand for public demos
+- ✅ All public documentation consistent across projects
+- ✅ GitHub users will find the always-available production instance
+
+**Why This Matters:**
+- Users testing Capricorn won't hit a "not available" GCP instance
+- Clear messaging: Local is primary, GCP is supplemental
+- Cost transparency: Demonstrates local hosting benefits
+- Professional presentation: Always-available demo shows reliability
 
 ---
 
