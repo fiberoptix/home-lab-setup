@@ -626,6 +626,106 @@ Data Import: WORKING ✅
 
 **Commit:** `c83fe2f` - "Fix: Auto-detect HTTPS for PROD-Local API routing"
 
+### Issue 6: Localhost Access Not Working on vm-www-1 (Jan 22, 10:00 PM)
+
+**Symptoms:**
+- User couldn't access Capricorn from Chrome on vm-www-1 itself using localhost or 192.168.1.184
+- External access working fine (cap.gothamtechnologies.com)
+- HTTP redirected to HTTPS correctly
+- HTTPS connection established but returned 404 or timeout
+
+**Root Cause:**
+- Traefik routing rules only configured for `cap.gothamtechnologies.com` and `192.168.1.184` hostnames
+- No routing rule matched when `Host: localhost` header sent by browser
+- `/etc/hosts` didn't have local domain name entries for trusted certificate access
+- Let's Encrypt certificates only valid for domain names, not IP addresses or localhost
+
+**Debugging Steps:**
+1. Tested curl from command line: `curl -v http://localhost` → 301 redirect working
+2. Tested HTTPS: `curl -vk https://localhost` → Connected but served Traefik default self-signed cert
+3. Checked Traefik routing configuration: No `Host(\`localhost\`)` rules found
+4. Checked `/etc/hosts`: No domain name entries for local resolution
+
+**Solution Implemented:**
+```bash
+# Step 1: Add domain names to /etc/hosts for local DNS resolution
+echo -e "\n# Local production domains\n127.0.0.1 cap.gothamtechnologies.com\n127.0.0.1 www.gothamtechnologies.com" | sudo tee -a /etc/hosts
+
+# Step 2: Update Capricorn docker-compose.yml with localhost routing
+# Frontend labels - added:
+- "traefik.http.routers.capricorn-localhost.rule=Host(`localhost`)"
+- "traefik.http.routers.capricorn-localhost.entrypoints=websecure"
+- "traefik.http.routers.capricorn-localhost.tls=true"
+
+# Backend labels - added:
+- "traefik.http.routers.capricorn-api-localhost.rule=Host(`localhost`) && PathPrefix(`/api`)"
+- "traefik.http.routers.capricorn-api-localhost.entrypoints=websecure"
+- "traefik.http.routers.capricorn-api-localhost.tls=true"
+
+# Step 3: Recreate containers with new routing rules
+cd /opt/capricorn
+sudo docker compose up -d
+```
+
+**Updated /etc/hosts:**
+```
+127.0.0.1 localhost
+127.0.1.1 vm-www-1
+
+# The following lines are desirable for IPv6 capable hosts
+::1     ip6-localhost ip6-loopback
+fe00::0 ip6-localnet
+ff00::0 ip6-mcastprefix
+ff02::1 ip6-allnodes
+ff02::2 ip6-allrouters
+
+# Local production domains
+127.0.0.1 cap.gothamtechnologies.com
+127.0.0.1 www.gothamtechnologies.com
+```
+
+**Result:**
+Three access methods now work from vm-www-1 Chrome browser:
+- ✅ **https://localhost** - Works (self-signed cert, browser warning)
+- ✅ **https://192.168.1.184** - Works (self-signed cert, browser warning)
+- ✅ **https://cap.gothamtechnologies.com** - Works (Let's Encrypt trusted cert, NO warning!)
+
+**Recommended Access Method:**
+Use `https://cap.gothamtechnologies.com` from vm-www-1 for trusted certificate without browser warnings.
+
+**Why This Matters:**
+- Developers testing locally on vm-www-1 need easy access
+- Trusted certificates make debugging easier (no security warnings)
+- Multiple access methods provide flexibility for different scenarios
+
+**Certificate Verification:**
+```bash
+# Localhost - Traefik default self-signed cert
+curl -v https://localhost 2>&1 | grep "subject:"
+# Output: subject: CN=TRAEFIK DEFAULT CERT
+
+# IP address - Traefik default self-signed cert
+curl -v https://192.168.1.184 2>&1 | grep "subject:"
+# Output: subject: CN=TRAEFIK DEFAULT CERT
+
+# Domain name - Let's Encrypt trusted cert
+curl -v https://cap.gothamtechnologies.com 2>&1 | grep -E "subject:|issuer:"
+# Output: subject: CN=cap.gothamtechnologies.com
+# Output: issuer: C=US; O=Let's Encrypt; CN=R13
+```
+
+**Lesson Learned:**
+- Always configure localhost routing rules for services running on the reverse proxy host
+- Add domain name entries to `/etc/hosts` for local testing with trusted certificates
+- Let's Encrypt certificates only work for registered domain names, not IP addresses or localhost
+- Self-signed certificates cause browser warnings but are functional for testing
+
+**Time to Fix:** ~5 minutes
+
+**Files Modified:**
+- `/etc/hosts` (added 2 lines)
+- `/opt/capricorn/docker-compose.yml` (added 6 Traefik labels)
+
 ---
 
 ## FINAL TESTING RESULTS

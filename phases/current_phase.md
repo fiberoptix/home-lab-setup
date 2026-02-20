@@ -1,14 +1,47 @@
 # Current Phase
 
-**Updated:** January 22, 2026 - 9:31 PM EST
+**Updated:** February 20, 2026 - 4:53 PM EST
+
+---
+
+## 🔲 Phase 11 PLANNED: OpenClaw AI Agent Server (Feb 20, 2026)
+
+**Status:** Plan written, awaiting implementation  
+**Phase Plan:** `/phases/phase11_openclaw.md`
+
+**What:** Deploy self-hosted OpenClaw AI agent server on new Proxmox VM
+
+**Key Decisions (Feb 20, 2026 planning session):**
+- VM 185 (vm-openclaw-1) @ 192.168.1.185, 8GB RAM, 8 cores, 50GB vm-critical
+- Install via bash script (NOT Ansible -- Ansible is overkill for home lab, adds UFW conflict)
+- Control UI on port 1885 (non-default to avoid scanner detection; default is 18789)
+- LAN access + Tailscale VPN (only VM with Tailscale in the lab)
+- Telegram bot for iPhone messaging
+- OpenRouter for AI provider (manual TODO for Andrew)
+- Ansible playbook saved to `working/openclaw-ansible/` for reference only
+
+**Implementation Steps:**
+1. Create VM 185 on Proxmox (same process as all other VMs)
+2. Install Ubuntu 24.04 Desktop, static IP .185
+3. Run host_setup.sh from script server
+4. Configure Proxmox firewall (SSH + port 1885 LAN only + Tailscale UDP)
+5. Install Tailscale (Andrew manually registers)
+6. Install OpenClaw via bash script
+7. Run onboarding wizard (set port 1885)
+8. Configure Telegram bot (@BotFather)
+9. Andrew: Configure OpenRouter API key (manual TODO)
+
+**Estimated Time:** ~80 minutes
+
+**Next:** Implementation when Andrew says "go ahead"
 
 ---
 
 ## ✅ Phase 7 COMPLETE: Local WWW/Production Server (Jan 22, 2026)
 
 **Status:** COMPLETE 🎉🎉🎉  
-**Duration:** 5:30 PM - 9:31 PM EST (~4 hours total)  
-**Result:** Capricorn PROD + Splash page live, fully functional, and all documentation updated. Primary production URL is cap.gothamtechnologies.com
+**Duration:** 5:30 PM - 10:00 PM EST (~4.5 hours total)  
+**Result:** Capricorn PROD + Splash page live, fully functional, localhost access configured, and all documentation updated. Primary production URL is cap.gothamtechnologies.com
 
 ### Final Working Configuration
 
@@ -77,6 +110,7 @@
 17. ✅ Full end-to-end testing (external + internal access)
 18. ✅ **FIXED HTTPS mixed content** (frontend API auto-detection)
 19. ✅ **Updated README files** (both projects direct users to cap.* primary URL)
+20. ✅ **Configured localhost access** (routing rules + /etc/hosts for vm-www-1)
 
 **Cost Savings:** ~$400/year by replacing GCP hosting!
 
@@ -142,6 +176,37 @@
 - Clear messaging: Local is primary, GCP is supplemental
 - Cost transparency: Demonstrates local hosting benefits
 - Professional presentation: Always-available demo shows reliability
+
+### Localhost Access Fix (10:00 PM - 10:05 PM)
+
+**Problem:**
+- User couldn't access app from Chrome on vm-www-1 using localhost or 192.168.1.184
+- HTTP worked but HTTPS returned 404 or timed out
+
+**Root Cause:**
+- Traefik routing rules only configured for `cap.gothamtechnologies.com` and `192.168.1.184`
+- No `Host(\`localhost\`)` routing rule
+- `/etc/hosts` missing domain name entries for local trusted certificate access
+
+**Solution Applied:**
+1. Added domain names to `/etc/hosts`:
+   ```
+   127.0.0.1 cap.gothamtechnologies.com
+   127.0.0.1 www.gothamtechnologies.com
+   ```
+2. Updated `/opt/capricorn/docker-compose.yml` with localhost routing labels:
+   - Frontend: Added `Host(\`localhost\`)` router
+   - Backend: Added `Host(\`localhost\`) && PathPrefix(\`/api\`)` router
+3. Restarted containers: `sudo docker compose up -d`
+
+**Result:**
+- ✅ https://localhost (works with self-signed cert warning)
+- ✅ https://192.168.1.184 (works with self-signed cert warning)
+- ✅ https://cap.gothamtechnologies.com (works with Let's Encrypt trusted cert)
+
+**Recommended:** Use domain name on vm-www-1 for trusted certificate without browser warnings.
+
+**Time:** ~5 minutes
 
 ---
 
