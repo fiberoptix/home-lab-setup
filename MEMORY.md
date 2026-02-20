@@ -23,7 +23,8 @@
 - **GCP Instance (on-demand):** https://capricorn.gothamtechnologies.com (for public demos)
 - **Cost Savings:** ~$400/year by replacing GCP hosting
 - **README Files:** Both projects direct users to cap.* as primary production URL
-- Next: Phase 8 (Monitoring Stack)
+- **Phase 11 PLANNED:** OpenClaw AI Agent Server (vm-openclaw-1 @ .185) -- plan written, awaiting implementation
+- Next: Phase 11 (OpenClaw) or Phase 8 (Monitoring Stack)
 
 ---
 
@@ -37,6 +38,7 @@
 | Runner | .182 | ✅ LIVE (gitlab-runner-1) |
 | SonarQube | .183 | ✅ LIVE (vm-sonarqube-1, v26.1.0) |
 | **WWW** | **.184** | **✅ LIVE (vm-www-1, Traefik, Capricorn PROD, Splash)** |
+| **OpenClaw** | **.185** | **🔲 PLANNED (vm-openclaw-1, AI agent, Tailscale)** |
 
 ---
 
@@ -246,7 +248,8 @@ apt-mark showhold
 | 5 | CI/CD Pipelines | ✅ COMPLETE (QA + GCP both working!) |
 | 6 | SonarQube | ✅ COMPLETE (test-app + Capricorn both integrated!) |
 | 7 | Local WWW Server | ✅ COMPLETE (vm-www-1 @ .184, cap + www live!) |
-| 8 | Monitoring Stack | 🔲 NEXT |
+| 8 | Monitoring Stack | 🔲 Planned |
+| 11 | OpenClaw AI Agent | 🔲 NEXT (vm-openclaw-1 @ .185, plan written Feb 20, 2026) |
 
 **Phase docs:** `/phases/`
 
@@ -369,7 +372,7 @@ services:
 
 ### Troubleshooting Notes (Jan 22, 2026)
 
-**Problem:** HTTPS timeout, but HTTP worked (redirected to HTTPS)
+**Problem 1:** HTTPS timeout, but HTTP worked (redirected to HTTPS)
 
 **Root Cause:** Traefik and Capricorn containers on different networks
 - Traefik on `web` network (172.18.0.x)
@@ -382,6 +385,33 @@ services:
 3. Containers restarted successfully, traffic flowing
 
 **Lesson:** Multi-service applications with their own networks require reverse proxy to join ALL networks!
+
+---
+
+**Problem 2:** Localhost access not working on vm-www-1 itself (10:00 PM)
+
+**Root Cause:** 
+- Traefik routing rules only configured for `cap.gothamtechnologies.com` and `192.168.1.184`
+- No routing rule for `localhost` hostname
+- `/etc/hosts` didn't have domain name entries for local resolution
+
+**Solution:**
+1. Added `/etc/hosts` entries for local domain resolution:
+   ```
+   127.0.0.1 cap.gothamtechnologies.com
+   127.0.0.1 www.gothamtechnologies.com
+   ```
+2. Updated `/opt/capricorn/docker-compose.yml` with localhost routing:
+   - Frontend: Added `traefik.http.routers.capricorn-localhost.rule=Host(\`localhost\`)`
+   - Backend: Added `traefik.http.routers.capricorn-api-localhost.rule=Host(\`localhost\`) && PathPrefix(\`/api\`)`
+3. Restarted containers: `cd /opt/capricorn && sudo docker compose up -d`
+
+**Result:** Now accessible three ways from vm-www-1:
+- ✅ https://localhost (self-signed cert, works)
+- ✅ https://192.168.1.184 (self-signed cert, works)
+- ✅ https://cap.gothamtechnologies.com (Let's Encrypt cert, trusted)
+
+**Lesson:** Always configure localhost routing for services running on the same machine as the reverse proxy!
 
 ### GitLab CI/CD Integration
 
@@ -401,6 +431,22 @@ services:
 - **Before:** GCP hosting ~$30-45/month (~$400/year)
 - **After:** Local hosting ~$2-3/month electricity
 - **Savings:** ~$400/year 💰
+
+---
+
+## OPENCLAW (PLANNED)
+
+- **VM:** vm-openclaw-1 @ 192.168.1.185 (8GB RAM, 8 cores, 50GB vm-critical)
+- **OS:** Ubuntu 24.04 Desktop
+- **Install Method:** Bash script (`curl -fsSL https://openclaw.ai/install.sh | bash`)
+- **Control UI:** http://192.168.1.185:1885 (LAN) or http://tailscale-ip:1885 (remote)
+- **Port:** 1885 (non-default, avoids scanner detection; default is 18789)
+- **Access:** LAN (Proxmox firewall) + Tailscale VPN (only VM with Tailscale)
+- **Channel:** Telegram (bot via @BotFather)
+- **AI Provider:** OpenRouter (manual setup TODO)
+- **Ansible Playbook:** `working/openclaw-ansible/` (reference only, not used for install)
+- **Phase Plan:** `phases/phase11_openclaw.md`
+- **Status:** Plan written, awaiting implementation
 
 ---
 
@@ -448,3 +494,4 @@ services:
 5. `/phases/phase1_proxmox.md` - ZFS configuration and best practices
 6. `/phases/phase5_ci_cd_pipelines.md` ✅ COMPLETE
 7. `/phases/phase6_sonarqube.md` ✅ COMPLETE
+8. `/phases/phase11_openclaw.md` 🔲 PLANNED
