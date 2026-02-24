@@ -23,8 +23,8 @@
 - **GCP Instance (on-demand):** https://capricorn.gothamtechnologies.com (for public demos)
 - **Cost Savings:** ~$400/year by replacing GCP hosting
 - **README Files:** Both projects direct users to cap.* as primary production URL
-- **Phase 11 PLANNED:** OpenClaw AI Agent Server (vm-openclaw-1 @ .185) -- plan written, awaiting implementation
-- Next: Phase 11 (OpenClaw) or Phase 8 (Monitoring Stack)
+- **Phase 11 COMPLETE:** OpenClaw AI Agent Server LIVE (vm-openclaw-1 @ .185, Tailscale Serve, Telegram)
+- Next: Phase 8 (Monitoring Stack)
 
 ---
 
@@ -38,7 +38,7 @@
 | Runner | .182 | ✅ LIVE (gitlab-runner-1) |
 | SonarQube | .183 | ✅ LIVE (vm-sonarqube-1, v26.1.0) |
 | **WWW** | **.184** | **✅ LIVE (vm-www-1, Traefik, Capricorn PROD, Splash)** |
-| **OpenClaw** | **.185** | **🔲 PLANNED (vm-openclaw-1, AI agent, Tailscale)** |
+| **OpenClaw** | **.185** | **✅ LIVE (vm-openclaw-1, AI agent, Tailscale Serve)** |
 
 ---
 
@@ -137,20 +137,24 @@ wget http://192.168.1.195/scripts/host_setup.sh && chmod +x host_setup.sh && ./h
 # - Or use cache=writeback with aio=threads (default, but higher CPU)
 ```
 
-### Current VMs (All Standardized Jan 12, 2026)
+### Current VMs (Last verified Feb 20, 2026)
 | VM | CPU | RAM | Disk | Storage | Config |
 |----|-----|-----|------|---------|--------|
-| **181 - GitLab** | 8 cores | 16 GB | 500 GB | vm-critical | ✅ Standard |
-| **182 - Runner** | 8 cores | 8 GB | 100 GB | vm-ephemeral | ✅ Standard |
-| **183 - SonarQube** | 4 cores | 8 GB | 30 GB | vm-critical | ✅ Standard |
-| **200 - Kubernetes** | 8 cores | 8 GB | 100 GB | vm-ephemeral | ✅ Standard |
+| **181 - GitLab** | 8 cores | 24 GB | 500 GB | vm-critical | ✅ Standard |
+| **182 - Runner** | 8 cores | 12 GB | 100 GB | vm-ephemeral | ✅ Standard |
+| **183 - SonarQube** | 4 cores | 12 GB | 30 GB | vm-critical | ✅ Standard |
+| **184 - WWW** | 8 cores | 8 GB | 50 GB | vm-critical | ✅ Standard |
+| **185 - OpenClaw** | 8 cores | 16 GB | 50 GB | vm-critical | ✅ Standard |
+| **200 - Kubernetes** | 8 cores | 12 GB | 100 GB | vm-ephemeral | ✅ Standard |
 
 ### RAM Allocation Strategy
-- **GitLab:** 16 GB (memory-hungry, keep high)
-- **SonarQube:** 6-8 GB (official minimum 6 GB, 8 GB for large projects)
-- **Runner:** 8 GB (ephemeral workloads, sufficient for builds)
-- **Kubernetes/QA:** 8 GB (adjust based on container count)
-- **Total Allocated:** 40 GB of 126 GB available (32%)
+- **GitLab:** 24 GB (memory-hungry, upgraded from 16 GB)
+- **SonarQube:** 12 GB (upgraded from 8 GB for large project scans)
+- **Runner:** 12 GB (upgraded from 8 GB)
+- **Kubernetes/QA:** 12 GB (upgraded from 8 GB)
+- **WWW:** 8 GB (Traefik + Capricorn PROD + splash)
+- **OpenClaw:** 16 GB (AI agent gateway + Docker sandboxes, upgraded from 8 GB -- Ubuntu Desktop used 90%)
+- **Total Allocated:** 84 GB of 256 GB available (33%)
 
 ### Storage Pool Selection
 - **vm-critical (mirror):** GitLab, SonarQube, Monitoring (data persistence)
@@ -249,7 +253,7 @@ apt-mark showhold
 | 6 | SonarQube | ✅ COMPLETE (test-app + Capricorn both integrated!) |
 | 7 | Local WWW Server | ✅ COMPLETE (vm-www-1 @ .184, cap + www live!) |
 | 8 | Monitoring Stack | 🔲 Planned |
-| 11 | OpenClaw AI Agent | 🔲 NEXT (vm-openclaw-1 @ .185, plan written Feb 20, 2026) |
+| 11 | OpenClaw AI Agent | ✅ COMPLETE (vm-openclaw-1 @ .185, Feb 20, 2026) |
 
 **Phase docs:** `/phases/`
 
@@ -434,19 +438,99 @@ services:
 
 ---
 
-## OPENCLAW (PLANNED)
+## OPENCLAW
 
-- **VM:** vm-openclaw-1 @ 192.168.1.185 (8GB RAM, 8 cores, 50GB vm-critical)
+- **VM:** vm-openclaw-1 @ 192.168.1.185 (16GB RAM, 8 cores, 50GB vm-critical)
 - **OS:** Ubuntu 24.04 Desktop
+- **Version:** 2026.2.23 (updated Feb 24, 2026 via Control UI button; app reports 2026.2.21-2)
 - **Install Method:** Bash script (`curl -fsSL https://openclaw.ai/install.sh | bash`)
-- **Control UI:** http://192.168.1.185:1885 (LAN) or http://tailscale-ip:1885 (remote)
-- **Port:** 1885 (non-default, avoids scanner detection; default is 18789)
-- **Access:** LAN (Proxmox firewall) + Tailscale VPN (only VM with Tailscale)
-- **Channel:** Telegram (bot via @BotFather)
-- **AI Provider:** OpenRouter (manual setup TODO)
-- **Ansible Playbook:** `working/openclaw-ansible/` (reference only, not used for install)
-- **Phase Plan:** `phases/phase11_openclaw.md`
-- **Status:** Plan written, awaiting implementation
+- **Gateway Port:** 1885 (non-default to avoid scanner detection; default is 18789)
+- **Gateway Bind:** LAN (0.0.0.0)
+- **Gateway Auth:** Token [See working/open-claw-keys.txt]
+- **AI Model:** OpenRouter / Anthropic Claude Sonnet 4.6
+- **Status:** ✅ LIVE
+
+**Access:**
+- **Control UI (HTTPS):** https://vm-openclaw-1.tail8f8df.ts.net/ (via Tailscale Serve)
+- **Control UI (localhost):** http://localhost:1885 (from VM only)
+- **Telegram Bot:** @OC_GothamBot (DM policy: pairing required)
+- **SSH:** ssh agamache@192.168.1.185 (from LAN only)
+
+**Tailscale:**
+- **Tailscale IP:** 100.119.212.71
+- **Tailscale Serve:** HTTPS proxy on port 443 → localhost:1885
+- **This is the ONLY VM with Tailscale in the lab**
+
+**CRITICAL: Control UI requires HTTPS or localhost!**
+- Plain HTTP to LAN IP (http://192.168.1.185:1885) will NOT work -- OpenClaw blocks it
+- Must use Tailscale Serve (HTTPS) or access from VM itself (localhost)
+- Tailscale Serve provides auto-managed TLS certs via the tailnet domain
+
+**CRITICAL: allowedOrigins required since v2026.2.23!**
+- Non-loopback bind (`gateway.bind: "lan"`) now requires `gateway.controlUi.allowedOrigins`
+- Without it, the gateway refuses to start (crash loop, exit 1)
+- Current config has: `["https://vm-openclaw-1.tail8f8df.ts.net", "http://localhost:1885", "http://127.0.0.1:1885"]`
+- If updating OpenClaw in the future, check release notes for similar breaking security changes
+
+**Services (all auto-start on boot):**
+- `openclaw-gateway.service` (systemd user service, enabled, lingering)
+- `tailscaled.service` (systemd service, enabled)
+- Tailscale Serve (persistent via --bg flag)
+
+**Config:** `~/.openclaw/openclaw.json` on vm-openclaw-1 (permissions: 600)
+**Config backup:** `~/.openclaw/openclaw.json.bak.pre-fix` (pre-v2026.2.23 fix snapshot)
+**Logs:** `/tmp/openclaw/openclaw-YYYY-MM-DD.log`
+**npm global bin:** `/home/agamache/.npm-global/bin` (added to PATH in .bashrc)
+
+**Installed Skills:** github, himalaya (email), nano-pdf, summarize, blogwatcher, goplaces
+**Google Places API Key:** configured in openclaw.json
+
+**Proxmox Firewall (VM 185):**
+- IN: SSH (22/tcp) from 192.168.1.0/24
+- IN: OpenClaw Control UI (1885/tcp) from 192.168.1.0/24
+- IN: Tailscale (41641/udp) from anywhere
+- OUT: Allow all
+- Default IN policy: DROP
+
+**CLI Commands (must use localhost due to HTTPS enforcement):**
+```bash
+export PATH=/home/agamache/.npm-global/bin:$PATH
+openclaw devices list --url ws://127.0.0.1:1885 --token [See working/open-claw-keys.txt]
+openclaw devices approve <requestId> --url ws://127.0.0.1:1885 --token [See working/open-claw-keys.txt]
+openclaw gateway status
+openclaw gateway restart
+openclaw doctor --non-interactive
+openclaw status --all
+sudo tailscale serve --bg 1885
+```
+
+**Update procedure (safe):**
+```bash
+# Preferred: re-run installer (upgrades in place, runs doctor)
+curl -fsSL https://openclaw.ai/install.sh | bash -s -- --no-onboard
+# Or: npm update
+npm i -g openclaw@latest
+# Always run after update:
+openclaw doctor
+openclaw gateway restart
+```
+
+**Rollback (if update breaks things):**
+```bash
+npm i -g openclaw@<version>   # e.g. openclaw@2026.2.19-2
+openclaw doctor
+openclaw gateway restart
+```
+
+**Reference:** Ansible playbook at `working/openclaw-ansible/` (not used, kept for reference)
+**Phase Plan:** `phases/phase11_openclaw.md`
+
+**SSH Note:** SSH key auth from dev workstation fails (key not accepted). Use `sshpass -p 'Powerme!1' ssh agamache@192.168.1.185` or fix authorized_keys on the VM.
+
+**Manual TODOs:**
+- [ ] Configure OpenRouter API key/credits
+- [ ] Test Telegram bot from iPhone
+- [ ] Fix SSH key auth from dev workstation to vm-openclaw-1 (key offered but rejected)
 
 ---
 
@@ -494,4 +578,4 @@ services:
 5. `/phases/phase1_proxmox.md` - ZFS configuration and best practices
 6. `/phases/phase5_ci_cd_pipelines.md` ✅ COMPLETE
 7. `/phases/phase6_sonarqube.md` ✅ COMPLETE
-8. `/phases/phase11_openclaw.md` 🔲 PLANNED
+8. `/phases/phase11_openclaw.md` ✅ COMPLETE
