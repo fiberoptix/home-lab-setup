@@ -1,39 +1,244 @@
 # Current Phase
 
-**Updated:** February 20, 2026 - 4:53 PM EST
+**Updated:** February 24, 2026 - 12:44 PM EST
 
 ---
 
-## 🔲 Phase 11 PLANNED: OpenClaw AI Agent Server (Feb 20, 2026)
+## OpenClaw Post-Update Fix (Feb 24, 2026)
 
-**Status:** Plan written, awaiting implementation  
-**Phase Plan:** `/phases/phase11_openclaw.md`
+**Status:** RESOLVED
+**Duration:** ~15 minutes
+**Problem:** OpenClaw gateway crash-looping after in-app update from v2026.2.19-2 to v2026.2.23
 
-**What:** Deploy self-hosted OpenClaw AI agent server on new Proxmox VM
+### What Happened
 
-**Key Decisions (Feb 20, 2026 planning session):**
-- VM 185 (vm-openclaw-1) @ 192.168.1.185, 8GB RAM, 8 cores, 50GB vm-critical
-- Install via bash script (NOT Ansible -- Ansible is overkill for home lab, adds UFW conflict)
-- Control UI on port 1885 (non-default to avoid scanner detection; default is 18789)
-- LAN access + Tailscale VPN (only VM with Tailscale in the lab)
-- Telegram bot for iPhone messaging
-- OpenRouter for AI provider (manual TODO for Andrew)
-- Ansible playbook saved to `working/openclaw-ansible/` for reference only
+Andrew clicked the "Update & Restart" button in the OpenClaw Control UI. The update succeeded (v2026.2.19-2 → v2026.2.23) but the gateway immediately began crash-looping (567+ restarts by the time we connected, every ~10 seconds).
 
-**Implementation Steps:**
-1. Create VM 185 on Proxmox (same process as all other VMs)
-2. Install Ubuntu 24.04 Desktop, static IP .185
-3. Run host_setup.sh from script server
-4. Configure Proxmox firewall (SSH + port 1885 LAN only + Tailscale UDP)
-5. Install Tailscale (Andrew manually registers)
-6. Install OpenClaw via bash script
-7. Run onboarding wizard (set port 1885)
-8. Configure Telegram bot (@BotFather)
-9. Andrew: Configure OpenRouter API key (manual TODO)
+### Root Cause
 
-**Estimated Time:** ~80 minutes
+v2026.2.23 introduced a **breaking security change**: non-loopback gateway binds (`gateway.bind: "lan"`) now require `gateway.controlUi.allowedOrigins` to be explicitly set. Without it, the gateway refuses to start with:
 
-**Next:** Implementation when Andrew says "go ahead"
+```
+Error: non-loopback Control UI requires gateway.controlUi.allowedOrigins (set explicit origins),
+or set gateway.controlUi.dangerouslyAllowHostHeaderOriginFallback=true
+```
+
+The previous version (v2026.2.19-2) did not enforce this requirement.
+
+### Fix Applied
+
+1. SSH'd into vm-openclaw-1 (password auth -- SSH key auth from workstation is broken)
+2. Backed up config: `~/.openclaw/openclaw.json.bak.pre-fix`
+3. Added `gateway.controlUi.allowedOrigins` to `~/.openclaw/openclaw.json`:
+   ```json
+   "controlUi": {
+     "allowedOrigins": [
+       "https://vm-openclaw-1.tail8f8df.ts.net",
+       "http://localhost:1885",
+       "http://127.0.0.1:1885"
+     ]
+   }
+   ```
+4. Fixed config file permissions: `chmod 600 ~/.openclaw/openclaw.json`
+5. Restarted gateway: `openclaw gateway restart`
+
+### Verification
+
+- Gateway: running (pid 19322, reachable in 28ms)
+- Telegram: OK (@OC_GothamBot connected)
+- Tailscale Serve: active (HTTPS → localhost:1885)
+- `openclaw doctor`: clean (only non-blocking memory search warning about embeddings)
+
+### Lesson Learned
+
+OpenClaw updates can introduce breaking config requirements. Before updating:
+- Check release notes / changelog
+- Back up `~/.openclaw/openclaw.json`
+- After update, run `openclaw doctor` and check `journalctl --user -u openclaw-gateway.service`
+- Know how to rollback: `npm i -g openclaw@<old-version>`
+
+### Also Discovered
+
+- SSH key auth from dev workstation to vm-openclaw-1 is broken (key offered but rejected; password auth works)
+- Memory search (embeddings) fails -- OpenRouter key doesn't work for OpenAI embeddings endpoint (non-blocking, chat works fine)
+
+---
+
+## ✅ Phase 11 COMPLETE: OpenClaw AI Agent Server (Feb 20, 2026)
+
+**Status:** COMPLETE  
+**Duration:** 4:01 PM - 7:47 PM EST (~3.75 hours including troubleshooting)  
+**Result:** OpenClaw v2026.2.19-2 live on vm-openclaw-1, accessible via Tailscale Serve HTTPS, Telegram bot connected
+
+### Final Working Configuration
+
+**VM:** 185 (vm-openclaw-1) @ 192.168.1.185
+- 16 GB RAM (upgraded from 8 GB -- Ubuntu Desktop used 90% at 8 GB)
+- 8 cores, 50 GB disk on vm-critical
+- Ubuntu 24.04 Desktop, vga: virtio
+
+**OpenClaw:**
+- Version: 2026.2.19-2
+- Port: 1885 (non-default)
+- Model: OpenRouter / Anthropic Claude Sonnet 4.6
+- Skills: github, himalaya, nano-pdf, summarize, blogwatcher, goplaces
+- Hooks: boot-md, bootstrap-extra-files, command-logger, session-memory
+- Telegram: @OC_GothamBot (DM policy: pairing)
+
+**Access:**
+- Control UI: https://vm-openclaw-1.tail8f8df.ts.net/ (Tailscale Serve HTTPS)
+- Localhost: http://localhost:1885 (from VM only)
+- SSH: agamache@192.168.1.185 (LAN only)
+
+### Implementation Steps Completed
+
+1. ✅ Created VM 185 on Proxmox (SSH to .150, qm create)
+2. ✅ Andrew installed Ubuntu 24.04 Desktop (Proxmox console)
+3. ✅ Set static IP .185 (Ubuntu Network Settings GUI)
+4. ✅ Ran host_setup.sh from script server
+5. ✅ Configured Proxmox firewall (SSH + 1885 LAN + Tailscale UDP)
+6. ✅ Installed Tailscale v1.94.2 (Andrew authenticated via browser)
+7. ✅ Installed OpenClaw v2026.2.19-2 via bash script
+8. ✅ Ran onboarding wizard (port 1885, LAN bind, token auth, Telegram)
+9. ✅ Fixed HTTPS requirement with Tailscale Serve
+10. ✅ Approved device pairing for Mac
+
+### Troubleshooting Issues (IMPORTANT FOR FUTURE REFERENCE)
+
+**Problem 1: VM booting from CD-ROM after Ubuntu install**
+
+After Andrew removed the ISO, VM kept trying to boot from CD and failing.
+
+**Root Cause:** Boot order was `order=ide2` (CD-ROM only). The disk `scsi0` was never added to boot order.
+
+**Fix:** `qm set 185 --boot order=scsi0` on Proxmox host, then reboot VM.
+
+**Lesson:** When creating VMs with ISO attached, boot order defaults to IDE. After install, change boot order to scsi0.
+
+---
+
+**Problem 2: 8 GB RAM not enough for Ubuntu Desktop**
+
+VM was using 90% of 8 GB RAM immediately after Ubuntu Desktop install, before any services were running.
+
+**Fix:** Stopped VM, set memory to 16384 (16 GB), restarted. `qm set 185 --memory 16384`
+
+**Lesson:** Ubuntu 24.04 Desktop needs more RAM than Server. Use 16 GB minimum for Desktop VMs running services.
+
+---
+
+**Problem 3: SSH refused after Ubuntu install**
+
+Could not SSH to VM after Ubuntu install. Connection refused on port 22.
+
+**Root Cause:** OpenSSH server not installed yet -- host_setup.sh installs it.
+
+**Fix:** Run host_setup.sh from the Proxmox console (not SSH). After script runs and reboot, SSH works.
+
+**Lesson:** Always run host_setup.sh from the VM console first, then SSH for subsequent steps.
+
+---
+
+**Problem 4: OpenClaw onboarding wizard fails over non-interactive SSH**
+
+The install script's onboarding wizard tried to open `/dev/tty` which doesn't exist in non-interactive SSH sessions.
+
+**Root Cause:** `curl ... | bash` install script auto-launches the wizard, which needs an interactive terminal.
+
+**Fix:** The install itself succeeded (exit code 1 was just the wizard failing). Run `openclaw onboard --install-daemon` separately from the VM terminal (Proxmox console or interactive SSH).
+
+**Lesson:** Run the onboarding wizard from an interactive terminal on the VM, not via scripted SSH.
+
+---
+
+**Problem 5: npm PATH not configured**
+
+After install, `openclaw` command not found in new terminals.
+
+**Root Cause:** npm global bin directory `/home/agamache/.npm-global/bin` not in PATH.
+
+**Fix:** Added to .bashrc: `export PATH="/home/agamache/.npm-global/bin:$PATH"`
+
+**Lesson:** The install script warns about this -- follow its instructions.
+
+---
+
+**Problem 6: Control UI says "Disconnected (1008) - requires HTTPS or localhost"**
+
+Opening `http://192.168.1.185:1885` in browser showed security error. The Control UI refused to connect over plain HTTP to a non-localhost address.
+
+**Root Cause:** OpenClaw enforces HTTPS for all non-loopback connections. This is a security feature to prevent credential/chat interception.
+
+**Fix:** Enabled Tailscale Serve which provides automatic HTTPS:
+```bash
+sudo tailscale serve --bg 1885
+```
+This creates an HTTPS proxy at `https://vm-openclaw-1.tail8f8df.ts.net/` that forwards to `localhost:1885`.
+
+**Had to enable Tailscale Serve feature first:** Required visiting a Tailscale admin URL to enable "HTTPS Certificates" for the tailnet (not Funnel).
+
+**Lesson:** OpenClaw CANNOT be accessed over plain HTTP from another computer. You MUST use either:
+1. Tailscale Serve (HTTPS via tailnet domain) -- recommended
+2. SSH tunnel (`ssh -N -L 1885:127.0.0.1:1885 agamache@192.168.1.185`)
+3. Localhost from the VM itself
+
+---
+
+**Problem 7: CLI commands fail with SECURITY ERROR over LAN**
+
+Running `openclaw devices list` via SSH failed because the CLI also enforces the HTTPS requirement when connecting to a LAN address.
+
+**Root Cause:** Same HTTPS enforcement as the Control UI. CLI config points to `ws://192.168.1.185:1885` which is blocked.
+
+**Fix:** Pass `--url ws://127.0.0.1:1885 --token <token>` to force localhost connection:
+```bash
+openclaw devices list --url ws://127.0.0.1:1885 --token [See working/open-claw-keys.txt]
+```
+
+**Lesson:** All CLI commands that talk to the gateway need `--url ws://127.0.0.1:1885 --token <token>` when running over SSH.
+
+---
+
+**Problem 8: Device pairing required for new browser connections**
+
+Connecting from Mac showed "pairing required" error.
+
+**Root Cause:** DM policy set to "pairing" during wizard -- new devices must be approved.
+
+**Fix:** Approve via CLI:
+```bash
+openclaw devices list --url ws://127.0.0.1:1885 --token <token>
+openclaw devices approve <requestId> --url ws://127.0.0.1:1885 --token <token>
+```
+
+**Lesson:** Each new browser/device needs to be approved. Use the CLI from the VM to list pending requests and approve them.
+
+---
+
+**Problem 9: Tailscale Serve not running after reboot**
+
+After rebooting the VM, the Tailscale Serve HTTPS proxy was not active and the Control UI was unreachable.
+
+**Fix:** Re-ran `sudo tailscale serve --bg 1885`. The `--bg` flag should persist, may have been a timing issue on first boot.
+
+**Lesson:** If Control UI stops working after reboot, re-run `sudo tailscale serve --bg 1885`.
+
+### Key Decisions Made During Implementation
+
+| Decision | Choice | Why |
+|----------|--------|-----|
+| Install method | Bash script (not Ansible) | Ansible adds UFW, Fail2ban, creates separate user -- overkill for home lab |
+| RAM | 16 GB (upgraded from planned 8 GB) | Ubuntu Desktop used 90% of 8 GB |
+| Port | 1885 (not default 18789) | Avoid automated scanner detection |
+| Access method | Tailscale Serve (HTTPS) | OpenClaw enforces HTTPS for non-localhost -- can't use plain HTTP over LAN |
+| DM policy | Pairing | Most secure for personal use -- each device approved |
+| Gateway bind | LAN | Needed for Tailscale Serve proxy to reach the gateway |
+
+### Manual TODOs for Andrew
+
+- [ ] Configure OpenRouter API key/credits at https://openrouter.ai
+- [ ] Test Telegram bot from iPhone (install Telegram, message @OC_GothamBot)
+- [ ] Approve iPhone as paired device when it connects
 
 ---
 
