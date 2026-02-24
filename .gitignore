@@ -7,7 +7,8 @@
 # ------------------------------------------------------------------------------
 PASSWORDS.md
 github_credentials.md
-/working/open-claw-keys.txt
+/working/
+/ddns/
 /proxmox/credentials
 /proxmox/nas_credentials
 *.pem
