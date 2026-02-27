@@ -108,6 +108,21 @@ Signed-By: /usr/share/keyrings/anysphere.gpg" | sudo tee /etc/apt/sources.list.d
     fi
 fi
 
+# Fix AppArmor blocking Cursor terminal sandbox (Ubuntu 24.04+)
+if [ -f /usr/share/cursor/cursor ]; then
+    echo "    Configuring AppArmor profile for Cursor terminal sandbox..."
+    sudo tee /etc/apparmor.d/cursor > /dev/null <<'APPARMOR'
+abi <abi/4.0>,
+
+profile cursor /usr/share/cursor/cursor flags=(unconfined) {
+  userns,
+}
+APPARMOR
+    sudo apparmor_parser -r /etc/apparmor.d/cursor 2>/dev/null && \
+        echo "    AppArmor profile loaded for Cursor" || \
+        echo "    WARNING: Could not load AppArmor profile (may not be needed)"
+fi
+
 # Step 5: Set resolution to 1920x1080
 echo ""
 echo "[6/12] Setting display resolution to 1920x1080..."
