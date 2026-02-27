@@ -525,12 +525,20 @@ openclaw gateway restart
 **Reference:** Ansible playbook at `working/openclaw-ansible/` (not used, kept for reference)
 **Phase Plan:** `phases/phase11_openclaw.md`
 
-**SSH Note:** SSH key auth from dev workstation fails (key not accepted). Use `sshpass -p 'Powerme!1' ssh agamache@192.168.1.185` or fix authorized_keys on the VM.
+**SSH:** Key auth from dev workstation ✅ FIXED (Feb 27, 2026 — `ssh-copy-id` via sshpass)
+
+**SSHFS Mount (Dev Workstation → OpenClaw):**
+- **Mount point:** `/home/agamache/mnt/openclaw` (mounts remote `/home/agamache`)
+- **Symlink:** `~/openclaw` → `/home/agamache/mnt/openclaw`
+- **Service:** `~/.config/systemd/user/sshfs-openclaw.service` (enabled, lingering)
+- **Persistence:** Survives reboot (systemd user service + linger enabled)
+- **Options:** reconnect, ServerAliveInterval=15, ServerAliveCountMax=3
+- **Manage:** `systemctl --user {status|start|stop|restart} sshfs-openclaw`
+- **Why user service not fstab:** fstab mounts run as root (wrong SSH keys); user service runs as agamache
 
 **Manual TODOs:**
 - [ ] Configure OpenRouter API key/credits
 - [ ] Test Telegram bot from iPhone
-- [ ] Fix SSH key auth from dev workstation to vm-openclaw-1 (key offered but rejected)
 
 ---
 

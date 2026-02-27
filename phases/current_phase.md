@@ -1,6 +1,34 @@
 # Current Phase
 
-**Updated:** February 24, 2026 - 12:44 PM EST
+**Updated:** February 27, 2026 - 5:49 PM EST
+
+---
+
+## OpenClaw SSH & SSHFS Mount (Feb 27, 2026)
+
+**Status:** COMPLETE
+**Duration:** ~10 minutes
+
+### What Was Done
+
+1. **Fixed SSH key auth** from dev workstation to vm-openclaw-1 (192.168.1.185)
+   - Used `sshpass` + `ssh-copy-id` to push ed25519 public key
+   - SSH key auth now works (was broken since Phase 11 install — key offered but rejected)
+
+2. **Set up persistent SSHFS mount** from dev workstation to OpenClaw VM
+   - Mounts remote `/home/agamache` to local `/home/agamache/mnt/openclaw`
+   - Symlink: `~/openclaw` → mount point (already existed from earlier attempt)
+   - Implemented as systemd user service (`~/.config/systemd/user/sshfs-openclaw.service`)
+   - Enabled lingering so service starts at boot (not just login)
+   - Reconnect + keepalive options for network resilience
+
+### Why systemd user service (not fstab)
+
+fstab mounts run as root, so SSH auth tries root's keys (which don't exist for this host). A user service runs as agamache with the correct SSH key.
+
+### Also enabled `user_allow_other` in `/etc/fuse.conf`
+
+Uncommented `user_allow_other` in `/etc/fuse.conf` (needed for fuse mount options, left in place).
 
 ---
 
@@ -59,7 +87,7 @@ OpenClaw updates can introduce breaking config requirements. Before updating:
 
 ### Also Discovered
 
-- SSH key auth from dev workstation to vm-openclaw-1 is broken (key offered but rejected; password auth works)
+- ~~SSH key auth from dev workstation to vm-openclaw-1 is broken~~ → **FIXED Feb 27, 2026** (ssh-copy-id)
 - Memory search (embeddings) fails -- OpenRouter key doesn't work for OpenAI embeddings endpoint (non-blocking, chat works fine)
 
 ---
