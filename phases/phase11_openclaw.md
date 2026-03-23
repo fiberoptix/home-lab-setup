@@ -30,7 +30,7 @@ The gateway runs directly on the host via Node.js 22+ (not in Docker). Agent too
 VMID: 185
 Name: vm-openclaw-1
 IP: 192.168.1.185 (static)
-RAM: 8 GB
+RAM: 16 GB (upgraded from 8 GB -- Ubuntu Desktop used 90% at 8 GB)
 CPU: 8 cores (host type)
 Disk: 50 GB on vm-critical (mirrored ZFS)
 OS: Ubuntu 24.04 Desktop
@@ -40,7 +40,7 @@ Auto-start: Yes (onboot=1)
 
 **Proxmox Create Command:**
 ```bash
-qm create 185 --name vm-openclaw-1 --memory 8192 --cores 8 --cpu host --numa 0 \
+qm create 185 --name vm-openclaw-1 --memory 16384 --cores 8 --cpu host --numa 0 \
   --onboot 1 --scsihw virtio-scsi-single --net0 virtio,bridge=vmbr0,firewall=1 \
   --scsi0 vm-critical:0,iothread=1,discard=on,cache=none,aio=native,size=50G
 ```
@@ -248,10 +248,12 @@ pvesh set /nodes/pve/qemu/185/firewall/options --enable 1
 ```
 
 **Access Methods:**
-- **LAN (any home computer):** http://192.168.1.185:1885 (Control UI)
-- **Remote (Tailscale):** http://tailscale-ip:1885 (Control UI from anywhere)
-- **Telegram (iPhone):** Private chat with bot -> OpenClaw Gateway -> AI Provider
+- **Control UI (HTTPS):** https://vm-openclaw-1.tail8f8df.ts.net/ (via Tailscale Serve -- primary method)
+- **Control UI (localhost):** http://localhost:1885 (from VM only)
+- **Telegram (iPhone):** Private chat with @OC_GothamBot -> OpenClaw Gateway -> AI Provider
 - **SSH:** ssh agamache@192.168.1.185 (from LAN only)
+
+**NOTE:** Plain HTTP to LAN IP (http://192.168.1.185:1885) does NOT work -- OpenClaw enforces HTTPS for non-loopback connections.
 
 ---
 
@@ -262,10 +264,11 @@ pvesh set /nodes/pve/qemu/185/firewall/options --enable 1
 | VM running | Proxmox Web UI | VM 185 status: running |
 | SSH access | `ssh agamache@192.168.1.185` | Login successful (from LAN) |
 | Tailscale connected | `tailscale status` | Shows as connected |
-| OpenClaw service | `openclaw gateway status` | Running |
-| Control UI (LAN) | `http://192.168.1.185:1885` | Dashboard loads from any LAN computer |
-| Control UI (remote) | `http://tailscale-ip:1885` | Dashboard loads via Tailscale |
-| Telegram bot | Send message to bot on iPhone | Bot responds |
+| Tailscale Serve | `sudo tailscale serve status` | HTTPS proxy → localhost:1885 |
+| OpenClaw service | `openclaw gateway status` | Running, RPC probe OK |
+| Control UI (HTTPS) | `https://vm-openclaw-1.tail8f8df.ts.net/` | Dashboard loads via Tailscale Serve |
+| Control UI (localhost) | `http://localhost:1885` (from VM) | Dashboard loads |
+| Telegram bot | Send message to @OC_GothamBot | Bot responds |
 | Agent sandbox | Run a tool via chat | Docker container created |
 
 ---
@@ -314,3 +317,30 @@ The Ansible playbook is saved at `working/openclaw-ansible/` for reference. It i
 - Docker DOCKER-USER iptables chain (prevents container port exposure)
 
 To review: `cat working/openclaw-ansible/playbook.yml`
+
+---
+
+## Known Issues & Upgrade Notes
+
+### v2026.2.23: Breaking `allowedOrigins` requirement
+
+Non-loopback gateway binds (`gateway.bind: "lan"`) now require `gateway.controlUi.allowedOrigins`. Without it, the gateway crash-loops. See `current_phase.md` (Feb 24 entry) for full details.
+
+### v2026.3.22: Missing Control UI assets (packaging bug)
+
+The npm package for v3.22 omits the entire `dist/control-ui/` directory. The gateway runs but the Control UI shows "Control UI assets not found. Build them with `pnpm ui:build`." The `pnpm ui:build` command does not work on installed packages -- it's for development only.
+
+**Workaround:** Skip v3.22 entirely. Use v3.13 (stable) or v3.23+ which include the assets.
+
+**Verify before upgrading:** `npm pack openclaw@<version> --dry-run | grep control-ui/`
+
+### Stuck sessions after reboot (observed Mar 16, 2026)
+
+After VM reboot, scheduled heartbeats can timeout and leave session locks that prevent new messages from being processed. Symptoms: Telegram shows "typing" then stops after 2 minutes with no response.
+
+**Fix:** `openclaw gateway restart` (clears session locks)
+
+**Diagnose:**
+- Check logs for `typing TTL reached` 
+- Check for lock files: `ls ~/.openclaw/agents/main/sessions/*.lock`
+- If OpenRouter API works but sessions are locked, restart the gateway

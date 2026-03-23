@@ -1,6 +1,92 @@
 # Current Phase
 
-**Updated:** February 27, 2026 - 5:49 PM EST
+**Updated:** March 23, 2026 - 5:15 PM EDT
+
+---
+
+## OpenClaw Upgrade to v2026.3.23-beta.1 (Mar 23, 2026)
+
+**Status:** COMPLETE
+**Duration:** ~20 minutes
+**Problem:** After upgrading from v3.13 to v3.22, Control UI showed "Control UI assets not found. Build them with `pnpm ui:build`"
+
+### Root Cause
+
+v2026.3.22 npm package has a **packaging bug**: the entire `dist/control-ui/` directory (index.html, assets/, favicon.ico) was omitted from the published package. The gateway runs fine but has no UI files to serve.
+
+### Diagnosis
+
+```bash
+# Confirmed missing directory
+ls $(npm root -g)/openclaw/dist/control-ui/
+# No such file or directory
+
+# Compared versions with npm pack --dry-run
+# v3.13: dist/control-ui/ present ✅
+# v3.22: dist/control-ui/ MISSING ❌
+# v3.23-beta.1: dist/control-ui/ present ✅
+```
+
+### Fix Applied
+
+Installed v3.23-beta.1 which includes the UI assets:
+
+```bash
+npm install -g openclaw@2026.3.23-beta.1
+openclaw gateway restart
+curl -s -o /dev/null -w "HTTP %{http_code}" http://127.0.0.1:1885/  # HTTP 200
+```
+
+### Lesson Learned
+
+Before upgrading OpenClaw, verify the UI assets are included in the target version:
+```bash
+npm pack openclaw@<version> --dry-run | grep "control-ui/"
+```
+If no results, that version is broken. Skip it.
+
+---
+
+## OpenClaw Stuck Session Fix (Mar 16, 2026)
+
+**Status:** RESOLVED
+**Duration:** ~15 minutes
+**Problem:** OpenClaw not responding to Telegram messages after apt updates + reboot
+
+### What Happened
+
+After upgrading to v3.13 and rebooting the VM, the Telegram bot received messages (showed "typing") but never responded. After 2 minutes, the typing indicator stopped without a reply.
+
+### Root Cause
+
+1. At 11:10 AM, a scheduled **heartbeat** request to `anthropic/claude-haiku-4.5` via OpenRouter timed out and was `aborted` after ~10 minutes
+2. This left the session (`90acd894`) in a **locked state** with an active `.jsonl.lock` file
+3. When the user's Telegram message arrived at 5:22 PM, it was routed into the same stuck session
+4. The gateway showed "typing" for 2 minutes but the model call never executed
+
+### Diagnosis
+
+- Gateway was running (pid alive, RPC probe OK)
+- Telegram channel showed OK (enabled, accounts 1/1)
+- OpenRouter API worked fine (tested directly with curl → HTTP 200)
+- Session transcript showed `prompt-error: error=aborted` for the heartbeat
+- Active session lock file existed and was not stale
+
+### Fix Applied
+
+```bash
+openclaw gateway restart
+```
+
+This cleared the stuck session lock and reset the processing pipeline. Telegram responded normally after restart.
+
+### Lesson Learned
+
+If OpenClaw receives messages but doesn't respond (typing indicator appears then stops):
+1. Check logs for `typing TTL reached` — confirms messages arrive but model never responds
+2. Check session locks: `ls ~/.openclaw/agents/main/sessions/*.lock`
+3. Test OpenRouter directly: `curl -s -H "Authorization: Bearer $KEY" https://openrouter.ai/api/v1/chat/completions`
+4. If API works but sessions are locked: `openclaw gateway restart`
 
 ---
 
@@ -29,6 +115,36 @@ fstab mounts run as root, so SSH auth tries root's keys (which don't exist for t
 ### Also enabled `user_allow_other` in `/etc/fuse.conf`
 
 Uncommented `user_allow_other` in `/etc/fuse.conf` (needed for fuse mount options, left in place).
+
+---
+
+## SSH Key Auth + Cursor Sandbox Script Deployed to All VMs (Feb 27, 2026)
+
+**Status:** COMPLETE
+**Duration:** ~5 minutes
+
+### What Was Done
+
+1. **Deployed `fix_cursor_sandbox.sh`** to all 6 VMs (.180-.185)
+   - Script fixes Cursor terminal sandbox on Ubuntu with kernel >= 6.2
+   - Installs uidmap, sets capabilities on cursorsandbox binary, creates AppArmor profiles
+   - Copied to `~/fix_cursor_sandbox.sh` on each VM
+
+2. **Pushed SSH ed25519 key** to all 5 remaining VMs (.180-.184)
+   - Used `sshpass` + `ssh-copy-id` (same method as .185 fix earlier)
+   - All 6 VMs now have passwordless SSH key auth from dev workstation
+   - No more `sshpass` needed for any VM
+
+### VMs Updated
+
+| VM | IP | SSH Key | Script |
+|----|-----|---------|--------|
+| vm-kubernetes-1 | .180 | ✅ | ✅ |
+| vm-gitlab-1 | .181 | ✅ | ✅ |
+| vm-gitrun-1 | .182 | ✅ | ✅ |
+| vm-sonarqube-1 | .183 | ✅ | ✅ |
+| vm-www-1 | .184 | ✅ | ✅ |
+| vm-openclaw-1 | .185 | ✅ (earlier) | ✅ |
 
 ---
 
