@@ -48,6 +48,7 @@
 
 - Proxmox: root / [See PASSWORDS.md]
 - All VMs: agamache / [See PASSWORDS.md]
+- **SSH key auth:** ✅ ed25519 key deployed to ALL VMs (.180-.185) from dev workstation (Feb 27, 2026)
 - **GitLab Web: root / [See PASSWORDS.md]**
 - **SonarQube Web: admin / [See PASSWORDS.md]**
 - NAS (SMB): fiberoptix / [See PASSWORDS.md] @ 192.168.1.120
@@ -442,7 +443,7 @@ services:
 
 - **VM:** vm-openclaw-1 @ 192.168.1.185 (16GB RAM, 8 cores, 50GB vm-critical)
 - **OS:** Ubuntu 24.04 Desktop
-- **Version:** 2026.2.23 (updated Feb 24, 2026 via Control UI button; app reports 2026.2.21-2)
+- **Version:** 2026.3.23-beta.1 (updated Mar 23, 2026; prior: 3.13 → 3.22 → 3.23-beta.1)
 - **Install Method:** Bash script (`curl -fsSL https://openclaw.ai/install.sh | bash`)
 - **Gateway Port:** 1885 (non-default to avoid scanner detection; default is 18789)
 - **Gateway Bind:** LAN (0.0.0.0)
@@ -525,7 +526,7 @@ openclaw gateway restart
 **Reference:** Ansible playbook at `working/openclaw-ansible/` (not used, kept for reference)
 **Phase Plan:** `phases/phase11_openclaw.md`
 
-**SSH:** Key auth from dev workstation ✅ FIXED (Feb 27, 2026 — `ssh-copy-id` via sshpass)
+**SSH:** Key auth from dev workstation ✅ FIXED (Feb 27, 2026 — `ssh-copy-id` via sshpass, same as all other VMs)
 
 **SSHFS Mount (Dev Workstation → OpenClaw):**
 - **Mount point:** `/home/agamache/mnt/openclaw` (mounts remote `/home/agamache`)
@@ -536,8 +537,14 @@ openclaw gateway restart
 - **Manage:** `systemctl --user {status|start|stop|restart} sshfs-openclaw`
 - **Why user service not fstab:** fstab mounts run as root (wrong SSH keys); user service runs as agamache
 
+**⚠️ KNOWN BUG: Skip v2026.3.22!**
+- npm package is missing `dist/control-ui/` directory (packaging bug)
+- Control UI shows "assets not found" error
+- v3.13 and v3.23+ both have the UI assets; v3.22 does not
+- Verify before upgrading: `npm pack openclaw@<version> --dry-run | grep control-ui/`
+
 **Manual TODOs:**
-- [ ] Configure OpenRouter API key/credits
+- [x] Configure OpenRouter API key/credits (done, working as of Mar 2026)
 - [ ] Test Telegram bot from iPhone
 
 ---
