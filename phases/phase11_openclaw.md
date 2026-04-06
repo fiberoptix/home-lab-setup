@@ -344,3 +344,61 @@ After VM reboot, scheduled heartbeats can timeout and leave session locks that p
 - Check logs for `typing TTL reached` 
 - Check for lock files: `ls ~/.openclaw/agents/main/sessions/*.lock`
 - If OpenRouter API works but sessions are locked, restart the gateway
+
+### v2026.3.28: TTS config schema change (observed Apr 6, 2026)
+
+After updating to v3.28 and rebooting, the gateway crash-looped (exit 1, restart every ~5 seconds). Config validation rejects keys that were valid in v3.23.
+
+**Removed/restructured keys:**
+- `messages.tts.elevenlabs`
+- `messages.tts.openai`
+
+**Renamed keys:**
+- `channels.telegram.streamMode` → `channels.telegram.streaming`
+
+**Fix:** `openclaw doctor --fix --non-interactive` (auto-migrates config, restarts gateway)
+
+### v2026.4.5: Plugin config and TTS schema overhaul (observed Apr 6, 2026)
+
+Three separate crash-loop issues after upgrading from v3.28 to v4.5:
+
+**1. `plugins.entries.telegram.config` rejected**
+- Doctor v3.28 had duplicated channel settings into the plugin entry
+- v4.5 only allows `enabled` and `hooks` in `plugins.entries.<name>` -- no `config` block
+- Fix: Remove `config` from `plugins.entries.telegram`
+
+**2. `plugins.entries.elevenlabs.config` rejected**
+- Same schema tightening; API keys don't go in plugin entries
+- Fix: Remove `config` from `plugins.entries.elevenlabs`
+
+**3. ElevenLabs TTS credentials moved**
+- Old location (v3.x): `messages.tts.elevenlabs.apiKey` (top-level under tts)
+- Invalid location: `plugins.entries.elevenlabs.config.apiKey`
+- **Correct v4.5 location:** `messages.tts.providers.elevenlabs`
+
+```json
+"messages": {
+  "tts": {
+    "provider": "elevenlabs",
+    "providers": {
+      "elevenlabs": {
+        "apiKey": "sk_...",
+        "voiceId": "...",
+        "modelId": "eleven_multilingual_v2"
+      }
+    }
+  }
+}
+```
+
+**Doctor could NOT auto-fix any of these.** Use `openclaw config schema` to discover valid paths.
+
+### General upgrade advice
+
+OpenClaw has broken config compatibility on **4 out of 5 upgrades** in this lab (v2026.2.23, v3.22, v3.28, v4.5). Always:
+1. Back up config: `cp ~/.openclaw/openclaw.json ~/.openclaw/openclaw.json.bak`
+2. Run `openclaw doctor --fix --non-interactive`
+3. If doctor fails, check: `journalctl --user -u openclaw-gateway.service -n 20 --no-pager`
+4. Inspect config and remove/restructure keys flagged in the error
+5. Use `openclaw config schema` piped to grep/python to find where keys moved
+6. Verify: `openclaw gateway status` and `openclaw status --all`
