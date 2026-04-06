@@ -1,6 +1,125 @@
 # Current Phase
 
-**Updated:** March 23, 2026 - 5:15 PM EDT
+**Updated:** April 6, 2026 - 9:35 AM EDT
+
+---
+
+## OpenClaw Upgrade to v2026.4.5 — Three Config Fixes (Apr 6, 2026)
+
+**Status:** RESOLVED
+**Duration:** ~20 minutes (three rounds of crash-loop fixes)
+**Problem:** After updating from v2026.3.28 to v2026.4.5, gateway crash-looped repeatedly due to multiple config schema changes. Doctor could not auto-fix all issues.
+
+### Issue 1: `plugins.entries.telegram.config` rejected
+
+v4.5 tightened the plugin config schema. The v3.28 doctor had duplicated Telegram channel settings (`groupPolicy`, `groupAllowFrom`) into `plugins.entries.telegram.config`, which v4.5 no longer allows.
+
+**Fix:** Removed `config` sub-object from `plugins.entries.telegram` (data already existed in `channels.telegram`).
+
+### Issue 2: `plugins.entries.elevenlabs.config` rejected
+
+Andrew manually added ElevenLabs API key to `plugins.entries.elevenlabs.config` to restore TTS after the v3.28 migration stripped it. But v4.5 only allows `enabled` and `hooks` in plugin entries -- not a `config` block with API keys.
+
+**Fix:** Removed `config` from `plugins.entries.elevenlabs`.
+
+### Issue 3: ElevenLabs TTS credentials — correct v4.5 location
+
+The ElevenLabs API key, voiceId, and modelId no longer go in `messages.tts` top-level keys (v3.x style) or `plugins.entries` (never valid). In v4.5, they belong under `messages.tts.providers.<provider>`:
+
+```json
+"messages": {
+  "tts": {
+    "auto": "inbound",
+    "provider": "elevenlabs",
+    "providers": {
+      "elevenlabs": {
+        "apiKey": "sk_...",
+        "voiceId": "JBFqnCBsd6RMkjVDRZzb",
+        "modelId": "eleven_multilingual_v2"
+      }
+    }
+  }
+}
+```
+
+**Schema discovery:** Used `openclaw config schema` piped through Python to find the correct path: `messages.tts.providers.elevenlabs` accepts `apiKey`, `voiceId`, `modelId`, `baseUrl`, `seed`, `applyTextNormalization`, `languageCode`.
+
+### Verification
+
+```bash
+openclaw gateway status   # Running, RPC probe OK
+openclaw status --all     # v2026.4.5, Telegram ON/OK, up to date
+curl -s -o /dev/null -w "HTTP %{http_code}" http://127.0.0.1:1885/  # HTTP 200
+```
+
+### Lesson Learned
+
+1. `openclaw doctor --fix` is not always sufficient -- it failed to fix the plugin config issues
+2. `plugins.entries.<name>` in v4.5 only accepts `enabled` and `hooks` -- never API keys or channel settings
+3. TTS provider credentials go under `messages.tts.providers.<provider>` (new in v4.5)
+4. Use `openclaw config schema` to discover valid config paths when errors are unclear
+5. Config backups before each upgrade are essential for diagnosing what changed
+
+---
+
+## OpenClaw Upgrade to v2026.3.28 Fix (Apr 6, 2026)
+
+**Status:** RESOLVED
+**Duration:** ~10 minutes
+**Problem:** After updating OpenClaw and rebooting vm-openclaw-1, gateway crash-looped. Web UI wouldn't load, Telegram bot unresponsive.
+
+### Root Cause
+
+v2026.3.28 changed the TTS config schema. Two keys that were valid in v2026.3.23-beta.1 are no longer recognized:
+- `messages.tts.elevenlabs` (removed/restructured)
+- `messages.tts.openai` (removed/restructured)
+
+Additionally, `channels.telegram.streamMode` was renamed to `channels.telegram.streaming`.
+
+The gateway refused to start with the invalid config, crash-looping every ~5 seconds (reached restart counter 9+ within a minute of boot).
+
+### Diagnosis
+
+```bash
+# Systemd logs showed crash loop
+journalctl --user -u openclaw-gateway.service -n 50 --no-pager
+# Every restart: "Config invalid" → "messages.tts: Unrecognized keys: elevenlabs, openai" → exit 1
+
+# CLI also reported the issue
+openclaw gateway status
+# "Config invalid ... Run: openclaw doctor --fix"
+```
+
+### Fix Applied
+
+```bash
+# 1. Back up config
+cp ~/.openclaw/openclaw.json ~/.openclaw/openclaw.json.bak.pre-v3.28-fix
+
+# 2. Run doctor to auto-fix config schema
+openclaw doctor --fix --non-interactive
+```
+
+Doctor changes:
+- Removed unrecognized `messages.tts.elevenlabs` and `messages.tts.openai` keys
+- Renamed `channels.telegram.streamMode` → `channels.telegram.streaming`
+- Archived 32 orphan transcript files
+- Restarted gateway service
+
+### Verification
+
+```bash
+openclaw gateway status   # Running, RPC probe OK (31ms)
+openclaw status --all     # Telegram ON/OK, 1 agent active, 11 sessions
+curl -s -o /dev/null -w "HTTP %{http_code}" http://127.0.0.1:1885/  # HTTP 200
+```
+
+### Lesson Learned
+
+This is the **third** time an OpenClaw update has introduced breaking changes (v2026.2.23 allowedOrigins, v2026.3.22 missing UI assets, v2026.3.28 TTS schema). After any OpenClaw upgrade:
+1. Back up config: `cp ~/.openclaw/openclaw.json ~/.openclaw/openclaw.json.bak`
+2. Run `openclaw doctor --fix --non-interactive` immediately
+3. Verify: `openclaw gateway status` and `openclaw status --all`
 
 ---
 

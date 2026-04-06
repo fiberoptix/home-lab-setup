@@ -443,7 +443,7 @@ services:
 
 - **VM:** vm-openclaw-1 @ 192.168.1.185 (16GB RAM, 8 cores, 50GB vm-critical)
 - **OS:** Ubuntu 24.04 Desktop
-- **Version:** 2026.3.23-beta.1 (updated Mar 23, 2026; prior: 3.13 → 3.22 → 3.23-beta.1)
+- **Version:** 2026.4.5 (updated Apr 6, 2026; prior: 3.13 → 3.22 → 3.23-beta.1 → 3.28 → 4.5)
 - **Install Method:** Bash script (`curl -fsSL https://openclaw.ai/install.sh | bash`)
 - **Gateway Port:** 1885 (non-default to avoid scanner detection; default is 18789)
 - **Gateway Bind:** LAN (0.0.0.0)
@@ -479,7 +479,16 @@ services:
 - Tailscale Serve (persistent via --bg flag)
 
 **Config:** `~/.openclaw/openclaw.json` on vm-openclaw-1 (permissions: 600)
-**Config backup:** `~/.openclaw/openclaw.json.bak.pre-fix` (pre-v2026.2.23 fix snapshot)
+**Config backups on VM:**
+- `~/.openclaw/openclaw.json.bak` (auto-created by doctor)
+- `~/.openclaw/openclaw.json.bak.pre-fix` (pre-v2026.2.23 fix)
+- `~/.openclaw/openclaw.json.bak.pre-v3.28-fix` (pre-v3.28 fix, Apr 6 2026)
+- `~/.openclaw/openclaw.json.bak.pre-v4.5-fix` (pre-v4.5 fix, Apr 6 2026)
+- `~/.openclaw/openclaw.json.bak.pre-elevenlabs-fix` (pre-ElevenLabs fix, Apr 6 2026)
+
+**TTS (ElevenLabs) — v4.5 config location:**
+- Provider credentials go in `messages.tts.providers.elevenlabs` (NOT `plugins.entries` or top-level `messages.tts`)
+- Valid keys: `apiKey`, `voiceId`, `modelId`, `baseUrl`, `seed`, `applyTextNormalization`, `languageCode`
 **Logs:** `/tmp/openclaw/openclaw-YYYY-MM-DD.log`
 **npm global bin:** `/home/agamache/.npm-global/bin` (added to PATH in .bashrc)
 
@@ -507,13 +516,27 @@ sudo tailscale serve --bg 1885
 
 **Update procedure (safe):**
 ```bash
-# Preferred: re-run installer (upgrades in place, runs doctor)
+# 1. Back up config FIRST
+cp ~/.openclaw/openclaw.json ~/.openclaw/openclaw.json.bak.pre-update
+
+# 2. Update (pick one)
 curl -fsSL https://openclaw.ai/install.sh | bash -s -- --no-onboard
 # Or: npm update
 npm i -g openclaw@latest
-# Always run after update:
-openclaw doctor
-openclaw gateway restart
+
+# 3. Try doctor first (may not fix everything)
+openclaw doctor --fix --non-interactive
+
+# 4. Check if gateway started
+openclaw gateway status
+
+# 5. If still crash-looping, check the error and fix config manually:
+journalctl --user -u openclaw-gateway.service -n 20 --no-pager
+# Then edit ~/.openclaw/openclaw.json to remove offending keys
+# Then: openclaw gateway restart
+
+# 6. Final verification
+openclaw status --all
 ```
 
 **Rollback (if update breaks things):**
@@ -542,6 +565,15 @@ openclaw gateway restart
 - Control UI shows "assets not found" error
 - v3.13 and v3.23+ both have the UI assets; v3.22 does not
 - Verify before upgrading: `npm pack openclaw@<version> --dry-run | grep control-ui/`
+
+**⚠️ POST-UPGRADE: Always run doctor, then verify manually!**
+- v2026.3.28: Changed TTS config schema, renamed `streamMode` → `streaming`
+- v2026.4.5: Tightened plugin entries (only `enabled`/`hooks` allowed); moved TTS creds to `messages.tts.providers.<name>`
+- Doctor FAILED to auto-fix plugin config issues in v4.5
+- Gateway crash-loops if config has unrecognized keys
+- **After ANY upgrade:** back up config, run `openclaw doctor --fix --non-interactive`, then `openclaw gateway status`
+- **If doctor fails:** check `journalctl --user -u openclaw-gateway.service -n 20`, inspect config, remove offending keys
+- **Schema discovery:** `openclaw config schema | python3 -c "import sys,json; ..."` to find where keys moved
 
 **Manual TODOs:**
 - [x] Configure OpenRouter API key/credits (done, working as of Mar 2026)
