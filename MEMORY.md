@@ -24,6 +24,7 @@
 - **Cost Savings:** ~$400/year by replacing GCP hosting
 - **README Files:** Both projects direct users to cap.* as primary production URL
 - **Phase 11 COMPLETE:** OpenClaw AI Agent Server LIVE (vm-openclaw-1 @ .185, Tailscale Serve, Telegram)
+- **`refresh` command on Proxmox:** Parallel update + reboot of all 5 VMs (.180-.184, excluding .185), live status display. See REFRESH SCRIPT section.
 - Next: Phase 8 (Monitoring Stack)
 
 ---
@@ -81,6 +82,23 @@
 
 **DIND Note:** Docker-in-Docker (services: docker:dind) fails. Standard jobs work fine.
 Use docker socket mount for builds: `volumes = ["/var/run/docker.sock:/var/run/docker.sock"]`
+
+**APT signing key (packages.gitlab.com):**
+- Keyring: `/etc/apt/keyrings/runner_gitlab-runner-archive-keyring.gpg`
+- Source list: `/etc/apt/sources.list.d/runner_gitlab-runner.list` (uses `signed-by=`)
+- Fingerprint: `F6403F65 44A38863 DAA0B6E0 3F01618A 51312F3F`
+- **Current expiration: Feb 6, 2028** (rotated May 23, 2026 after the old copy expired Feb 27, 2026)
+- Backup of expired key: `/etc/apt/keyrings/runner_gitlab-runner-archive-keyring.gpg.bak.20260523`
+
+**Refresh procedure (when EXPKEYSIG appears again ~early 2028):**
+```bash
+sudo cp /etc/apt/keyrings/runner_gitlab-runner-archive-keyring.gpg{,.bak.$(date +%Y%m%d)}
+curl -fsSL https://packages.gitlab.com/runner/gitlab-runner/gpgkey \
+  | sudo gpg --batch --yes --dearmor \
+             -o /etc/apt/keyrings/runner_gitlab-runner-archive-keyring.gpg
+sudo chmod 644 /etc/apt/keyrings/runner_gitlab-runner-archive-keyring.gpg
+sudo apt-get update   # should be clean: no EXPKEYSIG
+```
 
 ---
 
@@ -156,6 +174,48 @@ wget http://192.168.1.195/scripts/host_setup.sh && chmod +x host_setup.sh && ./h
 - **WWW:** 8 GB (Traefik + Capricorn PROD + splash)
 - **OpenClaw:** 16 GB (AI agent gateway + Docker sandboxes, upgraded from 8 GB -- Ubuntu Desktop used 90%)
 - **Total Allocated:** 84 GB of 256 GB available (33%)
+
+---
+
+## REFRESH SCRIPT (PROXMOX HOST)
+
+**Purpose:** Update + reboot all 5 home-lab VMs in parallel from the Proxmox host.
+
+- **Location:** `/usr/local/bin/refresh.sh` on Proxmox (192.168.1.150)
+- **Source in repo:** `proxmox/build-scripts/refresh.sh`
+- **Alias:** `refresh` in `/root/.bashrc` on Proxmox
+- **Invocation:** SSH to Proxmox as root, then type `refresh`
+
+**VMs targeted (parallel):** .180, .181, .182, .183, .184
+**Excluded:** .185 (vm-openclaw-1) — managed separately
+
+**What it does on each VM:**
+1. Records pre-update `/proc/uptime` (baseline for reboot detection)
+2. SSHes as `agamache` (key auth, no password)
+3. Runs `apt-get update && apt-get upgrade` non-interactively
+   (`DEBIAN_FRONTEND=noninteractive`, `--force-confdef`/`--force-confold` to keep existing config files, passwordless sudo)
+4. On success (`&&`) runs `sudo init 6` to reboot
+
+**Live status display** (redraws every 30s, with countdown in between):
+
+| State    | Meaning                                                                  |
+|----------|--------------------------------------------------------------------------|
+| RUNNING  | SSH session active, apt is working                                       |
+| SHUTDOWN | SSH ended (init 6 fired) but VM still reachable (mid-shutdown, <180s)    |
+| BOOTING  | SSH ended, host unreachable (reboot in progress)                         |
+| DONE     | Host back online with fresh uptime (reboot complete)                     |
+| FAILED   | SSH ended; host stayed up with unchanged uptime past 180s grace          |
+
+**Per-VM logs:** `/tmp/refresh-<ip>.log` on Proxmox (overwritten each run)
+
+**SSH from Proxmox root to VMs:**
+- Dev workstation's `~/.ssh/id_ed25519` keypair was copied to Proxmox `/root/.ssh/` (Option B from May 23, 2026 setup)
+- Same key is in `agamache@<vm>:~/.ssh/authorized_keys` on all VMs (deployed Feb 27, 2026)
+- `/root/.ssh/known_hosts` pre-populated for .180–.184
+
+**Reboot detection trick:** `init 6` exits SSH with ambiguous exit code (often 0) and the VM stays reachable for ~5-90s before sshd dies. Don't rely on ssh exit code — compare `/proc/uptime` before vs after.
+
+**Created:** May 23, 2026 (this session, see `phases/current_phase.md`)
 
 ### Storage Pool Selection
 - **vm-critical (mirror):** GitLab, SonarQube, Monitoring (data persistence)

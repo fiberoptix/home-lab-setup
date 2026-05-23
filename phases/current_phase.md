@@ -1,6 +1,93 @@
 # Current Phase
 
-**Updated:** April 6, 2026 - 9:35 AM EDT
+**Updated:** May 23, 2026 - 6:35 PM EDT
+
+---
+
+## Parallel VM Refresh Script + GitLab Runner GPG Key Fix (May 23, 2026)
+
+**Status:** COMPLETE
+**Duration:** ~50 minutes (5:49 PM – 6:35 PM EDT)
+**What:** Created `refresh.sh` on Proxmox to update + reboot all 5 home-lab VMs in parallel with live status display. Also fixed expired GitLab Runner apt signing key on .182.
+
+### refresh.sh — Parallel VM Refresh
+
+**Where it lives:**
+- Repo: `proxmox/build-scripts/refresh.sh`
+- Proxmox: `/usr/local/bin/refresh.sh` (deployed via scp)
+- Alias: `refresh` in `/root/.bashrc` (just type `refresh` as root)
+
+**VMs targeted (parallel):** .180, .181, .182, .183, .184
+**Explicitly excluded:** .185 (vm-openclaw-1) — managed separately
+
+**What it does on each VM:**
+1. Pre-flight: records each VM's `/proc/uptime` (baseline for reboot detection)
+2. SSH as `agamache` (key auth, no password)
+3. `apt-get update && apt-get upgrade` non-interactively (`DEBIAN_FRONTEND=noninteractive`, `--force-confdef`/`--force-confold`, passwordless sudo)
+4. On success (`&&`) → `sudo init 6`
+
+**Live status (redraws every 30s with countdown between ticks):**
+
+| State    | Meaning                                                                |
+|----------|------------------------------------------------------------------------|
+| RUNNING  | SSH session active, apt working                                        |
+| SHUTDOWN | SSH ended (init 6 fired) but VM still reachable (<180s grace)          |
+| BOOTING  | SSH ended, host unreachable (reboot in progress)                       |
+| DONE     | Host back online with fresh uptime                                     |
+| FAILED   | SSH ended; host stayed up with unchanged uptime past 180s grace        |
+
+**Per-VM logs:** `/tmp/refresh-<ip>.log` on Proxmox
+
+### SSH Key Setup (Option B chosen)
+
+- Copied dev workstation's `~/.ssh/id_ed25519`/`.pub` to Proxmox `/root/.ssh/` (chmod 600/644)
+- Same key already in `agamache@<vm>:~/.ssh/authorized_keys` (deployed Feb 27, 2026)
+- Pre-populated `/root/.ssh/known_hosts` on Proxmox for .180–.184 via `ssh-keyscan`
+- Verified: `root@pve → agamache@<each VM>` works key-only, passwordless `sudo -n` confirmed
+
+### Bugs Found and Fixed During Development
+
+**Bug 1: Wait loop blocked on hash-order, not completion order**
+First draft used `for vm in "${!PIDS[@]}"; do wait ...; done` which iterates the associative array in bash hash-table order. Fast VMs were "stuck" behind slow ones in the display (GitLab took ~9 min while others took ~2 min, but their `[DONE]` lines couldn't print until GitLab's wait completed). Fixed by switching to **sentinel files** written by each subshell after its ssh exits, plus a polling loop that computes each VM's state independently each tick.
+
+**Bug 2: Premature FAILED during VM shutdown window**
+`sudo init 6` returns 0 immediately while shutdown proceeds asynchronously. SSH exits, but the VM is still reachable for ~5–90s before sshd dies. Initial detection logic saw `up >= PRE_UPTIME` and flagged FAILED — incorrectly. Fixed by adding a **180s grace window**: between sentinel-creation and grace expiry, the state is `SHUTDOWN` (not terminal). Only after 180s of "still reachable with old uptime" does it become `FAILED` (real apt failure with no reboot).
+
+### GitLab Runner GPG Key Rotation (.182)
+
+**Problem:** During refresh, `.182` emitted:
+```
+W: GPG error: ... EXPKEYSIG 3F01618A51312F3F GitLab B.V. (package repository signing key)
+```
+
+**Root cause:** Same key fingerprint, but the on-disk copy had `[expired: 2026-02-27]`. GitLab/packagecloud rotated the same keypair forward; the current upstream key expires **Feb 6, 2028**.
+
+**Fix:**
+```bash
+sudo cp /etc/apt/keyrings/runner_gitlab-runner-archive-keyring.gpg{,.bak.20260523}
+curl -fsSL https://packages.gitlab.com/runner/gitlab-runner/gpgkey \
+  | sudo gpg --batch --yes --dearmor \
+             -o /etc/apt/keyrings/runner_gitlab-runner-archive-keyring.gpg
+sudo chmod 644 /etc/apt/keyrings/runner_gitlab-runner-archive-keyring.gpg
+sudo apt-get update   # confirmed clean
+```
+
+Fingerprint unchanged: `F6403F65 44A38863 DAA0B6E0 3F01618A 51312F3F`
+Next rotation: before Feb 6, 2028
+
+### Verified Both Refresh Runs Succeeded
+
+| Run | All 5 VMs uptime after | systemd is-system-running |
+|-----|------------------------|---------------------------|
+| 1st (17:58–18:09) | 5–6 min (1 min for .181 due to GitLab Omnibus reconfigure) | running |
+| 2nd (18:30–18:33) | 1–2 min (faster, no GitLab Omnibus update) | running |
+
+### Lessons Learned
+
+1. **`init 6` exit code is ambiguous** — often returns 0 because the SSH client reads the success status before the connection drops. Use uptime delta to confirm reboot, not exit code.
+2. **Bash associative-array iteration is hash-order** — never rely on it for ordered work; use sentinel files / `wait -n` instead.
+3. **GitLab Omnibus reconfigure is slow** (~6–15 min) because it walks hundreds of chef recipes (puma, sidekiq, gitaly, postgres, registry, prometheus, alertmanager). Other Ubuntu VMs finish in ~2 min.
+4. **Packagecloud-style apt repos** (GitLab Runner, etc.) can re-issue the same keypair with a new expiration. Refresh by re-downloading from `packages.gitlab.com/.../gpgkey` and re-dearmoring into `/etc/apt/keyrings/` — no source list changes needed.
 
 ---
 
