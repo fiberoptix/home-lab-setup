@@ -1,9 +1,10 @@
 # 🏠 Home Lab Setup - Proxmox DevOps Environment
 
-**Building a complete FREE DevOps/QA home lab on Proxmox VE 9.1**
+**A complete FREE DevOps/QA home lab on Proxmox VE 9.2**
 
-[![Status](https://img.shields.io/badge/Status-In_Progress-yellow)]()
-[![Proxmox](https://img.shields.io/badge/Proxmox-VE_9.1-orange)]()
+[![Status](https://img.shields.io/badge/Status-Operational-brightgreen)]()
+[![Proxmox](https://img.shields.io/badge/Proxmox-VE_9.2.3-orange)]()
+[![Kernel](https://img.shields.io/badge/Kernel-7.0.6--2--pve-informational)]()
 [![Hardware](https://img.shields.io/badge/Hardware-HP_Z6_G4-blue)]()
 
 ---
@@ -32,6 +33,19 @@ This system was designed out of interest to build and deploy the **Capricorn** p
 
 ---
 
+## ✨ What's New (since the last update)
+
+A lot has shipped since the initial CI/CD milestone:
+
+- 🌐 **Local Production Server (Phase 7):** Stood up `vm-www-1` with **Traefik** + **Let's Encrypt** SSL, hosting **Capricorn PROD** at `https://cap.gothamtechnologies.com` and a public splash page at `https://www.gothamtechnologies.com`. Replaced paid GCP hosting → **~$400/year saved**. Solved Docker multi-network routing, HTTPS mixed-content, and NAT hairpinning along the way.
+- 🔍 **SonarQube Code Quality (Phase 6):** Upgraded to v26.1.0 and wired quality gates into the CI/CD pipelines for both test-app and Capricorn (28k LOC scanned, gate passing).
+- 🤖 **OpenClaw AI Agent (Phase 11):** Built an AI agent server reachable over Tailscale Serve HTTPS with a Telegram bot. *(Now retired — kept here for reference; auto-start disabled.)*
+- 🔁 **Parallel VM `refresh` tooling:** One command updates **and** reboots every lab VM in parallel with a live status dashboard, made **disconnect-proof** via a `tmux` self-wrap (survives a dropped Proxmox web console and is re-attachable).
+- 🔐 **Fleet hardening:** ed25519 SSH key auth deployed to all VMs, passwords pulled out of docs into a git-ignored store, and a persistent SSHFS mount for remote work.
+- 🧩 **Proxmox kernel saga → resolved:** A bad `6.17.4-2` kernel once broke NVMe boot on this Z6 G4 (rolled back + pinned `6.17.2-1`). Researched the regression, then performed a **reversible, console-gated upgrade** (`proxmox-boot-tool --next-boot`) through `6.17.13-13` and finally to **`7.0.6-2-pve`**, alongside a full **PVE 9.1 → 9.2.3** upgrade. Two clean validation reboots, zero NVMe errors. See [`phases/phase1a_*`](phases/phase1a_proxmox_upgrade_fail_rollback.md) (failure/rollback) and [`phases/phase1b_*`](phases/phase1b_proxmox_kernel_upgrade_safe_try.md) (safe upgrade + results).
+
+---
+
 ## 🖥️ Hardware Specifications
 
 **Platform:** HP Z6 G4 Workstation
@@ -54,18 +68,21 @@ This system was designed out of interest to build and deploy the **Capricorn** p
 
 ## 🏗️ Infrastructure Architecture
 
-**4 Virtual Machines (Currently Active):**
+**5 Virtual Machines (Currently Active):**
 
 | VM | Purpose | RAM | Disk | Storage Pool | IP |
 |----|---------|-----|------|--------------|-----|
-| **GitLab** | Git + CI/CD + Registries | 16GB | 500GB | vm-critical | .181 |
-| **Runner** | CI/CD job execution | 8GB | 100GB | vm-ephemeral | .182 |
-| **SonarQube** | Code quality & security | 8GB | 30GB | vm-critical | .183 |
-| **QA Host** | Deployed applications | 8GB | 100GB | vm-ephemeral | .180 |
+| **QA Host / K8s** | Deployed applications (Capricorn QA) | 8GB | 100GB | vm-ephemeral | .180 |
+| **GitLab** | Git + CI/CD + Registries | 24GB | 500GB | vm-critical | .181 |
+| **Runner** | CI/CD job execution | 12GB | 100GB | vm-ephemeral | .182 |
+| **SonarQube** | Code quality & security | 12GB | 30GB | vm-critical | .183 |
+| **WWW / PROD** | Traefik + Capricorn PROD + splash | 8GB | 50GB | vm-critical | .184 |
 
-**Planned VMs:**
-| **Traefik** | Public HTTPS reverse proxy | 2GB | 10GB | local-zfs | TBD |
-| **Monitoring** | Prometheus + Grafana | 6GB | 30GB | vm-critical | TBD |
+**Retired:**
+- **OpenClaw** (.185) — AI agent server (Tailscale + Telegram). Decommissioned; auto-start disabled.
+
+**Planned:**
+- **Monitoring** — Prometheus + Grafana (Phase 8)
 
 **VM Configuration Standard:**
 - CPU: `host` type (native performance)
@@ -75,8 +92,8 @@ This system was designed out of interest to build and deploy the **Capricorn** p
 - Boot: `onboot=1` (auto-start on Proxmox boot)
 
 **Resource Utilization:**
-- Total RAM Allocated: 40 GB of 126 GB (32% - room for 11 more 8GB VMs)
-- Total CPU Cores: 28 of 48 vCPUs (58% - plenty of headroom)
+- ~64 GB of 128 GB RAM allocated across the active VMs (headroom for more)
+- 28 of 48 vCPUs (plenty of headroom)
 
 **Dual-Access Strategy:**
 - 🔒 **Tailscale VPN** - Admin access to ALL services (GitLab, SonarQube, Grafana)
@@ -86,7 +103,7 @@ This system was designed out of interest to build and deploy the **Capricorn** p
 
 ## 📊 Project Status
 
-**Current Phase:** 7 - ✅ **COMPLETE** (Local WWW/Production Server with Traefik + SSL!)
+**Status:** Core platform ✅ **Operational** — CI/CD, code quality, and local production all live.
 
 | Phase | Description | Status |
 |-------|-------------|--------|
@@ -97,19 +114,23 @@ This system was designed out of interest to build and deploy the **Capricorn** p
 | 4 | GitLab Server Setup | ✅ Complete |
 | 5 | GitLab Runner Setup | ✅ Complete |
 | 6 | CI/CD Pipelines | ✅ Complete |
-| 7 | **SonarQube Integration** | ✅ **Complete** |
-| 8 | Monitoring Stack | ⏳ Next |
-| 9 | **Traefik + SSL** | ✅ **Complete** |
+| 6b | SonarQube Integration | ✅ Complete |
+| 7 | Local WWW / PROD Server (Traefik + SSL) | ✅ Complete |
+| 11 | OpenClaw AI Agent Server | ✅ Built (now retired) |
+| 8 | Monitoring Stack (Prometheus + Grafana) | ⏳ Next |
 | 10 | Backup Configuration | ⏳ Planned |
 
 **Infrastructure Status:**
-- ✅ Proxmox VE 9.1 at 192.168.1.150 (kernel 6.17.2-1-pve pinned)
-- ✅ GitLab CE at 192.168.1.181 (source control + CI/CD, 16GB RAM, auto-start)
-- ✅ GitLab Runner at 192.168.1.182 (Docker executor v18.7.2, 8GB RAM, auto-start)
-- ✅ SonarQube at 192.168.1.183:9000 (v26.1.0, 8GB RAM, auto-start)
-- ✅ QA Host at 192.168.1.180 (vm-kubernetes-1, 8GB RAM, auto-start)
+- ✅ Proxmox VE **9.2.3** at 192.168.1.150 (kernel **7.0.6-2-pve**, pinned & tested; `6.17.13-13` / `6.17.2-1` kept as fallbacks)
+- ✅ GitLab CE at 192.168.1.181 (source control + CI/CD, auto-start)
+- ✅ GitLab Runner at 192.168.1.182 (Docker executor v18.7.2, auto-start)
+- ✅ SonarQube at 192.168.1.183:9000 (v26.1.0, auto-start)
+- ✅ QA Host at 192.168.1.180 (vm-kubernetes-1, auto-start)
+- ✅ WWW/PROD at 192.168.1.184 (Traefik + Let's Encrypt, Capricorn PROD + splash, auto-start)
 - ✅ Container Registry at gitlab.gothamtechnologies.com:5050 (operational)
 - ✅ Script server at http://192.168.1.195/scripts/ (host setup automation)
+- 🔁 `refresh` command: parallel update + reboot of all lab VMs, disconnect-proof via tmux
+- 🤖 OpenClaw AI agent at .185 — **retired** (auto-start disabled)
 
 **Applications Deployed via CI/CD:**
 - ✅ Test App: http://192.168.1.180:8080 (validation + quality scan)
@@ -136,17 +157,23 @@ home-lab-setup/
 │   ├── current_phase.md         # Active phase tracker
 │   ├── phase0_hardware.md       # Hardware installation notes
 │   ├── phase1_proxmox.md        # Proxmox setup
+│   ├── phase1a_proxmox_upgrade_fail_rollback.md   # Kernel incident + rollback
+│   ├── phase1b_proxmox_kernel_upgrade_safe_try.md # Reversible kernel upgrade + results
 │   ├── phase2_host_setup_automation.md
 │   ├── phase3_gitlab_server.md  # GitLab installation & config
 │   ├── phase4_gitlab_runner.md  # Runner setup & troubleshooting
 │   ├── phase5_ci_cd_pipelines.md # CI/CD implementation
-│   └── phase6_sonarqube.md      # Code quality integration
+│   ├── phase6_sonarqube.md      # Code quality integration
+│   ├── phase7_local_www.md      # Local WWW/PROD server (Traefik + SSL)
+│   └── phase11_openclaw.md      # AI agent server (retired)
 │
 ├── proxmox/                     # Proxmox documentation
 │   ├── Home_Lab_Proxmox_Build_Plan.md    # Master build checklist
 │   ├── Home_Lab_Proxmox_Design.md        # Architecture overview
 │   ├── Home_Lab_Proxmox_Storage.md       # ZFS configuration
 │   ├── Home_Lab_Proxmox_Install.md       # Installation notes
+│   ├── build-scripts/
+│   │   └── refresh.sh           # Parallel VM update+reboot (tmux-persistent)
 │   ├── credentials              # (git-ignored)
 │   └── nas_credentials          # (git-ignored)
 │
@@ -226,8 +253,8 @@ bash host_setup.sh
 ## 🛠️ Technology Stack (All FREE)
 
 **Infrastructure:**
-- Proxmox VE 9.1 (hypervisor)
-- Ubuntu Server 24.04 LTS (guest OS)
+- Proxmox VE 9.2 (hypervisor, kernel 7.0.6-2-pve)
+- Ubuntu Server/Desktop 24.04 LTS (guest OS)
 - ZFS (software RAID)
 
 **DevOps Tools:**
@@ -287,17 +314,14 @@ This lab supports:
 - ✅ Enabled auto-start on boot (onboot=1)
 - ✅ Adjusted RAM allocation based on actual usage patterns
 
-**Proxmox Kernel Management:**
-- ⚠️ **Kernel 6.17.4-2-pve incompatible** with HP Z6 G4 NVMe hardware (boot failure)
-- ✅ **Running stable kernel:** 6.17.2-1-pve (pinned via `proxmox-boot-tool`)
-- ✅ **Kernel packages held** to prevent automatic upgrades
-- ✅ **Update script created:** `/usr/local/bin/proxmox-update.sh` (alias: `update`)
-  - Automatically updates Proxmox + Debian packages
-  - Disables subscription nag after updates
-  - Checks for reboot requirements
-  - Kernel won't upgrade due to package holds
+**Proxmox Kernel Management (resolved June 2026):**
+- ⚠️ **Kernel 6.17.4-2-pve once broke NVMe boot** on this HP Z6 G4 (Intel VMD). Rolled back and pinned `6.17.2-1-pve` while the regression was investigated.
+- ✅ **Reversible upgrade strategy:** used `proxmox-boot-tool kernel pin --next-boot` (one-shot boot with automatic power-cycle revert to the last-good kernel) — every kernel change is console-gated and safe.
+- ✅ **Now running `7.0.6-2-pve`** (validated through two clean reboots: zero NVMe timeouts, ZFS healthy, all 6 NVMe present). Reached via `6.17.2-1 → 6.17.13-13 → 7.0.6-2` plus a full **PVE 9.1 → 9.2.3** upgrade.
+- ✅ **Policy:** rely on the **boot pin** (not package holds) to control which kernel boots; newer kernels can install but won't boot until explicitly pinned and tested.
+- ✅ **Update script:** `/usr/local/bin/proxmox-update.sh` (alias: `update`) — updates packages, disables the subscription nag, checks reboot requirements.
 
-**Reboot Tested:** All VMs auto-start successfully, all services operational within 2-3 minutes
+**Reboot Tested:** All active VMs auto-start successfully, services operational within 2-3 minutes
 
 ---
 
@@ -330,9 +354,9 @@ This is a personal project, but feel free to use the documentation as reference 
 
 ---
 
-**Last Updated:** January 12, 2026 (9:30 PM EST)  
-**Proxmox Version:** VE 9.1 (Kernel: 6.17.2-1-pve - pinned)  
-**Build Status:** Phase 6 Complete | Infrastructure Optimized & Production-Ready
+**Last Updated:** June 18, 2026 (7:40 PM EDT)  
+**Proxmox Version:** VE 9.2.3 (Kernel: 7.0.6-2-pve - pinned & tested)  
+**Build Status:** CI/CD + Code Quality + Local PROD operational | Monitoring next
 
 ---
 

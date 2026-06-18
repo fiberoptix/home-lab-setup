@@ -6,9 +6,9 @@
 
 ## CURRENT STATE
 
-- Proxmox running at 192.168.1.150 (HP Z6 G4: single Xeon Platinum 8168 24c/48t, 128GB RAM, ZFS) — **PVE 9.2.3**, kernel **6.17.13-13-pve** (pinned)
+- Proxmox running at 192.168.1.150 (HP Z6 G4: single Xeon Platinum 8168 24c/48t, 128GB RAM, ZFS) — **PVE 9.2.3**, kernel **7.0.6-2-pve** (pinned, tested)
 - **NOTE:** The Proxmox server is a **Z6 G4** (single CPU, 128GB). The **dev workstation** we work from is a **Z8 G4** (dual Platinum 8168, 256GB). Don't confuse the two.
-- **Jun 18, 2026: kernel un-stuck.** Upgraded to 6.17.13-13-pve (NVMe regression fixed), full host upgrade to PVE 9.2.3, all package holds removed. New 7.0.6-2-pve kernel installed but pinned-away (won't boot). See current_phase.md + phase1b.
+- **Jun 18, 2026: kernel fully un-stuck.** Went 6.17.2-1 → 6.17.13-13 → **7.0.6-2-pve** (all NVMe-clean), full host upgrade to PVE 9.2.3, all package holds removed. 7.0.6-2 tested via --next-boot, then made permanent and confirmed it boots autonomously (2 reboots clean). 6.17.13-13 kept as fallback. See current_phase.md + phase1b.
 - Script server running at http://192.168.1.195/scripts/
 - **GitLab CE LIVE at http://192.168.1.181** (root/[See PASSWORDS.md])
 - **GitLab Runner LIVE at 192.168.1.182** (gitlab-runner-1, v18.7.2)
@@ -268,12 +268,13 @@ Installs: Docker, SSH keys, passwordless sudo, NAS mount, insecure-registry conf
 **Current Status:** June 18, 2026 — on 6.17.13-13-pve, PVE 9.2.3, holds removed
 
 ### Active Kernel
-- **Running + permanently pinned:** 6.17.13-13-pve ✅ STABLE (upgraded Jun 18, 2026;
-  clean boot, 0 NVMe timeouts, all 6 NVMe present behind VMD, ZFS healthy)
-- **Fallback kept installed:** 6.17.2-1-pve (previous known-good; not purged)
-- **NEW kernel present but NOT pinned:** 7.0.6-2-pve — pulled in as the PVE 9.2 default.
-  ⚠️ It will **NOT boot** because the explicit pin is on 6.17.13-13. To adopt it later,
-  repeat the `--next-boot` test dance from phase1b (with console access), then make permanent.
+- **Running + permanently pinned:** 7.0.6-2-pve ✅ STABLE (PVE 9.2 default; tested
+  Jun 18, 2026 via --next-boot, then pinned permanent and confirmed autonomous boot —
+  2 clean reboots, 0 NVMe timeouts, all 6 NVMe present behind VMD, ZFS healthy)
+- **Fallbacks kept installed:** 6.17.13-13-pve (prior good) and 6.17.2-1-pve. To revert,
+  `proxmox-boot-tool kernel pin 6.17.13-13-pve` + `refresh` (console access advised).
+- **History on this box:** 6.17.4-2 hung (Jan); ran 6.17.2-1 pinned; Jun 18 → 6.17.13-13
+  → 7.0.6-2 (current). All 6.17.9+ / 7.0 kernels are NVMe-clean here.
 - **Holds:** NONE ✅ — `proxmox-default-kernel` + `proxmox-kernel-6.17.2-1-pve-signed`
   unheld Jun 18. `apt install` is normal again (dpkg-download workaround no longer needed).
 - **Root cause of the recurring solver error** (`proxmox-default-kernel : Depends:
@@ -283,9 +284,9 @@ Installs: Docker, SSH keys, passwordless sudo, NAS mount, insecure-registry conf
 - **History:** 6.17.4-2 hung the box (Jan 12); ran pinned on 6.17.2-1 until Jun 18.
   See `phases/phase1a_*` (failure) and `phases/phase1b_*` (this upgrade + results).
 
-### Pending / recommended
-- **Reboot recommended** to fully activate systemd 257.13 / libc / QEMU 11 (will boot
-  pinned 6.17.13-13). Running VMs hold old QEMU 10.x binary until each is stop/started.
+### Status
+- systemd 257.13 / libc / QEMU 11 now fully active (host rebooted Jun 18). VMs were
+  stopped+started during the kernel test, so they now run on the new QEMU 11 binary too.
 
 ### ⚠️ KNOWN ISSUE: Kernel 6.17.4-2-pve
 **Problem:** NVMe timeout errors on all disks during boot (HP Z6 G4 + Intel VMD; 6.17 NVMe regression).
@@ -301,8 +302,8 @@ purged the bad kernel.
 ```bash
 # Pinned kernel (always boots this one):
 proxmox-boot-tool kernel list
-# Shows: Pinned kernel: 6.17.13-13-pve
-#   (7.0.6-2-pve is also installed but NOT pinned → will not boot)
+# Shows: Pinned kernel: 7.0.6-2-pve
+#   (6.17.13-13-pve and 6.17.2-1-pve also installed as fallbacks)
 
 # Holds: NONE — removed Jun 18, 2026. apt install works normally again.
 apt-mark showhold   # (empty)
@@ -317,10 +318,11 @@ apt-mark showhold   # (empty)
   `proxmox-boot-tool kernel pin`-ed and tested with console access.
 
 **KERNEL POLICY (post Jun 18, 2026):** Holds are removed; rely on the **boot pin**
-instead. The pin is on `6.17.13-13-pve`. Before adopting any newer kernel (e.g. the
-already-installed `7.0.6-2-pve`), use the reversible `--next-boot` procedure in
+instead. The pin is on `7.0.6-2-pve`. Before adopting any future newer kernel, use the
+reversible `--next-boot` procedure in
 `phases/phase1b_proxmox_kernel_upgrade_safe_try.md` **with physical/console access**,
-verify NVMe + ZFS, then make the pin permanent.
+verify NVMe + ZFS, then make the pin permanent (this is exactly how 6.17.13-13 and
+7.0.6-2 were validated).
 
 ---
 
