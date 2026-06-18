@@ -1,6 +1,132 @@
 # Current Phase
 
-**Updated:** May 23, 2026 - 6:35 PM EDT
+**Updated:** June 18, 2026 - 7:22 PM EDT
+
+---
+
+## Proxmox kernel upgrade 6.17.13-13 + PVE 9.1→9.2 + holds removed (June 18, 2026)
+
+**Status:** COMPLETE ✅
+**What:** Successfully escaped the pinned/held kernel state. Upgraded the Proxmox
+host kernel into the 6.17 series again (the one that hung in Jan was 6.17.4-2; the
+fix landed in 6.17.9+), brought the whole host current to PVE 9.2, and removed all
+package holds so `apt` is normal again.
+
+### Sequence (all with VMs gracefully shut down + physical console available)
+
+1. **Graceful VM shutdown** — `qm shutdown` all 5 running guests, confirmed `stopped`.
+2. **Installed `6.17.13-13-pve`** via dpkg-download (apt solver still blocked by the
+   held `proxmox-default-kernel`). Set `proxmox-boot-tool kernel pin … --next-boot`
+   (one-shot) so a failed boot would auto-revert to the permanently-pinned 6.17.2-1.
+   `proxmox-boot-tool refresh` to write ESPs.
+3. **Rebooted → booted clean on 6.17.13-13.** Verified: `zpool status -x` healthy,
+   all 6 NVMe present behind VMD, **0 NVMe timeout/error lines**, `systemctl
+   is-system-running` = running, all VMs auto-started (`onboot=1`). The Jan NVMe
+   regression is GONE on this kernel.
+4. **Made the pin permanent** (`kernel pin 6.17.13-13-pve` + `refresh`). Kept
+   6.17.2-1 installed as fallback.
+5. **Unheld** `proxmox-default-kernel` + `proxmox-kernel-6.17.2-1-pve-signed`.
+6. **Full `apt full-upgrade`** → had to install the `proxmox-kernel-6.17` metapackage
+   first (it was missing — that's the root of the recurring `proxmox-default-kernel
+   : Depends: proxmox-kernel-6.17` solver error that also blocked tmux earlier). With
+   the meta installed, the full upgrade ran clean: **PVE 9.1.4 → 9.2.3** (pve-manager
+   9.2.3, qemu-kvm 11.0, ZFS 2.4.2, systemd 257.13, new shim/systemd-boot, ~160 pkgs).
+
+### Current state
+
+- **Running + permanently pinned:** `6.17.13-13-pve`
+- **PVE:** 9.2.3 (`pveversion`)
+- **Holds:** NONE (apt fully normal — the dpkg-download workaround is no longer needed)
+- **Kernel images on disk:** `6.17.2-1` (old fallback), `6.17.13-13` (pinned/running),
+  `7.0.6-2` (NEW PVE 9.2 default — installed but **NOT pinned, will not boot**)
+- All 6 VMs running, ZFS healthy.
+
+### ⚠️ Important for next time
+
+- A new kernel **`7.0.6-2-pve`** was pulled in by PVE 9.2 as the new default. We are
+  **deliberately NOT booting it** — the explicit pin on 6.17.13-13 controls boot
+  regardless. If/when we want it, repeat the `--next-boot` dance (test, then make
+  permanent) — same procedure as `phase1b`. Do this with console access.
+- A **host reboot is recommended** to fully activate systemd 257.13 / libc / QEMU 11.
+  It will safely boot back into pinned `6.17.13-13`. (Deferred — would restart VMs.)
+- Running VMs still hold the **old QEMU 10.x binary** until each is stopped/started.
+
+See `phases/phase1b_proxmox_kernel_upgrade_safe_try.md` for the full procedure + results table.
+
+---
+
+## `refresh` made detach/reattach-safe with tmux (June 18, 2026)
+
+**Status:** COMPLETE
+**What:** Wrapped the `refresh` command in tmux so a disconnected Proxmox web
+console no longer kills an in-flight update+reboot run, and so the live status
+screen can be re-attached after switching away.
+
+### The problem (observed today)
+
+Ran `refresh`; the 4 fast VMs (.180, .182, .183, .184) updated and rebooted and
+showed `DONE` within ~5 min. GitLab (.181) is the slow one (Omnibus reconfigure
+~6-15 min). While GitLab was still reconfiguring, the user switched the Proxmox
+web UI from the **node Shell** to a **VM VNC console**. That tore down the node
+Shell's websocket → `SIGHUP` → killed `refresh.sh` **and its child SSH session
+to GitLab** before the final `sudo init 6` could fire.
+
+Result: GitLab finished its apt upgrade (clean, `term.log` ended 18:06:42) but
+**never rebooted** (uptime stayed at 14 days). Verified GitLab was idle
+(dpkg lock free, no apt/dpkg/gitlab-ctl procs, Sidekiq drained to 0, no active
+background migrations), then rebooted it manually from Proxmox
+(`ssh agamache@.181 'sudo init 6'`). Came back healthy (all services `run:`,
+`/-/readiness` → HTTP 200). All 5 VMs now updated **and** rebooted.
+
+### The fix: tmux self-wrap in refresh.sh
+
+`refresh.sh` now wraps itself in a tmux session named `refresh` (only when on a
+terminal, not already inside tmux, and tmux is installed):
+
+- **No existing session** → starts the run in a new tmux session `refresh`.
+- **Session already exists** → `exec tmux attach-session` (re-attaches to the
+  SAME running process; does NOT start a second run).
+- After the run ends, the pane is held (`read`) so a reconnecting user can read
+  the final summary (Enter to close, `Ctrl-b d` to detach anytime).
+- Non-interactive callers (no tty, e.g. cron) fall through and run directly.
+  Per-VM logs in `/tmp/refresh-<ip>.log` are written either way.
+
+Because tmux's server is reparented to PID 1, the run survives the web console
+dropping. So the workflow the user wanted now holds: type `refresh` → switch to
+a VM VNC console → come back to the node Shell → type `refresh` → land back on
+the **same** live status screen, still updating.
+
+### tmux install note (kernel-hold gotcha)
+
+`apt-get install tmux` was **blocked** by a pre-existing unmet dependency on the
+Proxmox host: `proxmox-default-kernel : Depends: proxmox-kernel-6.17` (held back
+per the kernel-pin policy — NVMe boot issue). Did **NOT** run
+`apt --fix-broken install` (would pull a new kernel). Instead installed tmux
+safely via dpkg with downloaded debs (deps already present), kernel untouched:
+```bash
+cd /tmp && apt-get download tmux libevent-core-2.1-7t64 libjemalloc2
+dpkg -i tmux*.deb libevent-core*.deb libjemalloc2*.deb   # tmux 3.5a
+```
+**Pre-existing issue to flag:** the held kernel leaves apt's solver unable to do
+normal `apt-get install` of new packages on the Proxmox host. Future package
+installs there may need the dpkg-download workaround until the kernel hold is
+lifted (Proxmox 6.17.5+ with NVMe fix).
+
+### Validation (non-destructive)
+
+Added a `REFRESH_SELFTEST=1` hook that swaps the per-VM remote command for a
+harmless `sleep 45` (no apt, no `init 6`). Used it to prove, without touching
+the VMs:
+1. Script creates the `refresh` tmux session and runs the live display.
+2. Killing the launching console (SIGHUP) leaves the session + run alive.
+3. Re-invoking `refresh` attaches to the same session (still 1 session, still 5
+   VM SSH sessions — not 10, i.e. no second run).
+
+### Files
+
+- `proxmox/build-scripts/refresh.sh` — added tmux self-wrap + selftest hook
+- Deployed to Proxmox `/usr/local/bin/refresh.sh` (md5 matches repo)
+- `tmux 3.5a` installed on Proxmox; `refresh` alias unchanged (script self-wraps)
 
 ---
 
@@ -984,64 +1110,12 @@ After rebooting the VM, the Tailscale Serve HTTPS proxy was not active and the C
 
 ---
 
-## 🔥 Critical Incident: Proxmox Kernel Issue (Jan 12, 2026 - 9:00-9:22 PM)
+## 🔥 Critical Incident: Proxmox Kernel Issue (Jan 12, 2026)
 
-**What Happened:**
-1. ✅ Enabled Proxmox community repository (pve-no-subscription)
-2. ✅ Disabled subscription nag popup
-3. ✅ Created `update` script (`/usr/local/bin/proxmox-update.sh`)
-4. ⚠️ Ran updates: kernel upgraded 6.17.2-1 → 6.17.4-2
-5. 🔴 **REBOOT FAILED:** NVMe timeout errors on all disks
-6. 🔴 System hung at boot (cpu_startup_entry messages)
-
-**Root Cause:**
-- Kernel 6.17.4-2-pve has NVMe driver bug incompatible with HP Z8 G4 hardware
-- All 4x 1TB NVMe drives timed out during boot
-- System unusable
-
-**Resolution Steps:**
-1. Hard reset server
-2. Interrupted GRUB autoboot (DOWN ARROW key spam)
-3. Selected "Advanced Options" → old kernel (6.17.2-1-pve)
-4. Booted successfully into old kernel
-5. Pinned old kernel: `proxmox-boot-tool kernel pin 6.17.2-1-pve`
-6. Held packages: `apt-mark hold proxmox-kernel-6.17.2-1-pve-signed proxmox-default-kernel`
-7. Removed bad kernel: `dpkg --force-depends --purge proxmox-kernel-6.17.4-2-pve-signed`
-8. VMs wouldn't start: discovered disk config incompatibility
-9. Fixed disk config: `cache=writeback` → `cache=none` (incompatible with `aio=native`)
-10. All VMs started successfully
-
-**Configuration Issues Discovered:**
-- ❌ `cache=writeback` + `aio=native` = INCOMPATIBLE
-  - aio=native requires cache.direct=on (direct I/O)
-  - cache=writeback uses cache.direct=off (buffered I/O)
-- ✅ `cache=none` + `aio=native` = WORKING
-  - Still benefits from native AIO and discard
-  - Not quite as fast as writeback, but stable
-
-**Current Stable State:**
-- ✅ Running kernel: 6.17.2-1-pve (pinned, held)
-- ✅ All 4 VMs running with corrected disk config
-- ✅ Update script works, won't upgrade kernel (held)
-- ✅ Subscription nag disabled
-- ✅ Bad kernel completely removed from system
-- ✅ GRUB menu only shows working kernel
-
-**Lessons Learned:**
-1. Test kernel updates in maintenance window (not during active development)
-2. Always have GRUB access ready for kernel rollback
-3. QEMU disk options have strict compatibility rules
-4. Proxmox kernel updates can break specific hardware (NVMe controllers)
-5. `proxmox-boot-tool kernel pin` is the proper way to lock kernels
-6. apt-mark hold prevents accidental kernel upgrades
-
-**Updated Documentation:**
-- MEMORY.md: VM Configuration Standard (corrected cache=none)
-- MEMORY.md: New "PROXMOX KERNEL MANAGEMENT" section
-- MEMORY.md: Compatibility warnings for disk options
-- All changes documented for future VM builds
-
-**Time Lost:** ~90 minutes (but learned critical recovery procedures!)
+**Moved.** Full write-up of the failed `6.17.2-1 → 6.17.4-2` upgrade, NVMe-timeout
+boot failure, and rollback now lives in
+**`phases/phase1a_proxmox_upgrade_fail_rollback.md`**. The forward-looking safe-retry
+plan is in **`phases/phase1b_proxmox_kernel_upgrade_safe_try.md`**.
 
 ---
 

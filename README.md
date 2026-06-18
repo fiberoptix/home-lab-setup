@@ -34,12 +34,12 @@ This system was designed out of interest to build and deploy the **Capricorn** p
 
 ## 🖥️ Hardware Specifications
 
-**Platform:** HP Z8 G4 Workstation
+**Platform:** HP Z6 G4 Workstation
 
 | Component | Specification |
 |-----------|---------------|
-| **CPU** | Dual Intel Xeon Platinum 8168 (48 cores / 96 threads @ 2.7GHz) |
-| **RAM** | 256GB DDR4 ECC (8x 32GB) |
+| **CPU** | Intel Xeon Platinum 8168 (24 cores / 48 threads @ 2.7GHz, single socket) |
+| **RAM** | 128GB DDR4 ECC (4x 32GB) |
 | **Boot Storage** | 2x 500GB NVMe (ZFS mirror) |
 | **VM Storage** | 4x 1TB NVMe (HP Z Turbo Drive Quad Pro) |
 | **Network** | 2x 1GbE onboard NICs |
@@ -288,7 +288,7 @@ This lab supports:
 - ✅ Adjusted RAM allocation based on actual usage patterns
 
 **Proxmox Kernel Management:**
-- ⚠️ **Kernel 6.17.4-2-pve incompatible** with HP Z8 G4 NVMe hardware (boot failure)
+- ⚠️ **Kernel 6.17.4-2-pve incompatible** with HP Z6 G4 NVMe hardware (boot failure)
 - ✅ **Running stable kernel:** 6.17.2-1-pve (pinned via `proxmox-boot-tool`)
 - ✅ **Kernel packages held** to prevent automatic upgrades
 - ✅ **Update script created:** `/usr/local/bin/proxmox-update.sh` (alias: `update`)

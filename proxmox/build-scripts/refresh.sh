@@ -29,6 +29,29 @@
 
 set -u
 
+# ---------------------------------------------------------------------------
+# tmux self-wrap: make `refresh` survive a disconnected Proxmox web console
+# (the node Shell is a websocket session; navigating to a VM's console sends
+# SIGHUP and used to kill the run mid-flight). With tmux the run is owned by a
+# daemon reparented to PID 1, so it keeps going and is re-attachable.
+#
+# When invoked on a terminal, not already inside tmux, and tmux is installed:
+#   - if a "refresh" session already exists -> ATTACH to it (does NOT re-run)
+#   - otherwise                             -> start the run in a new session
+# After the run ends, the pane is held so a reconnecting user can read the
+# final summary (press Enter to close, Ctrl-b then d to detach at any time).
+# Non-interactive callers (no tty, e.g. cron) fall through and run directly;
+# per-VM logs in /tmp/refresh-<ip>.log are written either way.
+# ---------------------------------------------------------------------------
+REFRESH_TMUX_SESSION="refresh"
+if [ -z "${TMUX:-}" ] && [ -t 1 ] && command -v tmux >/dev/null 2>&1; then
+    if tmux has-session -t "$REFRESH_TMUX_SESSION" 2>/dev/null; then
+        exec tmux attach-session -t "$REFRESH_TMUX_SESSION"
+    fi
+    exec tmux new-session -s "$REFRESH_TMUX_SESSION" \
+        "bash '$0'; printf '\n[refresh finished — press Enter to close this window, or Ctrl-b then d to detach]\n'; read -r _"
+fi
+
 VMS=(
     "192.168.1.180"
     "192.168.1.181"
@@ -65,6 +88,14 @@ sudo -n apt-get -y -qq \
     -o Dpkg::Options::=--force-confold \
     upgrade
 sudo -n init 6'
+
+# Non-destructive self-test hook. Set REFRESH_SELFTEST=1 to exercise the
+# parallel-launch, live-status, and tmux detach/reattach machinery WITHOUT
+# touching the VMs: it only opens an SSH session that sleeps briefly (no apt,
+# no reboot). Used to validate changes safely; not used in normal operation.
+if [ "${REFRESH_SELFTEST:-0}" = "1" ]; then
+    REMOTE_CMD='echo "[selftest] no changes will be made on this host"; sleep 45'
+fi
 
 POLL_SECS=30
 MAX_WAIT_SECS=$((40 * 60))   # 40 min hard cap (GitLab can take ~15)

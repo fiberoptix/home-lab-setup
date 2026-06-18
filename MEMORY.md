@@ -6,7 +6,9 @@
 
 ## CURRENT STATE
 
-- Proxmox running at 192.168.1.150 (HP Z8 G4: Dual Xeon, 256GB RAM, ZFS)
+- Proxmox running at 192.168.1.150 (HP Z6 G4: single Xeon Platinum 8168 24c/48t, 128GB RAM, ZFS) — **PVE 9.2.3**, kernel **6.17.13-13-pve** (pinned)
+- **NOTE:** The Proxmox server is a **Z6 G4** (single CPU, 128GB). The **dev workstation** we work from is a **Z8 G4** (dual Platinum 8168, 256GB). Don't confuse the two.
+- **Jun 18, 2026: kernel un-stuck.** Upgraded to 6.17.13-13-pve (NVMe regression fixed), full host upgrade to PVE 9.2.3, all package holds removed. New 7.0.6-2-pve kernel installed but pinned-away (won't boot). See current_phase.md + phase1b.
 - Script server running at http://192.168.1.195/scripts/
 - **GitLab CE LIVE at http://192.168.1.181** (root/[See PASSWORDS.md])
 - **GitLab Runner LIVE at 192.168.1.182** (gitlab-runner-1, v18.7.2)
@@ -173,7 +175,7 @@ wget http://192.168.1.195/scripts/host_setup.sh && chmod +x host_setup.sh && ./h
 - **Kubernetes/QA:** 12 GB (upgraded from 8 GB)
 - **WWW:** 8 GB (Traefik + Capricorn PROD + splash)
 - **OpenClaw:** 16 GB (AI agent gateway + Docker sandboxes, upgraded from 8 GB -- Ubuntu Desktop used 90%)
-- **Total Allocated:** 84 GB of 256 GB available (33%)
+- **Total Allocated:** 84 GB of 128 GB available (66%)
 
 ---
 
@@ -185,6 +187,27 @@ wget http://192.168.1.195/scripts/host_setup.sh && chmod +x host_setup.sh && ./h
 - **Source in repo:** `proxmox/build-scripts/refresh.sh`
 - **Alias:** `refresh` in `/root/.bashrc` on Proxmox
 - **Invocation:** SSH to Proxmox as root, then type `refresh`
+
+**tmux detach/reattach-safe (since Jun 18, 2026):**
+- `refresh.sh` self-wraps in a tmux session named `refresh`.
+- Type `refresh` with no session running → starts the run in tmux.
+- Type `refresh` while a run is active → **re-attaches to the same run** (does NOT re-run).
+- Survives the Proxmox web console dropping (e.g. switching to a VM VNC console);
+  tmux server is reparented to PID 1, so the update+reboot keeps going.
+- After completion the pane is held so you can reconnect and read the summary
+  (Enter to close, `Ctrl-b d` to detach).
+- `tmux 3.5a` is installed on Proxmox. It was installed via `apt-get download` +
+  `dpkg -i` (NOT `apt-get install`) because the held kernel
+  (`proxmox-default-kernel`/`proxmox-kernel-6.17`) breaks apt's solver for new
+  installs on the Proxmox host. Same workaround applies to future host packages
+  until the kernel hold is lifted.
+- **Test hook:** `REFRESH_SELFTEST=1 refresh` runs the full machinery but the
+  per-VM remote command is just `sleep 45` (no apt, no reboot) — safe to test.
+
+**Lesson from Jun 18:** A `refresh` run was killed mid-flight when the Proxmox
+web console was switched to a VM VNC console. The 4 fast VMs had already
+rebooted, but GitLab (slow Omnibus reconfigure) finished apt but never got to
+`init 6`, so it didn't reboot. tmux wrapping prevents this.
 
 **VMs targeted (parallel):** .180, .181, .182, .183, .184
 **Excluded:** .185 (vm-openclaw-1) — managed separately
@@ -242,48 +265,62 @@ Installs: Docker, SSH keys, passwordless sudo, NAS mount, insecure-registry conf
 
 ## PROXMOX KERNEL MANAGEMENT
 
-**Current Status:** January 12, 2026 (9:22 PM EST)
+**Current Status:** June 18, 2026 — on 6.17.13-13-pve, PVE 9.2.3, holds removed
 
 ### Active Kernel
-- **Running:** 6.17.2-1-pve ✅ STABLE
-- **Pinned:** 6.17.2-1-pve (via `proxmox-boot-tool kernel pin`)
-- **Held packages:** proxmox-kernel-6.17.2-1-pve-signed, proxmox-default-kernel
+- **Running + permanently pinned:** 6.17.13-13-pve ✅ STABLE (upgraded Jun 18, 2026;
+  clean boot, 0 NVMe timeouts, all 6 NVMe present behind VMD, ZFS healthy)
+- **Fallback kept installed:** 6.17.2-1-pve (previous known-good; not purged)
+- **NEW kernel present but NOT pinned:** 7.0.6-2-pve — pulled in as the PVE 9.2 default.
+  ⚠️ It will **NOT boot** because the explicit pin is on 6.17.13-13. To adopt it later,
+  repeat the `--next-boot` test dance from phase1b (with console access), then make permanent.
+- **Holds:** NONE ✅ — `proxmox-default-kernel` + `proxmox-kernel-6.17.2-1-pve-signed`
+  unheld Jun 18. `apt install` is normal again (dpkg-download workaround no longer needed).
+- **Root cause of the recurring solver error** (`proxmox-default-kernel : Depends:
+  proxmox-kernel-6.17`, which had blocked tmux + the first full-upgrade attempt): the
+  `proxmox-kernel-6.17` **metapackage was not installed**. Installing it (`apt-get
+  install proxmox-kernel-6.17`, deps already satisfied) fixed it permanently.
+- **History:** 6.17.4-2 hung the box (Jan 12); ran pinned on 6.17.2-1 until Jun 18.
+  See `phases/phase1a_*` (failure) and `phases/phase1b_*` (this upgrade + results).
+
+### Pending / recommended
+- **Reboot recommended** to fully activate systemd 257.13 / libc / QEMU 11 (will boot
+  pinned 6.17.13-13). Running VMs hold old QEMU 10.x binary until each is stop/started.
 
 ### ⚠️ KNOWN ISSUE: Kernel 6.17.4-2-pve
-**Problem:** NVMe timeout errors on all disks during boot (HP Z8 G4 hardware incompatibility)
+**Problem:** NVMe timeout errors on all disks during boot (HP Z6 G4 + Intel VMD; 6.17 NVMe regression).
+**Full incident + rollback write-up:** `phases/phase1a_proxmox_upgrade_fail_rollback.md`
+**Safe retry plan (to 6.17.13-13):** `phases/phase1b_proxmox_kernel_upgrade_safe_try.md`
 
-**What Happened (Jan 12, 2026):**
-1. Ran Proxmox updates via new `update` script
-2. Kernel upgraded from 6.17.2-1 → 6.17.4-2
-3. Reboot failed with NVMe timeouts on all 4x 1TB NVMe drives
-4. System hung at boot showing: `cpu_startup_entry`, `start_secondary`, `common_startup_64`
+Short version: Jan 12, 2026 the `update` script bumped `6.17.2-1 → 6.17.4-2`; reboot
+hung with NVMe timeouts on all drives. Recovered via GRUB → old kernel, then pinned
+`6.17.2-1-pve` and held `proxmox-kernel-6.17.2-1-pve-signed` + `proxmox-default-kernel`,
+purged the bad kernel.
 
-**Resolution:**
-1. Hard reset server
-2. Booted into old kernel (6.17.2-1-pve) via GRUB Advanced Options
-3. Pinned old kernel: `proxmox-boot-tool kernel pin 6.17.2-1-pve`
-4. Held kernel packages: `apt-mark hold proxmox-kernel-6.17.2-1-pve-signed proxmox-default-kernel`
-5. Removed bad kernel: `dpkg --force-depends --purge proxmox-kernel-6.17.4-2-pve-signed`
-
-**Current Protection:**
+**Current Protection (as of Jun 18, 2026):**
 ```bash
 # Pinned kernel (always boots this one):
 proxmox-boot-tool kernel list
-# Shows: Pinned kernel: 6.17.2-1-pve
+# Shows: Pinned kernel: 6.17.13-13-pve
+#   (7.0.6-2-pve is also installed but NOT pinned → will not boot)
 
-# Held packages (won't auto-upgrade):
-apt-mark showhold
-# proxmox-default-kernel
-# proxmox-kernel-6.17.2-1-pve-signed
+# Holds: NONE — removed Jun 18, 2026. apt install works normally again.
+apt-mark showhold   # (empty)
 ```
 
-**Update Script Modified:**
+**Update Script:**
 - `/usr/local/bin/proxmox-update.sh` created with alias `update`
 - Automatically disables subscription nag after each update
 - Checks for reboot required
-- Safe to run: kernel won't upgrade due to holds
+- The **pin** (not holds) is now what controls which kernel boots. A routine
+  `apt upgrade` may install newer kernels, but they will NOT boot until explicitly
+  `proxmox-boot-tool kernel pin`-ed and tested with console access.
 
-**DO NOT UNHOLD KERNEL PACKAGES** until Proxmox releases 6.17.5+ with NVMe fixes!
+**KERNEL POLICY (post Jun 18, 2026):** Holds are removed; rely on the **boot pin**
+instead. The pin is on `6.17.13-13-pve`. Before adopting any newer kernel (e.g. the
+already-installed `7.0.6-2-pve`), use the reversible `--next-boot` procedure in
+`phases/phase1b_proxmox_kernel_upgrade_safe_try.md` **with physical/console access**,
+verify NVMe + ZFS, then make the pin permanent.
 
 ---
 
@@ -308,6 +345,8 @@ apt-mark showhold
 | # | Name | Status |
 |---|------|--------|
 | 0-2 | Hardware/Proxmox/Automation | ✅ |
+| 1a | Proxmox kernel upgrade failure + rollback (Jan 12) | ✅ RESOLVED (pinned/held) |
+| 1b | Proxmox kernel upgrade — safe retry (→6.17.13-13) | ✅ COMPLETE (Jun 18, 2026, running+pinned) |
 | 3 | GitLab Server | ✅ VERIFIED |
 | 4 | GitLab Runner | ✅ VERIFIED |
 | 5 | CI/CD Pipelines | ✅ COMPLETE (QA + GCP both working!) |
@@ -683,6 +722,8 @@ openclaw gateway restart
 3. `/phases/current_phase.md` - Current work status
 4. `/phases/phase0_hardware.md` - Hardware specs and BIOS settings
 5. `/phases/phase1_proxmox.md` - ZFS configuration and best practices
+   - `/phases/phase1a_proxmox_upgrade_fail_rollback.md` - Jan 12 kernel failure + rollback
+   - `/phases/phase1b_proxmox_kernel_upgrade_safe_try.md` - planned reversible kernel upgrade
 6. `/phases/phase5_ci_cd_pipelines.md` ✅ COMPLETE
 7. `/phases/phase6_sonarqube.md` ✅ COMPLETE
 8. `/phases/phase11_openclaw.md` ✅ COMPLETE
