@@ -1,6 +1,7 @@
 # Phase 7: Local WWW/Production Server
 
 **Status:** ✅ COMPLETE (January 22, 2026 - 8:45 PM EST)  
+**Last verified against live box:** June 18, 2026 — Capricorn compose re-synced from vm-www-1 (see drift note below)  
 **Depends On:** Phase 5 (CI/CD Pipelines), Phase 6 (SonarQube)  
 **Goal:** Replace expensive GCP hosting with local production server, maintain GCP for interview demos only
 
@@ -198,77 +199,100 @@ networks:
 1. `docker-compose.yml` (based on qa.deploy.yml, adapted for Traefik)
 2. `database/` (copied from local workstation - SQL init scripts)
 
-**docker-compose.yml (FINAL - with IP routing):**
+**docker-compose.yml — READ-ONLY REFERENCE SNAPSHOT (captured from vm-www-1, June 18, 2026):**
+
+> 📌 **Scope:** This compose file is part of the **Capricorn application project**, NOT this repo.
+> `home-lab-setup` only owns the *infrastructure* (the VM, Docker engine, the Traefik ingress that
+> fronts it). The snapshot below is included for convenience/recovery context only — the canonical
+> source and any image/DB decisions live in the Capricorn project. Don't "fix" or reconcile it here.
+>
+> ⚠️ The real DB password is REDACTED below as `<DB_PW: see PASSWORDS.md>`. This phase file is
+> tracked and pushed to PUBLIC GitHub — NEVER paste the actual password here.
+
 ```yaml
 version: '3.8'
 
 services:
-  capricorn-frontend-prod:
+  frontend:
     image: gitlab.gothamtechnologies.com:5050/production/capricorn/frontend:latest
     container_name: capricorn-frontend-prod
     restart: unless-stopped
     environment:
-      - REACT_APP_API_URL=/api
+      - VITE_API_URL=/api
     labels:
-      # Hostname-based routing
       - "traefik.enable=true"
+      # Hostname routing
       - "traefik.http.routers.capricorn.rule=Host(`cap.gothamtechnologies.com`)"
       - "traefik.http.routers.capricorn.entrypoints=websecure"
       - "traefik.http.routers.capricorn.tls.certresolver=letsencrypt"
       - "traefik.http.services.capricorn.loadbalancer.server.port=80"
-      # IP-based routing (for internal access)
+      # IP routing
       - "traefik.http.routers.capricorn-ip.rule=Host(`192.168.1.184`)"
       - "traefik.http.routers.capricorn-ip.entrypoints=websecure"
       - "traefik.http.routers.capricorn-ip.tls=true"
+      # Localhost routing
+      - "traefik.http.routers.capricorn-localhost.rule=Host(`localhost`)"
+      - "traefik.http.routers.capricorn-localhost.entrypoints=websecure"
+      - "traefik.http.routers.capricorn-localhost.tls=true"
     networks:
       - web
       - capricorn-network
+    depends_on:
+      - backend
 
-  capricorn-backend-prod:
+  backend:
     image: gitlab.gothamtechnologies.com:5050/production/capricorn/backend:latest
     container_name: capricorn-backend-prod
     restart: unless-stopped
     environment:
-      - DATABASE_URL=postgresql://capricorn_user:capricorn_password@capricorn-postgres-prod:5432/capricorn_db
-      - REDIS_URL=redis://capricorn-redis-prod:6379/0
-      - ENVIRONMENT=production
+      - DATABASE_URL=postgresql://capricorn:<DB_PW: see PASSWORDS.md>@postgres:5432/capricorn_prod
+      - REDIS_URL=redis://redis:6379/0
+      - PYTHONUNBUFFERED=1
+      - DEBUG=false
     labels:
-      # Hostname-based API routing
       - "traefik.enable=true"
+      # Hostname API routing
       - "traefik.http.routers.capricorn-api.rule=Host(`cap.gothamtechnologies.com`) && PathPrefix(`/api`)"
       - "traefik.http.routers.capricorn-api.entrypoints=websecure"
       - "traefik.http.routers.capricorn-api.tls.certresolver=letsencrypt"
       - "traefik.http.services.capricorn-api.loadbalancer.server.port=8000"
-      # IP-based API routing
+      # IP API routing
       - "traefik.http.routers.capricorn-api-ip.rule=Host(`192.168.1.184`) && PathPrefix(`/api`)"
       - "traefik.http.routers.capricorn-api-ip.entrypoints=websecure"
       - "traefik.http.routers.capricorn-api-ip.tls=true"
+      # Localhost API routing
+      - "traefik.http.routers.capricorn-api-localhost.rule=Host(`localhost`) && PathPrefix(`/api`)"
+      - "traefik.http.routers.capricorn-api-localhost.entrypoints=websecure"
+      - "traefik.http.routers.capricorn-api-localhost.tls=true"
     networks:
       - web
       - capricorn-network
+    depends_on:
+      - postgres
+      - redis
 
-  capricorn-postgres-prod:
+  postgres:
     image: postgres:15.5-alpine
     container_name: capricorn-postgres-prod
     restart: unless-stopped
     environment:
-      - POSTGRES_DB=capricorn_db
-      - POSTGRES_USER=capricorn_user
-      - POSTGRES_PASSWORD=capricorn_password
+      - POSTGRES_USER=capricorn
+      - POSTGRES_PASSWORD=<DB_PW: see PASSWORDS.md>
+      - POSTGRES_DB=capricorn_prod
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./database/init:/docker-entrypoint-initdb.d:ro  # ← Database init scripts
+      - postgres_data_prod:/var/lib/postgresql/data
+      - ./database/init:/docker-entrypoint-initdb.d:ro
     networks:
-      - capricorn-network  # NOT on web network (security)
+      - capricorn-network
 
-  capricorn-redis-prod:
+  redis:
     image: redis:7.2.4-alpine
     container_name: capricorn-redis-prod
     restart: unless-stopped
     volumes:
-      - redis_data:/data
+      - redis_data_prod:/data
     networks:
-      - capricorn-network  # NOT on web network (security)
+      - capricorn-network
 
 networks:
   web:
@@ -277,16 +301,20 @@ networks:
     driver: bridge
 
 volumes:
-  postgres_data:
-  redis_data:
+  postgres_data_prod:
+  redis_data_prod:
 ```
 
-**Key Features:**
-- Both hostname AND IP-based routing (for internal access)
-- Database initialization via mounted SQL scripts
-- Persistent volumes for postgres + redis
-- Images from GitLab Container Registry
-- Backend environment configured for production
+> Note (observed June 18, 2026): the *running* postgres container used a custom registry image
+> `…/production/capricorn/postgres:latest` rather than the `postgres:15.5-alpine` in this file.
+> That's an **application-project concern** (Capricorn owns image choices), not an infra issue —
+> recorded here only as an observation, nothing to reconcile in this repo.
+
+**Infra-relevant facts (what this repo cares about):**
+- vm-www-1 (.184) runs Docker; Traefik is the ingress on 80/443 with Let's Encrypt certs.
+- It fronts two app stacks: the Capricorn PROD containers and the static splash site.
+- Routing exposed: `cap.gothamtechnologies.com`, `192.168.1.184`, and `localhost` (+ `/api` paths).
+- Everything inside the Capricorn containers (images, DB, app config) is owned by the Capricorn project.
 
 **Deployment Command:**
 ```bash

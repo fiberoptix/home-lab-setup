@@ -1,6 +1,27 @@
 # Current Phase
 
-**Updated:** June 18, 2026 - 8:47 PM EDT
+**Updated:** June 18, 2026 - 9:13 PM EDT
+
+---
+
+## GitLab VM backups → NAS (June 18, 2026, night) — Phase 8
+
+**Status:** OPERATIONAL ✅  (details: phases/phase8_backups.md)
+**What:** Set up nightly whole-VM backups of GitLab (VM 181) to the NAS for disaster recovery
+(the ZFS mirror is not a backup; GitLab holds private-only data).
+
+- NAS layout (NeoCortex 192.168.1.120, SMB only): `ProxmoxBackups/<hostname>/dump/...` —
+  per-host subfolder so multiple servers can live under one `ProxmoxBackups`. GitLab →
+  `ProxmoxBackups/vm-gitlab-1/`. Attached as Proxmox CIFS storage **`nas-gitlab`** (one storage
+  per host, since a storage = one `dump/`).
+- Created scheduled job **`gitlab-nightly`**: VM 181, storage nas-gitlab, **02:00 EDT** daily,
+  **snapshot** mode (no downtime), **zstd**, **keep-last=7**.
+- Seed backup verified: 500 GiB scanned (91% sparse) → **15.3 GB** archive, ~6 min, registered.
+- Crash-consistent for now (guest agent not installed; safe for Postgres, and 2 AM is idle).
+  App-consistent = enable QEMU guest agent + 1 reboot (deferred).
+- Adding another server = mkdir `ProxmoxBackups/<host>` + per-host `nas-<host>` storage + job
+  (see phases/phase8_backups.md).
+- TODO: one proof-of-life test restore (VMID 999, isolated NIC).
 
 ---
 

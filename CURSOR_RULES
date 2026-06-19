@@ -12,6 +12,17 @@ Apps: Capricorn (unified finance app)
 - Production: capricorn.gothamtechnologies.com (GCP)
 - QA: capricorn-qa.gothamtechnologies.com (home lab)
 
+=== PROJECT SCOPE (STAY IN YOUR LANE) ===
+This project owns the INFRASTRUCTURE layer ONLY: hardware (HP Z6 G4 host, NAS, networking),
+Proxmox host config + kernel/package/storage management, VM provisioning/lifecycle (create,
+resize, snapshot, backup, restore, shut down), and host-level reachability (DNS, port-forwards,
+edge firewall). It does NOT own the APPLICATION layer — application state, functionality, image
+tags, DB schema/data, and app docker-compose internals belong to their OWN projects (e.g.
+Capricorn / unified_ui_DEV_PROD_GCP). Do NOT maintain or "reconcile" app compose files, app
+images, or app DB here. If captured, label them as a read-only reference snapshot and point to
+the owning project. At the VM level, document only infra facts (e.g. "vm-www-1 runs Docker +
+Traefik ingress on 80/443 and hosts the Capricorn PROD stack + splash").
+
 
 === STARTUP CHECKLIST ===
 

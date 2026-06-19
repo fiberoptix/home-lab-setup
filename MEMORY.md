@@ -4,6 +4,28 @@
 
 ---
 
+## PROJECT SCOPE (READ FIRST — stay in your lane)
+
+This repo covers the **INFRASTRUCTURE layer ONLY**:
+- Hardware (HP Z6 G4 Proxmox host, NAS, networking)
+- Proxmox host config, kernel/package management, storage, backups
+- VM provisioning / deployment / lifecycle management (create, resize, snapshot, shut down, restore)
+- Host-level services that make VMs reachable (DNS, port-forwards, firewall at the infra edge)
+
+It does **NOT** own the **APPLICATION layer**. Application state, functionality, image tags,
+DB schema, app docker-compose internals, and app config are owned by their OWN projects
+(e.g. **Capricorn** / `unified_ui_DEV_PROD_GCP`). 
+
+Practical rules:
+- Do NOT maintain or "reconcile" application docker-compose files, app image tags, or app DB
+  contents here. That's the app project's job. If you capture them, label them clearly as a
+  *read-only reference snapshot* and point to the owning project — don't treat drift as a bug here.
+- At the VM level, document only what's infra-relevant: "vm-www-1 (.184) runs Docker + a Traefik
+  ingress (80/443, Let's Encrypt) and hosts the Capricorn PROD stack + splash page." The internals
+  of that stack live in the Capricorn project.
+
+---
+
 ## CURRENT STATE
 
 - Proxmox running at 192.168.1.150 (HP Z6 G4: single Xeon Platinum 8168 24c/48t, 128GB RAM, ZFS) — **PVE 9.2.3**, kernel **7.0.6-2-pve** (pinned, tested)
@@ -718,6 +740,30 @@ There is NO git-crypt and NO encryption — safety on GitHub comes purely from .
 - **Secret hygiene:** NEVER put real passwords/tokens in tracked files (they go public on GitHub).
   History was purged once already (git filter-repo) after a leak — keep it clean.
 - **Branch:** `main` only (docs/scripts repo — no CI/CD or registry like Capricorn).
+
+---
+
+## VM BACKUPS → NAS (Phase 8, June 18 2026) — see phases/phase8_backups.md
+
+- **Why:** GitLab (VM 181) holds private-only data (home-lab-setup full mirror, capricorn-docs,
+  registry). ZFS mirror ≠ backup. Whole-VM vzdump → NAS = bare-metal DR.
+- **Layout:** NAS NeoCortex (192.168.1.120, SMB only) → share `NeoCortex` →
+  `ProxmoxBackups/<hostname>/dump/...`. Per-host subfolder; `dump/` is Proxmox-fixed.
+  GitLab → `ProxmoxBackups/vm-gitlab-1/`.
+- **Storage:** one CIFS storage **per host** (a storage = one `dump/`). GitLab = **`nas-gitlab`**
+  (subdir `/ProxmoxBackups/vm-gitlab-1`, content=backup). Pw root-only at
+  `/etc/pve/priv/storage/nas-gitlab.pw`.
+- **Job:** `gitlab-nightly` in /etc/pve/jobs.cfg — VM **181**, storage **nas-gitlab**, **02:00 EDT**
+  daily, **snapshot** (no downtime), **zstd**, **keep-last=7**. Seed verified (15.3 GB, ~6 min).
+- **Add another server:** mkdir `ProxmoxBackups/<host>` → `pvesm add cifs nas-<host> ... --subdir
+  /ProxmoxBackups/<host> --content backup` → `pvesh create /cluster/backup --id <host>-nightly
+  --storage nas-<host> --vmid <id> ...` (stagger schedules). See phase8_backups.md.
+- **Consistency:** crash-consistent (no guest agent yet). App-consistent = `qm set 181 --agent 1`
+  + install qemu-guest-agent in guest + 1 reboot (deferred; fine since 2 AM is idle).
+- **Restore:** GUI Storage→nas-gitlab→Backups→Restore, or
+  `qmrestore /mnt/pve/nas-gitlab/dump/<file>.vma.zst <vmid> --storage <tgt>`. Needs a `vmbr0`.
+- **TODO:** one-time proof-of-life test restore (VMID 999, isolated NIC); optionally add jobs for
+  VMs 182/183/184/200; offsite/second copy (NAS is a single point).
 
 ---
 
