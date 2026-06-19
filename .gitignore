@@ -11,6 +11,8 @@ github_credentials.md
 /ddns/
 /proxmox/credentials
 /proxmox/nas_credentials
+# SMB password file read by www/scripts/setup_smb_mount.sh (GitHub-ignored, GitLab-mirrored)
+/www/scripts/smb_credentials
 *.pem
 *.key
 *.crt

@@ -22,10 +22,6 @@ set -e
 SMB_SERVER="192.168.1.120"
 SMB_SHARE="NeoCortex/DEV_Projects"
 SMB_USERNAME="fiberoptix"
-# Password is NOT stored in this file (it would otherwise leak to public GitHub).
-# Provide it via the SMB_PASSWORD env var, e.g.:  SMB_PASSWORD='...' sudo -E ./setup_smb_mount.sh
-# The value lives in PASSWORDS.md (private GitLab mirror only). If unset, you'll be prompted.
-SMB_PASSWORD="${SMB_PASSWORD:-}"
 MOUNT_POINT="/mnt/DevShare"
 MOUNT_OPTIONS="uid=1000,gid=1000,file_mode=0775,dir_mode=0775"
 
@@ -52,6 +48,20 @@ echo ""
 echo "[1/6] Installing cifs-utils..."
 apt update -qq
 apt install -y cifs-utils
+
+# Resolve the SMB password. Priority:
+#   1. SMB_PASSWORD env var (if you exported one)
+#   2. smb_credentials file sitting NEXT TO this script (gitignored; present on the
+#      private GitLab mirror, so a LAN clone "just works" with no prompt)
+#   3. interactive prompt (fallback)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SMB_CRED_FILE="${SMB_CRED_FILE:-$SCRIPT_DIR/smb_credentials}"
+SMB_PASSWORD="${SMB_PASSWORD:-}"
+if [ -z "$SMB_PASSWORD" ] && [ -f "$SMB_CRED_FILE" ]; then
+    # shellcheck disable=SC1090
+    . "$SMB_CRED_FILE"
+    echo "    Loaded SMB password from $SMB_CRED_FILE"
+fi
 
 # Step 2: Create credentials file (secure)
 echo ""
