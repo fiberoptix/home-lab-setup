@@ -711,7 +711,12 @@ There is NO git-crypt and NO encryption — safety on GitHub comes purely from .
 - **No auto-push-to-both.** Pushes are explicit; ALWAYS ASK "GitHub, GitLab, or both?" first.
   See the "GIT REMOTES & COMMIT ROUTING" section in CURSOR_RULES.
 - **Ignored-and-therefore-GitHub-safe:** PASSWORDS.md, github_credentials.md, proxmox/credentials,
-  proxmox/nas_credentials, /working/, /ddns/, *.pem, *.key, *.crt, .env*  (verify: `git check-ignore <f>`).
+  proxmox/nas_credentials, /working/, /ddns/, *.pem, *.key, *.crt, .env*,
+  www/scripts/smb_credentials  (verify: `git check-ignore <f>`).
+- **smb_credentials:** `www/scripts/smb_credentials` holds `SMB_PASSWORD='...'`; gitignored (GitHub
+  never sees it) but rides the GitLab mirror, so a LAN clone lets setup_smb_mount.sh run unattended.
+- **Secret hygiene:** NEVER put real passwords/tokens in tracked files (they go public on GitHub).
+  History was purged once already (git filter-repo) after a leak — keep it clean.
 - **Branch:** `main` only (docs/scripts repo — no CI/CD or registry like Capricorn).
 
 ---

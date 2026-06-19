@@ -1,6 +1,55 @@
 # Current Phase
 
-**Updated:** June 18, 2026 - 7:38 PM EDT
+**Updated:** June 18, 2026 - 8:47 PM EDT
+
+---
+
+## Dual-remote (GitHub-safe / GitLab-full) + secret scrub (June 18, 2026, night)
+
+**Status:** COMPLETE ✅
+**What:** Established the same dual-remote model as the Capricorn project
+(unified_ui_DEV_PROD_GCP): SAFE/curated content → public GitHub, EVERYTHING (incl.
+secrets, plaintext) → private GitLab. NO git-crypt / NO encryption.
+
+### Remotes
+- `origin` → GitHub (PUBLIC): `git@github.com:fiberoptix/home-lab-setup.git` (SSH). Curated;
+  secrets `.gitignore`'d so they NEVER reach it. Update with `git push origin main`.
+- `gitlab` → GitLab (PRIVATE): `http://root:<pw>@gitlab.gothamtechnologies.com/production/home-lab-setup.git`.
+  HTTP "wallet" auth (pw baked into URL in `.git/config`, same as Capricorn/capricorn-docs).
+  Full plaintext mirror, pushed with `./gl-backup.sh "msg"`.
+
+### gl-backup.sh (repo root)
+- Snapshots the ENTIRE working tree (tracked + ignored, minus `.DS_Store`) onto `gitlab/main`
+  via a temp index — does NOT touch the working tree, real index, or the GitHub-bound `main`.
+- Force-includes ignored files (PASSWORDS.md, github_credentials.md, proxmox/credentials,
+  nas_credentials, /working/, /ddns/, vmware/*.zip, www/scripts/smb_credentials).
+- Handles nested git repos (working/openclaw-ansible) by moving their `.git` to an external
+  holding dir during the add, so their WORKING FILES are captured (not empty gitlinks) and
+  their `.git` internals are NOT. Always restored.
+- GitLab mirror = 98 files; GitHub = ~42 files.
+
+### Security scrub (CRITICAL — was a real leak)
+- Found the master password (Proxmox/VMs/GitLab/NAS), the SonarQube admin password, an old
+  deprecated password, and two SonarQube project tokens committed to PUBLIC GitHub (current
+  files AND history) in MEMORY.md, phases/current_phase.md, www/scripts/setup_smb_mount.sh.
+  (Actual values intentionally NOT repeated here — see PASSWORDS.md.)
+- Scrubbed all of them from tracked files → `[See PASSWORDS.md]`. Real values live ONLY in
+  PASSWORDS.md (gitignored → GitLab mirror) + `.git/config` wallet.
+- Purged from ALL 54 commits with `git filter-repo --replace-text`, force-pushed GitHub
+  (`546b85a`→`24cda0c`). Pre-rewrite safety bundle: `/tmp/home-lab-setup-prefilter-*.bundle`.
+- User chose NOT to rotate the password. CAVEAT: GitHub may retain orphaned commits by SHA
+  until GC; true fix would be rotation. (Offer remains open.)
+- git-crypt setup that was started earlier was fully reverted (no `.gitattributes`, filters
+  stripped, key removed).
+
+### setup_smb_mount.sh password handling
+- No longer hardcodes the SMB pw. Resolves it: `SMB_PASSWORD` env var → `www/scripts/smb_credentials`
+  (gitignored; present on GitLab mirror so a LAN clone "just works") → interactive prompt.
+- `www/scripts/smb_credentials` holds `SMB_PASSWORD='...'`, gitignored (rule in .gitignore),
+  included on GitLab via gl-backup. NEVER on GitHub.
+
+**Commits this session:** `24cda0c` (scrub + dual-remote + gl-backup), `db88fed` (smb_credentials
+file wiring). GitLab snapshots: `f65cf2a` (initial full mirror), `087fc5b` (+ smb_credentials).
 
 ---
 
