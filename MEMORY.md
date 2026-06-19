@@ -691,6 +691,31 @@ openclaw gateway restart
 
 ---
 
+## HOME-LAB-SETUP REPO (this repo) — dual-remote (Capricorn method, NO encryption)
+
+Same model as Capricorn/capricorn-docs: SAFE content → GitHub, EVERYTHING → GitLab.
+There is NO git-crypt and NO encryption — safety on GitHub comes purely from .gitignore.
+
+- **GitHub (PUBLIC):** https://github.com/fiberoptix/home-lab-setup — remote `origin` (SSH, id_ed25519).
+  Curated showcase. Secrets are .gitignore'd and NEVER reach GitHub. Push with: `git push origin main`.
+- **GitLab (PRIVATE):** http://gitlab.gothamtechnologies.com/production/home-lab-setup — remote `gitlab`.
+  Full plaintext mirror of the ENTIRE working tree (incl. ignored secrets/binaries).
+  Auth = HTTP "wallet" baked into the remote URL in .git/config
+  (`http://root:<GitLab root pw — see PASSWORDS.md>@gitlab.gothamtechnologies.com/production/home-lab-setup.git`),
+  identical to how Capricorn/capricorn-docs authenticate. No SSH key needed for GitLab.
+  The real password lives ONLY in .git/config (never pushed) + PASSWORDS.md (gitignored).
+- **Push EVERYTHING to GitLab with `./gl-backup.sh "message"`** — it snapshots the whole working
+  tree (tracked + ignored, minus .DS_Store) onto `gitlab/main` via a temp index, WITHOUT touching
+  the working tree or the GitHub-bound `main`. Do NOT `git push gitlab main` directly (that only
+  sends the curated tree, not the secrets). Always use gl-backup.sh for the full private mirror.
+- **No auto-push-to-both.** Pushes are explicit; ALWAYS ASK "GitHub, GitLab, or both?" first.
+  See the "GIT REMOTES & COMMIT ROUTING" section in CURSOR_RULES.
+- **Ignored-and-therefore-GitHub-safe:** PASSWORDS.md, github_credentials.md, proxmox/credentials,
+  proxmox/nas_credentials, /working/, /ddns/, *.pem, *.key, *.crt, .env*  (verify: `git check-ignore <f>`).
+- **Branch:** `main` only (docs/scripts repo — no CI/CD or registry like Capricorn).
+
+---
+
 ## CAPRICORN PROJECT
 
 - **GitLab:** http://gitlab.gothamtechnologies.com/production/capricorn
@@ -710,9 +735,8 @@ openclaw gateway restart
 
 **PASSWORDS.md** - Central credential storage (git-ignored)
 - Contains ALL system passwords and credentials
-- All documentation now references: [See PASSWORDS.md]
-- Old password: [See PASSWORDS.md] (deprecated, documented in PASSWORDS.md)
-- Current password: [See PASSWORDS.md] (SSH verified Jan 13, 2026)
+- All documentation references: [See PASSWORDS.md] (NEVER write real passwords in tracked files)
+- Current + deprecated passwords are recorded ONLY in PASSWORDS.md
 - Also stored in: `/proxmox/credentials` and `/proxmox/nas_credentials` (git-ignored)
 
 ---

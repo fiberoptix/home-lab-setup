@@ -58,6 +58,39 @@ Apps: Capricorn (unified finance app)
 === GitHub Account Info ===
 available in github_credentials.md in project root
 
+=== GIT REMOTES & COMMIT ROUTING (READ BEFORE ANY PUSH) ===
+
+Same model as the Capricorn project (unified_ui_DEV_PROD_GCP): SAFE content to GitHub,
+EVERYTHING to GitLab. NO git-crypt / NO encryption. Pushes are ALWAYS explicit.
+
+This repo has TWO remotes:
+- origin → GitHub  (PUBLIC):  git@github.com:fiberoptix/home-lab-setup.git
+    The curated showcase. Secrets are .gitignore'd and NEVER reach GitHub.
+- gitlab → GitLab  (PRIVATE): http://root:<GitLab root pw — see PASSWORDS.md>@gitlab.gothamtechnologies.com/production/home-lab-setup.git
+    The full private mirror. Gets EVERYTHING in plaintext (incl. ignored secrets).
+    Auth = HTTP "wallet" (root:<pw> baked into the remote URL in .git/config), same as Capricorn.
+    NOTE: the real password lives ONLY in .git/config (never pushed) and PASSWORDS.md (gitignored).
+
+RULES (CRITICAL):
+1. NEVER commit or push without asking Andrew first.
+2. BEFORE pushing, ALWAYS ASK: "Push to GitHub, GitLab, or both?" Then push only where told:
+   - GitHub only (PUBLIC, curated 'main'):   git push origin main
+   - GitLab only (PRIVATE, full mirror):     ./gl-backup.sh "message"
+   - Both:                                    do both of the above explicitly
+3. GitHub (public) must NEVER contain sensitive information. There is no encryption — safety
+   comes from .gitignore. These stay ignored and therefore NEVER land on GitHub:
+   PASSWORDS.md, github_credentials.md, proxmox/credentials, proxmox/nas_credentials,
+   /working/, /ddns/, *.pem, *.key, *.crt, .env*  (verify with: git check-ignore <file>)
+4. GitLab = COMPLETE plaintext backup. Use ./gl-backup.sh — it snapshots the ENTIRE working
+   tree (tracked + ignored, secrets included, minus .DS_Store) onto gitlab/main WITHOUT
+   touching the working tree or the GitHub-bound 'main'. Never `git push gitlab main` directly
+   (that would only send the curated tree); always use gl-backup.sh for the full mirror.
+5. NEVER push the ignored/secret files to origin/GitHub. If unsure, `git status --ignored`
+   and `git ls-files | grep -iE 'password|cred|\.env|\.key'` (must be empty) before pushing origin.
+6. Push auth: GitHub via ~/.ssh/id_ed25519 (already trusted); GitLab via the HTTP wallet baked
+   into the remote URL in .git/config — same credentials Capricorn/capricorn-docs use (GitLab
+   root pw, see PASSWORDS.md). No SSH key needed. NEVER write that password into a tracked file.
+
 === ⚠️ MANDATORY PROCESS FOR EACH PHASE (CRITICAL!) ===
 
 **BEFORE implementing ANY phase, YOU MUST:**

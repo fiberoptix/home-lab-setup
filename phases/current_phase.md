@@ -1046,7 +1046,7 @@ After rebooting the VM, the Tailscale Serve HTTPS proxy was not active and the C
 
 **Problem Identified:**
 - Passwords hardcoded in 10+ documentation files
-- `[See PASSWORDS.md]` and old `[See PASSWORDS.md]` scattered throughout project
+- The standard password and an old deprecated one were scattered throughout project
 - All committed to public GitHub repository
 - `www/scripts/setup_smb_mount.sh` had hardcoded NAS password in git history
 
@@ -1054,7 +1054,7 @@ After rebooting the VM, the Tailscale Serve HTTPS proxy was not active and the C
 1. ✅ Created `PASSWORDS.md` - Central credential storage with all passwords
 2. ✅ Added `PASSWORDS.md` to `.gitignore` (will never be committed)
 3. ✅ Replaced 28 password instances with `[See PASSWORDS.md]` references
-4. ✅ SSH tested to verify current password: `[See PASSWORDS.md]` ([See PASSWORDS.md] deprecated)
+4. ✅ SSH tested to verify current password (value in PASSWORDS.md; old one deprecated)
 5. ✅ Fixed markdown display issue (angle brackets → square brackets)
 
 **Files Updated (28 replacements across 10 files):**
@@ -1070,9 +1070,10 @@ After rebooting the VM, the Tailscale Serve HTTPS proxy was not active and the C
 - proxmox/Home_Lab_Proxmox_Install.md (2 instances)
 
 **Files Intentionally Left Unchanged:**
-- `www/scripts/setup_smb_mount.sh` - Operational script needs hardcoded password
 - `/proxmox/credentials` - Already git-ignored
 - `/proxmox/nas_credentials` - Already git-ignored
+(Note: `www/scripts/setup_smb_mount.sh` was later updated to read the password from the
+ SMB_PASSWORD env var / prompt instead of hardcoding it — see the dual-remote cleanup below.)
 
 **Git Commits:**
 - `c71ef79` - Added sysbench to setup_desktop.sh
@@ -1082,8 +1083,7 @@ After rebooting the VM, the Tailscale Serve HTTPS proxy was not active and the C
 **Security Status:**
 - ✅ Documentation cleaned of passwords
 - ✅ Central PASSWORDS.md file (git-ignored)
-- ⚠️ Old password still in git history (www/scripts/setup_smb_mount.sh)
-- ⚠️ Can clean git history with filter-branch or BFG if needed
+- ✅ Git history later purged of all passwords/tokens (see dual-remote cleanup below)
 
 **Password Summary:**
 - **Current Standard:** [See PASSWORDS.md] (Proxmox, VMs, GitLab, NAS)
@@ -1163,9 +1163,9 @@ plan is in **`phases/phase1b_proxmox_kernel_upgrade_safe_try.md`**.
   - Changed Docker tag from `sonarqube:lts-community` to `sonarqube:community`
 - ✅ Changed admin password: [See PASSWORDS.md] (12 chars required in new version)
 - ✅ Created test-app project in SonarQube
-- ✅ Generated test-app token: `[See PASSWORDS.md]`
+- ✅ Generated test-app token: [See PASSWORDS.md]
 - ✅ Created Capricorn project in SonarQube
-- ✅ Generated Capricorn token: `[See PASSWORDS.md]`
+- ✅ Generated Capricorn token: [See PASSWORDS.md]
 - ✅ Added CI/CD variables to GitLab (SONAR_HOST, SONAR_TOKEN)
 - ✅ Fixed variable naming issues (SONAR_ → SONAR_HOST)
 - ✅ Updated token after database wipe
