@@ -1,6 +1,124 @@
 # Current Phase
 
-**Updated:** June 18, 2026 - 9:13 PM EDT
+**Updated:** July 9, 2026 - 11:40 AM EDT
+
+---
+
+## ✅ Phase 13: Proxmox Host Audit + Same-Day Fixes (July 9, 2026)
+
+**Status:** Audit COMPLETE + all approved quick wins IMPLEMENTED. Full record (25 findings,
+severity ratings, implementation log, rollback notes): `phases/phase13_fable_proxmox_audit.md`.
+**Scope was host-only** (hardware/OS/PVE config); VM guest internals deferred to a later phase.
+
+**Overall audit verdict:** host healthy — pools ONLINE 0 errors, NVMe 0–1% wear, no failed
+units, kernel-pin policy working, Phase 12 rules live as documented.
+
+### Done this session (chronological)
+1. **Diag tools installed** (approved): nvme-cli, numactl, lm-sensors; coretemp persisted
+   (`/etc/modules-load.d/coretemp.conf`). CPU pkg 51°C, all thermals healthy.
+2. **Email alerting LIVE (was the #1 finding — every alert dead-ended before):**
+   - PVE: endpoint `gmail-smtp` (smtp.gmail.com:587 STARTTLS, app pw in PASSWORDS.md),
+     `default-matcher` → gmail-smtp. Covers vzdump + PVE alerts.
+   - postfix: relayhost + SASL + root→gmail alias + ipv4 preference. Covers ZED/smartd/cron.
+   - BOTH test mails confirmed received by Andrew. libsasl2-modules installed.
+3. **Stale bookworm apt entries removed** (sources.list emptied; backup
+   `/root/sources.list.bak-20260709`); apt verified clean.
+4. **Full upgrade → PVE 9.2.4**, 0 pending. New kernels 7.0.14-4 + 6.17.13-15 landed on ESPs
+   but **pin 7.0.6-2-pve verified intact** (won't boot until pin-tested). VMs stayed up;
+   running VMs keep old QEMU binary until next stop/start.
+5. **rpcbind + nfs-client disabled** — port 111 closed. NAS backup is CIFS → unaffected.
+6. **ARC cap 8G → 16G** (runtime sysfs + zfs.conf + initramfs; backup /root/zfs.conf.bak-20260709).
+7. **zpool upgrade** rpool/vm-critical/vm-ephemeral (block_cloning_endian, physical_rewrite).
+8. **Deleted VM200 snapshot** `Generic-Host-Config` (+5.1G). Kept 184's `pre_phase12_firewall`
+   deliberately until Phase 12 confidence window closes (delete in ~1-2 weeks).
+
+### Decisions (Andrew)
+- **⏸️ SEC-1 (SSH key-only on host) + SEC-2 (web UI TOTP) DEFERRED** — home lab in apartment,
+  LAN-only, perimeter just locked down (Phase 12). Revisit later. Host SSH still root+password.
+- Committing/pushing everything is ON HOLD (uncommitted: Phase 12 docs, phase13, MEMORY updates).
+
+### Key discoveries for future work
+- **vm-ephemeral pool is ashift=9** (zdb-verified; NM620 drives are 512B-LBA-only so fix =
+  rebuild pool with `-o ashift=12`, ~1h Runner+QA downtime; vm-critical/rpool are correct at 12).
+- **SNC enabled in BIOS** → 2 NUMA nodes (64.1+64.5 GB, distance 10/11); recommend disabling
+  at next BIOS visit. Only **4/6 memory channels** populated (2x32GB more = +bandwidth +192GB).
+- **Host runs Tailscale** (100.108.209.77) — was undocumented. **Idle Quadro P2000** on nouveau.
+- **AMT unverified** — NIC literally named "amt" (I219-LM shared with Intel AMT); check MEBx
+  at next BIOS visit.
+- Fallback kernel 6.17.2-1 NO LONGER on ESPs (only 6.17.13-x, 7.0.x).
+
+### Next steps (in rough priority)
+1. vzdump jobs for VMs 183 + 184 (per phase8 recipe, stagger 02:30/03:00) + one test restore.
+2. VM 185 (OpenClaw, retired) destroy decision → final backup then `qm destroy` (+51G freed).
+3. Maintenance-window batch (console access): verify AMT off + disable SNC in BIOS →
+   pin-test kernel 7.0.14-4 (--next-boot) → rebuild vm-ephemeral ashift=12 → optional host.fw.
+4. Phase 8 monitoring stack (Prometheus/Grafana) — sensors now feed it.
+5. Git commit/push when Andrew lifts the hold.
+
+### Blockers
+None. Host SSH access for automation = root + password (sshpass; PASSWORDS.md) — workstation
+pubkey is NOT on the host (deliberate, SEC-1 deferred).
+
+---
+
+## ✅ DONE — Phase 12: Network Perimeter Lockdown (.184 as DMZ) — IMPLEMENTED July 8, 2026
+
+**Status:** ✅ Implemented + validated. Full record: `phases/phase12_network_segmentation.md`.
+
+**What's live (July 8):**
+1. **Router:** public VNC/ARD to .200 deleted (Mac-mini = Tailscale-only). 80/443→.184 kept;
+   Plex + Tailscale UPnP holes kept; .100 = Verizon ARRIS gear, left alone; UPnP stays enabled.
+2. **Capricorn deploy = push:** runner (.182) pulls the images and streams them into .184 via
+   `docker save | ssh docker load`; .184 never contacts the registry (.181:5050). On both
+   `production` (e0f3057) and `develop` (9e5d2dc). Live-tested — pipeline #137 job #722 green.
+3. **.184 inbound-only via Proxmox firewall** (`/etc/pve/firewall/184.fw`, datacenter fw
+   enabled via new `cluster.fw`): IN DROP except 80/443 (any) + SSH from .182/.195/.150 + LAN
+   ICMP; OUT allows gateway .1 + internet, DROPs all RFC1918. Other VMs unaffected (no .fw files).
+   Rollback: `/root/184.fw.bak-20260708` on pve + VM snapshot `pre_phase12_firewall`.
+
+**Validated:** .184 cannot reach .180/.181/.183/.150; internet + DNS from .184 fine; public
+sites 200; admin (.195) + runner (.182) SSH in OK; .181→.184:22 blocked; :8080 blocked from LAN.
+**.195 is a static IP** (Andrew confirmed) so the SSH allowlist won't go stale.
+
+**Remaining (minor, optional):** off-LAN scan of the WAN IP to confirm only 80/443 answer.
+**Next security work lives in Capricorn:** `unified_ui_DEV_PROD_GCP/project/phases/phase22*`
+(the public app has no auth — app-layer hardening is now the weakest link).
+
+**Where it came from:** a security review of the Capricorn app (other project,
+`unified_ui_DEV_PROD_GCP`, `project/phases/phase22*`). While validating exposure I tested from
+.184 itself and found the flat LAN lets the public-facing box reach everything private.
+
+**Verified July 1, 2026 (probes run ON .184):**
+- Network is flat: single `vmbr0`, `192.168.1.0/24`, no VLANs. Only .185 uses Tailscale.
+- .184 (public, Traefik + Capricorn PROD) can reach **.180:5001/5002 (QA — REAL financial data,
+  app has NO auth), .181:80/5050 (GitLab + registry), .183:9000 (Sonar)**. Pulled a real QA
+  transaction from .184 with plain `curl` (total_count 4686).
+- Router forwards only 80/443→.184, no :22 (per MEMORY — still VERIFY the G3100 table).
+- .184 listeners: 80/443/22 + :8080 (Traefik dashboard, LAN-only, not public — bind to localhost).
+
+**Andrew's model (decided this session):**
+1. Public reaches ONLY .184:80/443. Nothing else public.
+2. Internal LAN stays FLAT — everything-to-everything. NO internal micro-segmentation.
+3. .184 does NOT need to reach any internal host → make it **inbound-only (DMZ)**.
+
+**The one blocker to a pure DMZ:** `deploy_prod_local` in Capricorn's `.gitlab-ci.yml` currently
+has .184 `docker login` + `docker pull` from the GitLab registry (.181:5050). Fix = switch to
+**push** (runner does `docker save … | ssh agamache@.184 "docker load"`), removing .184's only
+internal-outbound need. **This edit is in the Capricorn project — do it FIRST**, then this phase's
+firewall change won't break deploys.
+
+**Plan (see phase12 for full detail):**
+1. Verify/tighten router: only 80/443 → .184.
+2. (Capricorn) deploy push-not-pull.
+3. Firewall .184: IN 80/443 any + SSH from .182/.195/.150; OUT internet + gateway .1 only;
+   **DROP OUT to other 192.168.1.x VMs**. Snapshot + console access first (don't lock out SSH).
+4. Optional: bind Traefik :8080 to localhost. Leave all other VMs unchanged (flat).
+
+**⏳ DECISIONS AWAITED from Andrew:**
+- Deploy method: `docker save|load` push (pure DMZ) vs keep .184 pulling + allow only .184→.181:5050?
+- .184's DNS resolver (router .1 vs internal DNS VM) — needed so OUT rules don't break name resolution.
+- Bind/keep Traefik :8080 dashboard?
+- Order confirm: Capricorn deploy change first, then .184 firewall.
 
 ---
 

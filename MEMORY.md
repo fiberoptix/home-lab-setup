@@ -28,7 +28,54 @@ Practical rules:
 
 ## CURRENT STATE
 
-- Proxmox running at 192.168.1.150 (HP Z6 G4: single Xeon Platinum 8168 24c/48t, 128GB RAM, ZFS) — **PVE 9.2.3**, kernel **7.0.6-2-pve** (pinned, tested)
+- **✅ Phase 13 Proxmox host audit + same-day fixes — July 9, 2026.** Full record in
+  `phases/phase13_fable_proxmox_audit.md` (findings, action plan, implementation log). Done:
+  - **Email alerting LIVE:** PVE notification endpoint `gmail-smtp` (smtp.gmail.com:587,
+    app password in PASSWORDS.md "Gmail SMTP Relay") + default matcher retargeted; postfix
+    relayhost + SASL + `root:` alias → ZED/smartd/vzdump/cron mail all reach Andrew's Gmail.
+    Both paths tested + confirmed received. Rollback notes in phase13.
+  - **Host upgraded to PVE 9.2.4**, 0 pending pkgs. Kernels 7.0.14-4 + 6.17.13-15 installed
+    to ESPs but **pin 7.0.6-2-pve intact** — they will NOT boot until pin-tested (policy
+    unchanged). Stale bookworm apt entries removed (`/etc/apt/sources.list` emptied, backup
+    `/root/sources.list.bak-20260709`).
+  - **ARC cap 8G → 16G** (runtime + `/etc/modprobe.d/zfs.conf`, initramfs rebuilt).
+  - **rpcbind/nfs-client disabled** (port 111 closed; NAS backups are CIFS, unaffected).
+  - **`zpool upgrade` all 3 pools** (feature-current). **VM200 snapshot deleted** (+5.1G);
+    only remaining snapshot = 184's `pre_phase12_firewall` (keep until Phase 12 window closes).
+  - **Tools added:** nvme-cli, numactl, lm-sensors (+ coretemp persisted via
+    /etc/modules-load.d/coretemp.conf), libsasl2-modules. CPU pkg ~51°C healthy.
+  - **⏸️ DEFERRED by Andrew:** SSH key-only hardening (SEC-1) + web UI TOTP (SEC-2) —
+    LAN-only home lab behind Phase 12 perimeter; revisit later.
+  - **Audit discoveries (not yet in docs elsewhere):** host runs Tailscale (100.108.209.77,
+    `pve` on tailnet); idle Quadro P2000 GPU in the box (nouveau, passthrough candidate);
+    **vm-ephemeral pool is ashift=9** (should be 12 — rebuild pool to fix, drives are 512B-only);
+    SNC enabled in BIOS → 2 NUMA nodes (64G each); only 4/6 memory channels populated;
+    fallback kernel 6.17.2-1 no longer on ESPs (only 6.17.13-x + 7.0.x).
+  - **Still open:** vzdump jobs for 183/184 + test restore; VM 185 destroy decision (frees
+    51G reserved); maintenance-window batch (BIOS: verify AMT off + disable SNC; pin-test
+    7.0.14-4; rebuild vm-ephemeral ashift=12; optional host.fw).
+
+- **✅ Phase 12 network perimeter lockdown — IMPLEMENTED July 8, 2026.** Full detail in
+  `phases/phase12_network_segmentation.md`. What's live now:
+  - **Router (G3100):** deleted public VNC/ARD forwards (3283/5900/5988→.200); Mac-mini is
+    Tailscale-only. Kept: 80/443→.184, Plex .200:32400, Tailscale UPnP holes, .100 (Verizon
+    ARRIS equipment — ISP-managed, accepted). UPnP stays ENABLED (Andrew's call).
+  - **Capricorn deploy = PUSH model:** `deploy_prod_local` now pulls images on the runner (.182)
+    and streams them via `docker save | ssh .184 "docker load"`. .184 never contacts the
+    registry. On `production` (e0f3057) AND `develop` (9e5d2dc). Live-tested: pipeline #137
+    job #722 succeeded, cap.gothamtechnologies.com 200.
+  - **.184 is inbound-only (Proxmox fw):** `/etc/pve/firewall/184.fw` — IN policy DROP
+    (allow 80/443 anywhere; 22 from .182/.195/.150 only; LAN ICMP); OUT = ACCEPT to gateway .1
+    + internet, DROP to all RFC1918. Datacenter fw ENABLED via new `cluster.fw` (was disabled —
+    the old 184.fw had been inert). Other VMs have no .fw files → unaffected (185.fw exists,
+    VM stopped). Rollback: `/root/184.fw.bak-20260708` on pve, VM snapshot `pre_phase12_firewall`.
+  - **Validated:** .184→.180/.181/.183/.150 all blocked; .184→internet/DNS works; public 200;
+    .195/.182 SSH in OK; .181→.184:22 blocked; :8080 dashboard blocked from LAN.
+  - **Still open (minor):** off-LAN scan of WAN IP (needs external vantage); .195 workstation
+    is STATIC IP (SSH allowlist rule safe). Related Capricorn work: `unified_ui_DEV_PROD_GCP`
+    `project/phases/phase22*` (app has NO auth + is the sole public door → app hardening matters).
+
+- Proxmox running at 192.168.1.150 (HP Z6 G4: single Xeon Platinum 8168 24c/48t, 128GB RAM, ZFS) — **PVE 9.2.4** (Jul 9, 2026), kernel **7.0.6-2-pve** (pinned, tested)
 - **NOTE:** The Proxmox server is a **Z6 G4** (single CPU, 128GB). The **dev workstation** we work from is a **Z8 G4** (dual Platinum 8168, 256GB). Don't confuse the two.
 - **Jun 18, 2026: kernel fully un-stuck.** Went 6.17.2-1 → 6.17.13-13 → **7.0.6-2-pve** (all NVMe-clean), full host upgrade to PVE 9.2.3, all package holds removed. 7.0.6-2 tested via --next-boot, then made permanent and confirmed it boots autonomously (2 reboots clean). 6.17.13-13 kept as fallback. See current_phase.md + phase1b.
 - Script server running at http://192.168.1.195/scripts/
@@ -293,8 +340,12 @@ Installs: Docker, SSH keys, passwordless sudo, NAS mount, insecure-registry conf
 - **Running + permanently pinned:** 7.0.6-2-pve ✅ STABLE (PVE 9.2 default; tested
   Jun 18, 2026 via --next-boot, then pinned permanent and confirmed autonomous boot —
   2 clean reboots, 0 NVMe timeouts, all 6 NVMe present behind VMD, ZFS healthy)
-- **Fallbacks kept installed:** 6.17.13-13-pve (prior good) and 6.17.2-1-pve. To revert,
-  `proxmox-boot-tool kernel pin 6.17.13-13-pve` + `refresh` (console access advised).
+- **Fallbacks on ESPs (verified Jul 9, 2026):** 6.17.13-x and 7.0.x lines only — 6.17.2-1 is
+  NO LONGER boot-selectable. To revert, `proxmox-boot-tool kernel pin 6.17.13-13-pve` +
+  `proxmox-boot-tool refresh` (console access advised).
+- **Staged (installed but NOT pinned, will not boot):** 7.0.14-4-pve + 6.17.13-15-pve
+  (pulled in by the Jul 9 full-upgrade). Pin-test 7.0.14-4 at next console window per phase1b
+  procedure.
 - **History on this box:** 6.17.4-2 hung (Jan); ran 6.17.2-1 pinned; Jun 18 → 6.17.13-13
   → 7.0.6-2 (current). All 6.17.9+ / 7.0 kernels are NVMe-clean here.
 - **Holds:** NONE ✅ — `proxmox-default-kernel` + `proxmox-kernel-6.17.2-1-pve-signed`
@@ -348,6 +399,21 @@ verify NVMe + ZFS, then make the pin permanent (this is exactly how 6.17.13-13 a
 
 ---
 
+## HOST EMAIL ALERTING (Phase 13, Jul 9 2026) — see phase13 for full detail
+
+All Proxmox-host alerts now reach Andrew's Gmail via app password (PASSWORDS.md "Gmail SMTP Relay"):
+- **PVE notifications** (vzdump results, PVE alerts): endpoint `gmail-smtp`
+  (smtp.gmail.com:587 STARTTLS) + builtin `default-matcher` retargeted to it.
+  Manage: `pvesh get/set /cluster/notifications/...`. Test:
+  `pvesh create /cluster/notifications/targets/gmail-smtp/test`
+- **Local root mail** (ZED pool events, smartd disk warnings, cron): postfix
+  `relayhost = [smtp.gmail.com]:587` + SASL (`/etc/postfix/sasl_passwd`, root-only) +
+  `/etc/aliases` root→gmail. `smtp_address_preference = ipv4` (host has no IPv6 route).
+  Test: `echo hi | mail -s test root` then check journal for `status=sent ... gsmtp`.
+- Rotate credential at Google → Security → App passwords (named "pve").
+
+---
+
 ## STORAGE
 
 **Last Verified:** January 14, 2026 (4:35 PM EST)
@@ -369,6 +435,8 @@ verify NVMe + ZFS, then make the pin permanent (this is exactly how 6.17.13-13 a
 | # | Name | Status |
 |---|------|--------|
 | 0-2 | Hardware/Proxmox/Automation | ✅ |
+| 12 | Network perimeter lockdown (.184 DMZ) | ✅ IMPLEMENTED July 8, 2026 (see phase12 + current_phase.md) |
+| 13 | Proxmox host audit + fixes (Fable) | ✅ AUDIT + quick wins DONE July 9, 2026 (see phase13; maintenance-window items open) |
 | 1a | Proxmox kernel upgrade failure + rollback (Jan 12) | ✅ RESOLVED (pinned/held) |
 | 1b | Proxmox kernel upgrade — safe retry (→6.17.13-13) | ✅ COMPLETE (Jun 18, 2026, running+pinned) |
 | 3 | GitLab Server | ✅ VERIFIED |
@@ -583,7 +651,8 @@ services:
 **Tailscale:**
 - **Tailscale IP:** 100.119.212.71
 - **Tailscale Serve:** HTTPS proxy on port 443 → localhost:1885
-- **This is the ONLY VM with Tailscale in the lab**
+- ~~This is the ONLY VM with Tailscale in the lab~~ **CORRECTION (Jul 9, 2026): the Proxmox
+  HOST also runs Tailscale** (tailscaled active on pve, 100.108.209.77). .185 remains the only *VM* with it.
 
 **CRITICAL: Control UI requires HTTPS or localhost!**
 - Plain HTTP to LAN IP (http://192.168.1.185:1885) will NOT work -- OpenClaw blocks it
