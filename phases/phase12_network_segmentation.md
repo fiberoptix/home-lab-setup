@@ -180,7 +180,8 @@ Implemented on pve (.150) as `/etc/pve/firewall/184.fw` (VM-level; datacenter fi
 
 > **CI facts verified (Jul 8):** `deploy_prod_local` (capricorn/.gitlab-ci.yml:166–195) has .184
 > `docker login` + 4× `docker pull` from $REGISTRY (.181:5050). `deploy_qa` (:143–148) does the
-> same to .180. Both embed the registry password (see PASSWORDS.md) inline (:143, :187) — ties to Capricorn phase22a C-3.
+> same to .180. Both embed the registry password inline, plaintext (:143, :187) — see
+> PASSWORDS.md; ties to Capricorn phase22a C-3.
 > Runner's own push job (:77) correctly uses masked `$CI_REGISTRY_USER/$CI_REGISTRY_PASSWORD`.
 
 ## 🚫 Out of Scope
