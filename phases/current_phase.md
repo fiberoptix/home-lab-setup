@@ -1,6 +1,46 @@
 # Current Phase
 
-**Updated:** July 9, 2026 - 11:40 AM EDT
+**Updated:** July 9, 2026 - 12:40 PM EDT
+
+---
+
+## ✅ Phase 13 (continued): Afternoon Session — BIOS checks, ashift rebuild, Z8 tuning (July 9)
+
+**Everything below is also in `phases/phase13_fable_proxmox_audit.md` (findings + implementation log).**
+
+### Done (11:53 AM – 12:35 PM)
+1. **AMT verified DISABLED — no BIOS visit needed.** Discovered HP exposes all 280 BIOS
+   settings read-only via `/sys/class/firmware-attributes/hp-bioscfg/attributes/` on the
+   Proxmox host. "Intel AMT" = Disable, "ME Firmware Mode" = "AMT Disabled". Cross-checked:
+   all AMT ports (623/664/5900/16992-16995) closed from LAN. SEC-5 closed.
+   ⚡ REMEMBER: this sysfs path reads any BIOS setting on HP boxes without rebooting.
+2. **SNC confirmed "Enable" at BIOS level** (same sysfs). Changing it still needs the console.
+3. **vm-ephemeral rebuilt ashift=9 → 12** (PERF-2 closed). Procedure (~10 min total downtime):
+   `qm shutdown 182 200` → `qm move-disk` both scsi0 → vm-critical (--delete) →
+   `zpool destroy vm-ephemeral` → `zpool create -o ashift=12` on same 2 NM620s (by-id,
+   serials …863 + …887, stripe) → `zfs set compression=lz4` → move disks back → start VMs.
+   Verified: zdb ashift=12 both vdevs; runner buildx + QA Capricorn stack healthy.
+   NOTE: NM620 only exposes 512B LBA (no 4Kn) — ashift MUST be set at pool creation.
+4. **Z8 dev-workstation VM tuned (side quest, recorded in phase13 addendum):** 32 → 24 vCPUs
+   as **2 sockets x 12**. sysbench: 898 → 996 ev/s per thread (93% scaling eff., was 83%),
+   thread spread ±11.5% → ±4.3%. **Andrew's find: 2x12 → Windows schedules VM on idle PROC1;
+   1x24 → co-located with Windows on PROC0. Keep 2x12** (VM owns a whole physical socket).
+
+### Andrew's decisions this session
+- **❎ WON'T-FIX:** vzdump jobs for 183/184 (rebuildable; WWW=vanity demo, Sonar barely used).
+  GitLab 181 remains the only backed-up VM (it's the only one with irreplaceable data).
+- **VM 185 (OpenClaw): leave dormant** — don't destroy, don't start.
+- **host.fw: HOLD** (was already pending BIOS/ashift; now explicitly deferred with SEC-1/2).
+
+### Remaining open items (all optional / next console visit)
+- **Console visit combo:** BIOS F10 → "Sub-NUMA Clustering" → Disable, THEN pin-test kernel
+  7.0.14-4 via `--next-boot` (phase1b procedure). VMs must be shut down first; I can prep.
+- Test-restore drill of GitLab backup (VMID 999, isolated NIC).
+- Optional hardware: 2x32GB DDR4-2666 ECC RDIMMs → 6/6 memory channels (+bandwidth, →192GB).
+- Deferred security items: SEC-1 (SSH key-only), SEC-2 (TOTP), host.fw.
+
+### Blockers
+None.
 
 ---
 

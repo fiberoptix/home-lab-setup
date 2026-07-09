@@ -44,16 +44,27 @@ Practical rules:
     only remaining snapshot = 184's `pre_phase12_firewall` (keep until Phase 12 window closes).
   - **Tools added:** nvme-cli, numactl, lm-sensors (+ coretemp persisted via
     /etc/modules-load.d/coretemp.conf), libsasl2-modules. CPU pkg ~51°C healthy.
-  - **⏸️ DEFERRED by Andrew:** SSH key-only hardening (SEC-1) + web UI TOTP (SEC-2) —
+  - **vm-ephemeral REBUILT with ashift=12** (afternoon session, ~10 min downtime): 182+200
+    shut down → disks qm-move-disk'd to vm-critical → pool destroyed/recreated (same 2 NM620s,
+    by-id, `-o ashift=12` + lz4) → disks back → VMs verified healthy. Old pool was ashift=9.
+  - **AMT verified DISABLED without BIOS visit:** HP exposes BIOS read-only from Linux via
+    `/sys/class/firmware-attributes/hp-bioscfg/attributes/` (280 attrs). "Intel AMT" = Disable,
+    "ME Firmware Mode" = "AMT Disabled"; all AMT ports (623/664/5900/16992-5) closed from LAN.
+    **This sysfs trick works for reading ANY BIOS setting on the HP hosts — remember it.**
+  - **⏸️ DEFERRED by Andrew:** SSH key-only hardening (SEC-1) + web UI TOTP (SEC-2) + host.fw —
     LAN-only home lab behind Phase 12 perimeter; revisit later.
-  - **Audit discoveries (not yet in docs elsewhere):** host runs Tailscale (100.108.209.77,
-    `pve` on tailnet); idle Quadro P2000 GPU in the box (nouveau, passthrough candidate);
-    **vm-ephemeral pool is ashift=9** (should be 12 — rebuild pool to fix, drives are 512B-only);
-    SNC enabled in BIOS → 2 NUMA nodes (64G each); only 4/6 memory channels populated;
-    fallback kernel 6.17.2-1 no longer on ESPs (only 6.17.13-x + 7.0.x).
-  - **Still open:** vzdump jobs for 183/184 + test restore; VM 185 destroy decision (frees
-    51G reserved); maintenance-window batch (BIOS: verify AMT off + disable SNC; pin-test
-    7.0.14-4; rebuild vm-ephemeral ashift=12; optional host.fw).
+  - **❎ WON'T-FIX by Andrew:** vzdump backups for 183 (Sonar, barely used) + 184 (WWW =
+    vanity/demo box) — both easily rebuilt. Only GitLab (181) holds irreplaceable data.
+    **VM 185 (OpenClaw) stays dormant as-is** (not destroyed).
+  - **Audit discoveries:** host runs Tailscale (100.108.209.77, `pve` on tailnet); idle Quadro
+    P2000 GPU (nouveau, passthrough candidate); SNC enabled in BIOS → 2 NUMA nodes (64G each);
+    only 4/6 memory channels populated; fallback kernel 6.17.2-1 no longer on ESPs.
+  - **Still open (single console visit covers both):** disable SNC in BIOS (F10 →
+    "Sub-NUMA Clustering" → Disable) + pin-test kernel 7.0.14-4 (--next-boot per phase1b).
+    Also optional: test-restore drill of GitLab backup; 2x32GB DIMMs for 6-channel bandwidth.
+  - **Dev workstation (Z8) side quest:** Ubuntu VMware VM resized 32→24 vCPUs **as 2 sockets
+    x 12** — Andrew found 2x12 makes Windows place the VM on idle PROC1 (1x24 co-locates with
+    Windows on PROC0). +11%/thread, 93% scaling eff. Details in phase13 addendum.
 
 - **✅ Phase 12 network perimeter lockdown — IMPLEMENTED July 8, 2026.** Full detail in
   `phases/phase12_network_segmentation.md`. What's live now:
@@ -420,9 +431,14 @@ All Proxmox-host alerts now reach Andrew's Gmail via app password (PASSWORDS.md 
 
 | Pool | Drives | Type | Size | Usage | Compression | Ratio | Use |
 |------|--------|------|------|-------|-------------|-------|-----|
-| rpool | 2x WD Blue SN5100 500GB | mirror | 460GB | 10GB (2%) | lz4 ✅ | 1.00x | Proxmox, ISOs |
-| vm-critical | 2x Lexar NM620 1TB | mirror | 952GB | 52GB (5%) | lz4 ✅ | 1.58x | GitLab, SonarQube |
-| vm-ephemeral | 2x Lexar NM620 1TB | stripe | 1.86TB | 40GB (2%) | lz4 ✅ | 1.63x | Runner, QA |
+| rpool | 2x WD Blue SN5100 500GB | mirror | 460GB | 11GB (2%) | lz4 ✅ | 1.17x | Proxmox, ISOs |
+| vm-critical | 2x Lexar NM620 1TB | mirror | 952GB | 66GB (6%) | lz4 ✅ | 1.40x | GitLab, Sonar, WWW, (OpenClaw) |
+| vm-ephemeral | 2x Lexar NM620 1TB | stripe | 1.86TB | 46GB (2%) | lz4 ✅ | ~1.5x | Runner, QA |
+
+**ashift (verified/fixed Jul 9, 2026):** ALL pools now ashift=12 (vm-ephemeral was 9 —
+rebuilt Jul 9; NM620s only expose 512B LBA so ashift must be set at pool creation).
+ARC cap = **16 GiB** (`/etc/modprobe.d/zfs.conf`, raised from 8 Jul 9).
+All pools feature-flag current (zpool upgrade Jul 9).
 
 **Note:** All pools now have lz4 compression enabled. rpool shows 1.00x ratio because existing data is uncompressed (new data will be compressed).
 

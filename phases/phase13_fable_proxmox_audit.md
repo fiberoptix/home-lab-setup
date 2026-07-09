@@ -79,7 +79,10 @@ Host was last updated June 18 (uptime 20 days). Pending now includes:
 pin-tested with the `--next-boot` procedure (phase1b) — no change to that policy.
 Consider scheduling 7.0.14-4 for the next console-access window. **Risk: low.**
 
-### MISC-3 — vzdump backup job covers only VM 181 (MEDIUM)
+### MISC-3 — vzdump backup job covers only VM 181 (MEDIUM) — ❎ WON'T-FIX (Andrew, Jul 9)
+*(Decision: 184 is a vanity/demo box and 183 is barely used — both easily rebuilt from
+scripts + registry images. GitLab (181, the only irreplaceable-data VM) stays backed up
+nightly. The test-restore drill for 181's backup is still worthwhile.)*
 
 `jobs.cfg` has one job: `gitlab-nightly` (VM 181 → nas-gitlab, 02:00, snapshot/zstd, keep 7).
 Working as designed, but **183 (SonarQube), 184 (WWW/PROD), 200 (QA)** have no VM-level
@@ -144,7 +147,12 @@ GitLab (git operations) and SonarQube (scans) are exactly the read-heavy workloa
 runtime `echo 17179869184 > /sys/module/zfs/parameters/zfs_arc_max` (takes effect immediately,
 no downtime). Could go to 24 GB later if free RAM stays high. **Risk: low, easily reverted.**
 
-### PERF-2 — vm-ephemeral pool built with ashift=9 (MEDIUM — rebuild to fix)
+### PERF-2 — vm-ephemeral pool built with ashift=9 (MEDIUM — rebuild to fix) — ✅ FIXED Jul 9
+*(12:00–12:10 PM: shut down 182+200 → `qm move-disk` both to vm-critical → `zpool destroy` →
+recreated stripe on same two NM620s (by-id, serials …863 + …887) with `-o ashift=12` + lz4 →
+moved disks back → VMs restarted. Verified: zdb shows ashift 12 on both vdevs; runner +
+QA/Capricorn containers healthy. Total downtime ~10 min. Data copied both ways cleanly —
+allocations identical (46G) after rebuild.)*
 
 `zdb` shows the truth (`zpool get ashift` reports the misleading "0/default"):
 
@@ -288,7 +296,13 @@ unaffected — they use CIFS. Reversible with `systemctl enable --now rpcbind.so
 **Fix:** `systemctl disable --now rpcbind.socket rpcbind.service nfs-client.target`.
 **Risk: none unless NFS is planned; trivially reversible.**
 
-### SEC-5 — Intel AMT/ME status unverified; NIC is literally named "amt" (LOW — verify)
+### SEC-5 — Intel AMT/ME status unverified; NIC is literally named "amt" (LOW — verify) — ✅ VERIFIED SAFE Jul 9
+*(No BIOS visit needed: read the BIOS directly from Linux via the `hp-bioscfg`
+firmware-attributes sysfs (280 attributes exposed). **"Intel Active Management Technology
+(AMT)" = Disable**, **"ME Firmware Mode" = "AMT Disabled"** (ME itself enabled = normal, it
+always runs; only the remote-admin AMT layer matters and it's off). Corroborated externally:
+all AMT service ports (623/664/5900/16992-16995) CLOSED from the LAN. The "amt" NIC name is
+just a udev label on the AMT-*capable* port — no actual exposure.)*
 
 The bridge rides the I219-LM port, deliberately renamed `amt` — the port shared with Intel
 AMT/vPro out-of-band management (MEI controller present). If AMT is provisioned (or ever gets
@@ -407,9 +421,9 @@ vGPU-style sharing. No action needed now — just inventory awareness; not previ
 | 9 | ~~`zpool upgrade` all pools~~ ✅ DONE Jul 9 | PERF-5 | — | — | — |
 | 10 | ~~Delete VM 200 snapshot~~ ✅ DONE Jul 9 (184's kept until Phase 12 window closes) | MISC-6 | — | — | — |
 | 11 | Decide VM 185 fate → backup + destroy (frees 51G reserved) | MISC-5 | 30 min | none | needs approval |
-| 12 | Verify AMT disabled in BIOS; check for BIOS update | SEC-5 | reboot visit | brief | none |
-| 13 | Disable SNC in BIOS (same reboot visit as #12) | PERF-4 | same visit | brief | low |
-| 14 | Rebuild vm-ephemeral with ashift=12 (move 182/200 disks out/back) | PERF-2 | 1–2 h | Runner+QA ~1h | medium |
+| 12 | ~~Verify AMT disabled~~ ✅ DONE Jul 9 from OS (hp-bioscfg sysfs + port scan) — BIOS-update check still optional | SEC-5 | — | — | — |
+| 13 | Disable SNC in BIOS (confirmed "Enable" via hp-bioscfg; change needs console visit) | PERF-4 | reboot visit | brief | low |
+| 14 | ~~Rebuild vm-ephemeral with ashift=12~~ ✅ DONE Jul 9 (~10 min downtime, verified) | PERF-2 | — | — | — |
 | 15 | host.fw for the Proxmox node (console at hand) | SEC-3 | 1 h | none | medium (lockout) |
 | 16 | ~~lm-sensors install~~ ✅ DONE Jul 9 (+ nvme-cli, numactl; coretemp persisted) | OPS-2 | — | — | — |
 | 17 | (Optional $) 2x 32GB DIMMs → 6-channel bandwidth | PERF-3 | purchase | brief | none |
@@ -431,13 +445,37 @@ with console access (they combine well with the next kernel pin-test to 7.0.14-4
 | 11:34 | apt full-upgrade → **PVE 9.2.4**, 0 pending; new kernels 7.0.14-4/6.17.13-15 on ESPs, **pin 7.0.6-2 verified intact**; postfix relay survived upgrade | MISC-2 resolved |
 | 11:37 | Disabled rpcbind + nfs-client.target (port 111 closed); ARC cap → 16 GiB (runtime + persistent); `zpool upgrade` x3; deleted VM200 snapshot (+5.1G) | SEC-4, PERF-1, PERF-5, MISC-6(part) resolved |
 
-All changes verified: system `running`, no failed units, all 5 production VMs stayed up
-throughout, NAS backup storage untouched.
+| 11:58 | BIOS read from OS via `hp-bioscfg` sysfs + LAN port scan | SEC-5 resolved: **AMT = Disable, ME Firmware Mode = "AMT Disabled"**, all AMT ports closed. SNC confirmed "Enable" at BIOS level (change still needs console). 280 BIOS attributes readable from Linux |
+| 12:00 | vm-ephemeral ashift rebuild: 182+200 down → disks to vm-critical → pool destroy/recreate ashift=12+lz4 → disks back → VMs up | PERF-2 resolved; ~10 min downtime; runner + QA Capricorn stack verified healthy |
+| 11:52 | Andrew decisions: NO backups for 183/184 (rebuildable vanity/idle services — #8 dropped); VM 185 stays dormant (#11 on hold); host.fw on hold pending BIOS/ashift items | Plan updated |
 
-**Still open after today:** backup coverage for 183/184 + test restore (#8), VM 185
-decision (#11), maintenance-window items (#12–15: AMT check, SNC off, kernel 7.0.14-4
-pin-test, vm-ephemeral ashift rebuild, optional host.fw), RAM purchase (#17), doc sync (#18),
-deferred SEC-1/SEC-2.
+All changes verified: system `running`, no failed units, production VMs healthy
+(181/183/184 never went down; 182/200 down ~10 min for the rebuild), NAS backup storage untouched.
+
+**Still open after today:** SNC disable in BIOS + kernel 7.0.14-4 pin-test (single console
+visit covers both), test-restore drill for the GitLab backup, host.fw (on hold per Andrew),
+RAM purchase (optional #17), deferred SEC-1/SEC-2.
+**Dropped by Andrew (Jul 9):** vzdump jobs for 183/184 (#8 — both rebuildable, WWW is a
+vanity/demo box, SonarQube barely used); VM 185 stays dormant as-is (#11).
+
+---
+
+## Addendum: Dev Workstation (Z8 G4) VM Tuning — July 9, 2026
+
+Spun out of the same session (not lab infra, recorded here for the reasoning). The Ubuntu
+dev VM (VMware Workstation on Windows, HP Z8 G4 = 2x Xeon 8168, 256GB):
+
+- **Was:** 32 vCPUs — wider than one 24-core socket → VM straddled both physical CPUs with
+  a flat (NUMA-blind) guest view. sysbench: 28,735 ev/s all-core, 898/thread (83% eff.),
+  ±11.5% thread spread.
+- **Now:** **24 vCPUs as 2 sockets x 12** — 23,900–24,000 ev/s, **996/thread (93% eff.)**,
+  ±4.3% spread, lower latency. Single-thread unchanged (~1,070).
+- **Key empirical find (Andrew):** guest socket presentation changes Windows placement —
+  **1x24 co-locates the VM with Windows on PROC0; 2x12 lands it on idle PROC1.** So 2x12 is
+  kept deliberately: VM gets a whole physical socket, Windows keeps the other, zero contention.
+- **Z8 BIOS checklist for a future console visit:** SNC → Disable; HT → Enabled; Turbo →
+  Enabled; power mgmt → OS/max-perf; verify DIMM population (6 channels/socket ideal —
+  same 4-of-6 concern as the Z6).
 
 ---
 
