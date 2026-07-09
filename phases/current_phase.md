@@ -1,6 +1,52 @@
 # Current Phase
 
-**Updated:** July 9, 2026 - 12:40 PM EDT
+**Updated:** July 9, 2026 - 1:30 PM EDT
+
+---
+
+## ✅ qemu-guest-agent rolled out to all 5 live VMs (July 9, 1:20–1:28 PM)
+
+Follow-up to the restore-drill finding (181 had no agent). For **181, 182, 183, 184, 200**:
+- Installed + enabled `qemu-guest-agent` (Ubuntu pkg 1:8.2.2) inside each guest.
+- `qm set <id> --agent enabled=1` on the host, then **graceful stop/start of each VM**
+  (runner verified idle first; GitLab last). Total blip ~1 min/VM; GitLab ~3 min (Puma warmup).
+- **All 5 answer `qm agent ping`** ✅ — PVE UI now shows guest IPs, clean shutdowns work,
+  snapshot/backup fs-freeze available, future drills can verify via agent.
+- Bonus: the stop/start cycled every VM onto the **new QEMU 11.0.2 binary** from this
+  morning's PVE 9.2.4 upgrade (verified `running-qemu: 11.0.2` on all 5) — that loose end is closed.
+- Post-checks: GitLab 200, public site https 200, QA 200, SonarQube 200, runner active.
+- VM 185 (dormant OpenClaw) untouched — add the agent if it's ever revived.
+
+---
+
+## ✅ GitLab backup test-restore drill — PASSED (July 9, 1:08–1:20 PM)
+
+Proved the nightly vzdump of VM 181 restores to a **fully working GitLab** (full procedure
++ findings in `phases/phase13_fable_proxmox_audit.md`, bottom section):
+- `qmrestore` last night's backup → VMID 999 on vm-ephemeral (`--unique`): 2m17s, 0 errors.
+- Isolation: NIC on a **host-only bridge vmbr999** (no physical port) + /32 route — clone
+  runs with its baked-in .181 IP but can't touch the LAN; live GitLab unaffected (200 whole time).
+- Verified: 16/16 gitlab-ctl services up, sign-in 200, DB intact (4 users, 5 projects,
+  correct timestamps), **git clone of capricorn from the clone: 306 files, HEAD 92dc5fb** ✅.
+- Teardown clean: VM 999 + bridge destroyed, vm-ephemeral back to 203G.
+- Finding: VM 181 lacks qemu-guest-agent → install during future guest-internals phase.
+- Repeat ~quarterly or after major GitLab upgrades.
+
+---
+
+## ✅ Phase 13 (final): Maintenance window — SNC off + kernel 7.0.14-4 adopted (July 9, 12:48–12:56 PM)
+
+1. **SNC disabled in BIOS** (Andrew at console, F10 → "Sub-NUMA Clustering" → Disable) and
+   **kernel 7.0.14-4-pve pin-tested via `--next-boot` in the same reboot.** Booted clean
+   first try: **NUMA now 1 flat node / 128GB**, all 6 NVMe behind VMD, 0 NVMe errors, pools
+   ONLINE, 5 VMs auto-started, public site 200. Slot 5 Bifurcation x4x4x4x4 + VROC untouched
+   (confirmed: bifurcation, NOT SNC, drives the quad-NVMe card).
+2. **7.0.14-4-pve made the PERMANENT pin** (was 7.0.6-2 since Jun 18). Fallbacks on ESPs:
+   7.0.6-2 + 6.17.13-x. PERF-4 closed → **every audit fix Andrew approved is now done.**
+3. **Subscription nag re-disabled:** widget-toolkit 5.2.6 (from today's upgrade) changed the
+   code, killing the old sed patch in `/usr/local/bin/proxmox-update.sh`. Patched the live
+   `proxmoxlib.js` (subscription check → `false`; backup `proxmoxlib.js.bak-nag-20260709`)
+   AND rewrote the update-script line with the new perl pattern (idempotent, verified).
 
 ---
 
@@ -32,12 +78,14 @@
 - **VM 185 (OpenClaw): leave dormant** — don't destroy, don't start.
 - **host.fw: HOLD** (was already pending BIOS/ashift; now explicitly deferred with SEC-1/2).
 
-### Remaining open items (all optional / next console visit)
-- **Console visit combo:** BIOS F10 → "Sub-NUMA Clustering" → Disable, THEN pin-test kernel
-  7.0.14-4 via `--next-boot` (phase1b procedure). VMs must be shut down first; I can prep.
-- Test-restore drill of GitLab backup (VMID 999, isolated NIC).
+### Remaining open items (all optional)
+- ~~Console visit combo (SNC + kernel pin-test)~~ ✅ DONE 12:48 PM — see section above.
+- ~~Test-restore drill of GitLab backup~~ ✅ PASSED 1:20 PM — see section above.
 - Optional hardware: 2x32GB DDR4-2666 ECC RDIMMs → 6/6 memory channels (+bandwidth, →192GB).
 - Deferred security items: SEC-1 (SSH key-only), SEC-2 (TOTP), host.fw.
+- tailscaled NetInfo log noise (G3100 UPnP flapping) — ignore, or add
+  TS_DEBUG_DISABLE_PORTMAPPER override; Andrew hasn't picked.
+- Delete VM 184 snapshot `pre_phase12_firewall` once Phase 12 is trusted (~mid-July).
 
 ### Blockers
 None.

@@ -34,9 +34,8 @@ Practical rules:
     app password in PASSWORDS.md "Gmail SMTP Relay") + default matcher retargeted; postfix
     relayhost + SASL + `root:` alias → ZED/smartd/vzdump/cron mail all reach Andrew's Gmail.
     Both paths tested + confirmed received. Rollback notes in phase13.
-  - **Host upgraded to PVE 9.2.4**, 0 pending pkgs. Kernels 7.0.14-4 + 6.17.13-15 installed
-    to ESPs but **pin 7.0.6-2-pve intact** — they will NOT boot until pin-tested (policy
-    unchanged). Stale bookworm apt entries removed (`/etc/apt/sources.list` emptied, backup
+  - **Host upgraded to PVE 9.2.4**, 0 pending pkgs. Kernel 7.0.14-4 pin-tested + adopted
+    same day (see below). Stale bookworm apt entries removed (`/etc/apt/sources.list` emptied, backup
     `/root/sources.list.bak-20260709`).
   - **ARC cap 8G → 16G** (runtime + `/etc/modprobe.d/zfs.conf`, initramfs rebuilt).
   - **rpcbind/nfs-client disabled** (port 111 closed; NAS backups are CIFS, unaffected).
@@ -59,9 +58,29 @@ Practical rules:
   - **Audit discoveries:** host runs Tailscale (100.108.209.77, `pve` on tailnet); idle Quadro
     P2000 GPU (nouveau, passthrough candidate); SNC enabled in BIOS → 2 NUMA nodes (64G each);
     only 4/6 memory channels populated; fallback kernel 6.17.2-1 no longer on ESPs.
-  - **Still open (single console visit covers both):** disable SNC in BIOS (F10 →
-    "Sub-NUMA Clustering" → Disable) + pin-test kernel 7.0.14-4 (--next-boot per phase1b).
-    Also optional: test-restore drill of GitLab backup; 2x32GB DIMMs for 6-channel bandwidth.
+  - **✅ Console visit DONE (Jul 9, 12:53 PM):** SNC disabled in BIOS (host is now 1 flat
+    NUMA node / 128GB) AND kernel **7.0.14-4-pve pin-tested + made PERMANENT pin** (booted
+    clean 1st try: 6/6 NVMe, 0 errors, pools ONLINE, VMs up, public site 200). Fallbacks on
+    ESPs: 7.0.6-2 + 6.17.13-x. Slot 5 Bifurcation x4x4x4x4 unaffected (it, not SNC, drives
+    the quad-NVMe card — Andrew's question, answered from hp-bioscfg).
+  - **Subscription nag:** widget-toolkit 5.2.6 (Jul 9 upgrade) broke the old sed patch in
+    `/usr/local/bin/proxmox-update.sh`. BOTH fixed: live proxmoxlib.js patched (check →
+    `false`) and update script line 28 now uses a perl pattern matching the new code
+    (idempotent). If nag reappears after a future update → pattern needs refreshing again.
+  - **✅ GitLab backup test-restore drill PASSED (Jul 9, 1:20 PM):** qmrestore of the
+    nightly vzdump → VMID 999 on vm-ephemeral (2m17s), clone kept its baked-in .181 IP but
+    was isolated on a **host-only bridge vmbr999 + /32 route** (no LAN exposure; live 181
+    unaffected). Verified 16/16 services, DB (4 users / 5 projects), and a real
+    `git clone` of capricorn (306 files). Torn down clean. Procedure in phase13 (bottom).
+    Repeat ~quarterly (agent can now do in-VM checks directly).
+  - **✅ qemu-guest-agent on ALL 5 live VMs (Jul 9, 1:28 PM):** installed in guests
+    181/182/183/184/200 + `agent enabled=1` + graceful stop/start each (runner idle-checked,
+    GitLab last). All answer `qm agent ping`. Restarts also put every VM on the **new QEMU
+    11.0.2** binary (upgrade loose end closed). All services verified healthy after.
+    185 (dormant) skipped — add agent if ever revived.
+  - **Still open/optional:** 2x32GB DIMMs for 6-channel bandwidth; tailscaled NetInfo log
+    noise (G3100 UPnP flapping; fix = TS_DEBUG_DISABLE_PORTMAPPER override if it bothers);
+    delete 184 snapshot `pre_phase12_firewall` ~mid-July.
   - **Dev workstation (Z8) side quest:** Ubuntu VMware VM resized 32→24 vCPUs **as 2 sockets
     x 12** — Andrew found 2x12 makes Windows place the VM on idle PROC1 (1x24 co-locates with
     Windows on PROC0). +11%/thread, 93% scaling eff. Details in phase13 addendum.
@@ -86,7 +105,7 @@ Practical rules:
     is STATIC IP (SSH allowlist rule safe). Related Capricorn work: `unified_ui_DEV_PROD_GCP`
     `project/phases/phase22*` (app has NO auth + is the sole public door → app hardening matters).
 
-- Proxmox running at 192.168.1.150 (HP Z6 G4: single Xeon Platinum 8168 24c/48t, 128GB RAM, ZFS) — **PVE 9.2.4** (Jul 9, 2026), kernel **7.0.6-2-pve** (pinned, tested)
+- Proxmox running at 192.168.1.150 (HP Z6 G4: single Xeon Platinum 8168 24c/48t, 128GB RAM, ZFS) — **PVE 9.2.4**, kernel **7.0.14-4-pve** (pinned + tested Jul 9, 2026; SNC disabled → single NUMA node)
 - **NOTE:** The Proxmox server is a **Z6 G4** (single CPU, 128GB). The **dev workstation** we work from is a **Z8 G4** (dual Platinum 8168, 256GB). Don't confuse the two.
 - **Jun 18, 2026: kernel fully un-stuck.** Went 6.17.2-1 → 6.17.13-13 → **7.0.6-2-pve** (all NVMe-clean), full host upgrade to PVE 9.2.3, all package holds removed. 7.0.6-2 tested via --next-boot, then made permanent and confirmed it boots autonomously (2 reboots clean). 6.17.13-13 kept as fallback. See current_phase.md + phase1b.
 - Script server running at http://192.168.1.195/scripts/
@@ -348,17 +367,14 @@ Installs: Docker, SSH keys, passwordless sudo, NAS mount, insecure-registry conf
 **Current Status:** June 18, 2026 — on 6.17.13-13-pve, PVE 9.2.3, holds removed
 
 ### Active Kernel
-- **Running + permanently pinned:** 7.0.6-2-pve ✅ STABLE (PVE 9.2 default; tested
-  Jun 18, 2026 via --next-boot, then pinned permanent and confirmed autonomous boot —
-  2 clean reboots, 0 NVMe timeouts, all 6 NVMe present behind VMD, ZFS healthy)
+- **Running + permanently pinned:** **7.0.14-4-pve** ✅ (tested Jul 9, 2026 via --next-boot
+  during the SNC BIOS change window, then pinned permanent — 0 NVMe timeouts, all 6 NVMe
+  behind VMD, ZFS healthy). Prior good: 7.0.6-2-pve (Jun 18 → Jul 9).
 - **Fallbacks on ESPs (verified Jul 9, 2026):** 6.17.13-x and 7.0.x lines only — 6.17.2-1 is
   NO LONGER boot-selectable. To revert, `proxmox-boot-tool kernel pin 6.17.13-13-pve` +
   `proxmox-boot-tool refresh` (console access advised).
-- **Staged (installed but NOT pinned, will not boot):** 7.0.14-4-pve + 6.17.13-15-pve
-  (pulled in by the Jul 9 full-upgrade). Pin-test 7.0.14-4 at next console window per phase1b
-  procedure.
 - **History on this box:** 6.17.4-2 hung (Jan); ran 6.17.2-1 pinned; Jun 18 → 6.17.13-13
-  → 7.0.6-2 (current). All 6.17.9+ / 7.0 kernels are NVMe-clean here.
+  → 7.0.6-2; Jul 9 → 7.0.14-4 (current). All 6.17.9+ / 7.0 kernels are NVMe-clean here.
 - **Holds:** NONE ✅ — `proxmox-default-kernel` + `proxmox-kernel-6.17.2-1-pve-signed`
   unheld Jun 18. `apt install` is normal again (dpkg-download workaround no longer needed).
 - **Root cause of the recurring solver error** (`proxmox-default-kernel : Depends:
@@ -386,8 +402,8 @@ purged the bad kernel.
 ```bash
 # Pinned kernel (always boots this one):
 proxmox-boot-tool kernel list
-# Shows: Pinned kernel: 7.0.6-2-pve
-#   (6.17.13-13-pve and 6.17.2-1-pve also installed as fallbacks)
+# Shows: Pinned kernel: 7.0.14-4-pve
+#   (7.0.6-2-pve and 6.17.13-x-pve also installed as fallbacks)
 
 # Holds: NONE — removed Jun 18, 2026. apt install works normally again.
 apt-mark showhold   # (empty)
@@ -402,11 +418,11 @@ apt-mark showhold   # (empty)
   `proxmox-boot-tool kernel pin`-ed and tested with console access.
 
 **KERNEL POLICY (post Jun 18, 2026):** Holds are removed; rely on the **boot pin**
-instead. The pin is on `7.0.6-2-pve`. Before adopting any future newer kernel, use the
+instead. The pin is on `7.0.14-4-pve`. Before adopting any future newer kernel, use the
 reversible `--next-boot` procedure in
 `phases/phase1b_proxmox_kernel_upgrade_safe_try.md` **with physical/console access**,
-verify NVMe + ZFS, then make the pin permanent (this is exactly how 6.17.13-13 and
-7.0.6-2 were validated).
+verify NVMe + ZFS, then make the pin permanent (this is exactly how 6.17.13-13, 7.0.6-2
+and 7.0.14-4 were validated).
 
 ---
 
@@ -843,8 +859,8 @@ There is NO git-crypt and NO encryption — safety on GitHub comes purely from .
 - **Add another server:** mkdir `ProxmoxBackups/<host>` → `pvesm add cifs nas-<host> ... --subdir
   /ProxmoxBackups/<host> --content backup` → `pvesh create /cluster/backup --id <host>-nightly
   --storage nas-<host> --vmid <id> ...` (stagger schedules). See phase8_backups.md.
-- **Consistency:** crash-consistent (no guest agent yet). App-consistent = `qm set 181 --agent 1`
-  + install qemu-guest-agent in guest + 1 reboot (deferred; fine since 2 AM is idle).
+- **Consistency:** app-consistent since Jul 9, 2026 — qemu-guest-agent installed + enabled on
+  all live VMs, so vzdump snapshot mode uses fs-freeze/thaw. (Was crash-consistent before.)
 - **Restore:** GUI Storage→nas-gitlab→Backups→Restore, or
   `qmrestore /mnt/pve/nas-gitlab/dump/<file>.vma.zst <vmid> --storage <tgt>`. Needs a `vmbr0`.
 - **TODO:** one-time proof-of-life test restore (VMID 999, isolated NIC); optionally add jobs for

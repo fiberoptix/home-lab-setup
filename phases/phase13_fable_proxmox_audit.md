@@ -19,7 +19,7 @@ smartctl, zpool/zfs/zdb, arc_summary, pvesm, pve-firewall, sshd -T, ss, apt, jou
 | Node | `pve` — HP Z6 G4, BIOS P60 v02.96 (2025-06-05) |
 | CPU | 1x Xeon Platinum 8168 (24c/48t), intel_pstate, governor=performance, turbo ON |
 | RAM | 128 GB (4x 32GB DDR4-2666) — **only 4 of 6 channels populated** (see PERF-3) |
-| Kernel | 7.0.6-2-pve (pinned), PVE 9.2.3, ZFS 2.4.2, up 20 days |
+| Kernel | 7.0.6-2-pve (pinned), PVE 9.2.3, ZFS 2.4.2, up 20 days — *audit-time snapshot; by end of day Jul 9: PVE 9.2.4, kernel 7.0.14-4-pve pinned, SNC off* |
 | Microcode | 0x2007108 (intel-microcode 3.20251111.1 installed) |
 | Pools | rpool (mirror, 2% used), vm-critical (mirror, 71% incl. reservations), vm-ephemeral (stripe, 11%) |
 | VMs | 181/182/183/184/200 running; 185 (OpenClaw, retired) stopped, onboot=0 |
@@ -83,6 +83,8 @@ Consider scheduling 7.0.14-4 for the next console-access window. **Risk: low.**
 *(Decision: 184 is a vanity/demo box and 183 is barely used — both easily rebuilt from
 scripts + registry images. GitLab (181, the only irreplaceable-data VM) stays backed up
 nightly. The test-restore drill for 181's backup is still worthwhile.)*
+*(✅ **Test-restore drill PASSED Jul 9, 1:08–1:20 PM** — see Implementation Log + procedure
+notes at the bottom of this file. Backup provably restores to a fully working GitLab.)*
 
 `jobs.cfg` has one job: `gitlab-nightly` (VM 181 → nas-gitlab, 02:00, snapshot/zstd, keep 7).
 Working as designed, but **183 (SonarQube), 184 (WWW/PROD), 200 (QA)** have no VM-level
@@ -188,7 +190,22 @@ With 24 cores and multiple VMs doing I/O, memory bandwidth is a real ceiling.
 → 192 GB *and* full 6-channel bandwidth. Purely optional; noted because it's the single
 biggest hardware perf lever available.
 
-### PERF-4 — Sub-NUMA Clustering is ON; docs assume single NUMA node (INFO/LOW)
+### PERF-4 — Sub-NUMA Clustering is ON; docs assume single NUMA node (INFO/LOW) — ✅ FIXED Jul 9
+*(12:48–12:54 PM maintenance window, Andrew at console: staged kernel 7.0.14-4 as one-shot
+`--next-boot` → shut down all VMs → host powered off → Andrew set BIOS "Sub-NUMA Clustering"
+→ Disable → booted clean FIRST TRY on 7.0.14-4: **NUMA now 1 node / flat 128GB**, all 6 NVMe
+present, 0 NVMe errors, Slot 5 Bifurcation still x4x4x4x4 (confirmed unrelated to SNC — see
+below), all pools ONLINE, 5 VMs auto-started, public site 200. Made **7.0.14-4-pve the
+permanent pin**; 7.0.6-2 + 6.17.13-x remain as ESP fallbacks. Skipped the second
+confirmation reboot (next-boot crutch already consumed). Also: re-applied the subscription-nag
+patch — widget-toolkit 5.2.6 changed the code, old sed pattern dead; live file patched
+(subscription check → `false`, backup proxmoxlib.js.bak-nag-20260709) AND
+`/usr/local/bin/proxmox-update.sh` line 28 rewritten with the new perl pattern, idempotency
+verified. Nag will return whenever Proxmox restructures that code — refresh the pattern then.)*
+
+**Answered along the way (Andrew's question):** SNC was NOT what enabled the 4x NVMe carrier
+card — that's **`Slot 5 Bifurcation = x4x4x4x4`** + `Slot 5 Intel VROC NVMe Raid = Enable`,
+separate per-slot settings (read live from hp-bioscfg sysfs). Both survived the SNC change.
 
 lscpu shows **2 NUMA nodes on this single socket** (SNC enabled in BIOS), yet all VMs are
 created with `numa: 0` per the documented standard ("NUMA disabled for single-socket").
@@ -417,12 +434,12 @@ vGPU-style sharing. No action needed now — just inventory awareness; not previ
 | 5 | ~~Full upgrade → PVE 9.2.4 (pin intact)~~ ✅ DONE Jul 9 | MISC-2 | — | — | — |
 | 6 | ~~Disable rpcbind/nfs-client~~ ✅ DONE Jul 9 | SEC-4 | — | — | — |
 | 7 | ~~Raise ARC cap 8G → 16G~~ ✅ DONE Jul 9 | PERF-1 | — | — | — |
-| 8 | Add vzdump jobs for 183/184 (+200?), then test-restore drill | MISC-3 | 1–2 h | none | none |
+| 8 | ~~Add vzdump jobs for 183/184~~ ❎ WON'T-FIX (Andrew); ~~test-restore drill for 181~~ ✅ PASSED Jul 9 | MISC-3 | — | — | — |
 | 9 | ~~`zpool upgrade` all pools~~ ✅ DONE Jul 9 | PERF-5 | — | — | — |
 | 10 | ~~Delete VM 200 snapshot~~ ✅ DONE Jul 9 (184's kept until Phase 12 window closes) | MISC-6 | — | — | — |
 | 11 | Decide VM 185 fate → backup + destroy (frees 51G reserved) | MISC-5 | 30 min | none | needs approval |
 | 12 | ~~Verify AMT disabled~~ ✅ DONE Jul 9 from OS (hp-bioscfg sysfs + port scan) — BIOS-update check still optional | SEC-5 | — | — | — |
-| 13 | Disable SNC in BIOS (confirmed "Enable" via hp-bioscfg; change needs console visit) | PERF-4 | reboot visit | brief | low |
+| 13 | ~~Disable SNC in BIOS~~ ✅ DONE Jul 9, 12:53 PM (console visit; kernel 7.0.14-4 pin-tested + made permanent in same window) | PERF-4 | — | — | — |
 | 14 | ~~Rebuild vm-ephemeral with ashift=12~~ ✅ DONE Jul 9 (~10 min downtime, verified) | PERF-2 | — | — | — |
 | 15 | host.fw for the Proxmox node (console at hand) | SEC-3 | 1 h | none | medium (lockout) |
 | 16 | ~~lm-sensors install~~ ✅ DONE Jul 9 (+ nvme-cli, numactl; coretemp persisted) | OPS-2 | — | — | — |
@@ -452,9 +469,47 @@ with console access (they combine well with the next kernel pin-test to 7.0.14-4
 All changes verified: system `running`, no failed units, production VMs healthy
 (181/183/184 never went down; 182/200 down ~10 min for the rebuild), NAS backup storage untouched.
 
-**Still open after today:** SNC disable in BIOS + kernel 7.0.14-4 pin-test (single console
-visit covers both), test-restore drill for the GitLab backup, host.fw (on hold per Andrew),
-RAM purchase (optional #17), deferred SEC-1/SEC-2.
+| 12:48 | Maintenance window (Andrew at console): SNC → Disable in BIOS + kernel 7.0.14-4 pin-test → permanent | PERF-4 resolved; kernel current; booted clean 1st try; NUMA=1 node; all checks green |
+| 12:56 | Subscription nag re-disabled (widget-toolkit 5.2.6 broke old patch); update script fixed with new pattern | Nag gone; future updates auto-re-patch |
+| 13:08 | **GitLab backup test-restore drill** (procedure below) | ✅ PASSED — backup provably restorable end-to-end; VM 999 + bridge destroyed; pool back to 203G; live 181 untouched (200 throughout) |
+
+**Still open after today:** host.fw (on hold per Andrew), RAM purchase (optional #17),
+deferred SEC-1/SEC-2, tailscaled NetInfo log noise (G3100 UPnP flapping — Andrew hasn't
+picked ignore vs disable-portmapper), delete 184's `pre_phase12_firewall` snapshot in
+~1-2 weeks, qemu-guest-agent install on VM 181 (guest-phase item, found during drill).
+
+---
+
+## GitLab backup test-restore drill — PASSED (Jul 9, 2026, 1:08–1:20 PM)
+
+**Goal:** prove the nightly vzdump of VM 181 actually restores, without touching the live VM.
+**Backup tested:** `vzdump-qemu-181-2026_07_09-02_00_02.vma.zst` (12.7 GiB on nas-gitlab).
+
+**Procedure (reusable):**
+1. `qmrestore nas-gitlab:backup/<file> 999 --storage vm-ephemeral --unique 1`
+   → 500G image restored in **2m17s**, 0 errors (93.5% sparse). `--unique` regenerates the MAC.
+2. Renamed `gitlab-restore-test`, `onboot 0`, NIC `link_down=1` before any boot.
+3. **Isolation trick (guest agent NOT installed in 181, so SSH was needed):** created a
+   host-only bridge — `ip link add vmbr999 type bridge` (no physical port), host addr
+   192.168.1.250/32 on it, route `192.168.1.181/32 dev vmbr999` — and attached VM 999's NIC
+   to vmbr999. Host reaches the clone at its baked-in .181 IP; clone can't reach the LAN, so
+   the IP/hostname collision with live GitLab is impossible. Host's own .181 traffic routed
+   to the clone only *from the host*; LAN clients still hit the real 181 (verified 200).
+4. **Verified inside the clone:** all 16 gitlab-ctl services `run`; sign-in page HTTP 200;
+   `gitlab-rails runner` → 4 users, all 5 projects with correct last-activity (capricorn +
+   capricorn-docs showing Jul 8 18:41 commits = right for an 02:00 snapshot); **git-cloned
+   `production/capricorn` over HTTP from the clone: 306 files, HEAD `92dc5fb`** — full
+   end-to-end data proof.
+5. Teardown: `qm stop 999 && qm destroy 999 --purge`, route + vmbr999 deleted,
+   vm-ephemeral back to exactly 203G (only vm-182/vm-200 zvols), live 181 HTTP 200.
+
+**Finding:** VM 181 lacked `qemu-guest-agent` (package absent, `agent:` unset in config).
+*(✅ FIXED same day, 1:28 PM — agent installed + `agent enabled=1` + stop/start on ALL 5
+live VMs (181/182/183/184/200); all answer `qm agent ping`. The restarts also moved every
+VM onto the new QEMU 11.0.2 binary from the morning's upgrade. All services verified back:
+GitLab 200, public https 200, QA 200, Sonar 200, runner active. 185 dormant, skipped.)*
+**Recommendation:** repeat this drill ~quarterly or after major GitLab upgrades (~15 min);
+next time the guest agent can do the in-VM verification directly.
 **Dropped by Andrew (Jul 9):** vzdump jobs for 183/184 (#8 — both rebuildable, WWW is a
 vanity/demo box, SonarQube barely used); VM 185 stays dormant as-is (#11).
 
@@ -487,10 +542,10 @@ dev VM (VMware Workstation on Windows, HP Z8 G4 = 2x Xeon 8168, 256GB):
 - **Listening (LAN-reachable):** 22 sshd, 8006 pveproxy, 3128 spiceproxy, 111 rpcbind, 41641/udp tailscale. 25/85 localhost-only.
 - **Firewall:** cluster.fw enable:1; 184.fw (Phase 12 DMZ) + 185.fw present; NO host.fw.
 - **Backups:** gitlab-nightly only (VM 181 → nas-gitlab CIFS, 02:00, keep 7); NAS at 67.8% capacity.
-- **Kernel/boot:** UEFI + proxmox-boot-tool; ESPs carry 6.17.13-13 + 7.0.6-2; pin = 7.0.6-2-pve; no apt holds.
+- **Kernel/boot:** UEFI + proxmox-boot-tool; no apt holds. Pin = **7.0.14-4-pve** (since Jul 9 PM; fallbacks 7.0.6-2 + 6.17.13-x).
 - **Network:** vmbr0 → `amt` (I219-LM, 1GbE, link up); second NIC `nic` (X722 1GbE) down/unused; Tailscale up (100.108.209.77).
 - **Time:** chrony synced (cloudflare + pool peers), EDT correct.
 - **VM standard compliance:** all 6 VMs match the documented disk/CPU/net standard (cpu=host, virtio-scsi-single, iothread/discard/cache=none/aio=native, firewall=1). VM 185: cores=12 (doc drift), onboot=0.
 - **Thermals (Jul 9, added tooling):** CPU package 51°C (crit 101), PCH 41°C, NVMe 25–36°C, Quadro P2000 35°C / fan 2461 RPM. All comfortable.
 - **Tools installed Jul 9 (approved):** nvme-cli, numactl, lm-sensors; `coretemp` persisted in `/etc/modules-load.d/coretemp.conf`.
-- **NUMA (numactl):** 2 SNC nodes, 64.1/64.5 GB, distance 10/11.
+- **NUMA (numactl):** was 2 SNC nodes at audit time; **1 flat node since SNC disabled Jul 9 PM**.
