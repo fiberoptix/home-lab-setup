@@ -28,6 +28,39 @@ Practical rules:
 
 ## CURRENT STATE
 
+- **✅ Dev workstation OS upgrade: Ubuntu 25.10 → 26.04 LTS — July 25, 2026.** The Z8's
+  VMware guest (`VM-UBUNTU-01`, the machine we work from — NOT infra, logged here because
+  it's our tooling host). Now **26.04 "Resolute Raccoon", kernel 7.0.0-28**. Upgrade itself
+  was clean (0 broken pkgs, 0 failed units). Post-upgrade review found + fixed 4 real breaks:
+  - **All 5 third-party apt repos were disabled** by `do-release-upgrade` (standard behavior).
+    Re-enabled cursor/docker/chrome/hashicorp + fixed stale suites (docker `questing`→`resolute`,
+    hashicorp `noble`→`resolute`). That surfaced 7 Docker pkgs still on 25.10 builds → upgraded
+    to the 26.04 rebuilds (same versions); daemon restart bounced containers, all returned
+    (`unless-stopped`). **NodeSource left DISABLED on purpose** (pinned dead `node_20.x`, older
+    than Ubuntu's node 22 → would conflict; re-enabling needs an apt pin).
+  - **npm/npx vanished:** node moved NodeSource 20 → Ubuntu's **22.22.1**, which doesn't bundle
+    npm. Ubuntu's `npm` pkg wanted **377** `node-*` deps for a 2022-era npm 9 → skipped. Instead
+    installed official **npm 11.18.0** standalone in `/usr/local` (npm 12 needs node ≥22.22.2;
+    Ubuntu ships .1). Upgrade path later: `sudo npm i -g npm@latest`. corepack also gives pnpm/yarn.
+  - **Python 3.13 → 3.14 orphaned 38 user pip pkgs** (`~/.local/lib/python3.13`, 82M, deleted;
+    inventory saved at `~/python313-packages-before-2604-upgrade.txt`). poetry+virtualenv
+    rebuilt via **pipx** (isolated venvs → immune to future python bumps). Flask 2.0.3 + httpx
+    deliberately NOT recreated (26.04 enforces PEP 668; nothing on the host needs them — the
+    Capricorn backend gets httpx from its container).
+  - **`sshfs-openclaw.service` disabled** — was retrying the retired VM 185 every 100s forever.
+  - Housekeeping: 37 `rc` configs purged, orphaned postgresql-client-17 removed (18 present),
+    17 stale snap revs deleted (5.2G→2.7G) + `refresh.retain=2`, dead apt `.bak`/`.orig` files
+    archived to `/root/apt-sources-backup-20260725/`. Kept 6.17.0-41 kernel as fallback.
+  - Config files the upgrade replaced (all reviewed, no loss): sysctl.conf identical, grub kept
+    ours, gdm3 autologin survived, ca-certificates replaced with 26.04 default (distrusts 39
+    legacy Mozilla CAs — correct, applied cleanly).
+  - Verified after: Docker 29.6.2 + all 5 containers up, Capricorn FE/BE 200, GitLab 200,
+    public https 200, CIFS `/mnt/DevShare` mounted, ssh-agent key loaded, journal clean.
+  - **Capricorn NOT reviewed** (app layer, own project). Checked exposure only: backend
+    container = python 3.11.8, frontend container = node 22.23.1, host `node_modules` has no
+    native `.node` binaries, no engines/.nvmrc pin → host node 20→22 actually aligns *closer*
+    to the containers. No action expected.
+
 - **✅ Phase 13 Proxmox host audit + same-day fixes — July 9, 2026.** Full record in
   `phases/phase13_fable_proxmox_audit.md` (findings, action plan, implementation log). Done:
   - **Email alerting LIVE:** PVE notification endpoint `gmail-smtp` (smtp.gmail.com:587,
@@ -107,6 +140,7 @@ Practical rules:
 
 - Proxmox running at 192.168.1.150 (HP Z6 G4: single Xeon Platinum 8168 24c/48t, 128GB RAM, ZFS) — **PVE 9.2.4**, kernel **7.0.14-4-pve** (pinned + tested Jul 9, 2026; SNC disabled → single NUMA node)
 - **NOTE:** The Proxmox server is a **Z6 G4** (single CPU, 128GB). The **dev workstation** we work from is a **Z8 G4** (dual Platinum 8168, 256GB). Don't confuse the two.
+- **Dev workstation guest** = `VM-UBUNTU-01`, VMware Workstation on the Z8, 24 vCPU (2 sockets x12, on idle PROC1), **Ubuntu 26.04 LTS** since Jul 25, 2026 (see CURRENT STATE). Uses `open-vm-tools`, NOT qemu-guest-agent (that's for the Proxmox VMs). Not on Tailscale.
 - **Jun 18, 2026: kernel fully un-stuck.** Went 6.17.2-1 → 6.17.13-13 → **7.0.6-2-pve** (all NVMe-clean), full host upgrade to PVE 9.2.3, all package holds removed. 7.0.6-2 tested via --next-boot, then made permanent and confirmed it boots autonomously (2 reboots clean). 6.17.13-13 kept as fallback. See current_phase.md + phase1b.
 - Script server running at http://192.168.1.195/scripts/
 - **GitLab CE LIVE at http://192.168.1.181** (root/[See PASSWORDS.md])
@@ -778,7 +812,10 @@ openclaw gateway restart
 **SSHFS Mount (Dev Workstation → OpenClaw):**
 - **Mount point:** `/home/agamache/mnt/openclaw` (mounts remote `/home/agamache`)
 - **Symlink:** `~/openclaw` → `/home/agamache/mnt/openclaw`
-- **Service:** `~/.config/systemd/user/sshfs-openclaw.service` (enabled, lingering)
+- **Service:** `~/.config/systemd/user/sshfs-openclaw.service` — **DISABLED Jul 25, 2026**
+  (VM 185 retired; it was failing + retrying every 100s forever and was the only journal noise
+  on the workstation). Unit file left in place — `systemctl --user enable --now sshfs-openclaw`
+  to revive if OpenClaw ever comes back.
 - **Persistence:** Survives reboot (systemd user service + linger enabled)
 - **Options:** reconnect, ServerAliveInterval=15, ServerAliveCountMax=3
 - **Manage:** `systemctl --user {status|start|stop|restart} sshfs-openclaw`
