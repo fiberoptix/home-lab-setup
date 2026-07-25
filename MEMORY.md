@@ -370,6 +370,32 @@ re-specify. Hostname is taken from `--name`. Standard disk flags are inherited t
   The two-step `qm importdisk` recipe in most blog posts is obsolete.
 - `virt-customize` needs `export LIBGUESTFS_BACKEND=direct` on this host (no libvirt configured).
 
+**SSH password auth is ENABLED in the template** (July 25). Ubuntu cloud images ship
+`/etc/ssh/sshd_config.d/60-cloudimg-settings.conf` with `PasswordAuthentication no`, which made
+clones key-only and inconsistent with the rest of the fleet (182/184 allow passwords). Changed to
+`yes` inside the template disk so all clones match. Login is `agamache` / fleet password.
+
+**Editing the template's disk in place (no need to un-template):** its zvol is writable at
+`/dev/zvol/vm-ephemeral/base-9000-disk-0`, so `virt-customize`/`virt-cat` work directly on it:
+
+```bash
+zfs snapshot vm-ephemeral/base-9000-disk-0@pre-change     # cheap insurance, delete after validating
+export LIBGUESTFS_BACKEND=direct
+virt-customize -a /dev/zvol/vm-ephemeral/base-9000-disk-0 --run-command '<your change>'
+virt-customize -a /dev/zvol/vm-ephemeral/base-9000-disk-0 --truncate /etc/machine-id   # ALWAYS LAST
+virt-cat -a /dev/zvol/vm-ephemeral/base-9000-disk-0 /etc/machine-id | wc -c            # MUST be 0
+```
+
+> ⚠️ **`virt-customize` re-populates `/etc/machine-id` on every single run** (it prints
+> "Setting the machine ID"). If you don't re-truncate it afterwards, **every future clone gets
+> an identical machine-id** — the exact identity collision the template exists to prevent.
+> Always finish with `--truncate /etc/machine-id` and verify it reads 0 bytes.
+> The `@__base__` snapshot on the template zvol is PVE's own marker — leave it alone.
+
+**Validating a template change:** clone to a throwaway VMID, boot, test, `qm destroy --purge`.
+Takes ~40 seconds and is the only real proof. Done for the password-auth change: fresh clone
+accepted password *and* key SSH, guest agent active, machine-id unique.
+
 **Updating the template:** you can't boot a template. Clone it to a scratch VMID, boot,
 `apt upgrade`, shut down, re-template, delete the old one. Refresh a couple times a year.
 

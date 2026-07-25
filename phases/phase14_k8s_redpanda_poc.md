@@ -331,7 +331,29 @@ Disk went 4.4 GB → 2.6 GB. Worth considering a `--headless` flag on `host_setu
 **Reboot test passed:** back up and reachable in 25 seconds, Docker and the NAS mount both
 persistent, `systemctl --failed` empty.
 
-**→ Snapshot `s01-base-clean` taken here.**
+### SSH password login — enabled after the fact (July 25, 4:55 PM)
+
+Ubuntu cloud images ship `/etc/ssh/sshd_config.d/60-cloudimg-settings.conf` containing
+`PasswordAuthentication no`, so the first build of VM 186 was **key-only** — reachable from the
+Z8 (which holds the key) and from the Proxmox console, but from nowhere else. Existing fleet VMs
+(`.182`, `.184`) both allow password auth, so 186 was the odd one out.
+
+Set to `yes` on **both VM 186 and the template**, so future clones match the fleet:
+
+```bash
+# on the VM
+sudo sed -i 's/^PasswordAuthentication no/PasswordAuthentication yes/' \
+  /etc/ssh/sshd_config.d/60-cloudimg-settings.conf
+sudo sshd -t && sudo systemctl restart ssh
+```
+
+Login is `agamache` / the fleet password in `PASSWORDS.md`. Key auth still works and is preferred.
+See the CLOUD-INIT TEMPLATE section of `MEMORY.md` for how the template disk was edited in place
+(and the `machine-id` trap that comes with it). Verified by cloning a throwaway VM, proving both
+password and key login on it, then destroying it.
+
+**→ Snapshot `s01-base-clean` taken here** (retaken after the sshd change, so rolling back to it
+does not silently revert password login).
 
 ---
 
@@ -607,3 +629,7 @@ Schema evolution / compatibility modes
 | Jul 25, 11:37 | Reboot test | Back in 25 s; Docker + NAS persistent; no failed units |
 | Jul 25, 11:38 | Disabled `unattended-upgrades` and `apt-daily` timers per the no-churn decision | Done |
 | Jul 25, 11:40 | Snapshot `s01-base-clean` taken (name needed the `s` prefix — PVE rejects leading digits) | **Parts 1 & 2 COMPLETE — ready for the guided Part 3** |
+| Jul 25, 16:53 | Found cloud image disables SSH password auth (fleet VMs allow it). Enabled on VM 186 + edited the template zvol in place with `virt-customize` | Both password and key login work |
+| Jul 25, 16:56 | Caught `virt-customize` re-populating `/etc/machine-id` on the template — would have given every future clone the same identity. Re-truncated to 0 bytes | Fixed before any clone was taken |
+| Jul 25, 16:57 | Validated by cloning throwaway VM 999: password SSH ✅, key SSH ✅, unique machine-id ✅, guest agent active ✅. Destroyed it + the ZFS safety snapshot | Template proven |
+| Jul 25, 16:58 | Retook `s01-base-clean` so a rollback keeps password login | Done |
