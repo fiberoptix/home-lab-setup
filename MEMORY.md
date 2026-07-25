@@ -28,6 +28,26 @@ Practical rules:
 
 ## CURRENT STATE
 
+- **🔵 ACTIVE — Phase 14: Kubernetes + Redpanda POC (interview prep).** Plan + learning material
+  in `phases/phase14_k8s_redpanda_poc.md`. **Parts 1 & 2 done July 25; Part 3 (k3s) is next and
+  is deliberately a guided session, not unattended.** Highlights worth remembering:
+  - **The lab now has its first VM template: 9000 `tmpl-ubuntu-2404-cloudinit`** (Ubuntu 24.04
+    cloud image + baked-in `qemu-guest-agent`, cloud-init drive, `--ciupgrade 0`). Clone → fully
+    booted VM in **~30 seconds**. This replaces hand-building from an ISO; see the
+    "CLOUD-INIT TEMPLATE" section below for the exact recipe.
+  - **VM 186 `vm-k8-redpanda-1` @ .186** built from it: 16 vCPU / 32 GB / 300 GB on vm-ephemeral,
+    `host_setup.sh` applied, snapshot **`s01-base-clean`**. Idle, nothing installed on it yet.
+  - **⚠️ Never use `/root/.ssh/authorized_keys` on the Proxmox host as a cloud-init key source** —
+    it's a symlink to `/etc/pve/priv/authorized_keys` and holds only the PVE cluster RSA key, not
+    Andrew's workstation key. Use **`/root/cloudinit-keys-all.pub`** (both keys) instead.
+  - **`host_setup.sh` installs Chrome + Cursor** (~1.8 GB) — it's a desktop script. On headless
+    VMs, purge them after: `apt-get purge -y google-chrome-stable cursor && apt-get autoremove --purge -y`.
+    It also needs `smb_credentials` downloaded next to it; it does not fetch that itself.
+  - **PVE snapshot names must start with a letter** (they're config IDs). `01-base-clean` fails
+    with `invalid configuration ID`; use `s01-base-clean`.
+  - VM 186 is **excluded from `refresh.sh`** and has `unattended-upgrades` + `apt-daily` timers
+    **disabled** — no package churn while learning on it.
+
 - **✅ Dev workstation OS upgrade: Ubuntu 25.10 → 26.04 LTS — July 25, 2026.** The Z8's
   VMware guest (`VM-UBUNTU-01`, the machine we work from — NOT infra, logged here because
   it's our tooling host). Now **26.04 "Resolute Raccoon", kernel 7.0.0-28**. Upgrade itself
@@ -174,7 +194,8 @@ Practical rules:
 | Runner | .182 | ✅ LIVE (gitlab-runner-1) |
 | SonarQube | .183 | ✅ LIVE (vm-sonarqube-1, v26.1.0) |
 | **WWW** | **.184** | **✅ LIVE (vm-www-1, Traefik, Capricorn PROD, Splash)** |
-| **OpenClaw** | **.185** | **✅ LIVE (vm-openclaw-1, AI agent, Tailscale Serve)** |
+| **OpenClaw** | **.185** | **⏸️ DORMANT (vm-openclaw-1) — retired, do not use** |
+| **K8s/Redpanda POC** | **.186** | **🔵 BUILT July 25, 2026 (vm-k8-redpanda-1, Phase 14 sandbox)** |
 
 ---
 
@@ -299,7 +320,9 @@ wget http://192.168.1.195/scripts/host_setup.sh && chmod +x host_setup.sh && ./h
 | **183 - SonarQube** | 4 cores | 12 GB | 30 GB | vm-critical | ✅ Standard |
 | **184 - WWW** | 8 cores | 8 GB | 50 GB | vm-critical | ✅ Standard |
 | **185 - OpenClaw** | 8 cores | 16 GB | 50 GB | vm-critical | ✅ Standard |
+| **186 - K8s/Redpanda POC** | 16 cores | 32 GB | 300 GB | vm-ephemeral | ✅ Standard (from template 9000) |
 | **200 - Kubernetes** | 8 cores | 12 GB | 100 GB | vm-ephemeral | ✅ Standard |
+| **9000 - TEMPLATE** | 2 cores | 2 GB | 3.5 GB | vm-ephemeral | 📀 `tmpl-ubuntu-2404-cloudinit` |
 
 ### RAM Allocation Strategy
 - **GitLab:** 24 GB (memory-hungry, upgraded from 16 GB)
@@ -307,8 +330,48 @@ wget http://192.168.1.195/scripts/host_setup.sh && chmod +x host_setup.sh && ./h
 - **Runner:** 12 GB (upgraded from 8 GB)
 - **Kubernetes/QA:** 12 GB (upgraded from 8 GB)
 - **WWW:** 8 GB (Traefik + Capricorn PROD + splash)
-- **OpenClaw:** 16 GB (AI agent gateway + Docker sandboxes, upgraded from 8 GB -- Ubuntu Desktop used 90%)
-- **Total Allocated:** 84 GB of 128 GB available (66%)
+- **OpenClaw:** 16 GB (retired/dormant — VM 185 is not running, so this is reserved on paper only)
+- **K8s/Redpanda POC (186):** 32 GB (3 Redpanda brokers + OpenSearch are memory-hungry; Phase 14)
+- **Total Allocated:** 116 GB of 128 GB (91%) — **but 185 is powered off**, so ~100 GB (78%) is
+  actually committed. ⚠️ Headroom is now thin: do not add another large VM without either
+  destroying 185 or shrinking 186 when Phase 14 wraps.
+
+---
+
+## CLOUD-INIT TEMPLATE (VM 9000) — how to build any new VM in ~30 seconds
+
+**Created July 25, 2026 (Phase 14, Part 1). This is now the preferred way to build a VM —
+do not hand-build from an ISO unless there's a reason.**
+
+`9000 = tmpl-ubuntu-2404-cloudinit`: Ubuntu 24.04 cloud image with `qemu-guest-agent` baked in,
+machine-id truncated, cloud-init drive attached. Its disk is `vm-ephemeral/base-9000-disk-0`
+(PVE renames a volume to `base-*` when the VM becomes a template).
+
+```bash
+# Clone and personalize — that's the whole job
+qm clone 9000 <VMID> --name <vm-name> --full --storage <pool>
+qm set <VMID> --cores <n> --sockets 1 --memory <MB> --onboot 1
+qm resize <VMID> scsi0 <size>G          # cloud-init's growpart expands the fs on first boot
+qm set <VMID> --ipconfig0 ip=192.168.1.<VMID>/24,gw=192.168.1.1 --nameserver "8.8.8.8 8.8.4.4"
+qm start <VMID>
+```
+
+`ciuser` (agamache), `cipassword`, and `sshkeys` are **inherited from the template** — no need to
+re-specify. Hostname is taken from `--name`. Standard disk flags are inherited too.
+
+**Rules learned building it:**
+- **Key source is `/root/cloudinit-keys-all.pub`** on the host (workstation ED25519 + PVE RSA).
+  `/root/.ssh/authorized_keys` → `/etc/pve/priv/authorized_keys` has ONLY the cluster RSA key;
+  using it produces a VM the workstation can't SSH into.
+- **Don't set `--searchdomain`** — the lab resolves internal names via `/etc/hosts`, so a search
+  domain only adds failed lookups.
+- `--ciupgrade 0` keeps first boot fast and keeps clones identical. Upgrade deliberately instead.
+- Modern PVE imports a disk in one step: `qm set <id> --scsi0 <pool>:0,import-from=<path>,...`.
+  The two-step `qm importdisk` recipe in most blog posts is obsolete.
+- `virt-customize` needs `export LIBGUESTFS_BACKEND=direct` on this host (no libvirt configured).
+
+**Updating the template:** you can't boot a template. Clone it to a scratch VMID, boot,
+`apt upgrade`, shut down, re-template, delete the old one. Refresh a couple times a year.
 
 ---
 
@@ -510,7 +573,8 @@ All pools feature-flag current (zpool upgrade Jul 9).
 | 5 | CI/CD Pipelines | ✅ COMPLETE (QA + GCP both working!) |
 | 6 | SonarQube | ✅ COMPLETE (test-app + Capricorn both integrated!) |
 | 7 | Local WWW Server | ✅ COMPLETE (vm-www-1 @ .184, cap + www live!) |
-| 8 | Monitoring Stack | 🔲 Planned |
+| 8 | Monitoring Stack | 🔲 Planned (build it from template 9000) |
+| 14 | Kubernetes + Redpanda + OpenSearch POC (interview prep) | 🔵 IN PROGRESS — Parts 1-2 done Jul 25, 2026 (template 9000 + VM 186); Part 3 k3s next |
 | 11 | OpenClaw AI Agent | ✅ COMPLETE (vm-openclaw-1 @ .185, Feb 20, 2026) |
 
 **Phase docs:** `/phases/`

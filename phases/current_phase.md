@@ -1,6 +1,44 @@
 # Current Phase
 
-**Updated:** July 9, 2026 - 1:30 PM EDT
+**Updated:** July 25, 2026 - 11:45 AM EDT
+
+---
+
+## 🔵 ACTIVE: Phase 14 — Kubernetes + Redpanda POC (interview prep, ~1 week)
+
+**Full plan + learning material: `phases/phase14_k8s_redpanda_poc.md`.** This is a learning rig
+with a deadline (hedge-fund interview), not a production service.
+
+### ✅ Parts 1 & 2 COMPLETE — the box is built and idle (July 25, 11:31–11:40 AM)
+
+**Part 1 — first template in the lab: VM 9000 `tmpl-ubuntu-2404-cloudinit`**
+- Installed `libguestfs-tools`, added `snippets` to `local` storage.
+- `virt-customize` baked + enabled `qemu-guest-agent` into the Ubuntu 24.04 cloud image and
+  truncated machine-id. Pristine image copy kept alongside it.
+- VM 9000 built with the lab's standard disk flags, cloud-init drive attached, then templated.
+  Its disk is now `vm-ephemeral/base-9000-disk-0` (4.81 GB) — PVE renames template volumes.
+- ⚠️ **Key gotcha:** the host's `/root/.ssh/authorized_keys` (symlink to `/etc/pve/priv/`)
+  holds **only the PVE cluster RSA key** — not the workstation key. Cloning with it would have
+  produced an unreachable VM. Use **`/root/cloudinit-keys-all.pub`** (workstation ED25519 +
+  PVE RSA) as the cloud-init key source for all future clones.
+
+**Part 2 — VM 186 `vm-k8-redpanda-1` @ 192.168.1.186** (16 vCPU / 32 GB / 300 GB, vm-ephemeral)
+- Full clone → booted → `cloud-init status: done` in **~30 seconds** (vs ~30 min of ISO clicking).
+  Root fs auto-grew to 290 GB, unique machine-id, key-based SSH, guest agent responding.
+- `host_setup.sh` ran unattended: Docker 29.6.2 + Compose v5.3.1, NAS at `/mnt/DevShare`,
+  passwordless sudo — all verified. Needs `smb_credentials` staged next to it; it isn't auto-fetched.
+- Purged **Chrome + Cursor** that `host_setup.sh` installs (desktop script on a headless box):
+  4.4 GB → 2.6 GB. Consider a `--headless` flag on that script later.
+- Disabled `unattended-upgrades` + `apt-daily` timers; VM 186 also stays **out of `refresh.sh`**.
+  No package churn while learning. Swap is off, which is what the kubelet wants.
+- Reboot test: back in 25 s, Docker + NAS persistent, no failed units.
+- **Snapshot `s01-base-clean` taken.** Note: PVE snapshot names **must start with a letter** —
+  `01-base-clean` is rejected, hence the `s` prefix.
+
+### ⏭️ Next: Part 3 — k3s install (guided/paired session, not unattended)
+
+Deliberately left for a walk-through so Andrew learns each step. Roll back to `s01-base-clean`
+freely (`qm rollback 186 s01-base-clean`). Nothing else is pending on the box.
 
 ---
 
