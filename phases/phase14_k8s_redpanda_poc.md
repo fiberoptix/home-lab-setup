@@ -1,6 +1,6 @@
 # Phase 14 — Kubernetes + Redpanda + OpenSearch POC
 
-**Status:** IN PROGRESS — Parts 1 & 2 COMPLETE (Jul 25). **Part 3 k3s INSTALLED (Jul 27)**, snapshot `s02-k3s-up` taken; the hands-on object-model exercises are still outstanding. Chapter 1 of the education series is written.
+**Status:** IN PROGRESS — Parts 1, 2 and **3 COMPLETE** (Jul 25–27). Snapshot `s02-k3s-up` is the restore point; the cluster is clean apart from the `redpanda` / `market` / `logging` namespaces. Chapter 1 of the education series is written (846 lines, 6 diagrams). **Next: Part 4, Redpanda — completely untouched, and the interview is ~Aug 1.**
 **Created:** July 25, 2026
 **Owner:** Andrew
 **Deadline driver:** Hedge-fund interview, ~1 week out.
@@ -408,12 +408,29 @@ Also added to `~/.bashrc` on VM 186: `kubectl` bash completion, `alias k=kubectl
 
 **→ Snapshot `s02-k3s-up` taken July 27.**
 
-### Still outstanding in Part 3 (the hands-on session)
+### The hands-on session — DONE (July 27, 11:15 AM – 12:50 PM)
 
-Deliberately not done unattended — these are the exercises that make the object model stick:
-Deployment by hand → scale → delete a pod and watch the ReplicaSet heal it → Service with a label
-selector → inspect a PVC → create the `redpanda` / `market` / `logging` namespaces.
-Chapter 2 of the education series gets written from that session.
+Run with **Andrew typing every command** and me coaching and verifying out-of-band. That split is
+worth repeating for Part 4: he drives, I check state over SSH and explain what the output means.
+
+Covered: Deployment written by hand → the three objects it creates → imperative/declarative drift →
+self-healing → rollout and rollback (proving the pod-template-hash is deterministic) → Service,
+EndpointSlice and DNS → the full PVC lifecycle → graceful termination → the three namespaces.
+
+The findings worth keeping are all written up in **Chapter 1** (§5 EndpointSlice + per-connection
+load balancing, §6 storage, §7 grace periods, §9a error messages) and summarised in
+`current_phase.md`. Highlights that changed how I'd explain things:
+
+- **`kubectl rollout undo` revived the *original* ReplicaSet** — still 50 minutes old, not a copy.
+  Rollback is just the template hash landing on an object that already exists.
+- **`curl -w "%{remote_ip}"` cannot see the backend** — it reports the ClusterIP, because DNAT is
+  transparent to the client. Read the pods' own logs instead.
+- **Services balance connections, not requests** → a gRPC client pins to one pod forever.
+- **A 30-second `kubectl delete` is correct**, caused by the PID 1 signal rule, and measured here
+  at 31 s vs 2 s with a SIGTERM handler.
+
+**Chapter 2 still to be written** from this session — deliberately not written in advance, and the
+raw material is now all captured.
 
 ### What to actually learn here (don't skip)
 
@@ -675,4 +692,6 @@ Schema evolution / compatibility modes
 | Jul 27, 09:35 | Proved self-healing live: deleted coredns → replaced in 6 s. Traced ownership Pod → ReplicaSet → Deployment | Controller-manager (Part A) heals the add-on pods (Part B) |
 | Jul 27, 09:50 | Demonstrated `local-path` PV **node affinity** and `WaitForFirstConsumer` with a throwaway PVC | PV pinned to `vm-k8-redpanda-1`; volume not created until a pod was scheduled |
 | Jul 27, 10:01 | Demonstrated container-restart vs pod-replacement (same UID/IP + RESTARTS climbing, vs all-new pod) | Captured as Chapter 2's centrepiece |
-| Jul 27, 10:42 | Snapshot `s02-k3s-up`; verified k3s survives a reboot | **Part 3 install done; hands-on exercises still outstanding** |
+| Jul 27, 10:42 | Snapshot `s02-k3s-up`; verified k3s survives a reboot | Part 3 install done |
+| Jul 27, 11:15–12:50 | **Part 3 hands-on, Andrew driving:** Deployment by hand → drift → self-healing → rollout/rollback → Service + EndpointSlice → PVC lifecycle → grace periods → 3 namespaces | **Part 3 COMPLETE**; cluster returned to clean |
+| Jul 27, 12:50 | Chapter 1 expanded 548 → 846 lines: new §6 storage walkthrough + fig6, §5 EndpointSlice / per-connection LB, §7 grace periods, §9a error messages, 31 self-test questions | Everything documented came from something he ran |

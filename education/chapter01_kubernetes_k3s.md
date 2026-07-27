@@ -378,16 +378,66 @@ IPs behind it.
 
 1. Your code connects to a **name**: `my-app.default.svc.cluster.local`.
 2. **CoreDNS** resolves that name to the Service's stable virtual IP, `10.43.12.7`.
-3. **kube-proxy's iptables rules** rewrite the destination to one of the pods behind the Service —
-   picked from the pods whose labels match the Service's **selector**. This is the load balancing.
+3. **kube-proxy's iptables rules** rewrite the destination to one of the real pod IPs behind the
+   Service. This is the load balancing.
 4. Traffic arrives at a real container.
 
-The binding in step 3 is worth dwelling on. A Service does not contain pods and does not know their
-names. It holds a **label selector** such as `app=my-app`, and its membership is simply "whichever
-pods currently carry that label." Pods appear and disappear; the selector keeps matching. That loose
-coupling via labels is one of Kubernetes' central design decisions.
+### The missing link: EndpointSlice
 
-> **The one-liner:** pod IPs are cattle, Service names are the stable address you build against.
+Step 3 skips something, and the detail matters. **kube-proxy never evaluates label selectors.** It
+would be far too expensive to re-run a query for every packet.
+
+Instead there is a third party. The **EndpointSlice controller** watches Services and Pods, applies
+the Service's selector, and writes the resulting list of pod IPs into an **EndpointSlice** object.
+kube-proxy watches *those* and programs iptables from a ready-made list. So the real chain is:
+
+```
+Service (selector app=web)
+    → EndpointSlice controller evaluates the selector
+        → EndpointSlice object:  10.42.0.22, 10.42.0.28, 10.42.0.29
+            → kube-proxy writes iptables rules
+                → the kernel DNATs your packet
+```
+
+This is why `kubectl get endpointslices` is the correct debugging tool when a Service is
+blackholing traffic. If the slice is empty, the selector matches nothing — the pods may be perfectly
+healthy while the Service points at nobody. A Service does not contain pods and does not know their
+names; membership is simply "whichever pods currently carry that label."
+
+### The DNAT is invisible to the client
+
+A useful thing to have proven to yourself: the client never learns which pod served it. Asking
+`curl` to report the address it connected to, six times against a three-pod Service, returns the
+same answer every time:
+
+```
+$ curl -w "%{remote_ip}" http://web     10.43.83.136
+                                        10.43.83.136
+                                        10.43.83.136   ← the ClusterIP, never a pod IP
+```
+
+Meanwhile the pods' own access logs showed 4, 3 and 5 requests. Load balancing was working; it is
+just that conntrack rewrites the replies so they appear to come from the virtual IP. The abstraction
+does not leak, which is exactly what makes it safe to build on.
+
+### It balances connections, not requests
+
+This is the part worth carrying into an interview. kube-proxy makes its choice **once per TCP
+connection**, at DNAT time. Every byte on that connection then goes to the same pod for the life of
+the connection.
+
+Six separate `curl` runs meant six connections and six independent choices. But a client that opens
+*one* connection and keeps it will be pinned to *one* pod forever, no matter how many replicas you
+run.
+
+That is the default behaviour of **HTTP/2 and gRPC**, which multiplex everything over a single
+long-lived connection. A gRPC client pointed at a ClusterIP Service hammers exactly one backend
+while the others idle. The fixes are a **headless Service** plus client-side load balancing, or a
+service mesh doing L7 proxying. For a firm moving market data over gRPC this is a live concern, not
+trivia.
+
+> **The one-liner:** pod IPs are cattle, Service names are the stable address you build against —
+> and Services balance connections, not requests.
 
 ---
 
@@ -411,10 +461,142 @@ Each field matters, and Redpanda will depend on all of them in Chapter 3:
 - **`ALLOWVOLUMEEXPANSION false`** — you cannot grow a volume later. Sizing a Redpanda broker's disk
   is a decision you live with.
 
-**The honest framing for an interview:** node-local storage means a pod cannot move to another node
-and keep its data. In production you would use a CSI driver backed by networked storage (EBS, Ceph,
-a SAN) so that a rescheduled pod reattaches its volume anywhere in the cluster. Knowing *why* your
-sandbox is different from production is a much stronger signal than not having noticed.
+### 6a. This is not Proxmox storage
+
+It is easy to assume that "persistent storage for a VM's workloads" means something was configured
+on the hypervisor. Nothing was. **Proxmox's involvement ends at "VM 186 has a 300 GB disk."**
+Everything below that is Kubernetes subdividing one ext4 filesystem into directories and calling
+each one a volume.
+
+![Figure 6 — where a PersistentVolume really lives](images/ch01_fig6_storage_stack.png)
+
+The layer that surprises people is the third one. A PersistentVolume on this cluster is **a
+directory**. Not a partition, not a LUN, not a device — `mkdir`. Everything above it is bookkeeping
+that makes the directory look like a disk to the pod.
+
+### 6b. Watching a volume get created
+
+The lifecycle is easier to believe once you have driven it. Create a claim on its own first:
+
+```yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: demo-data
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 1Gi
+```
+
+```bash
+kubectl apply -f pvc.yaml
+kubectl get pvc
+# demo-data   Pending
+```
+
+**`Pending` here is correct, not broken.** This is `WaitForFirstConsumer` doing its job: the
+provisioner will not create anything until it knows which node the volume must live on, because a
+node-local directory on the wrong machine is worse than no directory at all. Nothing exists on disk
+yet.
+
+Now give it a consumer — a pod that mounts the claim and writes one line:
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: writer
+spec:
+  containers:
+    - name: writer
+      image: busybox:1.36
+      command: ["sh","-c","echo \"Written by $(hostname)\" >> /data/notes.txt; sleep 3600"]
+      volumeMounts:
+        - name: data
+          mountPath: /data
+  volumes:
+    - name: data
+      persistentVolumeClaim:
+        claimName: demo-data
+```
+
+The moment that pod is scheduled, the claim binds and a PersistentVolume appears that you never
+asked for by name:
+
+```
+persistentvolumeclaim/demo-data                              Bound   pvc-94ab5278-…   1Gi   RWO   local-path
+persistentvolume/pvc-94ab5278-68ca-430a-8dd2-e450de43baac    1Gi     RWO    Delete    Bound   default/demo-data
+```
+
+And the directory it created encodes its own provenance:
+
+```
+/var/lib/rancher/k3s/storage/pvc-94ab5278-68ca-430a-8dd2-e450de43baac_default_demo-data/
+                             └────────────── PV name ───────────────┘ └─ns──┘ └─claim─┘
+```
+
+You can read the pod's file directly from the node, with no Kubernetes involved at all:
+
+```bash
+sudo cat /var/lib/rancher/k3s/storage/*/notes.txt
+```
+
+Delete the pod, recreate it, and read the file again. Two lines from two different pods, in one
+volume that outlived both — which is the entire point of the abstraction:
+
+```
+Writtern bu
+Written by writer
+```
+
+> **Two lessons from the typo above, which was real.** The first pod ran
+> `echo "Writtern bu $(hotname)"` — a misspelling of `hostname`. The shell substituted an **empty
+> string**, wrote a broken line, and exited 0. The pod reported `Running` and Kubernetes considered
+> everything healthy. A shell command inside a manifest can fail internally without the pod ever
+> looking wrong; `kubectl get pods` will not save you, only `kubectl logs` will.
+>
+> Fixing it also ran into **pod immutability**. You cannot `kubectl apply` a changed `command` to a
+> live Pod — the API server rejects any edit other than the container image. You must
+> `kubectl delete pod` and re-apply, or `kubectl replace --force`. This is a large part of why
+> almost nothing in production is a bare Pod: a Deployment performs that delete-and-recreate cycle
+> for you, as a rollout.
+
+### 6c. The capacity you request is a fiction
+
+The claim above asked for `1Gi`. It did not get 1 GiB. It got a directory, on a filesystem with
+286 GB free, **with no quota of any kind**. Nothing stops that pod from writing 200 GB, nothing
+reports the volume as full, and nothing protects the other volumes on the node — or the node
+itself — when it happens.
+
+Real CSI drivers carve an actual block device and the request is enforced. With `local-path`, the
+size field is documentation. Combined with `ALLOWVOLUMEEXPANSION=false`, the practical rule is:
+**the number is advisory, and you cannot change it later anyway.**
+
+Note also that `RECLAIMPOLICY=Delete` means `kubectl delete pvc` is a data-destroying command that
+takes effect immediately and asks no questions.
+
+### 6d. The honest framing for an interview
+
+Node-local storage means a pod cannot move to another node and keep its data. In production you
+would use a CSI driver backed by networked storage (EBS, Ceph, a SAN) so that a rescheduled pod
+reattaches its volume anywhere in the cluster.
+
+This has a specific consequence for what we build next. Three Redpanda brokers will get three
+PVCs — which on this cluster means **three directories on the same filesystem, on the same virtual
+disk, on the same physical host.** The Raft quorum will be genuine, and killing a broker to watch
+leadership move teaches exactly what it should. The *durability* is theatre: a single disk failure
+loses all three replicas simultaneously.
+
+Say that out loud rather than hoping nobody asks:
+
+> *"I ran three brokers on one node with local-path storage, so I had a real quorum but a single
+> failure domain. In production each broker needs its own node and its own device, with
+> podAntiAffinity to enforce the spread."*
+
+Knowing *why* your sandbox differs from production is a much stronger signal than not having
+noticed.
 
 ---
 
@@ -426,6 +608,36 @@ Two of these already bit us during the install, and both are common interview st
 a workload designed to run once and exit; when it finishes successfully it stops, and `0/1` simply
 means no container is running *now*. k3s installs its own bundled add-ons by running Helm inside a
 Job. If it had failed you would see `Error` or `CrashLoopBackOff`.
+
+**A delete that hangs for 30 seconds is usually working correctly.** `kubectl delete pod` is not a
+kill. The API server stamps a `deletionTimestamp`, the pod is removed from any Service endpoints,
+the kubelet sends **SIGTERM** to PID 1, and Kubernetes then waits up to
+`terminationGracePeriodSeconds` — **default 30** — before sending SIGKILL. `kubectl` blocks for the
+whole thing.
+
+Measured on this cluster, all with the same busybox image:
+
+| Container's PID 1 | Delete took |
+|---|---|
+| `sh -c "sleep 3600"` — no SIGTERM handler | **31 s** |
+| `sh -c "trap 'exit 0' TERM; sleep 3600 & wait"` | **2 s** |
+| `nginx:1.27-alpine` — handles SIGTERM natively | **2 s** |
+| `sh -c "sleep 3600"` with `--grace-period=5` | **7 s** |
+
+The cause is the same PID 1 rule that makes `kill -9 1` behave oddly inside a container:
+**PID 1 in a PID namespace only receives signals for which it has installed a handler**, and that
+holds even for signals sent from outside the namespace, where the kubelet lives. Plain `sh` has no
+SIGTERM handler, so the signal is discarded and the pod simply waits out the clock until SIGKILL.
+Only SIGKILL and SIGSTOP are delivered forcibly.
+
+This matters beyond tidiness. A container that ignores SIGTERM pays the full grace period on *every*
+stop — rolling updates crawl, and node drains take minutes per pod. The opposite error is worse: too
+short a grace period means SIGKILL lands mid-write. Redpanda's chart deliberately sets a long one so
+a broker can flush and leave its Raft group cleanly.
+
+> **Never `--grace-period=0 --force` a broker.** It drops the object from the API without waiting
+> for the kubelet to confirm the container died, so a StatefulSet can start the replacement while
+> the original still holds the volume. Two processes, one data directory.
 
 **A pod that never becomes `Ready` may be correct.** During the install I ran
 `kubectl wait --for=condition=Ready pods --all`, and it reported a timeout. The cluster was fine —
@@ -479,6 +691,71 @@ the answer. `kubectl logs` only helps once the container has actually started.
 Convenience already set up in your `~/.bashrc` on VM 186: `k` is an alias for `kubectl`, and tab
 completion works on both.
 
+### 9a. The command grammar, and three errors you will hit
+
+Nearly every `kubectl` command follows one shape:
+
+```
+kubectl <verb> <resource-type> <resource-name>  [-n <namespace>]
+```
+
+Getting the *slots* wrong produces errors that read like something is missing when in fact
+something is misplaced. These three are all real, all from this cluster, and all worth recognising
+on sight.
+
+**A namespace in the name slot.**
+
+```
+$ kubectl describe pod kube-system
+Error from server (NotFound): pods "kube-system" not found
+```
+
+`kube-system` is a namespace, but here it landed in the *name* position, so kubectl looked for a pod
+literally called `kube-system`. The trap is that the same word is perfectly valid one command
+earlier, in `kubectl get pods -n kube-system`, because there it follows the `-n` flag. Two different
+slots, same word. What was meant was
+`kubectl describe pod -n kube-system <podname>` — and note that `describe` defaults to the
+`default` namespace, so omitting `-n` would have failed even with a correct pod name.
+
+**A missing space after a colon in YAML.**
+
+```
+$ kubectl apply -f web-deployment.yaml
+error: unable to decode "web-deployment.yaml": json: cannot unmarshal string into
+Go struct field metadataOnlyObject.metadata of type v1.ObjectMeta
+```
+
+The manifest said `name:web` instead of `name: web`. In YAML a colon only separates a key from a
+value when **followed by a space**; without it, `name:web` is an ordinary string. So `metadata` held
+a string where an object was required.
+
+The reason for that rule is visible two lines further down in the same file — `image:
+nginx:1.27-alpine` is a value that *contains* a colon. Colon-plus-space is what keeps image tags,
+URLs and `host:port` strings from being torn in half.
+
+Learn to read this error shape, because Kubernetes is written in Go and every schema complaint
+arrives in the same dialect: **"cannot unmarshal `<what you wrote>` into field `<where>` of type
+`<what was expected>`"** always means the *shape* of your YAML does not match the *shape* of the
+struct.
+
+Catch these before they reach the cluster:
+
+```bash
+kubectl apply -f file.yaml --dry-run=client    # parse + schema check, changes nothing
+```
+
+**A capital letter in an object name.**
+
+```
+$ kubectl run graceA --image=busybox:1.36
+The Pod "graceA" is invalid: metadata.name: Invalid value: "graceA":
+a lowercase RFC 1123 subdomain must consist of lower case alphanumeric characters, '-' or '.'
+```
+
+Most Kubernetes object names must be valid DNS labels — **lowercase**, alphanumeric plus `-` and
+`.`, starting and ending alphanumeric, 63 characters or fewer. This is not stylistic: those names
+become DNS records, so they have to be legal hostnames.
+
 ---
 
 ## 10. Glossary for this chapter
@@ -494,6 +771,10 @@ completion works on both.
 | **CRI** | Container Runtime Interface — how the kubelet talks to containerd. |
 | **Service** | A stable virtual IP and DNS name in front of a changing set of pods. |
 | **Selector** | The label query that decides which pods a Service (or controller) manages. |
+| **EndpointSlice** | The materialised list of pod IPs behind a Service. Written by a controller, read by kube-proxy. An empty one means the selector matches nothing. |
+| **Headless Service** | A Service with `clusterIP: None` — DNS returns the pod IPs directly instead of one virtual IP. How gRPC clients and StatefulSet members find individual pods. |
+| **PersistentVolumeClaim** | A request for storage. **PersistentVolume** is the thing produced to satisfy it. |
+| **Grace period** | Seconds between SIGTERM and SIGKILL when a pod is deleted. Default 30. |
 | **StorageClass** | A named recipe for provisioning storage on demand. |
 | **DaemonSet** | A controller that runs exactly one pod per node. |
 | **Job** | A workload that runs to completion once, then stops. |
@@ -527,12 +808,29 @@ brackets.
 14. Name three things in the k3s binary that would be separate components in a normal cluster. [§4]
 15. Why can `kubectl get pods` never show you the API server? [§4]
 16. A pod shows `Completed`. Is that good or bad? Why? [§7]
-17. What are the three IP ranges on this box, and which one is fake? [§5]
-18. Walk through, step by step, what happens when one pod connects to `my-app` by name. [§5]
-19. A Service has no list of pods in it. So how does it know where to send traffic? [§5]
-20. Why does `local-path` use `WaitForFirstConsumer` instead of creating volumes immediately? [§6]
-21. Your Redpanda broker's disk fills up. Why is that a bigger problem here than in production? [§6]
-22. What single command do you run first when a pod won't start? [§9]
+17. `kubectl delete pod` hangs for 30 seconds. What is happening, whose fault is it, and why is
+    `--force` the wrong reflex on a broker? [§7]
+18. What are the three IP ranges on this box, and which one is fake? [§5]
+19. Walk through, step by step, what happens when one pod connects to `my-app` by name. [§5]
+20. A Service has no list of pods in it. So how does it know where to send traffic? [§5]
+21. Why does `local-path` use `WaitForFirstConsumer` instead of creating volumes immediately? [§6]
+22. Your Redpanda broker's disk fills up. Why is that a bigger problem here than in production? [§6]
+23. Someone asks which Proxmox setting controls your PersistentVolumes. What's wrong with the
+    question? [§6a]
+24. A PVC sits at `Pending` and no PV exists. Give the innocent explanation before the alarming
+    one. [§6b]
+25. A PVC requests `1Gi`. How much can the pod actually write, and what stops it? [§6c]
+26. You fix a typo in a bare Pod's `command:` and re-apply. What does the API server say, and
+    why? [§6b]
+27. What single command do you run first when a pod won't start? [§9]
+28. A Service resolves and accepts connections, but nothing answers, and every pod is `Running`
+    and healthy. What is the one object you check, and what will it show? [§5]
+29. Your gRPC service has three replicas behind a ClusterIP, but one pod is at 100% CPU and the
+    other two are idle. Explain why, and give two fixes. [§5]
+30. `kubectl describe pod kube-system` returns "not found", yet `kubectl get pods -n kube-system`
+    works fine. Explain both. [§9a]
+31. You see `cannot unmarshal string into Go struct field ... of type v1.ObjectMeta`. Without
+    seeing the file, what kind of mistake is it? [§9a]
 
 ---
 

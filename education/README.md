@@ -59,9 +59,13 @@ for f in *.dot; do dot -Tpng -Gdpi=150 "$f" -o "../images/${f%.dot}.png"; done
 
 Requires `graphviz` (`sudo apt install graphviz`).
 
-> **Editing gotcha:** in Graphviz HTML-style labels, newlines in the source render as literal
-> spaces. Keep each table cell's content on one source line or the first line of text will appear
-> indented.
+> **Editing gotchas** in Graphviz HTML-style labels:
+> - Newlines in the source render as literal spaces. Keep each table cell's content on one source
+>   line, or the first line of text will appear indented.
+> - `BALIGN="LEFT"` only aligns the lines *after* a `<BR/>`. The first line still centres. Set both
+>   `ALIGN="LEFT" BALIGN="LEFT"` on the `<TD>` to left-align the whole cell.
+> - For a standalone callout box, use a one-cell `<TABLE>` rather than `shape=box` with a plain
+>   HTML label — box labels ignore alignment in the same way.
 
 ---
 

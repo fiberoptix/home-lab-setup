@@ -1,6 +1,6 @@
 # Current Phase
 
-**Updated:** July 27, 2026 - 10:45 AM EDT
+**Updated:** July 27, 2026 - 12:52 PM EDT
 
 ---
 
@@ -60,25 +60,92 @@ with a deadline (hedge-fund interview), not a production service.
 
 ### 📘 NEW: `education/` series started (July 27)
 
-Andrew's idea — printable study chapters with illustrations, for interview prep. Chapter 1
-(Kubernetes + k3s) is written: ~4,700 words, 5 Graphviz diagrams, glossary, 22 self-test questions.
-Includes his own **"ranch model"** analogy (ranch=cluster, field=node, herd=pod, cow=container,
-brand=label, barn name=Service) plus a "where the analogy breaks down" section.
+Andrew's idea — printable study chapters with illustrations, for interview prep. Includes his own
+**"ranch model"** analogy (ranch=cluster, field=node, herd=pod, cow=container, brand=label, barn
+name=Service) plus a "where the analogy breaks down" section.
+
+**Chapter 1 is now 846 lines / 6 diagrams / 31 self-test questions** (was 548 / 5 / 22). Everything
+added on July 27 came out of something Andrew actually ran:
+
+- **§5** gained the **EndpointSlice** chain (kube-proxy never evaluates selectors — a controller
+  materialises them into an EndpointSlice, which is why an empty slice is the thing to check when a
+  Service blackholes), the DNAT-invisibility proof, and **per-connection not per-request load
+  balancing** → the gRPC/HTTP2 single-backend trap. That last one is squarely interview material
+  for a firm shipping market data over gRPC.
+- **§6** rewritten from a 24-line summary into a full walkthrough: new **fig6** showing the six
+  layers from ZFS pool down to `/data/notes.txt`, the PVC lifecycle he drove, "the requested
+  capacity is a fiction" (local-path sets no quota), and the single-failure-domain admission for
+  the coming 3-broker Redpanda cluster.
+- **§7** gained the 30-second grace-period table + PID 1 signal rule.
+- **§9a** is new: the `kubectl` command grammar and the three real errors from the session.
 
 **Diagrams are Graphviz `.dot` sources in `education/diagrams/`, NOT AI-generated** — image
 generators garble technical labels, and these need to be exactly right. Installed `graphviz` on the
-Z8 for this. Editing gotcha: newlines inside HTML-style labels render as literal leading spaces,
-so keep each table cell's content on one source line.
+Z8 for this. Editing gotchas (both now in `education/README.md`): newlines inside HTML-style labels
+render as literal leading spaces, so keep each table cell on one source line; and `BALIGN="LEFT"`
+only aligns lines *after* a `<BR/>` — set **both** `ALIGN="LEFT" BALIGN="LEFT"` on the `<TD>`, and
+use a one-cell `<TABLE>` rather than `shape=box` for callouts.
 
-### ⏭️ Next: finish Part 3 as a guided hands-on session
+### ✅ Part 3 COMPLETE — guided hands-on session (July 27, 11:15 AM – 12:50 PM)
 
-Deployment by hand → scale → delete a pod and watch it heal → Service + label selector → PVC →
-create `redpanda` / `market` / `logging` namespaces. **Chapter 2 gets written from that session**
-(deliberately not written in advance — it should be something Andrew did, not read).
-Roll back freely: `qm rollback 186 s02-k3s-up`.
+**Andrew typed every command; I coached and verified out-of-band over SSH.** That format worked
+well — keep using it. Cluster was returned to clean afterwards.
 
-**Timing:** interview is ~Aug 1. Parts 4 (Redpanda), 6 (the Python app) and 7 (failure drills)
-matter most; Part 5 (OpenSearch) is the one to cut if time runs short.
+What he built and broke, in order:
+
+- **Deployment by hand** (nginx:1.27-alpine, requests+memory limit). One manifest produced
+  **three objects**: Deployment → ReplicaSet → Pod. Container is a fourth thing but not an API
+  object.
+- **`-l app=web` did not match the Deployment** — the manifest only put labels in
+  `spec.template`, so the Deployment itself had none. Labels are per-object. Real manifests
+  normally repeat them in top-level `metadata`.
+- **Imperative/declarative drift:** `kubectl scale --replicas=3`, then re-applied the unchanged
+  file → snapped back to 1. Best possible argument for GitOps. Scaling does **not** make a new
+  ReplicaSet (template unchanged).
+- **Self-healing:** deleted a pod → replacement in ~1 s, **new name, new IP**, ReplicaSet name
+  unchanged. Speed was partly luck: the image was already cached. In production image pull time
+  dominates recovery.
+- **Rollout + rollback proved the hash is deterministic.** Changed image to `traefik/whoami` → a
+  2nd ReplicaSet appeared. `kubectl rollout undo` → the **original RS came back to life, still
+  50 minutes old**, rather than a third being created. Revision history then read `2, 3` (not
+  `1, 2`) because a ReplicaSet only carries its most recent revision number.
+- **Service.** ClusterIP `10.43.83.136`, 3 endpoints. `curl -w "%{remote_ip}"` returned the
+  **ClusterIP every time** — DNAT is invisible to the client. The nginx access logs showed the
+  real spread (4/3/5), so LB was working; the measurement was wrong.
+- **PVC lifecycle.** `Pending` while unbound (WaitForFirstConsumer), `Bound` the instant a pod was
+  scheduled, data survived pod deletion + recreation, and `kubectl delete pvc` destroyed the
+  directory with no prompt (RECLAIMPOLICY=Delete).
+- **Namespaces `redpanda` / `market` / `logging` created.** Demo workloads torn down; storage dir
+  back to 0 entries.
+
+**Three quirks worth remembering (all now documented in Chapter 1 §9a / §7):**
+
+1. `name:web` (no space after the colon) → `cannot unmarshal string into Go struct field
+   metadataOnlyObject.metadata of type v1.ObjectMeta`. YAML needs **colon + space**; that rule
+   exists so `image: nginx:1.27-alpine` isn't torn in half. Use `--dry-run=client` to catch it.
+2. `kubectl describe pod kube-system` → NotFound, because a **namespace was put in the name slot**.
+   Grammar is `kubectl <verb> <type> <name> [-n <ns>]`, and `describe` defaults to `default`.
+3. Object names must be **lowercase RFC 1123** — `kubectl run graceA` is rejected. They become DNS
+   records.
+
+**`kubectl delete pod` taking 30 s is correct behaviour**, and Andrew caught it himself. Measured
+on this cluster, same busybox image: `sh -c "sleep 3600"` = **31 s**; with `trap ... TERM` = **2 s**;
+nginx = **2 s**; `--grace-period=5` = **7 s**. Cause is the **PID 1 signal rule** — PID 1 in a
+namespace only receives signals it has a handler for, even from the kubelet. Only SIGKILL/SIGSTOP
+are forced. Consequence: containers that ignore SIGTERM make rolling updates and node drains crawl.
+**Never `--grace-period=0 --force` a broker** — the replacement can start while the original still
+holds the volume.
+
+### ⏭️ Next: Part 4 — Redpanda
+
+Concepts first (why 3 brokers, what Raft/quorum actually does, why StatefulSet not Deployment),
+then the Helm install into the `redpanda` namespace. **Chapter 2 still needs writing** from the
+session above — the material is all captured here and in Chapter 1, so it can be written any time.
+
+**Timing:** interview is ~Aug 1 and Redpanda is completely untouched — it is also the more
+distinctive half of the stack for a hedge fund. Parts 4 (Redpanda), 6 (the Python app) and 7
+(failure drills) matter most; Part 5 (OpenSearch) is the one to cut if time runs short.
+Roll back freely: `qm rollback 186 s02-k3s-up` (only difference now is 3 empty namespaces).
 
 ---
 

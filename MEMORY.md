@@ -29,8 +29,9 @@ Practical rules:
 ## CURRENT STATE
 
 - **🔵 ACTIVE — Phase 14: Kubernetes + Redpanda POC (interview prep).** Plan + learning material
-  in `phases/phase14_k8s_redpanda_poc.md`. **Parts 1 & 2 done July 25; k3s installed July 27
-  (snapshot `s02-k3s-up`); the hands-on object-model exercises are still outstanding.**
+  in `phases/phase14_k8s_redpanda_poc.md`. **Parts 1, 2 and 3 all COMPLETE (July 25–27).**
+  Snapshot `s02-k3s-up` is the restore point; cluster is clean apart from the `redpanda`,
+  `market` and `logging` namespaces. **Next is Part 4 (Redpanda) — untouched, interview ~Aug 1.**
   - **k3s v1.36.2+k3s1 on VM 186.** Installed with
     `curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="--write-kubeconfig-mode 644" sh -`.
     Node `Ready`, containerd 2.3.2 (NOT Docker), ~512 MB RSS, survives reboot. `kubectl` and
@@ -47,11 +48,37 @@ Practical rules:
     add-on Deployment gets it rebuilt from there.
   - **`local-path` PVs carry a hard nodeAffinity** to the node + `WaitForFirstConsumer` binding.
     Consequence: on node loss a pod is NOT rescheduled elsewhere, it sits `Pending` forever.
-  - **`education/` series started** — printable study chapters with diagrams (Andrew's idea, for the
-    interview). Chapter 1 = Kubernetes/k3s. **Diagrams are Graphviz `.dot` sources in
-    `education/diagrams/`, deliberately NOT AI-generated** (image models garble technical labels).
-    `graphviz` installed on the Z8 for this. Gotcha: newlines inside Graphviz HTML-style labels
-    render as literal leading spaces — keep each table cell on one source line.
+  - **A `local-path` PV is literally a directory** at
+    `/var/lib/rancher/k3s/storage/<pv-name>_<ns>_<claim>/`, on the VM's single `/dev/sda1` ext4
+    root. **The requested capacity is not enforced — there is no quota**, so a runaway pod can
+    fill the node. `ALLOWVOLUMEEXPANSION=false` (can't grow it) and `RECLAIMPOLICY=Delete`
+    (`kubectl delete pvc` destroys the data instantly, no prompt). Proxmox knows nothing below
+    "VM 186 has a 300 GB disk".
+  - ⚠️ **`kubectl delete pod` blocking for ~30 s is normal**, not a hang. Default
+    `terminationGracePeriodSeconds` is 30, and **PID 1 in a container only receives signals it has
+    installed a handler for** — even from the kubelet. Plain `sh`/`sleep` ignores SIGTERM and waits
+    for the SIGKILL. Measured here: `sh -c "sleep 3600"` 31 s, same with a `trap ... TERM` 2 s,
+    nginx 2 s, `--grace-period=5` 7 s. **Never `--grace-period=0 --force` a broker** — the
+    StatefulSet replacement can start while the original still holds the volume.
+  - **Debugging a Service that blackholes: check `kubectl get endpointslices`.** kube-proxy never
+    evaluates label selectors; the EndpointSlice controller does, and writes the pod-IP list that
+    kube-proxy turns into iptables rules. Empty slice = selector matches nothing, even though every
+    pod is healthy. Also: **`curl -w "%{remote_ip}"` cannot identify the backend** — DNAT is
+    transparent, so it always reports the ClusterIP. Read the pods' own logs instead.
+  - **Services load-balance per TCP connection, not per request** → a gRPC/HTTP2 client pins to one
+    pod forever. Fix with a headless Service + client-side LB, or a mesh. Likely interview question
+    given the firm moves market data over gRPC.
+  - **`education/` series** — printable study chapters with diagrams (Andrew's idea, for the
+    interview). **Chapter 1 (Kubernetes/k3s) is 846 lines, 6 diagrams, 31 self-test questions.**
+    Rule for this series: only document things Andrew actually ran. **Diagrams are Graphviz `.dot`
+    sources in `education/diagrams/`, deliberately NOT AI-generated** (image models garble technical
+    labels); `graphviz` installed on the Z8. Two HTML-label gotchas: newlines render as literal
+    leading spaces (keep each table cell on one source line), and `BALIGN="LEFT"` only affects lines
+    *after* a `<BR/>` — set **both** `ALIGN="LEFT" BALIGN="LEFT"` on the `<TD>`, and use a one-cell
+    `<TABLE>` instead of `shape=box` for callout boxes.
+  - **Teaching format that works: Andrew types every command, I verify out-of-band over SSH and
+    explain the output.** Use it for Part 4. He catches his own anomalies this way (he spotted the
+    30-second delete himself), and his mistakes turn into the best documentation.
 
   **From the Parts 1 & 2 build (July 25) — still current:**
   - **The lab now has its first VM template: 9000 `tmpl-ubuntu-2404-cloudinit`** (Ubuntu 24.04
