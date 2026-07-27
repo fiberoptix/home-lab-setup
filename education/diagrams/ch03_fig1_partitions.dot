@@ -1,0 +1,59 @@
+// Chapter 3, Figure 1 — A topic is partitions; a partition is a replicated log
+// Render: dot -Tpng -Gdpi=150 ch03_fig1_partitions.dot -o ../images/ch03_fig1_partitions.png
+digraph partitions {
+  rankdir=TB;
+  bgcolor="white";
+  fontname="DejaVu Sans";
+  node [fontname="DejaVu Sans", fontsize=11];
+
+  log [shape=plaintext, label=<
+    <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="8">
+      <TR><TD COLSPAN="7" BGCOLOR="#1f4e79"><FONT COLOR="white" POINT-SIZE="12"><B>ONE PARTITION = ONE APPEND-ONLY LOG</B></FONT></TD></TR>
+      <TR>
+        <TD BGCOLOR="#f2f2f2"><B>offset</B></TD>
+        <TD BGCOLOR="#e2efda">0</TD><TD BGCOLOR="#e2efda">1</TD><TD BGCOLOR="#e2efda">2</TD>
+        <TD BGCOLOR="#e2efda">3</TD><TD BGCOLOR="#e2efda">4</TD>
+        <TD BGCOLOR="#fff2cc">5 ← next write</TD>
+      </TR>
+      <TR>
+        <TD BGCOLOR="#f2f2f2"><B>record</B></TD>
+        <TD>AAPL</TD><TD>MSFT</TD><TD>AAPL</TD><TD>NVDA</TD><TD>AAPL</TD>
+        <TD BGCOLOR="#fff2cc"> </TD>
+      </TR>
+      <TR><TD COLSPAN="7" ALIGN="LEFT" BALIGN="LEFT" BGCOLOR="#f8f8f8"><FONT POINT-SIZE="10">Records are never edited or reordered — only appended. A consumer's position is just an integer.<BR/><B>Ordering is guaranteed inside one partition, and nowhere else.</B> Same key → same partition → ordered.</FONT></TD></TR>
+    </TABLE>
+  >];
+
+  layout [shape=plaintext, label=<
+    <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="8">
+      <TR><TD COLSPAN="4" BGCOLOR="#1f4e79"><FONT COLOR="white" POINT-SIZE="12"><B>TOPIC "market-ticks" — 3 partitions, replication factor 3</B></FONT></TD></TR>
+      <TR>
+        <TD BGCOLOR="#f2f2f2"> </TD>
+        <TD BGCOLOR="#d9e1f2"><B>redpanda-0</B></TD>
+        <TD BGCOLOR="#d9e1f2"><B>redpanda-1</B></TD>
+        <TD BGCOLOR="#d9e1f2"><B>redpanda-2</B></TD>
+      </TR>
+      <TR>
+        <TD BGCOLOR="#f2f2f2"><B>partition 0</B></TD>
+        <TD BGCOLOR="#c6e0b4"><B>LEADER</B></TD>
+        <TD BGCOLOR="#f2f2f2">follower</TD>
+        <TD BGCOLOR="#f2f2f2">follower</TD>
+      </TR>
+      <TR>
+        <TD BGCOLOR="#f2f2f2"><B>partition 1</B></TD>
+        <TD BGCOLOR="#f2f2f2">follower</TD>
+        <TD BGCOLOR="#c6e0b4"><B>LEADER</B></TD>
+        <TD BGCOLOR="#f2f2f2">follower</TD>
+      </TR>
+      <TR>
+        <TD BGCOLOR="#f2f2f2"><B>partition 2</B></TD>
+        <TD BGCOLOR="#f2f2f2">follower</TD>
+        <TD BGCOLOR="#f2f2f2">follower</TD>
+        <TD BGCOLOR="#c6e0b4"><B>LEADER</B></TD>
+      </TR>
+      <TR><TD COLSPAN="4" ALIGN="LEFT" BALIGN="LEFT" BGCOLOR="#f8f8f8"><FONT POINT-SIZE="10"><B>Every broker holds a copy of every partition. Each partition has exactly one leader.</B><BR/>All reads and writes for a partition go through its leader; followers replicate. Leadership is spread<BR/>on purpose so all three machines do work. <B>Each partition is its own independent Raft group.</B></FONT></TD></TR>
+    </TABLE>
+  >];
+
+  log -> layout [style=invis];
+}

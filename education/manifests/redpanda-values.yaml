@@ -1,0 +1,65 @@
+# Redpanda Helm values — single-node k3s sandbox (vm-k8-redpanda-1)
+#
+# Verified against chart redpanda-26.1.9 / app v26.1.12 on 2026-07-27.
+# This file reproduces exactly what `helm get values redpanda -n redpanda` reports
+# for the running release, so it is a faithful record rather than an approximation.
+#
+#   helm install redpanda redpanda/redpanda \
+#     --namespace redpanda --create-namespace \
+#     -f redpanda-values.yaml --wait --timeout 10m
+#
+# TWO of these settings are sandbox-only and MUST be revisited for production.
+# They are marked SANDBOX-ONLY below.
+
+statefulset:
+  replicas: 3
+
+  # ---------------------------------------------------------------------------
+  # SANDBOX-ONLY: relax pod anti-affinity.
+  #
+  # The chart ships HARD anti-affinity (requiredDuringSchedulingIgnoredDuring-
+  # Execution) on kubernetes.io/hostname, which forbids two brokers from sharing
+  # a node. That is the correct production default: it stops one machine failure
+  # from costing you two replicas of the same partition.
+  #
+  # On a ONE-node cluster it means exactly one broker can ever schedule and the
+  # other two sit Pending forever. We null out the hard rule and substitute a
+  # soft preference, so all three brokers land on the single node.
+  #
+  # GOTCHA: the documented override `statefulset.podAntiAffinity.type: soft` is
+  # vestigial in this chart version — setting it changes nothing. The live path
+  # is statefulset.podTemplate.spec.affinity, below. Always verify with:
+  #   helm template ... | grep -A15 affinity
+  # ---------------------------------------------------------------------------
+  podTemplate:
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution: null
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+                labelSelector:
+                  matchLabels:
+                    app.kubernetes.io/component: redpanda-statefulset
+                    app.kubernetes.io/instance: redpanda
+                    app.kubernetes.io/name: redpanda
+
+storage:
+  persistentVolume:
+    enabled: true
+    size: 20Gi
+    # local-path is k3s's default provisioner: a directory on the node's disk.
+    # All three brokers therefore share ONE physical disk — see chapter 3 §8.
+    storageClass: local-path
+
+# -----------------------------------------------------------------------------
+# SANDBOX-ONLY: TLS off.
+#
+# Disabling TLS removes cert generation and makes rpk/console wiring trivial for
+# a learning cluster. Production keeps this true. Turning it back on also means
+# rpk needs --tls-enabled and a CA, and the advertised listeners change port.
+# -----------------------------------------------------------------------------
+tls:
+  enabled: false

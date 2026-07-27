@@ -1,6 +1,6 @@
 # Phase 14 — Kubernetes + Redpanda + OpenSearch POC
 
-**Status:** IN PROGRESS — Parts 1, 2 and **3 COMPLETE** (Jul 25–27). Snapshot `s02-k3s-up` is the restore point; the cluster is clean apart from the `redpanda` / `market` / `logging` namespaces. Chapter 1 of the education series is written (846 lines, 6 diagrams). **Next: Part 4, Redpanda — completely untouched, and the interview is ~Aug 1.**
+**Status:** IN PROGRESS — Parts 1, 2, 3 and **4 COMPLETE** (Jul 25–27). **Redpanda is live: 3 brokers, healthy 3/3, topic `market-ticks` (6 partitions, RF 3), quorum and failure drills run and documented.** Education series: Chapter 1 (k3s, 846 lines, 6 diagrams) and Chapter 3 (Redpanda, 1023 lines, 3 diagrams) written; Chapter 3 doubles as a replayable install runbook, with the working Helm values committed at `education/manifests/redpanda-values.yaml`. ⚠️ Snapshot `s02-k3s-up` **predates Redpanda** — rolling back to it destroys the cluster; take a fresh snapshot before risky work. **Next: consumer groups + rebalancing, then Part 6 (the Python app). Interview ~Aug 1.**
 **Created:** July 25, 2026
 **Owner:** Andrew
 **Deadline driver:** Hedge-fund interview, ~1 week out.
@@ -463,18 +463,31 @@ Each broker gets a stable DNS name (`redpanda-0`, `redpanda-1`, `redpanda-2`) an
 PersistentVolumeClaim that follows it across reschedules. A Deployment would be wrong here:
 interchangeable pods with shared or ephemeral storage break a consensus protocol.
 
-### Steps (outline — exact values validated during execution)
+### ✅ Steps as actually executed (Jul 27)
+
+> **The full runbook — including the failed first attempt, the `rpk` wiring, verified demos and the
+> failure drills — is [`education/chapter03_redpanda.md`](../education/chapter03_redpanda.md).**
+> Only the summary lives here.
+
+The `--set` outline below **did not work**: the chart ships **hard** pod anti-affinity, so on a
+single node only one broker can schedule and the other two sit `Pending` until Helm times out.
+And the documented override (`statefulset.podAntiAffinity.type=soft`) is **vestigial in chart
+26.1.9** — it changes nothing. The working install uses a values file:
 
 ```bash
 helm repo add redpanda https://charts.redpanda.com && helm repo update
 kubectl create namespace redpanda
 
+# verify the override actually renders BEFORE installing — this is the lesson
+helm template redpanda redpanda/redpanda -n redpanda \
+  -f education/manifests/redpanda-values.yaml | grep -c requiredDuringScheduling   # must be 0
+
 helm install redpanda redpanda/redpanda -n redpanda \
-  --set statefulset.replicas=3 \
-  --set storage.persistentVolume.storageClass=local-path \
-  --set tls.enabled=false \
-  --set console.enabled=true
+  -f education/manifests/redpanda-values.yaml --wait --timeout 10m
 ```
+
+Result: chart `redpanda-26.1.9` / app `v26.1.12`, 3 brokers `2/2 Running`, PVCs
+`datadir-redpanda-{0,1,2}` 20Gi `local-path`, Console as a ClusterIP on `:8080`.
 
 **Sandbox shortcut, flagged honestly:** `tls.enabled=false`. Production Redpanda at a financial
 firm runs **mTLS between brokers and clients** plus SASL authentication. We disable it so the
@@ -493,14 +506,24 @@ Concepts to be able to explain: **backward compatibility** (new consumer reads o
 **forward compatibility** (old consumer reads new data), and why adding an optional field with a
 default is safe while renaming one is not.
 
-### Exercises
+### ✅ Exercises — done
 
-- `rpk cluster info`, `rpk topic create market-data -p 6 -r 3`, `rpk topic describe market-data`
-- Identify which broker leads each partition.
-- Produce and consume from the CLI before writing any Python.
-- Open **Redpanda Console** and correlate what the UI shows against what `rpk` told you.
+- ✅ `rpk cluster info` / `rpk cluster health`; topic created as **`market-ticks`** (not
+  `market-data`) with `-p 6 -r 3`.
+- ✅ Leader-per-partition identified, and watched it move during failover:
+  `rpk topic describe market-ticks -p | awk 'NR>1&&NF{print $2}' | sort -n | uniq -c`.
+- ✅ Produced and consumed from the CLI. Proved **keys are deterministic** (AAPL→p3 every time)
+  while **unkeyed producing is sticky, not round-robin** (300 records → one partition).
+- ✅ Failure drills run early (they were the best teaching material): one broker down → surgical,
+  non-load-balanced failover with writes continuing; two down → quorum lost, producers hang,
+  `Leaderless` fires while `Under-replicated` misleadingly reads 0; recovery → **32 records
+  reconciled exactly, zero loss.**
+- 🔲 Redpanda Console not yet opened — it is ClusterIP-only, so it needs
+  `kubectl -n redpanda port-forward svc/redpanda-console 8080:8080`.
+- 🔲 Schema Registry (built in on `:8081`) untouched — still the Part 4 remainder.
 
-**→ Snapshot `03-redpanda-up` here.**
+**⚠️ Snapshot `s03-redpanda-up` NOT yet taken.** Do this before the next risky step; `s02-k3s-up`
+predates Redpanda and rolling back to it would destroy the cluster.
 
 ---
 
@@ -695,3 +718,14 @@ Schema evolution / compatibility modes
 | Jul 27, 10:42 | Snapshot `s02-k3s-up`; verified k3s survives a reboot | Part 3 install done |
 | Jul 27, 11:15–12:50 | **Part 3 hands-on, Andrew driving:** Deployment by hand → drift → self-healing → rollout/rollback → Service + EndpointSlice → PVC lifecycle → grace periods → 3 namespaces | **Part 3 COMPLETE**; cluster returned to clean |
 | Jul 27, 12:50 | Chapter 1 expanded 548 → 846 lines: new §6 storage walkthrough + fig6, §5 EndpointSlice / per-connection LB, §7 grace periods, §9a error messages, 31 self-test questions | Everything documented came from something he ran |
+| Jul 27, ~13:1x | **Part 4 begins.** Concepts first: partitions/offsets, replication, Raft quorum, why StatefulSet + headless Service. Figures 1 & 2 drawn | Andrew's summary back to me ("18 replicas, 6 raft groups") was correct |
+| Jul 27, ~13:3x | First `helm install` **hung and timed out**; brokers 1 & 2 `Pending` | Root cause: chart's **hard** pod anti-affinity vs a 1-node cluster |
+| Jul 27, ~13:4x | ⚠️ Documented override `statefulset.podAntiAffinity.type=soft` had **no effect** — vestigial in chart 26.1.9. Found the live path via `helm template`: `statefulset.podTemplate.spec.affinity` | Habit adopted: **render and grep before installing** |
+| Jul 27, 13:57 | Reinstalled from a values file (hard rule nulled, soft preference added) after `kubectl delete pvc --all` — `helm uninstall` had left the StatefulSet PVCs behind | **3 brokers `2/2 Running`**; config Job `Complete 1/1` in 37 s (one `Error` pod = normal backoff, raced broker readiness) |
+| Jul 27, ~14:0x | `rpk` on the host couldn't reach brokers: dialled `localhost:31092`, failed on `redpanda-0...` — the **advertised-listener** problem | Diagnosed from the address mismatch in the error itself |
+| Jul 27, 14:10 | Fixed via `/etc/systemd/resolved.conf.d/k3s-cluster-dns.conf` (`DNS=10.43.0.10`, `Domains=~cluster.local`); rpk profile repointed at all three internal FQDNs | `rpk cluster health` green; survives pod replacement |
+| Jul 27, ~14:2x | Topic `market-ticks` (6 × RF 3). Keyed vs unkeyed producing; **discovered the sticky partitioner** — 300 unkeyed records all landed in one partition | Corrected the "unkeyed round-robins" explanation |
+| Jul 27, ~14:3x | **Failure drills.** One broker killed → surgical, non-load-balanced failover, writes continued. Scaled to 1 → quorum lost, survivor stepped down, `Leaderless (8)` incl. the controller group, producer hung; `Under-replicated` read **0** | The best interview material of the whole phase |
+| Jul 27, 14:4x | Recovered to 3/3 and reconciled the log: `-o :end` count == Σ high-watermarks == 32 | **Zero data loss.** Degraded-but-acked writes survived; the write that hung never appeared |
+| Jul 27, 14:4x | Re-ran every documented command verbatim to verify the runbook, incl. the single-broker drill | Found initial leader assignment and sticky-partition choice **vary per run** — chapter now says so |
+| Jul 27, 14:5x | **Chapter 3 written** (1023 lines, 3 diagrams, 33 questions) as a replayable runbook; `education/manifests/redpanda-values.yaml` committed and verified against `helm get values` | **Part 4 COMPLETE** except Console + Schema Registry |

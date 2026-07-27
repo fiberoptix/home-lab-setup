@@ -15,11 +15,27 @@ chapters explain *what it means and why*.
 |---|---|---|---|
 | 1 | [Kubernetes and the k3s cluster](chapter01_kubernetes_k3s.md) | What Kubernetes is for, what the k3s install produced, the three networks, storage | ✅ Written Jul 27, 2026 |
 | 2 | The object model | Pods, Deployments, ReplicaSets, Services — built by hand | 🔲 Next |
-| 3 | Redpanda | Brokers, topics, partitions, Raft quorum, StatefulSets | 🔲 Planned |
+| 3 | [Redpanda](chapter03_redpanda.md) | Brokers, topics, partitions, Raft quorum, StatefulSets — plus a full install runbook and failure drills | ✅ Written Jul 27, 2026 |
 | 4 | Schema Registry | Avro, schema evolution, compatibility modes | 🔲 Planned |
 | 5 | OpenSearch and Fluent Bit | Log shipping with DaemonSets, OpenSearch as a data store | 🔲 Planned |
 | 6 | The market-data application | Producers, consumers, consumer groups, offsets, ordering | 🔲 Planned |
 | 7 | Failure drills | What actually happens when you break each piece | 🔲 Planned |
+
+---
+
+## Layout
+
+```
+education/
+├── chapterNN_*.md      the chapters
+├── diagrams/           Graphviz .dot sources — edit these
+├── images/             rendered .png — generated, never edited by hand
+└── manifests/          working config referenced by the chapters
+```
+
+`manifests/` holds real, tested artefacts rather than snippets — currently
+[`redpanda-values.yaml`](manifests/redpanda-values.yaml), which reproduces the deployed Helm release
+exactly (verified with `helm get values`). They are meant to be re-used on another cluster.
 
 ---
 

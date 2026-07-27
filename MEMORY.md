@@ -29,9 +29,15 @@ Practical rules:
 ## CURRENT STATE
 
 - **🔵 ACTIVE — Phase 14: Kubernetes + Redpanda POC (interview prep).** Plan + learning material
-  in `phases/phase14_k8s_redpanda_poc.md`. **Parts 1, 2 and 3 all COMPLETE (July 25–27).**
-  Snapshot `s02-k3s-up` is the restore point; cluster is clean apart from the `redpanda`,
-  `market` and `logging` namespaces. **Next is Part 4 (Redpanda) — untouched, interview ~Aug 1.**
+  in `phases/phase14_k8s_redpanda_poc.md`. **🎯 THE ROLE: SRE / DevOps on an ORDER MANAGEMENT
+  SYSTEM at a hedge fund** (confirmed Jul 27). This drives everything — weight all material toward
+  **operational** reasoning (what breaks, what the cluster does about it, what you do at 3am, which
+  reflexes make an incident worse) over application design, and tie every concept back to a
+  consequence for **order/trade processing** (e.g. unkeyed producers → a cancel processed before
+  its order; a degraded cluster → don't rolling-restart it). Interview ~Aug 1.
+  **Parts 1, 2, 3 and 4 all COMPLETE (July 25–27).** ⚠️ Snapshot `s02-k3s-up` predates Redpanda —
+  rolling back to it now destroys the whole cluster. **Take a new snapshot before risky work.**
+  **Next: consumer groups + rebalancing, then Part 6 (the Python app).**
   - **k3s v1.36.2+k3s1 on VM 186.** Installed with
     `curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="--write-kubeconfig-mode 644" sh -`.
     Node `Ready`, containerd 2.3.2 (NOT Docker), ~512 MB RSS, survives reboot. `kubectl` and
@@ -68,8 +74,65 @@ Practical rules:
   - **Services load-balance per TCP connection, not per request** → a gRPC/HTTP2 client pins to one
     pod forever. Fix with a headless Service + client-side LB, or a mesh. Likely interview question
     given the firm moves market data over gRPC.
+  **Part 4 — Redpanda (July 27, 1:00–2:50 PM). 3 brokers live in ns `redpanda`, healthy 3/3.**
+  Chart `redpanda-26.1.9` / app `v26.1.12`, `rpk v26.1.14`, Helm v3.21.3. PVCs
+  `datadir-redpanda-{0,1,2}` 20Gi local-path. Topic `market-ticks` 6 partitions RF 3. Full runbook =
+  `education/chapter03_redpanda.md`; the working values file is
+  **`education/manifests/redpanda-values.yaml`** (verified to reproduce the live release).
+  - ⚠️ **The chart's documented anti-affinity override `statefulset.podAntiAffinity.type: soft` is
+    VESTIGIAL in 26.1.9 — it silently does nothing.** Hard anti-affinity means only 1 broker can
+    schedule on a 1-node cluster. Real path: `statefulset.podTemplate.spec.affinity` — set
+    `requiredDuringSchedulingIgnoredDuringExecution: null` + add a `preferred...` term.
+    **Habit: `helm template … | grep -A14 affinity` BEFORE installing anything you're overriding.**
+  - Failed-install symptom cascade: Helm hangs → pods `Pending` → **PVCs `Pending` are a *symptom***
+    (local-path is WaitForFirstConsumer) → redpanda-0 never Ready (can't quorum alone) → config Job
+    fails → Console crash-loops. **Read events on the earliest stuck thing, not the loudest broken
+    one:** `kubectl -n redpanda describe pod redpanda-1 | tail -20`.
+  - `helm uninstall` **leaves StatefulSet PVCs behind.** `kubectl -n redpanda delete pvc --all` for a
+    truly clean reinstall. A `redpanda-configuration-*` pod in `Error` beside a `Complete` Job is
+    normal Job backoff (post-install raced broker readiness) — judge the Job, not the pod.
+  - **`rpk` = `/usr/local/bin/rpk`, a plain static binary — NOT an alias.** Kafka API `:9093`,
+    Admin API `:9644` (`rpk cluster health` uses Admin). Profile `local` in `~/.config/rpk/rpk.yaml`
+    bootstraps off **all three** internal FQDNs so diagnostics survive a dead broker.
+  - **Advertised-listener fix:** dialling `localhost:31092` failed with an error naming
+    `redpanda-0...` — bootstrap only asks "who are the brokers?", then the client dials the
+    **advertised** addresses directly. Fixed with
+    `/etc/systemd/resolved.conf.d/k3s-cluster-dns.conf` → `DNS=10.43.0.10` (CoreDNS),
+    `Domains=~cluster.local` (`~` = routing-only). Survives pod replacement (nothing references a
+    pod IP). ⚠️ **Works only because the host IS the node** (pod IPs on `cni0`); not LAN-wide.
+    General rule: *a broker must advertise an address clients can resolve AND route to, from where
+    the client is.*
+  - ⚠️ **`rpk topic describe -p`: HIGH-WATERMARK is awk field `$8`, not `$6`** — `REPLICAS [0 1 2]`
+    contains spaces. HWM = committed record count; summing it is the authoritative total.
+  - ⚠️ **`rpk topic consume -n N` HANGS** when fewer than N records exist, and `| wc -l` then shows
+    nothing (no EOF). **`-o :end` = read all and exit.** `-o start:end` silently returns **0** —
+    looks exactly like data loss.
+  - **Unkeyed is NOT round-robin.** Sticky partitioner sent 6 unkeyed → 1 partition and **300
+    unkeyed → still 1 partition**; *which* partition is random per producer session (p1 one run, p5
+    the next). Keys are deterministic and reproduced exactly: AAPL→3, GOOG→3, MSFT→0, TSLA→5,
+    AMZN→5 (5 keys, 3 partitions, 2 collisions, p1/p2/p4 idle). Demo partitioning with **one**
+    producer (`printf 'a\nb\n' | rpk topic produce`), never a shell loop — a loop spawns a producer
+    per record and fakes round-robin.
+  - **Failure drills.** One broker down: failover is surgical but **not load-balanced** (2/2/2 →
+    broker 2 took *both* orphans, leading 4); writes never stopped. After recovery **`Healthy: true`
+    while broker 1 leads 0 partitions** — the leader balancer runs on its own timer, so *healthy ≠
+    balanced*. Quorum loss (scaled to 1): survivor goes `1/2 Running` and steps down,
+    `Leaderless (8)` incl. **`redpanda/controller/0`** (admin dies too), producers **hang rather
+    than error**, and ⚠️ **`Under-replicated` reads 0 because no leader is left to compute it.**
+    **Alert on `Leaderless` + `Nodes down`; `Under-replicated` alone will mislead you.**
+  - **Zero data loss proven:** 32 records, `-o :end` count == Σ HWM. Both writes made while degraded
+    survived; the write that hung during quorum loss never appeared. OMS framing = *never lies about
+    whether an order was accepted*.
+  - **Drill hygiene:** always `kubectl -n redpanda wait --for=delete pod/<name>` before judging.
+    Checking too fast caught a `Terminating`-but-still-serving broker and produced a write that
+    "should" have failed.
+
   - **`education/` series** — printable study chapters with diagrams (Andrew's idea, for the
-    interview). **Chapter 1 (Kubernetes/k3s) is 846 lines, 6 diagrams, 31 self-test questions.**
+    interview). **Chapter 1 (Kubernetes/k3s) 846 lines / 6 diagrams / 31 questions; Chapter 3
+    (Redpanda) 1023 lines / 3 diagrams / 33 questions.** Chapter 3 is deliberately a **replayable
+    runbook** (install incl. the failure, rpk wiring, demos, drills) — Andrew re-runs this material,
+    so where output varies between runs (sticky-partition choice, initial leader assignment) the
+    text says so explicitly. `education/manifests/` holds real tested artefacts.
     Rule for this series: only document things Andrew actually ran. **Diagrams are Graphviz `.dot`
     sources in `education/diagrams/`, deliberately NOT AI-generated** (image models garble technical
     labels); `graphviz` installed on the Z8. Two HTML-label gotchas: newlines render as literal

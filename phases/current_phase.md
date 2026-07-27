@@ -1,6 +1,6 @@
 # Current Phase
 
-**Updated:** July 27, 2026 - 12:52 PM EDT
+**Updated:** July 27, 2026 - 2:55 PM EDT
 
 ---
 
@@ -8,6 +8,16 @@
 
 **Full plan + learning material: `phases/phase14_k8s_redpanda_poc.md`.** This is a learning rig
 with a deadline (hedge-fund interview), not a production service.
+
+### 🎯 THE ROLE (confirmed July 27) — SRE / DevOps on an ORDER MANAGEMENT SYSTEM
+
+This is the single most important framing fact for everything in this phase. **Weight all teaching
+and documentation toward operational reasoning** — failure modes, runbooks, what you do at 3am,
+which instincts make an incident worse — rather than application design. **Tie every concept back
+to a consequence for order/trade processing.** Examples that landed well: an unkeyed producer means
+a cancel can be processed before the order it cancels; a 2-of-3 cluster has full data redundancy but
+**zero** fault tolerance, so the reflex to "just bounce something" turns degraded into outage.
+Andrew explicitly asked for these caveats to be kept in the docs.
 
 ### ✅ Parts 1 & 2 COMPLETE — the box is built and idle (July 25, 11:31–11:40 AM)
 
@@ -79,6 +89,14 @@ added on July 27 came out of something Andrew actually ran:
 - **§7** gained the 30-second grace-period table + PID 1 signal rule.
 - **§9a** is new: the `kubectl` command grammar and the three real errors from the session.
 
+**Chapter 3 (Redpanda) written July 27 — 1023 lines, 3 diagrams, 33 self-test questions.** It is
+deliberately a **runbook**, not just theory: full install (incl. the failed first attempt and its
+symptom cascade), the `rpk` wiring, verified demos, and the failure drills, so it can be replayed on
+another lab cluster. New `education/manifests/` folder holds real tested artefacts — currently
+`redpanda-values.yaml`. Every command in it was executed and every output quoted is real; where a
+result varies between runs (sticky-partition choice, initial leader assignment) the chapter says so
+explicitly, because Andrew intends to re-run all of it.
+
 **Diagrams are Graphviz `.dot` sources in `education/diagrams/`, NOT AI-generated** — image
 generators garble technical labels, and these need to be exactly right. Installed `graphviz` on the
 Z8 for this. Editing gotchas (both now in `education/README.md`): newlines inside HTML-style labels
@@ -136,16 +154,73 @@ are forced. Consequence: containers that ignore SIGTERM make rolling updates and
 **Never `--grace-period=0 --force` a broker** — the replacement can start while the original still
 holds the volume.
 
-### ⏭️ Next: Part 4 — Redpanda
+### ✅ Part 4 COMPLETE — Redpanda installed, broken, and healed (July 27, 1:00 – 2:50 PM)
 
-Concepts first (why 3 brokers, what Raft/quorum actually does, why StatefulSet not Deployment),
-then the Helm install into the `redpanda` namespace. **Chapter 2 still needs writing** from the
-session above — the material is all captured here and in Chapter 1, so it can be written any time.
+**3-broker cluster live in ns `redpanda`.** Chart `redpanda-26.1.9` / app `v26.1.12`, `rpk v26.1.14`,
+Helm v3.21.3. PVCs `datadir-redpanda-{0,1,2}` 20Gi local-path. Topic `market-ticks` 6 partitions RF 3.
+Cluster currently **healthy 3/3**. Values file is committed at
+`education/manifests/redpanda-values.yaml` and verified to reproduce the live release
+(`helm get values` matches; `helm template` renders 0 × `requiredDuringScheduling`).
 
-**Timing:** interview is ~Aug 1 and Redpanda is completely untouched — it is also the more
-distinctive half of the stack for a hedge fund. Parts 4 (Redpanda), 6 (the Python app) and 7
-(failure drills) matter most; Part 5 (OpenSearch) is the one to cut if time runs short.
-Roll back freely: `qm rollback 186 s02-k3s-up` (only difference now is 3 empty namespaces).
+**Two real problems solved — both are the good interview stories:**
+
+1. **Install hung, pods `Pending`.** Chart ships **hard** pod anti-affinity → only 1 broker can
+   schedule on a 1-node cluster. ⚠️ **The documented override `statefulset.podAntiAffinity.type:
+   soft` is VESTIGIAL in 26.1.9 — setting it does nothing.** Real path is
+   `statefulset.podTemplate.spec.affinity`: null the `required...` rule, add a `preferred...` one.
+   Habit installed: **`helm template … | grep -A14 affinity` BEFORE installing.**
+   Symptom cascade to remember: Helm hangs → pods Pending → **PVCs Pending is a *symptom*** (local-path
+   is WaitForFirstConsumer) → redpanda-0 never Ready (no quorum alone) → config Job fails → Console
+   crash-loops. Diagnose with `kubectl describe pod redpanda-1 | tail -20`; read the **earliest stuck**
+   thing, not the loudest broken thing.
+2. **`rpk` could not reach brokers.** Dialled `localhost:31092`, error named `redpanda-0...` — the
+   mismatch IS the diagnosis. Bootstrap only asks "who are the brokers?"; the client then dials the
+   **advertised listeners** directly. Fixed by teaching the host cluster DNS:
+   `/etc/systemd/resolved.conf.d/k3s-cluster-dns.conf` → `DNS=10.43.0.10`, `Domains=~cluster.local`
+   (`~` = routing-only). rpk profile `local` now bootstraps off all three internal FQDNs :9093
+   (Kafka) / :9644 (Admin). Survives pod replacement — nothing references a pod IP.
+   ⚠️ Only works because **the host IS the node** (pod IPs on `cni0`). Not a LAN-wide solution.
+
+**Measured facts that corrected my own explanations:**
+
+- **Unkeyed ≠ round-robin.** Sticky partitioner: 6 unkeyed → 1 partition; **300 unkeyed → still 1
+  partition.** *Which* partition is random per producer session (saw p1 one run, p5 the next).
+  Keys ARE deterministic and reproduced exactly across runs: AAPL→3, GOOG→3, MSFT→0, TSLA→5, AMZN→5
+  — 5 keys, only 3 partitions used, two collisions, p1/p2/p4 idle. This is why ordering bugs pass
+  every dev test.
+- ⚠️ **`rpk topic describe -p`: HIGH-WATERMARK is awk field `$8`, not `$6`** — `REPLICAS [0 1 2]`
+  contains spaces. Cost me one wrong record count.
+- ⚠️ **`rpk topic consume -n N` HANGS** if fewer than N records exist; piping to `wc -l` shows
+  nothing (no EOF). Use **`-o :end`** = read all + exit. `-o start:end` silently returns **0**.
+- **Failover is surgical but NOT load-balanced.** Killed redpanda-1: 2/2/2 → broker 2 took **both**
+  orphaned partitions (leads 4). Writes never stopped.
+- **Healthy ≠ balanced.** After recovery: `Healthy: true`, yet broker 1 leads **0** partitions.
+  Leader balancer runs on its own timer (minutes).
+- **Quorum loss (scaled to 1):** survivor goes `1/2 Running` and steps down, `Leaderless (8)`
+  including **`redpanda/controller/0`** (lose admin too), producer **hangs** rather than errors, and
+  ⚠️ **`Under-replicated` reads 0** — no leader left to compute it. **Alert on `Leaderless` +
+  `Nodes down`, never on `Under-replicated` alone.**
+- **Zero data loss proven.** 32 records reconciled exactly (`-o :end` count == Σ high-watermarks).
+  Both writes made while degraded survived; the write that hung during quorum loss never appeared.
+  *Never lies about whether an order was accepted* — that's the OMS framing.
+- `helm uninstall` does **not** delete StatefulSet PVCs. `kubectl -n redpanda delete pvc --all`.
+- A `redpanda-configuration-*` pod in `Error` next to a `Complete` Job is **normal Job backoff**
+  (post-install raced broker readiness). Judge the Job, not the pod.
+
+**Drill hygiene learned the hard way:** always
+`kubectl -n redpanda wait --for=delete pod/<name>` before judging. Checking too fast caught a
+`Terminating`-but-still-serving broker and produced a write that "should" have failed.
+
+### ⏭️ Next
+
+1. **Consumer groups + rebalancing** — the remaining core Redpanda topic, and directly OMS-relevant
+   (rebalance is another way to break ordering).
+2. **Part 6 — the Python producer/consumer app.**
+3. **Chapter 2 (object model) still unwritten** — material fully captured here + Chapter 1.
+
+**Timing:** interview ~Aug 1. Redpanda is now the strongest part of the story. Part 5 (OpenSearch)
+remains the one to cut. Roll back point is still `qm rollback 186 s02-k3s-up` — but that predates
+Redpanda entirely, so **take a new snapshot before any risky work.**
 
 ---
 
