@@ -130,11 +130,13 @@ Practical rules:
     "should" have failed.
 
   - **`education/` series** — printable study chapters with diagrams (Andrew's idea, for the
-    interview). **Chapter 1 (Kubernetes/k3s) 846 lines / 6 diagrams / 31 questions; Chapter 3
-    (Redpanda) 1023 lines / 3 diagrams / 33 questions.** Chapter 3 is deliberately a **replayable
-    runbook** (install incl. the failure, rpk wiring, demos, drills) — Andrew re-runs this material,
-    so where output varies between runs (sticky-partition choice, initial leader assignment) the
-    text says so explicitly. `education/manifests/` holds real tested artefacts.
+    interview). **Ch1 (Kubernetes/k3s) 846 lines / 6 diagrams / 31 questions; Ch2 (object model)
+    631 lines / 2 diagrams / 27 questions; Ch3 (Redpanda) 1023 lines / 3 diagrams / 33 questions.**
+    Ch2 and Ch3 are deliberately **replayable runbooks** — Andrew re-runs this material, so where
+    output varies between runs (sticky-partition choice, initial leader assignment, which partition
+    an unkeyed producer picks) the text says so explicitly. `education/manifests/` holds real tested
+    artefacts: `redpanda-values.yaml` and `web-deployment.yaml` (the latter verified end-to-end
+    apply → rollout → 200s → delete on Jul 27, with both probe failure drills documented inline).
     Rule for this series: only document things Andrew actually ran. **Diagrams are Graphviz `.dot`
     sources in `education/diagrams/`, deliberately NOT AI-generated** (image models garble technical
     labels); `graphviz` installed on the Z8. Two HTML-label gotchas: newlines render as literal
@@ -142,8 +144,44 @@ Practical rules:
     *after* a `<BR/>` — set **both** `ALIGN="LEFT" BALIGN="LEFT"` on the `<TD>`, and use a one-cell
     `<TABLE>` instead of `shape=box` for callout boxes.
   - **Teaching format that works: Andrew types every command, I verify out-of-band over SSH and
-    explain the output.** Use it for Part 4. He catches his own anomalies this way (he spotted the
-    30-second delete himself), and his mistakes turn into the best documentation.
+    explain the output.** Used for Parts 3 & 4 and the Ch2 session. He catches his own anomalies this
+    way (he spotted the 30-second delete himself), and his mistakes turn into the best documentation.
+
+  **Chapter 2 hands-on session (July 27, 3:00–3:30 PM) — Deployments, rollouts, probes.**
+  All in `default` ns on VM 186 with `nginx:1.27-alpine`, `replicas:3`, `maxSurge:1`,
+  `maxUnavailable:0`. Produced 5 revisions across 4 ReplicaSets. **Cleaned up afterwards; Redpanda
+  untouched (Healthy, 33 records).** Findings worth keeping:
+  - **The centrepiece is the readiness-vs-liveness asymmetry, and it demoed perfectly.** Same broken
+    path (`/healthz` → nginx 404) wired two ways. **Readiness broken = fails SAFE:** rollout stalls
+    at 4 pods / 3 Ready, EndpointSlice shows the bad pod `ready=false`, service serves
+    `200 200 200 200 200 200` — the bad build never took a request. **Liveness broken = fails
+    DEADLY:** rollout SUCCEEDS (readiness still passed), all 3 good pods deleted, then every pod
+    hits `CrashLoopBackOff` restarts=4 → `000 000 000 000 000 000`, total outage. One-liner:
+    **"readiness gates the rollout, liveness does not."** This is Fig 2 of Ch2.
+  - **`CrashLoopBackOff` + `Exit Code: 0` = something EXTERNAL killed it, nearly always liveness.**
+    Best single debugging heuristic from the session; nginx caught SIGTERM and exited clean.
+  - **`rollout status --timeout=60s` is CLIENT-side only.** It returned failure while
+    `progressDeadlineSeconds=600` kept the rollout grinding. SRE angle: a red CI job can leave a
+    half-rolled deploy running that everyone assumes never shipped.
+  - **`Available=True` while the deploy was broken** (3 pods serving). Availability ≠ rollout success;
+    monitor `Progressing` too.
+  - **`rollout undo` leaves a landmine.** Measured after a successful rollback: live cluster `/` (good)
+    but **both** the file on disk and `last-applied-configuration` still `/healthz` (broken). Next
+    `apply` re-ships the outage. Andrew got this immediately — it's the strongest GitOps argument
+    we have. Also: **revisions get re-tagged** (history went `1,2,3` → `1,3,4`), so a revision number
+    quoted earlier in an incident may no longer exist.
+  - **Two rollbacks behaved differently and the contrast is the lesson:** after the readiness stall
+    the good pods were *never touched* (RS stayed 3/3, age kept climbing to 8m38s) = zero disruption;
+    after the liveness outage the good pods were already destroyed, so rollback had to create new
+    ones under the same hash = real downtime.
+  - **Andrew's one real misconception, worth re-checking later:** he thought `maxUnavailable` protects
+    Raft quorum. It does not — it is a **capacity** guarantee; the Deployment controller counts Ready
+    pods and knows nothing about consensus. Corrected in Ch2 §9 with the StatefulSet / PDB /
+    cluster-aware-readiness answer, tied back to Ch3's finding that `Healthy: true` can coexist with a
+    broker leading zero partitions.
+  - Also confirmed: `apply` printing `configured` does **not** imply a rollout (only pod-template
+    changes churn pods); scaling creates no new ReplicaSet; labels are per-object (`-l app=web` missed
+    the Deployment until `metadata.labels` was added).
 
   **From the Parts 1 & 2 build (July 25) — still current:**
   - **The lab now has its first VM template: 9000 `tmpl-ubuntu-2404-cloudinit`** (Ubuntu 24.04

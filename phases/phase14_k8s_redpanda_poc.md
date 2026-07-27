@@ -1,6 +1,6 @@
 # Phase 14 — Kubernetes + Redpanda + OpenSearch POC
 
-**Status:** IN PROGRESS — Parts 1, 2, 3 and **4 COMPLETE** (Jul 25–27). **Redpanda is live: 3 brokers, healthy 3/3, topic `market-ticks` (6 partitions, RF 3), quorum and failure drills run and documented.** Education series: Chapter 1 (k3s, 846 lines, 6 diagrams) and Chapter 3 (Redpanda, 1023 lines, 3 diagrams) written; Chapter 3 doubles as a replayable install runbook, with the working Helm values committed at `education/manifests/redpanda-values.yaml`. **Restore point: `qm rollback 186 s03-redpanda-up`** (Jul 27 14:58 — `s02-k3s-up` predates Redpanda and rolling back that far wipes it). **Still outstanding in Part 4: Redpanda Console (ClusterIP-only, needs a port-forward) and Schema Registry.** **Next: consumer groups + rebalancing, then Part 6 (the Python app). Interview ~Aug 1.**
+**Status:** IN PROGRESS — Parts 1, 2, 3 and **4 COMPLETE** (Jul 25–27). **Redpanda is live: 3 brokers, healthy 3/3, topic `market-ticks` (6 partitions, RF 3), quorum and failure drills run and documented.** Education series: Chapters 1 (k3s, 846 lines), 2 (object model / rollouts / probes, 631 lines) and 3 (Redpanda, 1023 lines) written; Chapters 2 and 3 double as replayable runbooks, with tested artefacts committed at `education/manifests/` (`redpanda-values.yaml`, `web-deployment.yaml`). **Restore point: `qm rollback 186 s03-redpanda-up`** (Jul 27 14:58 — `s02-k3s-up` predates Redpanda and rolling back that far wipes it). **Still outstanding in Part 4: Redpanda Console (ClusterIP-only, needs a port-forward) and Schema Registry.** **Next: consumer groups + rebalancing, then Part 6 (the Python app). Interview ~Aug 1.**
 **Created:** July 25, 2026
 **Owner:** Andrew
 **Deadline driver:** Hedge-fund interview, ~1 week out.
@@ -454,8 +454,8 @@ load balancing, §6 storage, §7 grace periods, §9a error messages) and summari
 - **A 30-second `kubectl delete` is correct**, caused by the PID 1 signal rule, and measured here
   at 31 s vs 2 s with a SIGTERM handler.
 
-**Chapter 2 still to be written** from this session — deliberately not written in advance, and the
-raw material is now all captured.
+**Chapter 2 was written from this session plus the 3:00 PM probe session** — deliberately not
+written in advance. See [`education/chapter02_object_model.md`](../education/chapter02_object_model.md).
 
 ### What to actually learn here (don't skip)
 
@@ -762,3 +762,6 @@ Schema evolution / compatibility modes
 | Jul 27, 14:4x | Recovered to 3/3 and reconciled the log: `-o :end` count == Σ high-watermarks == 32 | **Zero data loss.** Degraded-but-acked writes survived; the write that hung never appeared |
 | Jul 27, 14:4x | Re-ran every documented command verbatim to verify the runbook, incl. the single-broker drill | Found initial leader assignment and sticky-partition choice **vary per run** — chapter now says so |
 | Jul 27, 14:5x | **Chapter 3 written** (1023 lines, 3 diagrams, 33 questions) as a replayable runbook; `education/manifests/redpanda-values.yaml` committed and verified against `helm get values` | **Part 4 COMPLETE** except Console + Schema Registry |
+| Jul 27, 14:58 | Snapshot **`s03-redpanda-up`** taken **live** in 1.5 s via guest-agent fs-freeze | No downtime; verified 0 restarts + 33 records readable after |
+| Jul 27, 15:05–15:30 | **Chapter 2 hands-on** (`default` ns, nginx, 5 revisions / 4 ReplicaSets): ownership chain → template hash → maxSurge/maxUnavailable → **broken readiness** (rollout stalls, 4 pods/3 Ready, still `200`s) → **broken liveness** (rollout *succeeds*, then `CrashLoopBackOff`, `000`s) → rollback + revision renumbering + `last-applied-configuration` drift | Redpanda untouched throughout; `default` returned to clean |
+| Jul 27, 15:3x | **Chapter 2 written** (631 lines, 2 diagrams, 27 questions); `education/manifests/web-deployment.yaml` verified end-to-end and carries both failure drills as inline comments | Corrected Andrew's one real misconception: `maxUnavailable` is a **capacity** guarantee, not a quorum one |

@@ -1,6 +1,6 @@
 # Current Phase
 
-**Updated:** July 27, 2026 - 2:55 PM EDT
+**Updated:** July 27, 2026 - 3:40 PM EDT
 
 ---
 
@@ -96,6 +96,12 @@ another lab cluster. New `education/manifests/` folder holds real tested artefac
 `redpanda-values.yaml`. Every command in it was executed and every output quoted is real; where a
 result varies between runs (sticky-partition choice, initial leader assignment) the chapter says so
 explicitly, because Andrew intends to re-run all of it.
+
+**Chapter 2 (object model) written July 27 — 631 lines, 2 diagrams, 27 self-test questions.** Written
+straight out of the 3:00–3:30 PM hands-on session below, so it is also a runbook:
+`manifests/web-deployment.yaml` is the tested Deployment + Service with **both probe failure drills
+documented inline as sed-able comments**, verified end-to-end (`apply` → `rollout status` → `200`s →
+`delete`). Fig 2 is the chapter's payoff — the readiness-vs-liveness asymmetry side by side.
 
 **Diagrams are Graphviz `.dot` sources in `education/diagrams/`, NOT AI-generated** — image
 generators garble technical labels, and these need to be exactly right. Installed `graphviz` on the
@@ -211,12 +217,50 @@ Cluster currently **healthy 3/3**. Values file is committed at
 `kubectl -n redpanda wait --for=delete pod/<name>` before judging. Checking too fast caught a
 `Terminating`-but-still-serving broker and produced a write that "should" have failed.
 
+### ✅ Chapter 2 session — Deployments, rollouts, probes (July 27, 3:00 – 3:30 PM)
+
+Same format: Andrew typed everything, I verified over SSH. `default` ns, `nginx:1.27-alpine`,
+`replicas:3`, `maxSurge:1`, `maxUnavailable:0`. Five revisions across four ReplicaSets.
+**Cleaned up afterwards — `default` empty, Redpanda untouched (Healthy, 33 records).**
+
+- **The headline demo: same broken path (`/healthz` → nginx 404), wired two ways.**
+  - **Readiness broken → fails SAFE.** Rollout stalls at 4 pods / 3 Ready. EndpointSlice shows
+    `10.42.0.82 ready=false` while the other three are `true`. Service returns `200 200 200 200 200 200`
+    — **the bad build never served a single request.**
+  - **Liveness broken → fails DEADLY.** Readiness still passed, so the **rollout SUCCEEDED** and
+    deleted all three good pods; only *then* did liveness start killing. All pods
+    `CrashLoopBackOff restarts=4`, service returns `000 000 000 000 000 000`. **Total outage.**
+  - One-liner to remember: **readiness gates the rollout, liveness does not.**
+- **`CrashLoopBackOff` + `Exit Code: 0` ⇒ something external killed it — almost always liveness.**
+  Best debugging heuristic of the session. nginx caught SIGTERM and exited clean.
+- **`rollout status --timeout=60s` is client-side patience only.** It went red while
+  `progressDeadlineSeconds=600` kept the rollout grinding in the background. A red CI job can leave a
+  half-rolled deploy that everyone assumes never shipped.
+- **`Available=True` while the deploy was broken.** Availability ≠ rollout success. Monitor
+  `Progressing` too.
+- **`rollout undo` leaves a landmine.** After a *successful* rollback: live cluster `/` (good), file on
+  disk `/healthz`, `last-applied-configuration` `/healthz` (both broken). The next `apply` re-ships the
+  outage. Andrew got this instantly — strongest GitOps argument available. Also **revisions get
+  re-tagged**: history went `1,2,3` → `1,3,4`, so a revision number quoted earlier in an incident may
+  not exist any more.
+- **The two rollbacks differed, and that's the lesson.** After the readiness stall the good pods were
+  never touched (RS held 3/3, age climbed to 8m38s) = zero disruption. After the liveness outage they
+  were already destroyed, so rollback created new pods under the same hash = real downtime.
+- **Andrew's one genuine misconception — re-check this later.** He thought `maxUnavailable` protects
+  Raft quorum. It doesn't: it's a **capacity** guarantee, and the Deployment controller counts Ready
+  pods with no concept of consensus. Answered in Ch2 §9 (StatefulSet ordinal updates, PDBs for
+  *voluntary* disruption only, cluster-aware readiness), tied back to Part 4's finding that
+  `Healthy: true` coexisted with a broker leading zero partitions.
+- Minor but confirmed: `apply` printing `configured` does **not** mean a rollout happened (only
+  pod-template changes churn pods); scaling makes no new ReplicaSet; labels are per-object
+  (`-l app=web` missed the Deployment until `metadata.labels` was added).
+
 ### ⏭️ Next
 
 1. **Consumer groups + rebalancing** — the remaining core Redpanda topic, and directly OMS-relevant
    (rebalance is another way to break ordering).
 2. **Part 6 — the Python producer/consumer app.**
-3. **Chapter 2 (object model) still unwritten** — material fully captured here + Chapter 1.
+3. Chapters 1, 2, 3 all written. Next chapter candidates: 4 (Schema Registry) or 6 (the app).
 
 **Timing:** interview ~Aug 1. Redpanda is now the strongest part of the story. Part 5 (OpenSearch)
 remains the one to cut.

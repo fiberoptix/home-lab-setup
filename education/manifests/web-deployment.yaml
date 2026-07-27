@@ -1,0 +1,95 @@
+# Chapter 2 — the reference Deployment used for every rollout and probe demo.
+# Tested on vm-k8-redpanda-1 (k3s v1.36.2), 27 July 2026.
+#
+#   kubectl apply -f web-deployment.yaml
+#   kubectl rollout status deploy web
+#   for i in 1 2 3 4 5 6; do curl -s -o /dev/null -w "%{http_code} " \
+#     http://$(kubectl get svc web -o jsonpath='{.spec.clusterIP}'); done; echo
+#
+# To reproduce the two failure modes, see the comments at the bottom.
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  labels:
+    app: web              # labels the DEPLOYMENT object. Easy to forget; without
+                          # it `kubectl get deploy -l app=web` returns nothing.
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1         # at most 1 extra pod above `replicas`
+      maxUnavailable: 0   # never drop below `replicas` — add before removing
+  selector:
+    matchLabels:
+      app: web            # how the Deployment finds its pods. Immutable after
+                          # creation; k8s silently ANDs pod-template-hash onto
+                          # each ReplicaSet's copy of this selector.
+  template:
+    metadata:
+      labels:
+        app: web          # labels each POD
+    spec:
+      containers:
+        - name: web
+          image: nginx:1.27-alpine
+          ports:
+            - containerPort: 80
+          readinessProbe:
+            httpGet:
+              path: /     # nginx serves its welcome page here -> 200
+              port: 80
+            initialDelaySeconds: 2
+            periodSeconds: 2
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              memory: 64Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: web
+  labels:
+    app: web
+spec:
+  selector:
+    app: web              # note: NOT pod-template-hash, so the Service spans
+                          # both generations during a rollout. Readiness is the
+                          # only thing keeping a bad pod out of the rotation.
+  ports:
+    - port: 80
+      targetPort: 80
+
+# ---------------------------------------------------------------------------
+# FAILURE DRILL A — broken readiness probe (fails SAFE)
+#
+#   sed -i 's|path: /$|path: /healthz|' web-deployment.yaml
+#   kubectl apply -f web-deployment.yaml
+#
+# nginx returns 404 for /healthz and an httpGet probe only accepts 200-399.
+# Expect: 4 pods, 3 Ready, rollout STALLS, service keeps serving 200s.
+# Recover:  kubectl rollout undo deploy web
+#           ...then FIX THE FILE, or the next apply re-ships the break.
+#
+# ---------------------------------------------------------------------------
+# FAILURE DRILL B — broken liveness probe (fails DEADLY)
+#
+# Leave readiness on / and ADD, at the same indent level as readinessProbe:
+#
+#           livenessProbe:
+#             httpGet:
+#               path: /healthz
+#               port: 80
+#             initialDelaySeconds: 3
+#             periodSeconds: 3
+#             failureThreshold: 2
+#
+# Expect: the rollout SUCCEEDS, all good pods are deleted, then every pod
+# enters CrashLoopBackOff with Exit Code 0. Total outage (curl returns 000).
+# Recover:  kubectl rollout undo deploy web
+# ---------------------------------------------------------------------------

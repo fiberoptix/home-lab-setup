@@ -14,7 +14,7 @@ chapters explain *what it means and why*.
 | # | Chapter | Covers | Status |
 |---|---|---|---|
 | 1 | [Kubernetes and the k3s cluster](chapter01_kubernetes_k3s.md) | What Kubernetes is for, what the k3s install produced, the three networks, storage | ✅ Written Jul 27, 2026 |
-| 2 | The object model | Pods, Deployments, ReplicaSets, Services — built by hand | 🔲 Next |
+| 2 | [The object model](chapter02_object_model.md) | Deployments, ReplicaSets, the template hash, rolling updates, and the two probes — including the one that causes outages | ✅ Written Jul 27, 2026 |
 | 3 | [Redpanda](chapter03_redpanda.md) | Brokers, topics, partitions, Raft quorum, StatefulSets — plus a full install runbook and failure drills | ✅ Written Jul 27, 2026 |
 | 4 | Schema Registry | Avro, schema evolution, compatibility modes | 🔲 Planned |
 | 5 | OpenSearch and Fluent Bit | Log shipping with DaemonSets, OpenSearch as a data store | 🔲 Planned |
@@ -33,9 +33,13 @@ education/
 └── manifests/          working config referenced by the chapters
 ```
 
-`manifests/` holds real, tested artefacts rather than snippets — currently
-[`redpanda-values.yaml`](manifests/redpanda-values.yaml), which reproduces the deployed Helm release
-exactly (verified with `helm get values`). They are meant to be re-used on another cluster.
+`manifests/` holds real, tested artefacts rather than snippets. They are meant to be re-used on
+another cluster:
+
+| File | What it is |
+|---|---|
+| [`redpanda-values.yaml`](manifests/redpanda-values.yaml) | Reproduces the deployed Helm release exactly (verified with `helm get values`), including the single-node anti-affinity override |
+| [`web-deployment.yaml`](manifests/web-deployment.yaml) | Chapter 2's reference Deployment + Service, with both probe failure drills documented inline. Verified `apply` → `rollout status` → `200`s → `delete` |
 
 ---
 
