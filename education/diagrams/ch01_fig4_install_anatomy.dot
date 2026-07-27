@@ -1,0 +1,50 @@
+// Chapter 1, Figure 4 — What the one-line installer actually left on the machine
+// Render: dot -Tpng -Gdpi=150 ch01_fig4_install_anatomy.dot -o ../images/ch01_fig4_install_anatomy.png
+// NOTE: keep each cell's content on ONE source line — Graphviz turns newlines in
+// HTML-like labels into literal leading spaces.
+digraph install_anatomy {
+  rankdir=TB;
+  bgcolor="white";
+  fontname="DejaVu Sans";
+  node [fontname="DejaVu Sans", shape=plaintext];
+  edge [fontname="DejaVu Sans", fontsize=10];
+
+  cmd [label=<
+    <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="10">
+      <TR><TD BGCOLOR="#2d2d2d" ALIGN="LEFT" BALIGN="LEFT"><FONT COLOR="#7fdbca" FACE="monospace" POINT-SIZE="12">curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="--write-kubeconfig-mode 644" sh -</FONT></TD></TR>
+    </TABLE>
+  >];
+
+  disk [label=<
+    <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="8">
+      <TR><TD COLSPAN="2" BGCOLOR="#1f4e79" ALIGN="LEFT" BALIGN="LEFT"><FONT COLOR="white" POINT-SIZE="13"><B>WHAT THAT ONE LINE PUT ON THE MACHINE</B></FONT><BR ALIGN="LEFT"/><FONT COLOR="#cfe2f3" POINT-SIZE="10">verified on VM 186, July 27 2026</FONT><BR ALIGN="LEFT"/></TD></TR>
+
+      <TR>
+        <TD BGCOLOR="#deebf7" ALIGN="LEFT" BALIGN="LEFT" WIDTH="230"><B>/usr/local/bin/</B><BR ALIGN="LEFT"/><FONT POINT-SIZE="9">the programs</FONT><BR ALIGN="LEFT"/></TD>
+        <TD BGCOLOR="#f7fbff" ALIGN="LEFT" BALIGN="LEFT" WIDTH="520"><FONT FACE="monospace" POINT-SIZE="10"><B>k3s</B></FONT><FONT POINT-SIZE="9">  — 81 MB. The entire control plane, kubelet and containerd.</FONT><BR ALIGN="LEFT"/><FONT FACE="monospace" POINT-SIZE="10"><B>kubectl</B> -&gt; k3s</FONT><FONT POINT-SIZE="9">   a SYMLINK. Same binary, different behaviour by name.</FONT><BR ALIGN="LEFT"/><FONT FACE="monospace" POINT-SIZE="10"><B>crictl</B> -&gt; k3s</FONT><FONT POINT-SIZE="9">    also a symlink — low-level container debugging.</FONT><BR ALIGN="LEFT"/><FONT FACE="monospace" POINT-SIZE="10"><B>k3s-killall.sh</B></FONT><FONT POINT-SIZE="9">   stops everything, including orphaned containers.</FONT><BR ALIGN="LEFT"/><FONT FACE="monospace" POINT-SIZE="10"><B>k3s-uninstall.sh</B></FONT><FONT POINT-SIZE="9"> removes the cluster completely. Your undo button.</FONT><BR ALIGN="LEFT"/></TD>
+      </TR>
+
+      <TR>
+        <TD BGCOLOR="#deebf7" ALIGN="LEFT" BALIGN="LEFT"><B>/etc/systemd/system/</B><BR ALIGN="LEFT"/><FONT POINT-SIZE="9">how it starts</FONT><BR ALIGN="LEFT"/></TD>
+        <TD BGCOLOR="#f7fbff" ALIGN="LEFT" BALIGN="LEFT"><FONT FACE="monospace" POINT-SIZE="10"><B>k3s.service</B></FONT><FONT POINT-SIZE="9">  — enabled, so it survives reboot.</FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="9">Its ExecStart line is where your flag ended up:</FONT><BR ALIGN="LEFT"/><FONT FACE="monospace" POINT-SIZE="9">ExecStart=/usr/local/bin/k3s server '--write-kubeconfig-mode' '644'</FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="9">It also modprobes br_netfilter and overlay first — kernel modules</FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="9">that pod networking and container filesystems depend on.</FONT><BR ALIGN="LEFT"/></TD>
+      </TR>
+
+      <TR>
+        <TD BGCOLOR="#fff2cc" ALIGN="LEFT" BALIGN="LEFT"><B>/etc/rancher/k3s/</B><BR ALIGN="LEFT"/><FONT POINT-SIZE="9">the credentials</FONT><BR ALIGN="LEFT"/></TD>
+        <TD BGCOLOR="#fffdf5" ALIGN="LEFT" BALIGN="LEFT"><FONT FACE="monospace" POINT-SIZE="10"><B>k3s.yaml</B></FONT><FONT POINT-SIZE="9">  — the kubeconfig. Mode <B>644</B> because of your flag.</FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="9">Default would have been 600 (root only).</FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="9"><B>Contains an admin client certificate.</B> Whoever can read this file</FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="9">has full control of the cluster — which is why 644 is a sandbox</FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="9">convenience, not something to repeat in production.</FONT><BR ALIGN="LEFT"/></TD>
+      </TR>
+
+      <TR>
+        <TD BGCOLOR="#e2efda" ALIGN="LEFT" BALIGN="LEFT"><B>/var/lib/rancher/k3s/</B><BR ALIGN="LEFT"/><FONT POINT-SIZE="9">the state — 1.4 GB</FONT><BR ALIGN="LEFT"/></TD>
+        <TD BGCOLOR="#f6faf3" ALIGN="LEFT" BALIGN="LEFT"><FONT FACE="monospace" POINT-SIZE="10"><B>server/db/state.db</B></FONT><FONT POINT-SIZE="9">  — the SQLite datastore. THE cluster.</FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="9">Every object you create lives in this one file.</FONT><BR ALIGN="LEFT"/><FONT FACE="monospace" POINT-SIZE="10"><B>agent/</B></FONT><FONT POINT-SIZE="9">  — containerd's data: pulled images, running containers.</FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="9">Back up state.db and you have backed up the cluster's configuration.</FONT><BR ALIGN="LEFT"/></TD>
+      </TR>
+
+      <TR>
+        <TD BGCOLOR="#f8cbad" ALIGN="LEFT" BALIGN="LEFT"><B>~/.kube/config</B><BR ALIGN="LEFT"/><FONT POINT-SIZE="9">added by us, not the installer</FONT><BR ALIGN="LEFT"/></TD>
+        <TD BGCOLOR="#fdf3ee" ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="9">Our copy of k3s.yaml, owned by agamache, mode 600.</FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="9">kubectl reads this path automatically, so no environment variable needed.</FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="9"><B>It points at https://127.0.0.1:6443</B> — so it only works ON the VM.</FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="9">To run kubectl from the Z8, copy it and change that to 192.168.1.186.</FONT><BR ALIGN="LEFT"/></TD>
+      </TR>
+    </TABLE>
+  >];
+
+  cmd -> disk [color="#1f4e79", penwidth=2];
+}

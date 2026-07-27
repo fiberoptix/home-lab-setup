@@ -1,6 +1,6 @@
 # Current Phase
 
-**Updated:** July 25, 2026 - 11:45 AM EDT
+**Updated:** July 27, 2026 - 10:45 AM EDT
 
 ---
 
@@ -35,10 +35,50 @@ with a deadline (hedge-fund interview), not a production service.
 - **Snapshot `s01-base-clean` taken.** Note: PVE snapshot names **must start with a letter** —
   `01-base-clean` is rejected, hence the `s` prefix.
 
-### ⏭️ Next: Part 3 — k3s install (guided/paired session, not unattended)
+### ✅ Part 3 — k3s INSTALLED (July 27, 8:33 AM) — snapshot `s02-k3s-up`
 
-Deliberately left for a walk-through so Andrew learns each step. Roll back to `s01-base-clean`
-freely (`qm rollback 186 s01-base-clean`). Nothing else is pending on the box.
+- **k3s v1.36.2+k3s1** (Kubernetes 1.36) on VM 186. Node `Ready` as `control-plane`, containerd
+  2.3.2, ~512 MB RSS. Install took ~15 seconds. **Verified it survives a reboot.**
+- Add-ons k3s brought: coredns, local-path-provisioner, metrics-server, traefik, svclb-traefik
+  (DaemonSet), plus 2 `helm-install-traefik` Jobs at `Completed` (that's success, not failure).
+- kubeconfig copied to `~/.kube/config` (mode 600). Used `$(id -u):$(id -g)` for chown, **not
+  `$USER`** — `$USER` leaves the group as root and is unset in non-interactive SSH.
+- Added to `~/.bashrc`: kubectl completion, `alias k=kubectl`, `KUBE_EDITOR=nano`.
+- ⚠️ kubeconfig points at `127.0.0.1:6443` → only works ON VM 186. For the Z8, copy it and change
+  the server to `https://192.168.1.186:6443`.
+- ⚠️ `kubectl wait --for=condition=Ready pods --all -n kube-system` **times out on a healthy
+  cluster** — Job pods complete instead of becoming Ready.
+
+**Things proven live (kept as teaching material, all cleaned up afterwards):**
+- Deleted coredns → replaced in 6 s. Ownership chain is Pod → ReplicaSet → Deployment, so the
+  **controller-manager inside the k3s binary heals the add-on pods**.
+- `local-path` PVs carry a **hard node affinity** to `vm-k8-redpanda-1`, and `WaitForFirstConsumer`
+  means no volume exists until a pod is scheduled. So on node loss a pod isn't rescheduled
+  elsewhere — it sits `Pending` forever.
+- **Container restart ≠ pod replacement.** Container crash: same pod name/UID/IP, `RESTARTS` climbs.
+  Pod deleted: new name, new UID, new IP, restarts back to 0. Different debugging entirely.
+
+### 📘 NEW: `education/` series started (July 27)
+
+Andrew's idea — printable study chapters with illustrations, for interview prep. Chapter 1
+(Kubernetes + k3s) is written: ~4,700 words, 5 Graphviz diagrams, glossary, 22 self-test questions.
+Includes his own **"ranch model"** analogy (ranch=cluster, field=node, herd=pod, cow=container,
+brand=label, barn name=Service) plus a "where the analogy breaks down" section.
+
+**Diagrams are Graphviz `.dot` sources in `education/diagrams/`, NOT AI-generated** — image
+generators garble technical labels, and these need to be exactly right. Installed `graphviz` on the
+Z8 for this. Editing gotcha: newlines inside HTML-style labels render as literal leading spaces,
+so keep each table cell's content on one source line.
+
+### ⏭️ Next: finish Part 3 as a guided hands-on session
+
+Deployment by hand → scale → delete a pod and watch it heal → Service + label selector → PVC →
+create `redpanda` / `market` / `logging` namespaces. **Chapter 2 gets written from that session**
+(deliberately not written in advance — it should be something Andrew did, not read).
+Roll back freely: `qm rollback 186 s02-k3s-up`.
+
+**Timing:** interview is ~Aug 1. Parts 4 (Redpanda), 6 (the Python app) and 7 (failure drills)
+matter most; Part 5 (OpenSearch) is the one to cut if time runs short.
 
 ---
 

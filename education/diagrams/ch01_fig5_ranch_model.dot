@@ -1,0 +1,74 @@
+// Chapter 1, Figure 5 — The ranch model (mental model for Kubernetes)
+// Render: dot -Tpng -Gdpi=150 ch01_fig5_ranch_model.dot -o ../images/ch01_fig5_ranch_model.png
+// NOTE: keep each cell's content on ONE source line — Graphviz turns newlines in
+// HTML-like labels into literal leading spaces.
+digraph ranch {
+  rankdir=TB;
+  bgcolor="white";
+  fontname="DejaVu Sans";
+  node [fontname="DejaVu Sans", shape=plaintext];
+
+  model [label=<
+    <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="9">
+      <TR><TD COLSPAN="3" BGCOLOR="#7f6000" ALIGN="LEFT" BALIGN="LEFT"><FONT COLOR="white" POINT-SIZE="14"><B>THE RANCH MODEL</B></FONT><BR ALIGN="LEFT"/><FONT COLOR="#ffe699" POINT-SIZE="10">A mental model to hang the vocabulary on. Every analogy leaks — see "where it breaks down".</FONT><BR ALIGN="LEFT"/></TD></TR>
+
+      <TR>
+        <TD BGCOLOR="#7f6000" ALIGN="LEFT" WIDTH="170"><FONT COLOR="white" POINT-SIZE="11"><B>ON THE RANCH</B></FONT></TD>
+        <TD BGCOLOR="#1f4e79" ALIGN="LEFT" WIDTH="170"><FONT COLOR="white" POINT-SIZE="11"><B>IN KUBERNETES</B></FONT></TD>
+        <TD BGCOLOR="#404040" ALIGN="LEFT" WIDTH="450"><FONT COLOR="white" POINT-SIZE="11"><B>WHAT THE MAPPING CAPTURES</B></FONT></TD>
+      </TR>
+
+      <TR>
+        <TD BGCOLOR="#fff2cc" ALIGN="LEFT" BALIGN="LEFT"><B>The ranch</B></TD>
+        <TD BGCOLOR="#deebf7" ALIGN="LEFT" BALIGN="LEFT"><B>Cluster</B></TD>
+        <TD BGCOLOR="#ffffff" ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="10">One property, one management. Everything Kubernetes runs lives here.</FONT><BR ALIGN="LEFT"/></TD>
+      </TR>
+
+      <TR>
+        <TD BGCOLOR="#fff2cc" ALIGN="LEFT" BALIGN="LEFT"><B>A field</B></TD>
+        <TD BGCOLOR="#deebf7" ALIGN="LEFT" BALIGN="LEFT"><B>Node</B></TD>
+        <TD BGCOLOR="#ffffff" ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="10">Finite grass = CPU, memory, disk. Many herds can graze one field, but only</FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="10">as many as it can feed. No grass left, and new herds wait at the gate: <B>Pending</B>.</FONT><BR ALIGN="LEFT"/></TD>
+      </TR>
+
+      <TR>
+        <TD BGCOLOR="#fff2cc" ALIGN="LEFT" BALIGN="LEFT"><B>A herd</B></TD>
+        <TD BGCOLOR="#deebf7" ALIGN="LEFT" BALIGN="LEFT"><B>Pod</B></TD>
+        <TD BGCOLOR="#ffffff" ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="10">Same water trough (one IP), same shelter (volumes), <B>same fate</B> — they are</FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="10">placed and destroyed together. Most herds are a single cow.</FONT><BR ALIGN="LEFT"/></TD>
+      </TR>
+
+      <TR>
+        <TD BGCOLOR="#fff2cc" ALIGN="LEFT" BALIGN="LEFT"><B>A cow</B></TD>
+        <TD BGCOLOR="#deebf7" ALIGN="LEFT" BALIGN="LEFT"><B>Container</B></TD>
+        <TD BGCOLOR="#ffffff" ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="10">One running process doing one job — the app, a sidecar, a helper.</FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="10">You never turn out a single cow on its own; you place the whole herd.</FONT><BR ALIGN="LEFT"/></TD>
+      </TR>
+
+      <TR>
+        <TD BGCOLOR="#fff2cc" ALIGN="LEFT" BALIGN="LEFT"><B>The herd plan</B></TD>
+        <TD BGCOLOR="#deebf7" ALIGN="LEFT" BALIGN="LEFT"><B>Deployment</B></TD>
+        <TD BGCOLOR="#ffffff" ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="10">You never say "start that cow." You say <B>"I want three herds of this breed."</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="10">Keeping that true is someone else's job, forever.</FONT><BR ALIGN="LEFT"/></TD>
+      </TR>
+
+      <TR>
+        <TD BGCOLOR="#f8cbad" ALIGN="LEFT" BALIGN="LEFT"><B>The brand</B></TD>
+        <TD BGCOLOR="#deebf7" ALIGN="LEFT" BALIGN="LEFT"><B>Label</B></TD>
+        <TD BGCOLOR="#ffffff" ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="10">A mark burned on every animal in a herd. Nothing keeps a <B>list</B> of herds —</FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="10">everything works by saying "whichever herds carry this brand, right now."</FONT><BR ALIGN="LEFT"/></TD>
+      </TR>
+
+      <TR>
+        <TD BGCOLOR="#fff2cc" ALIGN="LEFT" BALIGN="LEFT"><B>The barn name</B></TD>
+        <TD BGCOLOR="#deebf7" ALIGN="LEFT" BALIGN="LEFT"><B>Service</B></TD>
+        <TD BGCOLOR="#ffffff" ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="10">Herds get replaced and new ones get new ear tags (pod IPs). Callers never</FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="10">chase a cow — they ask for the barn by name, and are sent to a healthy herd.</FONT><BR ALIGN="LEFT"/></TD>
+      </TR>
+
+      <TR>
+        <TD BGCOLOR="#fff2cc" ALIGN="LEFT" BALIGN="LEFT"><B>The ranch manager</B></TD>
+        <TD BGCOLOR="#deebf7" ALIGN="LEFT" BALIGN="LEFT"><B>Control plane</B></TD>
+        <TD BGCOLOR="#ffffff" ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="10">Walks the property forever: count the herds, compare to the plan, replace what's</FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="10">missing, put new herds on fields that still have grass. <B>Never stops walking.</B></FONT><BR ALIGN="LEFT"/></TD>
+      </TR>
+
+      <TR><TD COLSPAN="3" BGCOLOR="#e2efda" ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="11"><B>Cows share a herd. Herds graze on fields. The ranch manager keeps the herd plan true and the barn name stable.</B></FONT><BR ALIGN="LEFT"/></TD></TR>
+
+      <TR><TD COLSPAN="3" BGCOLOR="#fbe5d6" ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="11"><B>TWO KINDS OF DEATH — never confuse these, they are debugged completely differently</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="10"><B>A cow dies</B> (container crashes) → a new cow is born <B>into the same herd</B>. Same ear tag, same trough, same field.</FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="10">    Kubernetes: same pod name, same UID, same IP — only <B>RESTARTS</B> climbs. Your app is crashing; the pod is fine.</FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="10"><B>The herd dies</B> (pod deleted, evicted, or its field is lost) → an <B>entirely new herd</B> is born, with a new ear tag.</FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="10">    Kubernetes: new pod name, new UID, new IP, RESTARTS back to 0. Nothing is carried over. Nothing teleports.</FONT><BR ALIGN="LEFT"/></TD></TR>
+    </TABLE>
+  >];
+}

@@ -29,14 +29,37 @@ Practical rules:
 ## CURRENT STATE
 
 - **🔵 ACTIVE — Phase 14: Kubernetes + Redpanda POC (interview prep).** Plan + learning material
-  in `phases/phase14_k8s_redpanda_poc.md`. **Parts 1 & 2 done July 25; Part 3 (k3s) is next and
-  is deliberately a guided session, not unattended.** Highlights worth remembering:
+  in `phases/phase14_k8s_redpanda_poc.md`. **Parts 1 & 2 done July 25; k3s installed July 27
+  (snapshot `s02-k3s-up`); the hands-on object-model exercises are still outstanding.**
+  - **k3s v1.36.2+k3s1 on VM 186.** Installed with
+    `curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="--write-kubeconfig-mode 644" sh -`.
+    Node `Ready`, containerd 2.3.2 (NOT Docker), ~512 MB RSS, survives reboot. `kubectl` and
+    `crictl` in `/usr/local/bin` are **symlinks to the k3s binary**. `k3s-uninstall.sh` removes
+    everything.
+  - **kubeconfig:** `/etc/rancher/k3s/k3s.yaml` (mode 644) copied to `~/.kube/config` (mode 600).
+    ⚠️ It points at **`127.0.0.1:6443`, so it only works ON VM 186** — for the Z8, copy it and
+    change the server to `https://192.168.1.186:6443`.
+  - ⚠️ **`chown $(id -u):$(id -g)`, never `chown $USER`** — `$USER` leaves the group as root and is
+    unset in non-interactive SSH commands.
+  - ⚠️ **`kubectl wait --for=condition=Ready pods --all` times out on a HEALTHY cluster.** Job pods
+    (`helm-install-traefik`) reach `Completed`, never `Ready`. `Completed` is success.
+  - k3s re-applies its add-ons from `/var/lib/rancher/k3s/server/manifests/`, so deleting a whole
+    add-on Deployment gets it rebuilt from there.
+  - **`local-path` PVs carry a hard nodeAffinity** to the node + `WaitForFirstConsumer` binding.
+    Consequence: on node loss a pod is NOT rescheduled elsewhere, it sits `Pending` forever.
+  - **`education/` series started** — printable study chapters with diagrams (Andrew's idea, for the
+    interview). Chapter 1 = Kubernetes/k3s. **Diagrams are Graphviz `.dot` sources in
+    `education/diagrams/`, deliberately NOT AI-generated** (image models garble technical labels).
+    `graphviz` installed on the Z8 for this. Gotcha: newlines inside Graphviz HTML-style labels
+    render as literal leading spaces — keep each table cell on one source line.
+
+  **From the Parts 1 & 2 build (July 25) — still current:**
   - **The lab now has its first VM template: 9000 `tmpl-ubuntu-2404-cloudinit`** (Ubuntu 24.04
     cloud image + baked-in `qemu-guest-agent`, cloud-init drive, `--ciupgrade 0`). Clone → fully
     booted VM in **~30 seconds**. This replaces hand-building from an ISO; see the
     "CLOUD-INIT TEMPLATE" section below for the exact recipe.
   - **VM 186 `vm-k8-redpanda-1` @ .186** built from it: 16 vCPU / 32 GB / 300 GB on vm-ephemeral,
-    `host_setup.sh` applied, snapshot **`s01-base-clean`**. Idle, nothing installed on it yet.
+    `host_setup.sh` applied. Snapshots: **`s01-base-clean`** (pre-k3s) and **`s02-k3s-up`**.
   - **⚠️ Never use `/root/.ssh/authorized_keys` on the Proxmox host as a cloud-init key source** —
     it's a symlink to `/etc/pve/priv/authorized_keys` and holds only the PVE cluster RSA key, not
     Andrew's workstation key. Use **`/root/cloudinit-keys-all.pub`** (both keys) instead.

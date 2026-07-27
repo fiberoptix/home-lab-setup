@@ -1,6 +1,6 @@
 # Phase 14 — Kubernetes + Redpanda + OpenSearch POC
 
-**Status:** IN PROGRESS — Parts 1 & 2 COMPLETE (Jul 25). VM 186 built and idle at `s01-base-clean`, awaiting the guided Part 3 (k3s) session.
+**Status:** IN PROGRESS — Parts 1 & 2 COMPLETE (Jul 25). **Part 3 k3s INSTALLED (Jul 27)**, snapshot `s02-k3s-up` taken; the hands-on object-model exercises are still outstanding. Chapter 1 of the education series is written.
 **Created:** July 25, 2026
 **Owner:** Andrew
 **Deadline driver:** Hedge-fund interview, ~1 week out.
@@ -371,12 +371,49 @@ local-path storage provisioner, and it defaults to SQLite instead of etcd for th
 For learning in a week, that's ideal: you skip a day of cluster bootstrapping and spend it on
 the concepts. **Be ready to name the differences** — see the crib sheet.
 
+### Steps — AS BUILT (July 27, install took ~15 seconds)
+
 ```bash
 curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="--write-kubeconfig-mode 644" sh -
-mkdir -p ~/.kube && sudo cp /etc/rancher/k3s/k3s.yaml ~/.kube/config && sudo chown $USER ~/.kube/config
+
+# NOTE: use $(id -u):$(id -g), not $USER. $USER sets the owner but leaves the group as
+# root, and is unset in non-interactive SSH commands.
+mkdir -p ~/.kube
+sudo cp /etc/rancher/k3s/k3s.yaml ~/.kube/config
+sudo chown $(id -u):$(id -g) ~/.kube/config
+chmod 600 ~/.kube/config
+
 kubectl get nodes -o wide
 kubectl get pods -A          # see what k3s pre-installed, and ask why each exists
 ```
+
+**Result:** k3s **v1.36.2+k3s1** (Kubernetes 1.36), containerd 2.3.2, node `Ready` as
+`control-plane`, ~512 MB RSS. Add-ons that came with it: coredns, local-path-provisioner,
+metrics-server, traefik, svclb-traefik (DaemonSet), plus two `helm-install-traefik` Jobs showing
+`Completed` (success, not failure).
+
+Also added to `~/.bashrc` on VM 186: `kubectl` bash completion, `alias k=kubectl`, `KUBE_EDITOR=nano`.
+
+**Verified after a reboot:** `k3s.service` is enabled, node returns `Ready`, all add-ons come back.
+
+**Gotchas worth remembering:**
+- The kubeconfig points at `https://127.0.0.1:6443`, so it only works **on VM 186**. To run
+  `kubectl` from the Z8, copy it and change that to `https://192.168.1.186:6443`.
+- `kubectl wait --for=condition=Ready pods --all -n kube-system` **reports a timeout even on a
+  healthy cluster** — Job pods complete rather than becoming Ready. The command is wrong, not the cluster.
+- `--write-kubeconfig-mode 644` makes `/etc/rancher/k3s/k3s.yaml` world-readable. That file holds an
+  admin client cert, so this is a sandbox convenience only.
+- k3s deploys its add-ons from YAML in `/var/lib/rancher/k3s/server/manifests/` and re-applies them,
+  so deleting a whole add-on Deployment gets it rebuilt from there.
+
+**→ Snapshot `s02-k3s-up` taken July 27.**
+
+### Still outstanding in Part 3 (the hands-on session)
+
+Deliberately not done unattended — these are the exercises that make the object model stick:
+Deployment by hand → scale → delete a pod and watch the ReplicaSet heal it → Service with a label
+selector → inspect a PVC → create the `redpanda` / `market` / `logging` namespaces.
+Chapter 2 of the education series gets written from that session.
 
 ### What to actually learn here (don't skip)
 
@@ -633,3 +670,9 @@ Schema evolution / compatibility modes
 | Jul 25, 16:56 | Caught `virt-customize` re-populating `/etc/machine-id` on the template — would have given every future clone the same identity. Re-truncated to 0 bytes | Fixed before any clone was taken |
 | Jul 25, 16:57 | Validated by cloning throwaway VM 999: password SSH ✅, key SSH ✅, unique machine-id ✅, guest agent active ✅. Destroyed it + the ZFS safety snapshot | Template proven |
 | Jul 25, 16:58 | Retook `s01-base-clean` so a rollback keeps password login | Done |
+| Jul 27, 08:33 | **Part 3:** installed k3s v1.36.2, set up kubeconfig, added kubectl completion/alias | Node `Ready` in ~15 s |
+| Jul 27, 08:49 | Started the **education series** (`education/`): Chapter 1 on Kubernetes/k3s | 5 diagrams, ~4,700 words |
+| Jul 27, 09:35 | Proved self-healing live: deleted coredns → replaced in 6 s. Traced ownership Pod → ReplicaSet → Deployment | Controller-manager (Part A) heals the add-on pods (Part B) |
+| Jul 27, 09:50 | Demonstrated `local-path` PV **node affinity** and `WaitForFirstConsumer` with a throwaway PVC | PV pinned to `vm-k8-redpanda-1`; volume not created until a pod was scheduled |
+| Jul 27, 10:01 | Demonstrated container-restart vs pod-replacement (same UID/IP + RESTARTS climbing, vs all-new pod) | Captured as Chapter 2's centrepiece |
+| Jul 27, 10:42 | Snapshot `s02-k3s-up`; verified k3s survives a reboot | **Part 3 install done; hands-on exercises still outstanding** |

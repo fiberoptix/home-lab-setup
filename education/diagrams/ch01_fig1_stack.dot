@@ -1,0 +1,64 @@
+// Chapter 1, Figure 1 — Where k3s sits in the home lab
+// Render: dot -Tpng -Gdpi=150 ch01_fig1_stack.dot -o ../images/ch01_fig1_stack.png
+digraph stack {
+  rankdir=TB;
+  bgcolor="white";
+  fontname="DejaVu Sans";
+  node [fontname="DejaVu Sans", fontsize=11];
+  edge [fontname="DejaVu Sans", fontsize=10];
+
+  subgraph cluster_pve {
+    label=<<B>PHYSICAL HOST</B>  —  HP Z8 G4 "fable"  ·  2× Xeon Platinum 8168 (48c/96t)  ·  128 GB RAM  ·  Proxmox VE 9.2.4>;
+    labeljust="l";
+    fontsize=12;
+    style="filled,rounded";
+    fillcolor="#f0f0f0";
+    color="#999999";
+    margin=16;
+
+    node [shape=box, style="filled,rounded", fillcolor="#ffffff", color="#bbbbbb", height=0.7];
+
+    vm181 [label="VM 181\nGitLab\n.181"];
+    vm182 [label="VM 182\nRunner\n.182"];
+    vm183 [label="VM 183\nSonarQube\n.183"];
+    vm184 [label="VM 184\nWWW\n.184"];
+    vm186 [label="VM 186\nvm-k8-redpanda-1\n.186", fillcolor="#1f4e79", fontcolor="white", color="#1f4e79", penwidth=2];
+    vm200 [label="VM 200\nQA/k8s\n.180"];
+
+    {rank=same; vm181; vm182; vm183; vm184; vm186; vm200;}
+    vm181 -> vm182 -> vm183 -> vm184 -> vm186 -> vm200 [style=invis];
+  }
+
+  layers [shape=plaintext, label=<
+    <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="9">
+      <TR><TD COLSPAN="2" BGCOLOR="#1f4e79"><FONT COLOR="white" POINT-SIZE="12"><B>INSIDE VM 186 — the layers, top is what you deploy</B></FONT></TD></TR>
+
+      <TR>
+        <TD BGCOLOR="#c6e0b4" ALIGN="LEFT"><B>Your workloads (Pods)</B></TD>
+        <TD BGCOLOR="#e2efda" ALIGN="LEFT">Redpanda brokers · OpenSearch · your Python producer/consumer<BR ALIGN="LEFT"/><FONT POINT-SIZE="9">Nothing here yet — this is what Parts 4–6 will add</FONT></TD>
+      </TR>
+
+      <TR>
+        <TD BGCOLOR="#bdd7ee" ALIGN="LEFT"><B>k3s v1.36.2</B></TD>
+        <TD BGCOLOR="#deebf7" ALIGN="LEFT">Kubernetes itself — API server, scheduler, controllers, kubelet<BR ALIGN="LEFT"/><FONT POINT-SIZE="9">ONE binary, one systemd service, ~512 MB RAM</FONT></TD>
+      </TR>
+
+      <TR>
+        <TD BGCOLOR="#bdd7ee" ALIGN="LEFT"><B>containerd 2.3.2</B></TD>
+        <TD BGCOLOR="#deebf7" ALIGN="LEFT">The container runtime that actually starts containers<BR ALIGN="LEFT"/><FONT POINT-SIZE="9">NOT Docker — Kubernetes dropped the Docker shim in v1.24</FONT></TD>
+      </TR>
+
+      <TR>
+        <TD BGCOLOR="#ffe699" ALIGN="LEFT"><B>Ubuntu 24.04 LTS</B></TD>
+        <TD BGCOLOR="#fff2cc" ALIGN="LEFT">Guest OS · kernel 6.8 · swap OFF (Kubernetes requires it)<BR ALIGN="LEFT"/><FONT POINT-SIZE="9">Docker also installed here, but only for BUILDING images</FONT></TD>
+      </TR>
+
+      <TR>
+        <TD BGCOLOR="#f8cbad" ALIGN="LEFT"><B>Virtual hardware</B></TD>
+        <TD BGCOLOR="#fbe5d6" ALIGN="LEFT">16 vCPU · 32 GB RAM · 300 GB disk on ZFS pool vm-ephemeral<BR ALIGN="LEFT"/><FONT POINT-SIZE="9">Cloned from template 9000 in ~30 seconds</FONT></TD>
+      </TR>
+    </TABLE>
+  >];
+
+  vm186 -> layers [lhead="", label="  zoom in", color="#1f4e79", penwidth=2, fontcolor="#1f4e79"];
+}
