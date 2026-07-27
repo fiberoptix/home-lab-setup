@@ -522,8 +522,16 @@ default is safe while renaming one is not.
   `kubectl -n redpanda port-forward svc/redpanda-console 8080:8080`.
 - 🔲 Schema Registry (built in on `:8081`) untouched — still the Part 4 remainder.
 
-**⚠️ Snapshot `s03-redpanda-up` NOT yet taken.** Do this before the next risky step; `s02-k3s-up`
-predates Redpanda and rolling back to it would destroy the cluster.
+**✅ Snapshot `s03-redpanda-up` taken Jul 27 14:58** — this is now the restore point (`s02-k3s-up`
+predates Redpanda). Taken **live**, no shutdown: the guest agent fs-froze the filesystem, the ZFS
+snapshot took **1.5 seconds**, and the cluster came through with 0 pod restarts and all 33 records
+readable. Worth knowing as a general technique — `agent: enabled=1` is what makes a hot snapshot
+filesystem-consistent rather than merely crash-consistent.
+
+```bash
+qm snapshot 186 s03-redpanda-up --description "..."   # freeze → snapshot → thaw
+qm rollback 186 s03-redpanda-up                        # back to a healthy 3-broker cluster
+```
 
 ---
 

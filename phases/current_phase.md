@@ -219,8 +219,11 @@ Cluster currently **healthy 3/3**. Values file is committed at
 3. **Chapter 2 (object model) still unwritten** — material fully captured here + Chapter 1.
 
 **Timing:** interview ~Aug 1. Redpanda is now the strongest part of the story. Part 5 (OpenSearch)
-remains the one to cut. Roll back point is still `qm rollback 186 s02-k3s-up` — but that predates
-Redpanda entirely, so **take a new snapshot before any risky work.**
+remains the one to cut.
+
+**Restore point: `qm rollback 186 s03-redpanda-up`** (taken Jul 27 14:58, healthy 3-broker cluster).
+`s02-k3s-up` predates Redpanda — rolling back that far wipes it. Snapshot was taken **live** in 1.5 s
+via guest-agent fs-freeze, no VM downtime, verified 0 restarts + 33 records readable after.
 
 ---
 

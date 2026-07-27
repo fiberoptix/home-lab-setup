@@ -35,8 +35,10 @@ Practical rules:
   reflexes make an incident worse) over application design, and tie every concept back to a
   consequence for **order/trade processing** (e.g. unkeyed producers → a cancel processed before
   its order; a degraded cluster → don't rolling-restart it). Interview ~Aug 1.
-  **Parts 1, 2, 3 and 4 all COMPLETE (July 25–27).** ⚠️ Snapshot `s02-k3s-up` predates Redpanda —
-  rolling back to it now destroys the whole cluster. **Take a new snapshot before risky work.**
+  **Parts 1, 2, 3 and 4 all COMPLETE (July 25–27).** Restore points on VM 186:
+  `s01-base-clean` (pre-k3s) → `s02-k3s-up` (k3s only, **predates Redpanda**) →
+  **`s03-redpanda-up` (Jul 27 14:58) = the one to roll back to.** Live snapshot with guest-agent
+  fs-freeze, 1.5 s, VM never stopped; verified healthy with 0 restarts afterwards.
   **Next: consumer groups + rebalancing, then Part 6 (the Python app).**
   - **k3s v1.36.2+k3s1 on VM 186.** Installed with
     `curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="--write-kubeconfig-mode 644" sh -`.
