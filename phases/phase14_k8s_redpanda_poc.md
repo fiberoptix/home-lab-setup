@@ -1,6 +1,6 @@
 # Phase 14 — Kubernetes + Redpanda + OpenSearch POC
 
-**Status:** IN PROGRESS — Parts 1, 2, 3 and **4 COMPLETE** (Jul 25–27). **Redpanda is live: 3 brokers, healthy 3/3, topic `market-ticks` (6 partitions, RF 3), quorum and failure drills run and documented.** Education series: Chapter 1 (k3s, 846 lines, 6 diagrams) and Chapter 3 (Redpanda, 1023 lines, 3 diagrams) written; Chapter 3 doubles as a replayable install runbook, with the working Helm values committed at `education/manifests/redpanda-values.yaml`. ⚠️ Snapshot `s02-k3s-up` **predates Redpanda** — rolling back to it destroys the cluster; take a fresh snapshot before risky work. **Next: consumer groups + rebalancing, then Part 6 (the Python app). Interview ~Aug 1.**
+**Status:** IN PROGRESS — Parts 1, 2, 3 and **4 COMPLETE** (Jul 25–27). **Redpanda is live: 3 brokers, healthy 3/3, topic `market-ticks` (6 partitions, RF 3), quorum and failure drills run and documented.** Education series: Chapter 1 (k3s, 846 lines, 6 diagrams) and Chapter 3 (Redpanda, 1023 lines, 3 diagrams) written; Chapter 3 doubles as a replayable install runbook, with the working Helm values committed at `education/manifests/redpanda-values.yaml`. **Restore point: `qm rollback 186 s03-redpanda-up`** (Jul 27 14:58 — `s02-k3s-up` predates Redpanda and rolling back that far wipes it). **Still outstanding in Part 4: Redpanda Console (ClusterIP-only, needs a port-forward) and Schema Registry.** **Next: consumer groups + rebalancing, then Part 6 (the Python app). Interview ~Aug 1.**
 **Created:** July 25, 2026
 **Owner:** Andrew
 **Deadline driver:** Hedge-fund interview, ~1 week out.
@@ -69,25 +69,26 @@ Three Redpanda brokers run as three pods, giving real Raft quorum without needin
 │                                                                         │
 │  ┌───────────────────────── k3s (single node) ────────────────────────┐ │
 │  │                                                                    │ │
-│  │   namespace: redpanda                                              │ │
+│  │   namespace: redpanda                            << BUILT Jul 27   │ │
 │  │   ┌──────────┐  ┌──────────┐  ┌──────────┐   StatefulSet           │ │
 │  │   │ broker-0 │──│ broker-1 │──│ broker-2 │   + Raft quorum         │ │
 │  │   └──────────┘  └──────────┘  └──────────┘   RF=3                  │ │
-│  │        │  Schema Registry :8081 · Kafka API :9092 · Admin :9644    │ │
-│  │        │  Redpanda Console (web UI)                                │ │
+│  │        │  Kafka API :9093 int (:9094 ext → NodePort 31092)         │ │
+│  │        │  Admin :9644 · Schema Registry :8081 · HTTP proxy :8082   │ │
+│  │        │  Redpanda Console — ClusterIP :8080, needs port-forward   │ │
 │  │        │                                                           │ │
-│  │   namespace: market                                                │ │
+│  │   namespace: market                              << Part 6 (todo)  │ │
 │  │   ┌────────────┐   produces (Avro)    ┌────────────┐               │ │
 │  │   │ producer   │ ───────────────────► │  topic:    │               │ │
 │  │   │ (Python)   │                      │ market-    │               │ │
-│  │   └────────────┘                      │ data       │               │ │
+│  │   └────────────┘                      │ ticks      │               │ │
 │  │                                       └─────┬──────┘               │ │
 │  │   ┌────────────┐   consumes                 │                      │ │
 │  │   │ consumer   │ ◄──────────────────────────┘                      │ │
 │  │   │ (Python)   │ ──────► indexes documents ──┐                     │ │
 │  │   └────────────┘                             │                     │ │
 │  │                                              ▼                     │ │
-│  │   namespace: logging                  ┌──────────────┐             │ │
+│  │   namespace: logging                  ┌──────────────┐ << Part 5   │ │
 │  │   ┌──────────────┐  pod logs          │  OpenSearch  │             │ │
 │  │   │  Fluent Bit  │ ─────────────────► │  + Dashboards│             │ │
 │  │   │  (DaemonSet) │                    └──────────────┘             │ │
@@ -116,6 +117,24 @@ same pipeline shape, just smaller.
 **Host headroom note:** VM 185 (OpenClaw, 16 GB / 12 cores) is dormant with `onboot=0` and stays
 that way. If it were ever started alongside this VM, headroom gets tight — don't.
 
+### Measured after Part 4 (Jul 27) — the projections were far too pessimistic
+
+| | Planned | **Actual, idle 3-broker cluster** |
+|---|---|---|
+| Redpanda RAM | 2–4 GB per broker | **434 Mi per broker** (~1.3 GB total) against a 2560Mi limit |
+| Redpanda CPU | 2 cores per broker | **~26m per broker** against a 1-core limit |
+| k3s + system pods | ~2 GB | **317 Mi** |
+| Whole node | — | **2.9 GB of 31 GB (9%), CPU 1%** |
+| Disk | 300 GB | **6.0 GB used of 290 GB (3%)** |
+
+Two things follow. **The chart's `resources` are *reservations*, not consumption** — each broker
+reserves a whole core and 2.5 GB and then uses a fraction of it, which is correct for a
+thread-per-core design that wants guaranteed headroom under load, but it means "allocated" and
+"used" are wildly different numbers. Worth being precise about in an interview.
+
+And **there is far more room for OpenSearch than planned** — roughly 28 GB free. Resources are not
+the reason to cut Part 5 if time runs short; time is.
+
 ---
 
 ## Snapshot checkpoints (your safety net — use them)
@@ -125,11 +144,17 @@ rollback is instant. Take a Proxmox snapshot at each green milestone:
 
 | Snapshot name | Taken when |
 |---|---|
-| `s01-base-clean` | Fresh from template, personalized, before k3s — **TAKEN Jul 25** |
-| `s02-k3s-up` | k3s running, `kubectl get nodes` Ready |
-| `s03-redpanda-up` | 3 brokers healthy, Console reachable |
-| `s04-opensearch-up` | OpenSearch + Dashboards + Fluent Bit shipping logs |
-| `s05-apps-working` | Producer/consumer round-trip proven |
+| `s01-base-clean` | Fresh from template, personalized, before k3s — ✅ **TAKEN Jul 25 16:57** |
+| `s02-k3s-up` | k3s running, `kubectl get nodes` Ready — ✅ **TAKEN Jul 27 10:42** |
+| `s03-redpanda-up` | 3 brokers healthy, drills complete — ✅ **TAKEN Jul 27 14:58 ← current restore point** |
+| `s04-opensearch-up` | OpenSearch + Dashboards + Fluent Bit shipping logs — 🔲 |
+| `s05-apps-working` | Producer/consumer round-trip proven — 🔲 |
+
+> **Take them hot — no shutdown needed.** VM 186 has `agent: enabled=1`, so `qm snapshot` issues a
+> guest **fs-freeze → snapshot → fs-thaw**. `s03-redpanda-up` took **1.5 seconds** with the Redpanda
+> cluster running, and afterwards the pods showed 0 restarts and the whole log was still readable.
+> The freeze is what makes a live snapshot *filesystem-consistent* rather than merely
+> crash-consistent — without the agent you'd be relying on fsync and journal replay to sort it out.
 
 > **Naming gotcha (learned the hard way, Jul 25):** Proxmox snapshot names are *configuration IDs*
 > and **must start with a letter**. `01-base-clean` is rejected with
@@ -558,7 +583,7 @@ replication — fine for a sandbox, unacceptable for a firm's audit trail.
 events themselves into OpenSearch, so you can query ticks — not just logs. That demonstrates you
 understand OpenSearch as a **queryable data store**, not merely a log bucket.
 
-**→ Snapshot `04-opensearch-up` here.**
+**→ Snapshot `s04-opensearch-up` here.**
 
 ---
 
@@ -605,7 +630,7 @@ GitLab CI is deliberately deferred — learn k8s first, automate second.
 - Run **two** consumer replicas in the same group and watch partitions get rebalanced between them.
 - Run a second consumer in a *different* group and watch it get its own full copy of the stream.
 
-**→ Snapshot `05-apps-working` here.**
+**→ Snapshot `s05-apps-working` here.**
 
 ---
 
