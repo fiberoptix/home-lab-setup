@@ -133,12 +133,14 @@ Practical rules:
     interview). **Ch1 (Kubernetes/k3s) 846 lines / 6 diagrams / 31 questions; Ch2 (object model)
     631 lines / 2 diagrams / 27 questions; Ch3 (Redpanda) 1023 lines / 3 diagrams / 33 questions;
     Ch4 (provisioning application state) 823 lines / 3 diagrams / 24 questions + 10 worked interview
-    answers.** Ch2, Ch3 and Ch4 are deliberately **replayable runbooks** — Andrew re-runs this
+    answers; Ch5 (consumer groups) 488 lines / 3 diagrams / 24 questions + 9 interview answers.**
+    ⚠️ **Chapter numbering shifted Aug 3:** Schema Registry is now **6**, OpenSearch **7**, the app
+    **8**, failure drills **9**. Ch2–Ch5 are deliberately **replayable runbooks** — Andrew re-runs this
     material, so where output varies between runs (sticky-partition choice, initial leader assignment,
     which partition an unkeyed producer picks) the text says so explicitly. `education/manifests/`
     holds real tested artefacts: `redpanda-values.yaml`, `web-deployment.yaml` (verified end-to-end
     apply → rollout → 200s → delete on Jul 27, with both probe failure drills documented inline),
-    plus `seed-topics.sh` + `seed-topics-job.yaml` from Aug 3.
+    plus `seed-topics.sh` + `seed-topics-job.yaml` + `consumer-group-lab.sh` from Aug 3.
     Rule for this series: only document things Andrew actually ran. **Diagrams are Graphviz `.dot`
     sources in `education/diagrams/`, deliberately NOT AI-generated** (image models garble technical
     labels); `graphviz` installed on the Z8. Two HTML-label gotchas: newlines render as literal
@@ -229,6 +231,50 @@ Practical rules:
     full 90s then reported a *timeout*, i.e. slower AND wrong about the cause. Race both conditions.
   - Housekeeping: `market-ticks` records from Jul 27 had **aged out** via `retention.ms=604800000`
     (`LOG-START-OFFSET` caught `HIGH-WATERMARK`) — expiry, not data loss.
+
+  **Chapter 5 session (Aug 3, 5:50–6:30 PM) — consumer groups, rebalancing, delivery semantics.**
+  Topic `orders`, 6 partitions, 1500 records, 12 keys; group `oms-processor` grown 1 → 7 members → 5.
+  - **Three rules of assignment:** exactly one owner per partition *at any instant*; a consumer may own
+    many; **assignment counts partitions, not records.** At 2 members: 3/3 partitions but
+    **120 vs 60 records** — permanent 2:1 imbalance the protocol will never correct.
+  - **Parallelism ceiling is real and permanent:** 7 consumers on 6 partitions → the 7th got **no
+    assignment, 0 records**. Plus `c1` owned p0 which has never held a record ⇒ **7 consumers, 5
+    working**. **Worst-case lag is set by the hottest partition, not the consumer count** — you cannot
+    add consumers to help a lagging partition because Rule 1 forbids a second owner.
+  - **But idle ≠ useless.** When the p2 owner was SIGKILLed, the surplus `c7` **inherited it instantly**
+    (already connected/authenticated/in-group). A surplus consumer is a **warm standby**; worth it iff
+    consumer startup is expensive. I called it "pure cost" one step earlier — the demo disproved it.
+  - **Skew quantified:** 12 keys → p2 got **5 keys = 42%**, p0 got **zero**. Andrew asked why Redpanda
+    doesn't rebalance. **Two answers:** (a) `hash(key) % n` is computed **client-side in the producer**,
+    so the record arrives pre-addressed and the broker never gets a vote; (b) even if it could, moving
+    a key splits its history across two partitions read by two consumers ⇒ **a cancel could be
+    processed before its order**. Separate **small-numbers skew** (self-corrects at real key
+    cardinality — don't over-learn the demo) from a **genuinely hot key** (needs composite key like
+    `account-shard-N`, or a dedicated topic — **not** more partitions).
+  - **⭐ THE demo — SIGTERM vs SIGKILL, same partition.** p2's ownership relay: `c1 0..74`,
+    `c6 75..137`, `c7 138..395`, `c2 393..624`. **SIGTERM** = committed + left the group ⇒ `137→138`,
+    **zero duplicates, immediate reassignment** (no heartbeat timeout). **SIGKILL** = consumed through
+    395 but last commit was **392** ⇒ successor replayed **393/394/395 (ORD-10, ORD-11, ORD-2)**;
+    **628 processed for 625 written**. OOM kills, `delete pod --force`, node loss and liveness kills
+    (Ch2) are all the SIGKILL case — **graceful is the exception, not the norm.**
+  - **Duplicates = throughput × time since last commit.** Commit-interval tuning changes the odds,
+    never the possibility ⇒ **the fix is an idempotent consumer** (dedupe on event ID, conditional
+    write, upsert by order ID). **Exactly-once only covers read-process-write loops that stay INSIDE
+    the cluster** — an external order gateway puts you back on at-least-once.
+  - **Reading the table:** lag is **per-partition**; `TOTAL-LAG` is only the sum and hides a stalled hot
+    partition ⇒ **alert on max per-partition lag**, not the total. `CURRENT-OFFSET  -` means **never
+    committed**, which is NOT offset 0 — read it with `LOG-END-OFFSET` to tell idle from never-started.
+  - **Rebalances make distribution *less* fair over time** — after two deaths one consumer owned both
+    p2 (hot) and p3. Also: adding 5 members changed almost nothing visible in `describe` because no new
+    data had arrived — **count distinct owners vs `MEMBERS`** to see a rebalance, not offsets.
+  - **`__consumer_offsets`: 16 partitions, RF 3, `cleanup.policy=compact`** (so offsets can't age out
+    the way `market-ticks` did). Group name hashes to one partition (`/7`), whose leader is the
+    **group coordinator**. Explains why the group survived `MEMBERS 0` as `STATE Empty`, and why
+    `-o start` did **not** replay history for a newly joined member (it only applies with no commit).
+  - `group_min_session_timeout_ms=6000`, max `300000`, `group_new_member_join_timeout=30000`.
+  - **Andrew's one misread:** seeing p2 records across several logs he said "everyone got some of his
+    messages." It's a **relay, not sharing** — contiguous non-overlapping ranges over time; a log file
+    is the union of everything that consumer ever owned. He otherwise called every result correctly.
 
   **From the Parts 1 & 2 build (July 25) — still current:**
   - **The lab now has its first VM template: 9000 `tmpl-ubuntu-2404-cloudinit`** (Ubuntu 24.04

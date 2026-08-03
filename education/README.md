@@ -17,10 +17,11 @@ chapters explain *what it means and why*.
 | 2 | [The object model](chapter02_object_model.md) | Deployments, ReplicaSets, the template hash, rolling updates, and the two probes — including the one that causes outages | ✅ Written Jul 27, 2026 |
 | 3 | [Redpanda](chapter03_redpanda.md) | Brokers, topics, partitions, Raft quorum, StatefulSets — plus a full install runbook and failure drills | ✅ Written Jul 27, 2026 |
 | 4 | [Provisioning application state](chapter04_provisioning_state.md) | The boundary between Kubernetes and application state: seeding topics, idempotency, the readiness race, tiered drift, operators vs Jobs | ✅ Written Aug 3, 2026 |
-| 5 | Schema Registry | Avro, schema evolution, compatibility modes | 🔲 Planned |
-| 6 | OpenSearch and Fluent Bit | Log shipping with DaemonSets, OpenSearch as a data store | 🔲 Planned |
-| 7 | The market-data application | Producers, consumers, consumer groups, offsets, ordering | 🔲 Planned |
-| 8 | Failure drills | What actually happens when you break each piece | 🔲 Planned |
+| 5 | [Consumer groups](chapter05_consumer_groups.md) | Partition assignment, the parallelism ceiling, skew, lag, rebalancing, and why SIGKILL produces duplicates | ✅ Written Aug 3, 2026 |
+| 6 | Schema Registry | Avro, schema evolution, compatibility modes | 🔲 Planned |
+| 7 | OpenSearch and Fluent Bit | Log shipping with DaemonSets, OpenSearch as a data store | 🔲 Planned |
+| 8 | The market-data application | Producer `acks` and idempotence, an idempotent consumer, partitioner choice | 🔲 Planned |
+| 9 | Failure drills | What actually happens when you break each piece | 🔲 Planned |
 
 ---
 
@@ -43,6 +44,7 @@ another cluster:
 | [`web-deployment.yaml`](manifests/web-deployment.yaml) | Chapter 2's reference Deployment + Service, with both probe failure drills documented inline. Verified `apply` → `rollout status` → `200`s → `delete` |
 | [`seed-topics.sh`](manifests/seed-topics.sh) | Chapter 4's topic reconciler. Idempotent, and checks *shape* not just existence: fixes Tier 1 config drift in place, reports Tier 2/3 drift and exits 1. Verified against missing, unchanged, retention-drifted and partition-drifted topics |
 | [`seed-topics-job.yaml`](manifests/seed-topics-job.yaml) | The Job that runs it, with an init container that polls the **Admin API** until `Healthy: true`. Verified to cost 0s on a healthy cluster and to survive a full scale-to-zero outage |
+| [`consumer-group-lab.sh`](manifests/consumer-group-lab.sh) | Chapter 5's lab as a step runner (`reset` / `seed` / `start` / `who` / `work` / `keys` / `dups`). Replays the whole session, including the SIGTERM-vs-SIGKILL duplicate contrast |
 
 ---
 

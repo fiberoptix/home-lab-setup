@@ -1,6 +1,6 @@
 # Current Phase
 
-**Updated:** August 3, 2026 - 5:45 PM EDT
+**Updated:** August 3, 2026 - 6:35 PM EDT
 
 ---
 
@@ -109,6 +109,12 @@ Kubernetes builds brokers, Redpanda owns topics, and nothing owns the gap. Ships
 — `manifests/seed-topics.sh` (idempotent *and* drift-checking) and `manifests/seed-topics-job.yaml`
 (the health-gated Job). Generalises deliberately: Schema Registry subjects, OpenSearch index
 templates and DB migrations are the same problem, so Chapters 5–6 reuse the pattern.
+
+**Chapter 5 (consumer groups) written Aug 3 — 488 lines, 3 diagrams, 24 self-test questions +
+9 worked interview answers.** Covers partition assignment, the parallelism ceiling, key skew, lag,
+rebalancing and delivery semantics. Ships `manifests/consumer-group-lab.sh`, a step runner that
+replays the entire session. **Chapter numbering shifted:** Schema Registry is now 6, OpenSearch 7,
+the app 8, failure drills 9.
 
 **Diagrams are Graphviz `.dot` sources in `education/diagrams/`, NOT AI-generated** — image
 generators garble technical labels, and these need to be exactly right. Installed `graphviz` on the
@@ -302,13 +308,53 @@ DevOps guy during a pipeline deployment to get the brokers deployed and the topi
 - Also confirmed: `market-ticks` records from Jul 27 had **aged out** via `retention.ms=604800000`
   (`LOG-START-OFFSET` caught up to `HIGH-WATERMARK`). Not data loss.
 
+### ✅ Chapter 5 session — consumer groups, rebalancing, delivery semantics (Aug 3, 5:50 – 6:30 PM)
+
+Same format, five hands-on steps on topic `orders` (6 partitions, 1500 records, 12 keys) with group
+`oms-processor` grown 1 → 7 members and back to 5.
+
+- **Three rules of assignment:** one owner per partition at any instant; a consumer may own many;
+  **assignment counts partitions, not records.** At 2 members the split was 3/3 by partition and
+  **120 vs 60 by data** — one consumer doing double the work, permanently.
+- **Parallelism ceiling proved:** 7 consumers on 6 partitions → the 7th got **no assignment, zero
+  records**. And `c1` owned p0 which has **never held a record**, so 7 consumers, only 5 working.
+  **Worst-case lag is set by the hottest partition, not the consumer count.**
+- **But idle ≠ useless** — when the p2 owner was killed, the surplus `c7` **inherited it instantly**
+  (already connected, already in the group). A surplus consumer is a **warm standby**. I'd called it
+  "pure cost" one step earlier and the next demo disproved it.
+- **Skew, quantified:** 12 keys hashed into 6 partitions gave p2 **5 keys = 42% of traffic** and p0
+  **zero**. Andrew asked the right question — why doesn't Redpanda rebalance it? Two answers: the
+  producer computes `hash(key) % n` **client-side** so the broker never gets a vote; and moving a key
+  would split its history across two partitions read by two consumers → **a cancel could be processed
+  before its order**. Separate small-numbers skew (self-correcting at real cardinality) from a
+  genuinely hot key (needs a composite key or dedicated topic — *not* more partitions).
+- **⭐ THE demo: SIGTERM vs SIGKILL on the same partition.** p2 had 4 owners over its life:
+  `c1 0..74`, `c6 75..137`, `c7 138..395`, `c2 393..624`. **SIGTERM** → committed and left cleanly,
+  `137→138`, **zero duplicates**. **SIGKILL** → consumed through 395 but last commit was 392, so the
+  successor replayed **393/394/395 (ORD-10, ORD-11, ORD-2) — 628 processed for 625 written.**
+  Real-world OOM kills, force-deletes and liveness kills are all the SIGKILL case.
+- **Duplicates = throughput × time since last commit.** Tuning the commit interval changes the odds,
+  never the possibility → **the fix is an idempotent consumer**, not tuning. Exactly-once only covers
+  read-process-write loops that stay *inside* the cluster.
+- **Reading the describe table:** lag is per-partition (`TOTAL-LAG` is only the sum, and hides a
+  stalled hot partition — **alert on max per-partition lag**); `CURRENT-OFFSET  -` means *never
+  committed*, which is not offset 0.
+- **Rebalances make distribution less fair over time** — after two deaths, one consumer owned both p2
+  (hot) and p3. Nothing balances for load.
+- **Offsets live in `__consumer_offsets`** — 16 partitions, RF 3, **`cleanup.policy=compact`** so they
+  can't age out. Group name hashes to one partition (`/7` here) whose leader is the coordinator.
+  Explains why `-o start` did *not* replay history for a newly joined member.
+- Andrew's one misread, worth noting: seeing p2 records in several logs he said "everyone got some of
+  his messages." It's a **relay, not sharing** — contiguous, non-overlapping ranges over time. The log
+  file is the union of everything that consumer ever owned.
+
 ### ⏭️ Next
 
-1. **Consumer groups + rebalancing** — the remaining core Redpanda topic, and directly OMS-relevant
-   (rebalance is another way to break ordering).
-2. **Part 6 — the Python producer/consumer app.**
-3. Chapters 1–4 written. Next chapter candidates: 5 (Schema Registry — reuses Ch4's pattern) or
-   7 (the app).
+1. **Part 6 — the Python producer/consumer app**, now with a clear brief: `acks`, `enable.idempotence`,
+   partitioner choice, and an **idempotent** consumer rather than a hopeful one.
+2. Chapters 1–5 written. Next chapter candidates: 6 (Schema Registry — reuses Ch4's provisioning
+   pattern) or 8 (the app).
+3. Optional loose ends from the Ch5 session: `rpk group seek` for replay, and a lag-alerting demo.
 
 **Timing:** interview ~Aug 1. Redpanda is now the strongest part of the story. Part 5 (OpenSearch)
 remains the one to cut.

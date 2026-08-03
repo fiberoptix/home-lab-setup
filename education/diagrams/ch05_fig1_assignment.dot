@@ -1,0 +1,60 @@
+// Chapter 5, Figure 1 — how a consumer group assigns partitions, and the two
+// ways a consumer ends up doing nothing. Measured 3 Aug 2026 on `orders`
+// (6 partitions) with the group `oms-processor` grown from 1 to 7 members.
+//
+// Render:
+//   dot -Tpng -Gdpi=150 ch05_fig1_assignment.dot -o ../images/ch05_fig1_assignment.png
+
+digraph assignment {
+  rankdir=TB;
+  bgcolor="white";
+  node  [fontname="Helvetica", fontsize=10, shape=box, style="filled,rounded", penwidth=1.2];
+  edge  [fontname="Helvetica", fontsize=9];
+  graph [fontname="Helvetica", fontsize=11];
+
+  title [shape=plaintext, style="", fillcolor="none", label=<
+    <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0">
+      <TR><TD><FONT POINT-SIZE="16"><B>A group balances partitions, never load</B></FONT></TD></TR>
+      <TR><TD><FONT POINT-SIZE="10" COLOR="#555555">7 consumers &#183; 6 partitions &#183; only 5 doing any work</FONT></TD></TR>
+    </TABLE>>];
+
+  grid [shape=plaintext, style="", fillcolor="none", label=<
+    <TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="6" COLOR="#7f8c8d" BGCOLOR="#fbfbfb">
+      <TR><TD ALIGN="LEFT"><B>partition</B></TD><TD ALIGN="LEFT"><B>keys</B></TD>
+          <TD ALIGN="LEFT"><B>records</B></TD><TD ALIGN="LEFT"><B>owner</B></TD><TD ALIGN="LEFT"><B>note</B></TD></TR>
+      <TR><TD ALIGN="LEFT"><FONT FACE="Courier">p0</FONT></TD><TD ALIGN="LEFT"><FONT FACE="Courier">0</FONT></TD>
+          <TD ALIGN="LEFT"><FONT FACE="Courier" COLOR="#c0392b">0</FONT></TD><TD ALIGN="LEFT"><FONT FACE="Courier">c1</FONT></TD>
+          <TD ALIGN="LEFT"><FONT POINT-SIZE="9" COLOR="#c0392b">owns a partition, but it is empty</FONT></TD></TR>
+      <TR><TD ALIGN="LEFT"><FONT FACE="Courier">p1</FONT></TD><TD ALIGN="LEFT"><FONT FACE="Courier">3</FONT></TD>
+          <TD ALIGN="LEFT"><FONT FACE="Courier">30</FONT></TD><TD ALIGN="LEFT"><FONT FACE="Courier">c3</FONT></TD><TD> </TD></TR>
+      <TR><TD ALIGN="LEFT"><FONT FACE="Courier">p2</FONT></TD><TD ALIGN="LEFT"><FONT FACE="Courier"><B>5</B></FONT></TD>
+          <TD ALIGN="LEFT"><FONT FACE="Courier"><B>50</B></FONT></TD><TD ALIGN="LEFT"><FONT FACE="Courier">c6</FONT></TD>
+          <TD ALIGN="LEFT"><FONT POINT-SIZE="9" COLOR="#b7950b">the hot partition &#8212; 42% of all traffic</FONT></TD></TR>
+      <TR><TD ALIGN="LEFT"><FONT FACE="Courier">p3</FONT></TD><TD ALIGN="LEFT"><FONT FACE="Courier">1</FONT></TD>
+          <TD ALIGN="LEFT"><FONT FACE="Courier">10</FONT></TD><TD ALIGN="LEFT"><FONT FACE="Courier">c2</FONT></TD><TD> </TD></TR>
+      <TR><TD ALIGN="LEFT"><FONT FACE="Courier">p4</FONT></TD><TD ALIGN="LEFT"><FONT FACE="Courier">1</FONT></TD>
+          <TD ALIGN="LEFT"><FONT FACE="Courier">10</FONT></TD><TD ALIGN="LEFT"><FONT FACE="Courier">c5</FONT></TD><TD> </TD></TR>
+      <TR><TD ALIGN="LEFT"><FONT FACE="Courier">p5</FONT></TD><TD ALIGN="LEFT"><FONT FACE="Courier">2</FONT></TD>
+          <TD ALIGN="LEFT"><FONT FACE="Courier">20</FONT></TD><TD ALIGN="LEFT"><FONT FACE="Courier">c4</FONT></TD><TD> </TD></TR>
+      <TR><TD ALIGN="LEFT"><FONT FACE="Courier" COLOR="#c0392b"><B>none</B></FONT></TD><TD ALIGN="LEFT"><FONT FACE="Courier">&#8212;</FONT></TD>
+          <TD ALIGN="LEFT"><FONT FACE="Courier" COLOR="#c0392b">0</FONT></TD><TD ALIGN="LEFT"><FONT FACE="Courier" COLOR="#c0392b"><B>c7</B></FONT></TD>
+          <TD ALIGN="LEFT"><FONT POINT-SIZE="9" COLOR="#c0392b">more consumers than partitions</FONT></TD></TR>
+      <TR><TD COLSPAN="5" ALIGN="LEFT"><FONT POINT-SIZE="9" COLOR="#555555">counts are the 120 records produced while all 7 were connected</FONT></TD></TR>
+    </TABLE>>];
+
+  rules [shape=plaintext, style="", fillcolor="none", label=<
+    <TABLE BORDER="2" CELLBORDER="0" CELLSPACING="0" CELLPADDING="7" COLOR="#1f618d" BGCOLOR="#f4f9fd">
+      <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>The three rules that produce that table</B></TD></TR>
+      <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="9"><B>1. A partition has exactly one owner in a group, at any instant.</B> Never two. This is what makes<BR/>per-partition ordering safe to rely on &#8212; no two consumers can interleave work on the same key.<BR/><BR/><B>2. A consumer may own many partitions.</B> With one member, it owned all six.<BR/><BR/><B>3. Assignment counts partitions, not records.</B> At 2 members the split was 3/3 by partition and<BR/><B>120 vs 60 by data</B> &#8212; one consumer doing twice the work of the other, and nothing corrects that.</FONT></TD></TR>
+    </TABLE>>];
+
+  ceiling [shape=plaintext, style="", fillcolor="none", label=<
+    <TABLE BORDER="2" CELLBORDER="0" CELLSPACING="0" CELLPADDING="7" COLOR="#b7950b" BGCOLOR="#fffdf3">
+      <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>Partition count is a permanent ceiling on consumer parallelism</B></TD></TR>
+      <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="9">Six partitions means at most six consumers can do work. The 7th got no assignment and stayed at<BR/>zero records while 120 flowed past it.<BR/><BR/><B>So your worst-case lag is set by your hottest partition, not by your consumer count.</B> If p2 falls<BR/>behind you cannot add consumers to help &#8212; it already has a dedicated one, and rule 1 forbids a second.<BR/>The only levers are a faster consumer, a different key, or more partitions &#8212; and more partitions<BR/>rewrites <FONT FACE="Courier">hash(key) % n</FONT> and breaks ordering retroactively (Ch3 &#167;2d, Ch4 &#167;7c).<BR/><BR/><B>But idle is not the same as useless.</B> When the p2 owner was killed, <B>c7 inherited it instantly</B> &#8212;<BR/>already connected, already in the group, no process start. An idle consumer is a warm standby you<BR/>pay for in steady state. Whether that trade is worth it depends on your consumer&#8217;s startup cost.</FONT></TD></TR>
+    </TABLE>>];
+
+  title -> grid [style=invis];
+  grid -> rules [style=invis];
+  rules -> ceiling [style=invis];
+}
