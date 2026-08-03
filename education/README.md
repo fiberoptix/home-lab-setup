@@ -16,10 +16,11 @@ chapters explain *what it means and why*.
 | 1 | [Kubernetes and the k3s cluster](chapter01_kubernetes_k3s.md) | What Kubernetes is for, what the k3s install produced, the three networks, storage | ✅ Written Jul 27, 2026 |
 | 2 | [The object model](chapter02_object_model.md) | Deployments, ReplicaSets, the template hash, rolling updates, and the two probes — including the one that causes outages | ✅ Written Jul 27, 2026 |
 | 3 | [Redpanda](chapter03_redpanda.md) | Brokers, topics, partitions, Raft quorum, StatefulSets — plus a full install runbook and failure drills | ✅ Written Jul 27, 2026 |
-| 4 | Schema Registry | Avro, schema evolution, compatibility modes | 🔲 Planned |
-| 5 | OpenSearch and Fluent Bit | Log shipping with DaemonSets, OpenSearch as a data store | 🔲 Planned |
-| 6 | The market-data application | Producers, consumers, consumer groups, offsets, ordering | 🔲 Planned |
-| 7 | Failure drills | What actually happens when you break each piece | 🔲 Planned |
+| 4 | [Provisioning application state](chapter04_provisioning_state.md) | The boundary between Kubernetes and application state: seeding topics, idempotency, the readiness race, tiered drift, operators vs Jobs | ✅ Written Aug 3, 2026 |
+| 5 | Schema Registry | Avro, schema evolution, compatibility modes | 🔲 Planned |
+| 6 | OpenSearch and Fluent Bit | Log shipping with DaemonSets, OpenSearch as a data store | 🔲 Planned |
+| 7 | The market-data application | Producers, consumers, consumer groups, offsets, ordering | 🔲 Planned |
+| 8 | Failure drills | What actually happens when you break each piece | 🔲 Planned |
 
 ---
 
@@ -40,6 +41,8 @@ another cluster:
 |---|---|
 | [`redpanda-values.yaml`](manifests/redpanda-values.yaml) | Reproduces the deployed Helm release exactly (verified with `helm get values`), including the single-node anti-affinity override |
 | [`web-deployment.yaml`](manifests/web-deployment.yaml) | Chapter 2's reference Deployment + Service, with both probe failure drills documented inline. Verified `apply` → `rollout status` → `200`s → `delete` |
+| [`seed-topics.sh`](manifests/seed-topics.sh) | Chapter 4's topic reconciler. Idempotent, and checks *shape* not just existence: fixes Tier 1 config drift in place, reports Tier 2/3 drift and exits 1. Verified against missing, unchanged, retention-drifted and partition-drifted topics |
+| [`seed-topics-job.yaml`](manifests/seed-topics-job.yaml) | The Job that runs it, with an init container that polls the **Admin API** until `Healthy: true`. Verified to cost 0s on a healthy cluster and to survive a full scale-to-zero outage |
 
 ---
 

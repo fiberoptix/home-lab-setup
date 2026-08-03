@@ -156,6 +156,118 @@ Two operational consequences:
 **The rule:** key by whatever must stay ordered — account, instrument, order ID — and understand
 that this choice simultaneously decides your parallelism ceiling *and* your hot-spot risk.
 
+### 2d. Partition count is effectively permanent
+
+*(Measured on `orders`, 3 Aug 2026.)*
+
+Everything above depends on `hash(key) % partition_count`. Change the divisor and every key is
+re-evaluated. This is the single most damaging thing you can do to a keyed topic, and it takes one
+command.
+
+We keyed four orders into a 6-partition topic, three events each, and recorded where they landed:
+
+| Key | Partition |
+|---|---|
+| `ORD-1001` | 1 |
+| `ORD-1002` | 0 |
+| `ORD-1003` | 2 |
+| `ORD-1004` | 3 |
+
+Then grew the topic and produced one more event per order — **same keys, same code, no deploy**:
+
+```bash
+rpk topic add-partitions orders -n 6      # 6 -> 12
+```
+
+```
+ORD-1001  ->  p1     unchanged
+ORD-1002  ->  p6     moved
+ORD-1003  ->  p8     moved
+ORD-1004  ->  p9     moved
+```
+
+**Three of four keys relocated.** The arithmetic is worth internalising: going from 6 to 12,
+`hash % 12` can only be `hash % 6` or `hash % 6 + 6`. Every key either stays put or shifts by
+exactly the old partition count, and on a doubling roughly **half of all keys move**.
+
+#### What that does to an order's history
+
+`ORD-1001`, which didn't move, is intact:
+
+```
+p1  off=0  NEW
+p1  off=1  PARTIAL_FILL
+p1  off=2  CANCEL
+p1  off=3  AMEND
+p1  off=4  FILL_AFTER_REPART
+```
+
+`ORD-1002`, which moved, is now split across two partitions:
+
+```
+p0  off=0  NEW
+p0  off=1  PARTIAL_FILL
+p0  off=2  CANCEL
+-----------------------------
+p6  off=0  FILL_AFTER_REPART
+```
+
+Read that carefully. The fill sits at **offset 0 of partition 6** — a consumer assigned to that
+partition sees a fill as the first thing it has ever heard about the order, with no `NEW` preceding
+it. **A fill for an order that was never placed.** Downstream that is a reconciliation break, or a
+message your consumer rejects as referencing an unknown order.
+
+The offsets actively mislead too: the `CANCEL` is at offset 2 and the *later* `FILL` is at offset 0,
+because offsets only mean anything within a partition.
+
+#### Why this is so dangerous
+
+- **It is silent.** No error, no failed write, no warning. `rpk cluster health` still reports
+  `Healthy: true`. Producers notice nothing. No metric moves.
+- **Partial breakage is worse than total breakage.** If every key moved you would know every order
+  was affected. Instead most orders are fine and some are corrupted, and separating them means
+  re-computing the hash for every key ever written.
+- **It is irreversible.** You can add partitions; you can never remove them.
+
+#### What to do instead
+
+- **Treat partition count as immutable after creation.** Size it once, with headroom.
+- **Size for consumer parallelism, not throughput.** Partition count is the ceiling on active
+  consumers in a group — you can never have more consumers than partitions. Plan for the peak
+  parallelism you will ever want.
+- **To genuinely grow a keyed topic, migrate rather than repartition:** create `orders.v2` at the
+  new count, replay or dual-write, cut consumers over, retire the old topic.
+- **Guard the operation** with ACLs, and alert on partition-count changes — nothing else will tell
+  you.
+
+> **The interview trap:** *"Consumers are lagging and the topic is at capacity — do you add
+> partitions?"* On an unkeyed topic, fine. On a keyed topic carrying order state, **no**, not without
+> a migration plan, because you would break per-key ordering for about half your keys. This is also
+> the sharpest argument for keeping topic definitions in version control: not bureaucracy, but
+> because one of the fields is irreversible and silently corrupts ordering when changed.
+
+### 2e. Debugging an ordering complaint
+
+A trap we walked straight into while producing the data above. This listing appears to show a cancel
+arriving before the order it cancels:
+
+```
+1 ORD-1001 {"event":"CANCEL"}
+1 ORD-1001 {"event":"NEW"}
+1 ORD-1001 {"event":"PARTIAL_FILL"}
+```
+
+It is not real. The command ended in `| sort`, and `CANCEL` precedes `NEW` alphabetically. The log
+itself was always correct — offsets 0, 1, 2 in the right order. **The display lied, not the data.**
+
+> When someone reports "events arrived out of order," the first question is *how are you looking at
+> them?* Read **one partition at a time, with offsets** (`-p N -f '%o %k %v\n'`) before believing
+> any ordering complaint. A view merged across partitions has no meaningful order at all, and neither
+> does anything you have piped through `sort`.
+
+The three real causes, in the order worth checking: the producer wasn't keyed (§2a), someone changed
+the partition count (§2d), or a consumer group rebalanced mid-stream.
+
 ---
 
 ## 3. Replication and partition leadership
@@ -238,13 +350,94 @@ A **StatefulSet** provides the three things a broker needs:
    identity, so `redpanda-1` always remounts `redpanda-1`'s data.
 3. **Ordered operations** — brokers start, stop and upgrade one at a time rather than all at once.
 
-Discovery uses a **headless Service** (`clusterIP: None`). A normal ClusterIP would be actively
-wrong here, because clients and brokers must reach *specific* brokers by name, not a random one. A
-headless Service has no virtual IP and performs no DNAT — DNS returns the individual pod addresses,
-so `redpanda-0.redpanda.redpanda.svc.cluster.local` resolves to exactly that broker.
+### 5a. Headless does not mean "no Service"
 
-This is the same mechanism that fixes gRPC clients pinning themselves to a single backend behind a
-ClusterIP (Chapter 1 §5).
+The most common misconception, and worth correcting precisely: **a headless Service is a normal
+Service that has no IP address of its own.** The object exists, it has a name, a DNS entry, a label
+selector and EndpointSlices. Only the virtual IP is missing.
+
+Your cluster runs one of each, in the same namespace, from the same Helm release:
+
+```
+NAME               TYPE        CLUSTER-IP      SELECTOR
+redpanda           ClusterIP   None            name=redpanda      <- headless, the brokers
+redpanda-console   ClusterIP   10.43.128.189   name=console       <- normal, the web UI
+```
+
+Both are `type: ClusterIP`. Both have selectors. The difference is the third column, and what it
+changes is **who picks the pod**.
+
+**Normal ClusterIP — Kubernetes picks, and hides the pods:**
+
+```
+redpanda-console.redpanda.svc.cluster.local  ->  10.43.128.189
+                        actual console pod  =   10.42.0.63
+```
+
+The name resolves to a virtual IP that **belongs to no pod at all**. Nothing listens on it; kube-proxy
+DNATs you to a real pod. The client never learns pod addresses and has no say in which it gets. That
+is the Chapter 1 §5 machinery, including per-connection rather than per-request balancing.
+
+**Headless — Kubernetes steps aside and shows you the pods:**
+
+```
+redpanda.redpanda.svc.cluster.local  ->  10.42.0.69
+                                         10.42.0.73
+                                         10.42.0.75
+```
+
+No virtual IP, no kube-proxy, no DNAT. DNS returns **all three real pod IPs** and the client chooses.
+So the collective name is still something you can "call" — it is a list, not a load balancer.
+
+And because a headless Service exists, each pod additionally gets **its own** DNS name:
+
+```
+redpanda-0.redpanda.redpanda.svc.cluster.local  ->  10.42.0.69
+redpanda-1.redpanda.redpanda.svc.cluster.local  ->  10.42.0.75
+redpanda-2.redpanda.redpanda.svc.cluster.local  ->  10.42.0.73
+```
+
+One name, one broker, every time. These per-pod records are the "stable network identity"
+StatefulSets are known for, and **a normal ClusterIP Service does not create them.**
+
+### 5b. How a client actually connects
+
+The collective name is used only for the **first handshake**:
+
+```
+1. BOOTSTRAP    client -> redpanda.redpanda.svc.cluster.local:9093
+                DNS returns 3 IPs; client connects to any one
+
+2. METADATA     that broker replies with the real roster:
+                  ID  HOST                                            PORT
+                  0   redpanda-0.redpanda.redpanda.svc.cluster.local  9093
+                  1   redpanda-1.redpanda.redpanda.svc.cluster.local  9093
+                  2   redpanda-2.redpanda.redpanda.svc.cluster.local  9093
+                ...plus the leader of every partition
+
+3. STEADY STATE client opens direct connections to specific brokers by those
+                per-pod names and stops using the Service name entirely
+```
+
+Reaching **any one** broker is sufficient to discover them all — that is what "bootstrap server list"
+means, and why the list is not a connection list.
+
+**Why load balancing would be actively wrong.** Writes must go to the *leader* of the target
+partition. With leadership spread as `p0→b0, p1→b1, p2→b2, p3→b1 …`, a produce for partition 3 has
+to reach broker 1; broker 0 cannot accept it. Behind a load-balancing virtual IP, writes would land
+on an arbitrary broker and be rejected as `NOT_LEADER_FOR_PARTITION` roughly two thirds of the time.
+The client's whole job is to route **deliberately**, based on leadership it learned in step 2 — so it
+needs individually addressable brokers.
+
+The Console next door is a plain Deployment behind a plain ClusterIP precisely because any Console
+pod can serve any request. **Same namespace, same release, two Services, two routing models — chosen
+by whether the backends are interchangeable.**
+
+> **One caveat worth knowing.** The chart sets `publishNotReadyAddresses: true` on the headless
+> Service, which StatefulSets generally need so members can discover each other during initial
+> bootstrap, before any of them are ready. The side effect: **DNS will hand you a broker that is not
+> ready yet.** The headless name protects you from a *dead* broker, not an *unready* one — which is
+> exactly the race a seeding Job hits at deploy time (Chapter 4).
 
 ---
 

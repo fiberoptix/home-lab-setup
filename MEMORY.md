@@ -131,12 +131,14 @@ Practical rules:
 
   - **`education/` series** — printable study chapters with diagrams (Andrew's idea, for the
     interview). **Ch1 (Kubernetes/k3s) 846 lines / 6 diagrams / 31 questions; Ch2 (object model)
-    631 lines / 2 diagrams / 27 questions; Ch3 (Redpanda) 1023 lines / 3 diagrams / 33 questions.**
-    Ch2 and Ch3 are deliberately **replayable runbooks** — Andrew re-runs this material, so where
-    output varies between runs (sticky-partition choice, initial leader assignment, which partition
-    an unkeyed producer picks) the text says so explicitly. `education/manifests/` holds real tested
-    artefacts: `redpanda-values.yaml` and `web-deployment.yaml` (the latter verified end-to-end
-    apply → rollout → 200s → delete on Jul 27, with both probe failure drills documented inline).
+    631 lines / 2 diagrams / 27 questions; Ch3 (Redpanda) 1023 lines / 3 diagrams / 33 questions;
+    Ch4 (provisioning application state) 823 lines / 3 diagrams / 24 questions + 10 worked interview
+    answers.** Ch2, Ch3 and Ch4 are deliberately **replayable runbooks** — Andrew re-runs this
+    material, so where output varies between runs (sticky-partition choice, initial leader assignment,
+    which partition an unkeyed producer picks) the text says so explicitly. `education/manifests/`
+    holds real tested artefacts: `redpanda-values.yaml`, `web-deployment.yaml` (verified end-to-end
+    apply → rollout → 200s → delete on Jul 27, with both probe failure drills documented inline),
+    plus `seed-topics.sh` + `seed-topics-job.yaml` from Aug 3.
     Rule for this series: only document things Andrew actually ran. **Diagrams are Graphviz `.dot`
     sources in `education/diagrams/`, deliberately NOT AI-generated** (image models garble technical
     labels); `graphviz` installed on the Z8. Two HTML-label gotchas: newlines render as literal
@@ -182,6 +184,51 @@ Practical rules:
   - Also confirmed: `apply` printing `configured` does **not** imply a rollout (only pod-template
     changes churn pods); scaling creates no new ReplicaSet; labels are per-object (`-l app=web` missed
     the Deployment until `metadata.labels` was added).
+
+  **Chapter 4 session (Aug 3, ~1:00–5:45 PM) — topic provisioning, idempotency, drift, the readiness
+  race.** Six demos in the `redpanda` ns. Andrew's framing: *"what would I do as a DevOps guy during a
+  pipeline deployment to get the brokers deployed and the topics seeded?"* Findings worth keeping:
+  - **The two control planes.** Kubernetes owns brokers; Redpanda owns topics (controller Raft group
+    on the PVCs). `kubectl get topics` returns nothing. Rebuild from `redpanda-values.yaml` → 3 healthy
+    brokers, **zero topics**; delete every seeding object → **topics survive**. Same fact both ways.
+  - **The gap, proved.** `auto_create_topics_enabled=false` + produce to an unseeded topic =
+    `UNKNOWN_TOPIC_OR_PARTITION` exit 1, while Helm says `deployed`, pods `Running`, health `true`.
+    **`helm install` + `rollout status` is not a sufficient deploy gate.**
+  - **`rpk topic create` is NOT idempotent** — exit 1 on `TOPIC_ALREADY_EXISTS`. Naive Job passes the
+    first deploy and fails every one after. Guard with `rpk topic describe` (exit 0 = exists).
+  - **⭐ THE headline finding — pod-Ready is not cluster-ready.** Andrew caught the state by accident,
+    then we measured it: **21:32:02 all 3 pods `2/2 Ready` → 21:32:11 `Healthy: true`. A 9-second
+    window** with every Kubernetes signal green and **11 of 18 partitions leaderless**. 11 not 18
+    because **each partition is its own Raft group and elects independently** — there is no instant
+    when "the cluster" becomes ready. Gate on cluster health, never on pod readiness.
+  - **`Under-replicated partitions (0)` while 11 were leaderless — SECOND time this metric lied**
+    (first: Jul 27 quorum drill). No leader ⇒ nobody computes it. **Alert on `Leaderless` + `Nodes
+    down`. Never `Under-replicated` alone.**
+  - **⚠️ `rpk cluster health` is an ADMIN API (:9644) call.** `-X brokers=` (Kafka API :9093) is
+    **silently ignored** by it — rpk falls back to `127.0.0.1:9644`, "connection refused". Cost 5 min
+    of a hung guard against a healthy cluster, and testing from inside `redpanda-0` *worked* because
+    there localhost:9644 really is a broker. Use **`-X admin.hosts=`**. General lesson: **a health gate
+    that can't reach its target is indistinguishable from an unhealthy target.**
+  - **Move the retry into an init container.** `backoffLimit` conflates "tolerate a slow dependency"
+    with "retry a real error" (naive budget ≈ **32s** vs broker startup **21s warm / ~2 min cold**).
+    A polling init container decouples them: 600s wait budget, `backoffLimit: 2` failure budget.
+    Measured **0s** on a healthy cluster, **50s** through a full scale-to-zero outage.
+  - **No fixed sleep can be correct** — startup varies 21s→2min with image cache.
+  - **`publishNotReadyAddresses: true`** on the headless Service ⇒ **DNS resolution is not a readiness
+    signal**; it hands out brokers not yet accepting connections.
+  - **Idempotent ≠ reconciling → the three-tier drift model** (all four behaviours captured live on a
+    throwaway `drift-demo` topic): **Tier 1** retention/cleanup → fix in place, exit 0. **Tier 2** RF →
+    report + exit 1, a human schedules the data movement. **Tier 3** partition count → **never**
+    auto-fix, exit 1 (growing changes `hash(key) % n` for ~half the keys, splitting order history;
+    shrinking impossible). Design rule: *fix cheap+reversible, refuse expensive+destructive, loudly.*
+    The failure to design against is **"reported success on a cluster that was wrong."**
+  - **Script craft:** `set -uo pipefail` **without `-e`** so one run reports *every* drift instead of
+    revealing them serially across deploys; `awk` on table output because the broker image ships no
+    `jq` — and using the broker's own image keeps `rpk` version-matched to the cluster.
+  - **`kubectl wait --for=condition=complete` only watches success** — Job died at 34s, wait burned the
+    full 90s then reported a *timeout*, i.e. slower AND wrong about the cause. Race both conditions.
+  - Housekeeping: `market-ticks` records from Jul 27 had **aged out** via `retention.ms=604800000`
+    (`LOG-START-OFFSET` caught `HIGH-WATERMARK`) — expiry, not data loss.
 
   **From the Parts 1 & 2 build (July 25) — still current:**
   - **The lab now has its first VM template: 9000 `tmpl-ubuntu-2404-cloudinit`** (Ubuntu 24.04

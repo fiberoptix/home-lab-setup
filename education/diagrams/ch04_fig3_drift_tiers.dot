@@ -1,0 +1,81 @@
+// Chapter 4, Figure 3 — three tiers of topic drift, sorted by whether a
+// pipeline can safely repair them. All four behaviours captured live on
+// 3 Aug 2026 against a throwaway `drift-demo` topic.
+//
+// Render:
+//   dot -Tpng -Gdpi=150 ch04_fig3_drift_tiers.dot -o ../images/ch04_fig3_drift_tiers.png
+
+digraph drift_tiers {
+  rankdir=TB;
+  bgcolor="white";
+  node  [fontname="Helvetica", fontsize=10, shape=box, style="filled,rounded", penwidth=1.2];
+  edge  [fontname="Helvetica", fontsize=9];
+  graph [fontname="Helvetica", fontsize=11];
+
+  title [shape=plaintext, style="", fillcolor="none", label=<
+    <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0">
+      <TR><TD><FONT POINT-SIZE="16"><B>Idempotent is not reconciling</B></FONT></TD></TR>
+      <TR><TD><FONT POINT-SIZE="10" COLOR="#555555">"the topic exists" is a much weaker claim than "the topic is correct"</FONT></TD></TR>
+    </TABLE>>];
+
+  naive [fillcolor="#fdf2f2", color="#c0392b", penwidth=1.6, label=<
+    <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5">
+      <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT COLOR="#c0392b"><B>The existence-only guard &#8212; silently wrong</B></FONT></TD></TR>
+      <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT FACE="Courier" POINT-SIZE="9">rpk topic describe "$t" &gt;/dev/null 2&gt;&amp;1 || rpk topic create ...</FONT></TD></TR>
+      <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="9">Re-runnable, exits 0, pipeline green. A topic with <B>2</B> partitions instead of <B>6</B><BR/>passes this check forever, because it only ever asked "does it exist?"</FONT></TD></TR>
+    </TABLE>>];
+
+  // ---------------------------------------------------------- TIER 1
+  subgraph cluster_t1 {
+    label="  TIER 1  —  reconcile in place, no drama  ";
+    style="filled,rounded"; fillcolor="#eafaf1"; color="#1e8449"; fontcolor="#1e8449"; penwidth=1.6;
+
+    t1 [fillcolor="#ffffff", color="#1e8449", label=<
+      <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="3">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>retention.ms &#183; cleanup.policy &#183; segment size</B></TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT FACE="Courier" POINT-SIZE="9">rpk topic alter-config &#8212;set retention.ms=604800000</FONT></TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="9" COLOR="#1e8449">measured:</FONT> <FONT FACE="Courier" POINT-SIZE="9">FIX  drift-demo  retention.ms: 3600000 -&gt; 604800000</FONT></TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="9"><B>Script fixes it and continues. exit 0.</B></FONT></TD></TR>
+      </TABLE>>];
+  }
+
+  // ---------------------------------------------------------- TIER 2
+  subgraph cluster_t2 {
+    label="  TIER 2  —  repairable, but it is an OPERATION, not a config change  ";
+    style="filled,rounded"; fillcolor="#fef9e7"; color="#b7950b"; fontcolor="#b7950b"; penwidth=1.6;
+
+    t2 [fillcolor="#ffffff", color="#b7950b", label=<
+      <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="3">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>replication factor</B></TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="9">Fixing it copies every partition to a new broker: real disk, real<BR/>network, real hours. Safe, but not something a deploy should start<BR/>on its own at 2am during peak.</FONT></TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="9"><B>Script reports it and fails. exit 1. A human schedules it.</B></FONT></TD></TR>
+      </TABLE>>];
+  }
+
+  // ---------------------------------------------------------- TIER 3
+  subgraph cluster_t3 {
+    label="  TIER 3  —  effectively PERMANENT  ";
+    style="filled,rounded"; fillcolor="#fdf2f2"; color="#c0392b"; fontcolor="#c0392b"; penwidth=1.6;
+
+    t3 [fillcolor="#ffffff", color="#c0392b", label=<
+      <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="3">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>partition count</B></TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="9">Cannot shrink. Growing changes <FONT FACE="Courier">hash(key) % n</FONT> for roughly half<BR/>the keys, so an order&#8217;s history splits across two partitions and its<BR/>ordering guarantee is broken retroactively (Ch3 &#167;2d).</FONT></TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="9" COLOR="#c0392b">measured:</FONT> <FONT FACE="Courier" POINT-SIZE="9">DRIFT  drift-demo  partitions: declared=6 actual=2</FONT></TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="9"><B>Script must NEVER auto-fix. Report and fail. exit 1.</B></FONT></TD></TR>
+      </TABLE>>];
+  }
+
+  naive -> t1 [style=invis];
+  t1 -> t2 [style=invis];
+  t2 -> t3 [style=invis];
+
+  rule [shape=plaintext, style="", fillcolor="none", label=<
+    <TABLE BORDER="2" CELLBORDER="0" CELLSPACING="0" CELLPADDING="7" COLOR="#b7950b" BGCOLOR="#fffdf3">
+      <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>The design rule</B></TD></TR>
+      <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="9">A reconciler should fix what is <B>cheap and reversible</B>, and refuse to fix what is <B>expensive or<BR/>destructive</B> &#8212; loudly, with a non-zero exit, naming the field and both values.<BR/><BR/>The failure mode to avoid is not "the script could not fix it." It is <B>"the script reported success on a<BR/>cluster that was wrong"</B> &#8212; which is exactly what the existence-only guard does, and why a green<BR/>pipeline is not evidence of a correct topic.<BR/><BR/><B>For Tier 3 the only real defence is prevention:</B> auto-create off, partition count reviewed at creation,<BR/>and sized for growth up front, because it is the one number you can never take back.</FONT></TD></TR>
+    </TABLE>>];
+
+  t3 -> rule [style=invis];
+  title -> naive [style=invis];
+}

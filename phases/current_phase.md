@@ -1,6 +1,6 @@
 # Current Phase
 
-**Updated:** July 27, 2026 - 3:40 PM EDT
+**Updated:** August 3, 2026 - 5:45 PM EDT
 
 ---
 
@@ -102,6 +102,13 @@ straight out of the 3:00–3:30 PM hands-on session below, so it is also a runbo
 `manifests/web-deployment.yaml` is the tested Deployment + Service with **both probe failure drills
 documented inline as sed-able comments**, verified end-to-end (`apply` → `rollout status` → `200`s →
 `delete`). Fig 2 is the chapter's payoff — the readiness-vs-liveness asymmetry side by side.
+
+**Chapter 4 (provisioning application state) written Aug 3 — 823 lines, 3 diagrams, 24 self-test
+questions + 10 worked interview answers.** The theme is the boundary between the two control planes:
+Kubernetes builds brokers, Redpanda owns topics, and nothing owns the gap. Ships two tested artefacts
+— `manifests/seed-topics.sh` (idempotent *and* drift-checking) and `manifests/seed-topics-job.yaml`
+(the health-gated Job). Generalises deliberately: Schema Registry subjects, OpenSearch index
+templates and DB migrations are the same problem, so Chapters 5–6 reuse the pattern.
 
 **Diagrams are Graphviz `.dot` sources in `education/diagrams/`, NOT AI-generated** — image
 generators garble technical labels, and these need to be exactly right. Installed `graphviz` on the
@@ -255,12 +262,53 @@ Same format: Andrew typed everything, I verified over SSH. `default` ns, `nginx:
   pod-template changes churn pods); scaling makes no new ReplicaSet; labels are per-object
   (`-l app=web` missed the Deployment until `metadata.labels` was added).
 
+### ✅ Chapter 4 session — topic provisioning, idempotency, drift, the readiness race (Aug 3, ~1:00 – 5:45 PM)
+
+Long session, six demos, all written up the same day. Framing was Andrew's: *"what would I do as a
+DevOps guy during a pipeline deployment to get the brokers deployed and the topics seeded?"*
+
+- **The gap, proved.** With `auto_create_topics_enabled=false`, producing to an unseeded topic fails
+  `UNKNOWN_TOPIC_OR_PARTITION` exit 1 — while Helm says `deployed`, pods are `Running` and
+  `rpk cluster health` says `Healthy: true`. **Infrastructure green ≠ service usable.**
+- **`rpk topic create` is not idempotent** (exit 1 on `TOPIC_ALREADY_EXISTS`). Naive Job works on the
+  first deploy, then fails forever. Guard is `rpk topic describe` (exit 0 = exists).
+- **`kubectl wait --for=condition=complete` only watches for success.** Job died at 34s, the wait sat
+  the full 90s then reported a *timeout* — wrong cause, wasted time. Race both conditions (§9a).
+- **THE headline finding — pod-Ready is not cluster-ready.** Andrew spotted the state by accident,
+  then we measured it: **`21:32:02` all 3 pods `2/2 Ready` → `21:32:11` `Healthy: true`. A 9-second
+  window** where every Kubernetes signal was green and **11 of 18 partitions were leaderless.** It was
+  11 not 18 because each partition is its own Raft group and they elect independently.
+- **`Under-replicated partitions (0)` while 11 were leaderless — the metric lied for the second time**
+  (first was the Jul 27 quorum drill). No leader ⇒ nobody computes it. **Alert on `Leaderless`.**
+- **The trap inside the fix:** `rpk cluster health` is an **Admin API (:9644)** call. `-X brokers=`
+  (Kafka API :9093) is *silently ignored*, so rpk fell back to `127.0.0.1:9644` and the guard hung
+  5 minutes against a healthy cluster. Tested from inside `redpanda-0` it "worked" — because there
+  localhost:9644 really is a broker. **A health gate that can't reach its target looks exactly like an
+  unhealthy target.** Correct flag: `-X admin.hosts=`.
+- **Retry moved from pod level into the container.** `backoffLimit` conflates "tolerate a slow
+  dependency" with "retry a real error". An init container polling for health decouples them: 600s
+  wait budget, `backoffLimit: 2` failure budget. Costs **0s** healthy, took **50s** through a full
+  scale-to-zero outage.
+- **Fixed sleeps are unfixable:** scheduled→Ready was **21s** warm and **~2 min** cold.
+- **Idempotent ≠ reconciling.** An existence-only guard reports success forever on a topic with 2
+  partitions where 6 were declared. Led to the **three-tier drift model**, all four behaviours
+  captured live: **Tier 1** (retention → fix in place, exit 0), **Tier 2** (RF → report, exit 1, human
+  schedules the data movement), **Tier 3** (partition count → *never* auto-fix, exit 1).
+- **Script design notes:** `set -uo pipefail` deliberately **without `-e`** so every drift is reported
+  in one run, not revealed serially; and `awk` on table output rather than `jq`, which the broker
+  image doesn't ship — using the broker's own image also keeps `rpk` version-matched to the cluster.
+- Confirmed `publishNotReadyAddresses: true` on the headless Service, so **DNS resolution is not a
+  readiness signal** — it hands out brokers that aren't accepting connections yet.
+- Also confirmed: `market-ticks` records from Jul 27 had **aged out** via `retention.ms=604800000`
+  (`LOG-START-OFFSET` caught up to `HIGH-WATERMARK`). Not data loss.
+
 ### ⏭️ Next
 
 1. **Consumer groups + rebalancing** — the remaining core Redpanda topic, and directly OMS-relevant
    (rebalance is another way to break ordering).
 2. **Part 6 — the Python producer/consumer app.**
-3. Chapters 1, 2, 3 all written. Next chapter candidates: 4 (Schema Registry) or 6 (the app).
+3. Chapters 1–4 written. Next chapter candidates: 5 (Schema Registry — reuses Ch4's pattern) or
+   7 (the app).
 
 **Timing:** interview ~Aug 1. Redpanda is now the strongest part of the story. Part 5 (OpenSearch)
 remains the one to cut.

@@ -58,6 +58,13 @@ $RECYCLE.BIN/
 *.tmp
 
 # ------------------------------------------------------------------------------
+# EDUCATION SERIES
+# ------------------------------------------------------------------------------
+# Throwaway variants used to capture reproducible output for the chapters.
+# The chapters quote the results; the scratch copies are not the artefact.
+education/scratch/
+
+# ------------------------------------------------------------------------------
 # LOGS & TEMPORARY FILES
 # ------------------------------------------------------------------------------
 *.log

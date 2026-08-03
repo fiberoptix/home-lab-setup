@@ -1,0 +1,78 @@
+// Chapter 4, Figure 2 — the readiness race, measured twice on 3 Aug 2026.
+// Real timestamps from `kubectl get pod -o jsonpath` Ready conditions and the
+// init container's own elapsed counter.
+//
+// Render:
+//   dot -Tpng -Gdpi=150 ch04_fig2_readiness_race.dot -o ../images/ch04_fig2_readiness_race.png
+
+digraph readiness_race {
+  rankdir=TB;
+  bgcolor="white";
+  node  [fontname="Helvetica", fontsize=10, shape=box, style="filled,rounded", penwidth=1.2];
+  edge  [fontname="Helvetica", fontsize=9];
+  graph [fontname="Helvetica", fontsize=11];
+
+  title [shape=plaintext, style="", fillcolor="none", label=<
+    <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0">
+      <TR><TD><FONT POINT-SIZE="16"><B>Pod-Ready is not cluster-ready</B></FONT></TD></TR>
+      <TR><TD><FONT POINT-SIZE="10" COLOR="#555555">measured 3 Aug 2026 &#8212; a 9 second window where every Kubernetes signal lied</FONT></TD></TR>
+    </TABLE>>];
+
+  // ------------------------------------------------ the timeline
+  timeline [shape=plaintext, style="", fillcolor="none", label=<
+    <TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="6" COLOR="#7f8c8d" BGCOLOR="#fbfbfb">
+      <TR><TD COLSPAN="3" ALIGN="LEFT"><B>Deploying into a dead cluster, then bringing it back</B></TD></TR>
+      <TR><TD ALIGN="LEFT"><FONT FACE="Courier" POINT-SIZE="10">21:31:21</FONT></TD>
+          <TD ALIGN="LEFT"><FONT POINT-SIZE="9">Job applied</FONT></TD>
+          <TD ALIGN="LEFT"><FONT POINT-SIZE="9" COLOR="#c0392b">0 brokers &#183; DNS resolves to nothing</FONT></TD></TR>
+      <TR><TD ALIGN="LEFT"><FONT FACE="Courier" POINT-SIZE="10">21:31:41</FONT></TD>
+          <TD ALIGN="LEFT"><FONT POINT-SIZE="9">scaled to 3</FONT></TD>
+          <TD ALIGN="LEFT"><FONT POINT-SIZE="9" COLOR="#c0392b">all 3 pods scheduled</FONT></TD></TR>
+      <TR><TD ALIGN="LEFT"><FONT FACE="Courier" POINT-SIZE="10" COLOR="#b7950b"><B>21:32:02</B></FONT></TD>
+          <TD ALIGN="LEFT"><FONT POINT-SIZE="9" COLOR="#b7950b"><B>3/3 pods 2/2 Ready</B></FONT></TD>
+          <TD ALIGN="LEFT"><FONT POINT-SIZE="9" COLOR="#b7950b"><B>a pod-readiness gate fires HERE</B></FONT></TD></TR>
+      <TR><TD ALIGN="LEFT"><FONT FACE="Courier" POINT-SIZE="10" COLOR="#1e8449"><B>21:32:11</B></FONT></TD>
+          <TD ALIGN="LEFT"><FONT POINT-SIZE="9" COLOR="#1e8449"><B>Healthy: true</B></FONT></TD>
+          <TD ALIGN="LEFT"><FONT POINT-SIZE="9" COLOR="#1e8449"><B>the cluster can actually serve HERE</B></FONT></TD></TR>
+      <TR><TD ALIGN="LEFT"><FONT FACE="Courier" POINT-SIZE="10">21:32:18</FONT></TD>
+          <TD ALIGN="LEFT"><FONT POINT-SIZE="9">seeding complete</FONT></TD>
+          <TD ALIGN="LEFT"><FONT POINT-SIZE="9" COLOR="#555555">exit 0</FONT></TD></TR>
+      <TR><TD COLSPAN="3" ALIGN="LEFT"><FONT POINT-SIZE="10" COLOR="#b7950b"><B>&#8593; the 9 second gap is the bug</B></FONT></TD></TR>
+    </TABLE>>];
+
+  // ------------------------------------------------ what each observer saw
+  subgraph cluster_k8sview {
+    label="  what Kubernetes reported at 21:32:02  ";
+    style="filled,rounded"; fillcolor="#eaf2fb"; color="#1f618d"; fontcolor="#1f618d"; penwidth=1.6;
+
+    kview [fillcolor="#ffffff", color="#1f618d", label=<
+      <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="3">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT FACE="Courier" POINT-SIZE="9">redpanda-0   2/2   Running<BR/>redpanda-1   2/2   Running<BR/>redpanda-2   2/2   Running</FONT></TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="9" COLOR="#1f618d">rollout status: success</FONT></TD></TR>
+      </TABLE>>];
+  }
+
+  subgraph cluster_rpview {
+    label="  what Redpanda reported at the same instant  ";
+    style="filled,rounded"; fillcolor="#fdf2f2"; color="#c0392b"; fontcolor="#c0392b"; penwidth=1.6;
+
+    rview [fillcolor="#ffffff", color="#c0392b", label=<
+      <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="3">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT FACE="Courier" POINT-SIZE="9">Healthy:                   false<BR/>Unhealthy reasons:  [leaderless_partitions]<BR/>All nodes:                 [0 1 2]<BR/>Nodes down:                []<BR/>Leaderless partitions (11)<BR/>Under-replicated (0):      []</FONT></TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="9" COLOR="#c0392b">11 of 18 partitions could not take a write</FONT></TD></TR>
+      </TABLE>>];
+  }
+
+  timeline -> kview [style=invis];
+  kview -> rview [color="#c0392b", style=bold, label="  same moment  "];
+
+  // ------------------------------------------------ lessons
+  why [shape=plaintext, style="", fillcolor="none", label=<
+    <TABLE BORDER="2" CELLBORDER="0" CELLSPACING="0" CELLPADDING="7" COLOR="#b7950b" BGCOLOR="#fffdf3">
+      <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>Why every simpler gate fails</B></TD></TR>
+      <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="9"><B>Wait for DNS?</B> The chart sets <FONT FACE="Courier">publishNotReadyAddresses: true</FONT>, so the headless Service hands out<BR/>brokers that are not yet accepting connections. Resolution is not a readiness signal.<BR/><BR/><B>Wait for pods Ready?</B> Measured above: 9 seconds early. Each partition is its own Raft group and elects<BR/>independently &#8212; 7 of 18 had finished, 11 had not. There is no instant when "the cluster" becomes ready.<BR/><BR/><B>Just sleep?</B> Scheduled&#8594;Ready was <B>21s</B> here and closer to <B>2 minutes</B> with cold images. <FONT FACE="Courier">sleep 60</FONT><BR/>would pass today and fail that run; <FONT FACE="Courier">sleep 180</FONT> is safe and wastes 3 minutes on every deploy forever.<BR/><BR/><B>Poll for Healthy: true.</B> Cost 0s on an already-healthy cluster, 50s here. Self-adjusting, and bounded so a<BR/>genuinely broken cluster still fails the pipeline.<BR/><BR/><B>Alert on Leaderless, never on Under-replicated alone</B> &#8212; with no leader there is nobody to compute<BR/>under-replication, so it read <FONT FACE="Courier">0</FONT> while 11 partitions were dead. Second time this metric lied.</FONT></TD></TR>
+    </TABLE>>];
+
+  rview -> why [style=invis];
+  title -> timeline [style=invis];
+}

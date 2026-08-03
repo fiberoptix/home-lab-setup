@@ -1,0 +1,88 @@
+# Production-shaped topic seeding for Redpanda.
+#
+# Fixes all three failure modes found on 3 Aug 2026:
+#   1. NOT IDEMPOTENT   naive `rpk topic create` exits 1 if the topic exists,
+#                       so every redeploy failed. -> the script guards with
+#                       `topic describe`.
+#   2. NO DRIFT CHECK   an existence-only guard reports success on a topic with
+#                       the wrong shape. -> the script compares partitions/RF
+#                       and exits 1 on unreconcilable drift.
+#   3. READINESS RACE   the Job's retry budget (~32s) was shorter than broker
+#                       startup (~115s), so it could never win. And pod-Ready
+#                       is NOT enough: we measured 11/18 partitions still
+#                       leaderless while all 3 pods reported 2/2 Ready.
+#                       -> the initContainer blocks on `Healthy: true`.
+#
+# The script lives in a ConfigMap so the topic spec is reviewable on its own,
+# and is the same file as education/manifests/seed-topics.sh.
+#
+#   kubectl -n redpanda create configmap topic-spec \
+#     --from-file=seed-topics.sh=seed-topics.sh --dry-run=client -o yaml | kubectl apply -f -
+#   kubectl apply -f seed-topics-job.yaml
+#   kubectl -n redpanda wait --for=condition=complete job/seed-topics --timeout=600s
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: seed-topics
+  namespace: redpanda
+spec:
+  backoffLimit: 2
+  ttlSecondsAfterFinished: 3600     # stop dead pods accumulating in `get pods`
+  template:
+    spec:
+      restartPolicy: Never
+
+      # ---------------------------------------------------------------------
+      # Wait for the CLUSTER, not the pods. Measured 3 Aug 2026: all three pods
+      # reported 2/2 Ready while 11 of 18 partitions were still leaderless.
+      # Gating on pod readiness would have seeded straight into that window.
+      #
+      # NOTE `cluster health` is an ADMIN API call (:9644), so it needs
+      # -X admin.hosts. -X brokers (:9093) is the Kafka API and is silently
+      # ignored here -- rpk falls back to 127.0.0.1:9644 and fails with
+      # "connection refused", which looks like an unhealthy cluster.
+      #
+      # Do not mistake DNS resolution for readiness: the chart's headless
+      # Service sets publishNotReadyAddresses: true, so these names resolve to
+      # brokers that are not yet accepting connections. Only the health poll
+      # below is a real signal. Per-pod names are used rather than the
+      # collective one purely so the wait does not depend on that setting.
+      # ---------------------------------------------------------------------
+      initContainers:
+        - name: wait-for-cluster-health
+          image: docker.redpanda.com/redpandadata/redpanda:v26.1.12
+          command: ["/usr/bin/bash", "-c"]
+          args:
+            - |
+              A=redpanda-0.redpanda.redpanda.svc.cluster.local:9644
+              A=$A,redpanda-1.redpanda.redpanda.svc.cluster.local:9644
+              A=$A,redpanda-2.redpanda.redpanda.svc.cluster.local:9644
+              # 120 x 5s = 10 minutes. Bounded, so a genuinely broken cluster
+              # still fails the pipeline instead of hanging forever.
+              for i in $(seq 1 120); do
+                if rpk -X admin.hosts=$A cluster health 2>/dev/null | grep -qE '^Healthy:[[:space:]]+true'; then
+                  echo "cluster healthy after $(( (i-1)*5 ))s"
+                  exit 0
+                fi
+                echo "waiting for cluster health... ${i}/120"
+                sleep 5
+              done
+              echo "ERROR: cluster did not reach Healthy:true within 600s"
+              exit 1
+
+      containers:
+        - name: seed
+          image: docker.redpanda.com/redpandadata/redpanda:v26.1.12
+          command: ["/usr/bin/bash", "/spec/seed-topics.sh"]
+          env:
+            - name: BROKERS
+              value: redpanda.redpanda.svc.cluster.local:9093
+          volumeMounts:
+            - name: spec
+              mountPath: /spec
+
+      volumes:
+        - name: spec
+          configMap:
+            name: topic-spec
