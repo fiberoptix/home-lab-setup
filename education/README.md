@@ -18,9 +18,9 @@ chapters explain *what it means and why*.
 | 3 | [Redpanda](chapter03_redpanda.md) | Brokers, topics, partitions, Raft quorum, StatefulSets — plus a full install runbook and failure drills | ✅ Written Jul 27, 2026 |
 | 4 | [Provisioning application state](chapter04_provisioning_state.md) | The boundary between Kubernetes and application state: seeding topics, idempotency, the readiness race, tiered drift, operators vs Jobs | ✅ Written Aug 3, 2026 |
 | 5 | [Consumer groups](chapter05_consumer_groups.md) | Partition assignment, the parallelism ceiling, skew, lag, rebalancing, and why SIGKILL produces duplicates | ✅ Written Aug 3, 2026 |
-| 6 | Schema Registry | Avro, schema evolution, compatibility modes | 🔲 Planned |
-| 7 | OpenSearch and Fluent Bit | Log shipping with DaemonSets, OpenSearch as a data store | 🔲 Planned |
-| 8 | The market-data application | Producer `acks` and idempotence, an idempotent consumer, partitioner choice | 🔲 Planned |
+| 6 | [The application](chapter06_the_application.md) | Our own producer and consumer: `acks` and silent loss, commit ordering, effectively-once, and the four bugs found building it | ✅ Written Aug 3, 2026 |
+| 7 | Schema Registry | Avro, schema evolution, compatibility modes | 🔲 Planned |
+| 8 | OpenSearch and Fluent Bit | Log shipping with DaemonSets, OpenSearch as a data store | 🔲 Planned |
 | 9 | Failure drills | What actually happens when you break each piece | 🔲 Planned |
 
 ---
@@ -30,6 +30,13 @@ chapters explain *what it means and why*.
 ```
 education/
 ├── chapterNN_*.md      the chapters
+├── app/                the order management application (Chapter 6)
+│   ├── producer.py     order gateway — keyed events, acks/idempotence as env knobs
+│   ├── consumer.py     position keeper — explicit commits, two ledgers
+│   ├── oms.py          shared event model and the fixed arithmetic
+│   ├── Dockerfile      one image, two entrypoints
+│   ├── build.sh        docker build + k3s ctr import + verify
+│   └── k8s/            producer Job and consumer Deployment + PVC
 ├── diagrams/           Graphviz .dot sources — edit these
 ├── images/             rendered .png — generated, never edited by hand
 └── manifests/          working config referenced by the chapters
@@ -45,6 +52,11 @@ another cluster:
 | [`seed-topics.sh`](manifests/seed-topics.sh) | Chapter 4's topic reconciler. Idempotent, and checks *shape* not just existence: fixes Tier 1 config drift in place, reports Tier 2/3 drift and exits 1. Verified against missing, unchanged, retention-drifted and partition-drifted topics |
 | [`seed-topics-job.yaml`](manifests/seed-topics-job.yaml) | The Job that runs it, with an init container that polls the **Admin API** until `Healthy: true`. Verified to cost 0s on a healthy cluster and to survive a full scale-to-zero outage |
 | [`consumer-group-lab.sh`](manifests/consumer-group-lab.sh) | Chapter 5's lab as a step runner (`reset` / `seed` / `start` / `who` / `work` / `keys` / `dups`). Replays the whole session, including the SIGTERM-vs-SIGKILL duplicate contrast |
+
+Chapter 6's application lives in [`app/`](app/) rather than `manifests/`, because it is source code
+rather than configuration. It is deployable as-is: `./build.sh` then `kubectl apply -f k8s/`.
+Verified end-to-end at 10,000 events with an exact 800,000-share reconciliation, zero sequence gaps,
+and repeated hard kills.
 
 ---
 

@@ -1,6 +1,6 @@
 # Current Phase
 
-**Updated:** August 3, 2026 - 6:35 PM EDT
+**Updated:** August 3, 2026 - 9:15 PM EDT
 
 ---
 
@@ -348,18 +348,67 @@ Same format, five hands-on steps on topic `orders` (6 partitions, 1500 records, 
   his messages." It's a **relay, not sharing** — contiguous, non-overlapping ranges over time. The log
   file is the union of everything that consumer ever owned.
 
+### ✅ Part 6 + Chapter 6 session — our own producer and consumer (Aug 3, 6:40 – 9:10 PM)
+
+Built unattended. Python 3.12 + `confluent-kafka` 2.6.1, one image `oms:dev` with two entrypoints,
+side-loaded into k3s containerd (no registry). Topic `orders-v2` 6p/RF3, group `position-keeper`,
+`order-gateway` Job + `position-keeper` Deployment in ns `market`. Source at `education/app/`.
+Workload is **2000 orders × (1 NEW + 4 FILL) = 10,000 events / 8,000 fills / 800,000 shares**, with
+fixed arithmetic so the right answer is knowable without coordination.
+
+**Chapter 6 is built around four bugs, three of them mine.** They turned out to be far better
+material than the working version would have been.
+
+- ⭐ **The demo that "failed".** Two ledgers, hard kill mid-stream, expecting the naive one to
+  inflate. Got **zero duplicates in both** — because both were in the *same SQLite transaction*,
+  committed just before the offset. The kill rolled the writes back, the offset was also
+  uncommitted, so state and offset stayed in lockstep and redelivery re-applied cleanly.
+  ⇒ **A transactional state store + commit-after-write is effectively-once for free.** No dedupe
+  table, no exactly-once protocol. That is the cheap answer, and most consumers qualify.
+- **So duplicates only hurt when the side effect escapes the transaction.** Reworked the second
+  ledger as a separate file on an autocommit connection (a stand-in for a POST to a venue). Same
+  kill: **8011 gateway calls for 8000 real fills — 11 duplicate executions, 1,100 shares nobody
+  ordered** — while the transactional ledger stayed exactly 800,000.
+- **The tail that never commits.** Commit trigger was record-count only, so on an idle topic the
+  last partial batch never committed: **lag stuck at 13 indefinitely**, and that tail replayed on
+  *every* restart — duplicates went **11 → 22 → 33, compounding**. Fix: commit on count **or**
+  elapsed time, including on the idle path. ⇒ **stuck lag is a commit-policy bug; a slow consumer's
+  lag changes.**
+- ⚠️ **`kubectl delete pod --force --grace-period=0` is not a reliable SIGKILL.** The runtime still
+  delivered SIGTERM and my handler shut down cleanly — I was testing the graceful path believing it
+  was the hard one. `kill -9 1` inside the container fails too (the kernel shields PID 1). What
+  works is killing from the node; confirmed by `lastState: Error:137`, the same code an **OOM kill**
+  gives. It was a **container restart in place**, not a pod replacement.
+- **A hung consumer looks exactly like a healthy one.** A SQLite lock bug left it processing one
+  record while `1/1 Running` with a clean log and zero restarts. Only lag showed it. ⇒ liveness
+  should assert **progress**, not that the process exists.
+- **`acks=0` lost 29 records silently** — `delivered=15000 failed=0` but 14,971 in the topic, against
+  15,000/15,000 for `acks=all`. **The whole benefit was 0.2 seconds.** A duplicate is loud and
+  recoverable; a lost fill is a position you don't know you hold.
+- **Ch5's skew caveat confirmed:** 12 keys gave 42% on one partition; **2000 keys gave a 9.4%
+  spread.** Skew is a function of key *cardinality*, not partitioning.
+- **Ordering proven, not assumed:** `seq_gaps=0` across 2000 orders, via per-order sequence tracking.
+- `BALANCER range` here vs `cooperative-sticky` in Ch5 — **rebalance behaviour belongs to the
+  clients, not the cluster.** And a per-event durable side effect cost **~8×** throughput (1,550 → 200
+  events/s), which is *why* commit windows exist.
+
 ### ⏭️ Next
 
-1. **Part 6 — the Python producer/consumer app**, now with a clear brief: `acks`, `enable.idempotence`,
-   partitioner choice, and an **idempotent** consumer rather than a hopeful one.
-2. Chapters 1–5 written. Next chapter candidates: 6 (Schema Registry — reuses Ch4's provisioning
-   pattern) or 8 (the app).
-3. Optional loose ends from the Ch5 session: `rpk group seek` for replay, and a lag-alerting demo.
+1. **Chapter 7 — Schema Registry.** Reuses Ch4's provisioning pattern, and there is now a concrete
+   motivation: the app produces hand-rolled JSON with no contract, so renaming `qty` silently breaks
+   the consumer.
+2. Chapters 1–6 written. Remaining: 7 (Schema Registry), 8 (OpenSearch + Fluent Bit), 9 (failure drills).
+3. Loose ends worth an hour each: a **liveness probe that asserts progress** on the consumer (§13 of
+   Ch6 argues for it but it is not built), Redpanda Console via port-forward, `rpk group seek` for
+   replay, and a lag-alerting demo.
 
 **Timing:** interview ~Aug 1. Redpanda is now the strongest part of the story. Part 5 (OpenSearch)
 remains the one to cut.
 
-**Restore point: `qm rollback 186 s03-redpanda-up`** (taken Jul 27 14:58, healthy 3-broker cluster).
+**Restore point: `qm rollback 186 s05-app-running`** (taken Aug 3 19:13, live via guest-agent
+fs-freeze) — the OMS app deployed, reconciling, lag 0. Fallbacks: `s04-topics-seeded` (Aug 3 18:34,
+pre-Part-6; rolling back that far removes `orders-v2`, the app and its PVC) and `s03-redpanda-up`
+(Jul 27 14:58, healthy 3-broker cluster, no topics from Aug 3).
 `s02-k3s-up` predates Redpanda — rolling back that far wipes it. Snapshot was taken **live** in 1.5 s
 via guest-agent fs-freeze, no VM downtime, verified 0 restarts + 33 records readable after.
 

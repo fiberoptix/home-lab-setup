@@ -1,0 +1,71 @@
+// Chapter 6, Figure 3 — the acks ladder, with the measured cost of the bottom
+// rung. Broker killed mid-produce, 15000 events, 3 Aug 2026.
+//
+// Render:
+//   dot -Tpng -Gdpi=150 ch06_fig3_acks.dot -o ../images/ch06_fig3_acks.png
+
+digraph acks {
+  rankdir=TB;
+  bgcolor="white";
+  node  [fontname="Helvetica", fontsize=10, shape=box, style="filled,rounded", penwidth=1.2];
+  edge  [fontname="Helvetica", fontsize=9];
+  graph [fontname="Helvetica", fontsize=11];
+
+  title [shape=plaintext, style="", fillcolor="none", label=<
+    <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0">
+      <TR><TD><FONT POINT-SIZE="16"><B>What the producer means by &#8220;delivered&#8221;</B></FONT></TD></TR>
+      <TR><TD><FONT POINT-SIZE="10" COLOR="#555555">same test both times: 15000 events, <FONT FACE="Courier">redpanda-1</FONT> force-deleted mid-produce</FONT></TD></TR>
+    </TABLE>>];
+
+  ladder [shape=plaintext, style="", fillcolor="none", label=<
+    <TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="6" COLOR="#7f8c8d" BGCOLOR="#fbfbfb">
+      <TR><TD ALIGN="LEFT"><B>acks</B></TD><TD ALIGN="LEFT"><B>&#8220;delivered&#8221; means</B></TD><TD ALIGN="LEFT"><B>survives</B></TD></TR>
+      <TR><TD ALIGN="LEFT"><FONT FACE="Courier">0</FONT></TD>
+          <TD ALIGN="LEFT"><FONT POINT-SIZE="9">written to the local socket</FONT></TD>
+          <TD ALIGN="LEFT"><FONT POINT-SIZE="9" COLOR="#c0392b">nothing. The broker never replied.</FONT></TD></TR>
+      <TR><TD ALIGN="LEFT"><FONT FACE="Courier">1</FONT></TD>
+          <TD ALIGN="LEFT"><FONT POINT-SIZE="9">the <B>leader</B> has it</FONT></TD>
+          <TD ALIGN="LEFT"><FONT POINT-SIZE="9" COLOR="#b7950b">leader stays up. Loses data if the<BR/>leader dies before followers copy it.</FONT></TD></TR>
+      <TR><TD ALIGN="LEFT"><FONT FACE="Courier">all</FONT></TD>
+          <TD ALIGN="LEFT"><FONT POINT-SIZE="9">a <B>quorum of replicas</B> has it</FONT></TD>
+          <TD ALIGN="LEFT"><FONT POINT-SIZE="9" COLOR="#1e8449">loss of any single broker</FONT></TD></TR>
+    </TABLE>>];
+
+  // ------------------------------------------------------- acks=all
+  subgraph cluster_all {
+    label="  acks=all  &#183;  enable.idempotence=true  ";
+    style="filled,rounded"; fillcolor="#eafaf1"; color="#1e8449"; fontcolor="#1e8449"; penwidth=1.6;
+
+    a_all [fillcolor="#ffffff", color="#1e8449", label=<
+      <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="4">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT FACE="Courier" POINT-SIZE="10">produced=15000 delivered=15000 failed=0<BR/>in topic:      15000 / 15000</FONT></TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="9">A broker died mid-produce and it cost nothing but latency.<BR/>The client retried against the new leader; the quorum<BR/>already had the data.</FONT></TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="10" COLOR="#1e8449"><B>0 lost &#183; 26.8s</B></FONT></TD></TR>
+      </TABLE>>];
+  }
+
+  // ------------------------------------------------------- acks=0
+  subgraph cluster_zero {
+    label="  acks=0  &#183;  fire and forget  ";
+    style="filled,rounded"; fillcolor="#fdf2f2"; color="#c0392b"; fontcolor="#c0392b"; penwidth=1.6;
+
+    a_zero [fillcolor="#ffffff", color="#c0392b", label=<
+      <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="4">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT FACE="Courier" POINT-SIZE="10">produced=15000 delivered=15000 failed=0<BR/>in topic:      14971 / 15000</FONT></TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="9">Identical success report. <B>29 records simply are not there.</B><BR/>No exception, no failed callback, no retry, no metric.<BR/>The application has no way to know.</FONT></TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="10" COLOR="#c0392b"><B>29 lost silently &#183; 27.0s</B></FONT></TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="9" COLOR="#555555">Note the timing: <B>0.2s faster.</B> That is the entire<BR/>benefit, and what people are buying when they set it.</FONT></TD></TR>
+      </TABLE>>];
+  }
+
+  lesson [shape=plaintext, style="", fillcolor="none", label=<
+    <TABLE BORDER="2" CELLBORDER="0" CELLSPACING="0" CELLPADDING="7" COLOR="#b7950b" BGCOLOR="#fffdf3">
+      <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>Loss and duplication fail in opposite directions, and you must pick which one you can live with.</B></TD></TR>
+      <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="9">A duplicate is <B>loud</B> &#8212; it shows up as a wrong total you can reconcile, and an idempotent handler erases it.<BR/>A lost record is <B>silent</B> &#8212; there is no artefact to find, no counter to alert on, and reconciliation only<BR/>catches it if you independently know what should have been there.<BR/><BR/>For an order management system this is not a tuning decision. A missing fill is a position you do not know<BR/>you hold. <B><FONT FACE="Courier">acks=all</FONT> is the floor</B>, and the 0.2s is not for sale.<BR/><BR/><B><FONT FACE="Courier">enable.idempotence=true</FONT> is a different guarantee</B> and requires <FONT FACE="Courier">acks=all</FONT> underneath it. It stops the<BR/><I>producer</I> from appending the same record twice when an ack is lost and it retries. It says nothing about<BR/>the consumer &#8212; consumer-side duplicates are Figure 2&#8217;s problem.</FONT></TD></TR>
+    </TABLE>>];
+
+  title  -> ladder [style=invis];
+  ladder -> a_all [style=invis];
+  a_all  -> a_zero [color="#c0392b", style=bold, label="  same code, one env var  "];
+  a_zero -> lesson [style=invis];
+}

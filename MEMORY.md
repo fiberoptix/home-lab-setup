@@ -133,14 +133,18 @@ Practical rules:
     interview). **Ch1 (Kubernetes/k3s) 846 lines / 6 diagrams / 31 questions; Ch2 (object model)
     631 lines / 2 diagrams / 27 questions; Ch3 (Redpanda) 1023 lines / 3 diagrams / 33 questions;
     Ch4 (provisioning application state) 823 lines / 3 diagrams / 24 questions + 10 worked interview
-    answers; Ch5 (consumer groups) 488 lines / 3 diagrams / 24 questions + 9 interview answers.**
-    ⚠️ **Chapter numbering shifted Aug 3:** Schema Registry is now **6**, OpenSearch **7**, the app
-    **8**, failure drills **9**. Ch2–Ch5 are deliberately **replayable runbooks** — Andrew re-runs this
+    answers; Ch5 (consumer groups) 488 lines / 3 diagrams / 24 questions + 9 interview answers;
+    Ch6 (the application) 792 lines / 3 diagrams / 28 questions + 9 interview answers.**
+    ⚠️ **Numbering settled Aug 3 (second shift):** the app took **6** because Andrew asked for
+    "chapter 6" when commissioning it, and chapters are numbered in writing order. Schema Registry
+    is now **7**, OpenSearch **8**, failure drills **9**. Ch2–Ch6 are deliberately **replayable runbooks** — Andrew re-runs this
     material, so where output varies between runs (sticky-partition choice, initial leader assignment,
     which partition an unkeyed producer picks) the text says so explicitly. `education/manifests/`
     holds real tested artefacts: `redpanda-values.yaml`, `web-deployment.yaml` (verified end-to-end
     apply → rollout → 200s → delete on Jul 27, with both probe failure drills documented inline),
-    plus `seed-topics.sh` + `seed-topics-job.yaml` + `consumer-group-lab.sh` from Aug 3.
+    plus `seed-topics.sh` + `seed-topics-job.yaml` + `consumer-group-lab.sh` from Aug 3. **Ch6's
+    application is source code, so it lives in `education/app/` (producer.py, consumer.py, oms.py,
+    Dockerfile, build.sh, k8s/) rather than `manifests/`.**
     Rule for this series: only document things Andrew actually ran. **Diagrams are Graphviz `.dot`
     sources in `education/diagrams/`, deliberately NOT AI-generated** (image models garble technical
     labels); `graphviz` installed on the Z8. Two HTML-label gotchas: newlines render as literal
@@ -275,6 +279,71 @@ Practical rules:
   - **Andrew's one misread:** seeing p2 records across several logs he said "everyone got some of his
     messages." It's a **relay, not sharing** — contiguous non-overlapping ranges over time; a log file
     is the union of everything that consumer ever owned. He otherwise called every result correctly.
+
+  **Chapter 6 session (Aug 3, 6:40–9:10 PM) — Part 6, our own producer/consumer, built unattended.**
+  Python 3.12 + `confluent-kafka` 2.6.1, image `oms:dev` side-loaded into k3s containerd (no
+  registry), topic `orders-v2` 6p/RF3, group `position-keeper`. Workload: **2000 orders × (1 NEW +
+  4 FILL) = 10,000 events, 8,000 fills, 800,000 shares** — fixed arithmetic so the correct answer is
+  knowable without coordination. Source at `education/app/`. **The chapter is built around four
+  bugs, three of them mine; they are better material than the working version.**
+  - ⭐ **The demo that "failed" and became the best finding.** Plan: two ledgers (idempotent upsert
+    vs naive accumulate), hard-kill mid-stream, watch naive inflate. Result: **zero duplicates in
+    BOTH.** Cause: both ledgers were in the **same SQLite transaction**, committed immediately
+    before the offset commit. SIGKILL mid-batch ⇒ writes **rolled back**, offset also uncommitted ⇒
+    state and offset back in **lockstep** ⇒ redelivery re-applied cleanly. ⇒ **A transactional state
+    store + commit-after-write is effectively-once for FREE — no dedupe table, no event-ID set, no
+    exactly-once protocol. Most consumers qualify.** This is the cheap answer and it tells you
+    exactly when you need more.
+  - **Duplicates only hurt when the side effect ESCAPES the transaction.** Reworked the second
+    ledger into a separate SQLite file on an **autocommit** connection = a stand-in for a POST to an
+    execution venue. Then the same hard kill gave **8011 gateway calls for 8000 real fills = 11
+    duplicate executions = 1,100 shares executed that nobody ordered**, while the transactional
+    ledger stayed exactly 800,000. **Fix is an idempotency key the RECEIVER honours** — which is why
+    payment APIs make you send one.
+  - **Bug: two SQLite connections to ONE file deadlocked.** The transactional connection holds the
+    write lock from first write until commit, starving the autocommit one on every event ⇒ consumer
+    crawled to **1 record processed**. Pod was **`1/1 Running`, no restarts, clean log** — only lag
+    revealed it. ⇒ **Kubernetes cannot tell a working consumer from a hung one**; needs a liveness
+    probe asserting *progress*, not liveness. Separate files fixed it and models reality better.
+  - **Bug: the tail that never commits.** Commit trigger was record-count only (`>= 50`), so on an
+    idle topic the final partial batch **never commits**. Lag stuck at **13 indefinitely** — and that
+    permanently-uncommitted tail is replayed on **every** restart: duplicates went **11 → 22 → 33,
+    compounding**. Fix: commit on **count OR elapsed seconds**, *including on the idle path when
+    `poll()` returns None*. Lag then hit 0 and held. ⇒ **Lag that is stuck rather than growing is a
+    commit-policy bug, not a slow consumer.**
+  - ⚠️ **`kubectl delete pod --force --grace-period=0` is NOT a reliable SIGKILL.** The runtime may
+    still deliver SIGTERM; our handler committed and left the group cleanly, so I was testing the
+    **graceful** path while believing it was the hard one. `kill -9 1` inside the container also
+    fails (kernel shields PID 1 of a namespace from unhandleable signals). **What works: kill the
+    process from the NODE** (`pgrep -ax python` → `sudo kill -9 <pid>`), confirmed by
+    `lastState.terminated: Error:137` (= 128+9, same as an **OOM kill**). Also: it was a **container
+    restart in place** (restartCount++, same pod/IP/PVC), not a pod replacement.
+    ⚠️ Do **not** `pkill -f "python consumer.py"` — the pattern matches the shell running it and
+    killed my own SSH session.
+  - **Measurement trap:** after a hard kill the group waits out `session.timeout.ms` (**librdkafka
+    default 45s**) before reassigning. I sampled at 35s twice and wrongly concluded the duplicates
+    had stopped compounding. **SIGTERM reassigns instantly; SIGKILL costs a session timeout of
+    downtime** — an availability difference, not just a data one.
+  - **`acks=0` measured: 29 records lost SILENTLY.** Same code, one env var, broker force-deleted
+    mid-produce: `acks=all` → 15000/15000 in topic (26.8s); `acks=0` → producer reported
+    **`delivered=15000 failed=0`** but only **14971** were in the topic (27.0s). **The entire benefit
+    was 0.2 seconds.** ⇒ **a duplicate is loud and recoverable, a lost record is silent** — for an
+    OMS a missing fill is a position you don't know you hold. `acks=all` is the floor.
+  - **Ch5's skew prediction confirmed.** Ch5 got **42% on one partition with 12 keys**; with **2000
+    keys** the spread was 1590–1740, a **9.4% span** (sums to exactly 10,000). ⇒ **key skew is a
+    function of key CARDINALITY, not partitioning** — count distinct keys before treating uneven
+    partitions as a problem.
+  - **Ordering proven, not assumed:** per-order `seq` tracking gave **`seq_gaps=0` across 2000
+    orders**. Cheap continuous ordering check worth stealing for production (one dictionary).
+  - **`BALANCER range`, not `cooperative-sticky`** — `confluent-kafka` defaults differ from `rpk`.
+    `range` is the **eager** protocol (everyone revokes everything on any rebalance). ⇒ **rebalance
+    behaviour is a property of the CLIENTS, not the cluster**; a mixed fleet is nasty to debug.
+  - **A durable side effect per event cost ~8×**: ~1,550 events/s transactional-only vs **~200/s**
+    with a per-event fsync. ⇒ **the commit window isn't carelessness, it's the price of throughput.**
+  - `strategy: Recreate` is mandatory for the consumer — `RollingUpdate` surges a second pod that
+    can never mount the `ReadWriteOnce` PVC, so the rollout hangs to `ProgressDeadlineExceeded`.
+    Ch2's `maxSurge` lesson arriving sideways: **the surge is only free if nothing the pod holds is
+    exclusive.**
 
   **From the Parts 1 & 2 build (July 25) — still current:**
   - **The lab now has its first VM template: 9000 `tmpl-ubuntu-2404-cloudinit`** (Ubuntu 24.04

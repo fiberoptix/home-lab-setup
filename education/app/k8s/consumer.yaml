@@ -1,0 +1,71 @@
+# The position keeper.
+#
+# Deliberately a Deployment with ONE replica plus a PVC, not a StatefulSet:
+# the state here is a scratch demo ledger, and a single replica keeps the
+# arithmetic in Chapter 6 legible. A real position keeper sized to the
+# partition count would be a StatefulSet with one volume per replica.
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: position-state
+  namespace: market
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: position-keeper
+  namespace: market
+spec:
+  replicas: 1
+  # Recreate, not RollingUpdate: two replicas cannot share a ReadWriteOnce
+  # volume, so a surge would deadlock on the PVC (Ch2 4).
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: position-keeper
+  template:
+    metadata:
+      labels:
+        app: position-keeper
+    spec:
+      # Long enough for the loop to finish its poll, commit, and leave the
+      # group. Too short and Kubernetes SIGKILLs it, which is Ch5 6 -- and
+      # then the successor replays. 30s is the default; being explicit here
+      # because on this workload it is a correctness knob, not a nicety.
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: consumer
+          image: oms:dev
+          imagePullPolicy: IfNotPresent      # no registry; image side-loaded
+          command: ["python", "consumer.py"]
+          env:
+            - name: BROKERS
+              value: redpanda.redpanda.svc.cluster.local:9093
+            - name: TOPIC
+              value: orders-v2
+            - name: GROUP
+              value: position-keeper
+            - name: COMMIT_EVERY
+              value: "50"                    # == the replay window on a hard kill
+            - name: COMMIT_SECONDS
+              value: "5"                     # without this the stream TAIL never commits
+            - name: STATE
+              value: /state/positions.db
+          volumeMounts:
+            - name: state
+              mountPath: /state
+          resources:
+            requests: {cpu: 50m, memory: 64Mi}
+            limits:   {cpu: 500m, memory: 256Mi}
+      volumes:
+        - name: state
+          persistentVolumeClaim:
+            claimName: position-state

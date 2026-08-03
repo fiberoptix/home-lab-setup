@@ -1,0 +1,40 @@
+# The order gateway, as a Job.
+#
+# A Job rather than a Deployment because emitting a fixed batch of orders has
+# an end. It exits non-zero if any delivery failed, so `backoffLimit` and
+# `kubectl wait` behave the way Chapter 4 9 wants them to.
+#
+# Change ACKS / IDEMPOTENCE here to run the durability demos.
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: order-gateway
+  namespace: market
+spec:
+  backoffLimit: 0                  # a failed produce is a real failure; do not mask it with retries
+  ttlSecondsAfterFinished: 3600
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: producer
+          image: oms:dev
+          imagePullPolicy: IfNotPresent
+          command: ["python", "producer.py"]
+          env:
+            - name: BROKERS
+              value: redpanda.redpanda.svc.cluster.local:9093
+            - name: TOPIC
+              value: orders-v2
+            - name: ORDERS
+              value: "50"          # 50 orders x 4 fills x 100 = 20000 shares
+            - name: ACKS
+              value: "all"         # "0" for the silent-data-loss demo
+            - name: IDEMPOTENCE
+              value: "true"        # requires acks=all
+            - name: RATE
+              value: "0"           # records/sec; 0 = flat out
+          resources:
+            requests: {cpu: 50m, memory: 64Mi}
+            limits:   {cpu: 500m, memory: 256Mi}
