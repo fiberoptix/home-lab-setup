@@ -46,6 +46,13 @@ FIG_MAX_H_IN = TEXT_H_IN - 0.6          # leave room for the caption
 BODY_FONT, HEAD_FONT, MONO_FONT = "Cambria", "Calibri", "Consolas"
 W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 
+# Review highlighting. Word's own highlighter (w:highlight) is a closed set of
+# 15 named colours -- "yellow" is #FFFF00 at full strength, with no tint or
+# opacity control, and it lays down a wet band of ink on an inkjet. Character
+# shading takes an arbitrary fill instead, so this is a ~31% tint of yellow:
+# obvious on screen, cheap to print, and still legible as grey in greyscale.
+HIGHLIGHT_FILL = "FFF3B0"
+
 
 def png_size(path):
     return struct.unpack(">II", path.read_bytes()[16:24])
@@ -118,7 +125,11 @@ CHAR_SPEC = {
     "VerbatimChar": f'<w:rFonts w:ascii="{MONO_FONT}" w:hAnsi="{MONO_FONT}" '
                     f'w:cs="{MONO_FONT}"/><w:sz w:val="19"/><w:szCs w:val="19"/>'
                     '<w:shd w:val="clear" w:fill="F2F2F2"/>',
+    # pandoc resolves custom-style="Key" by style NAME, so id and name match.
+    "Key":          '<w:shd w:val="clear" w:color="auto" '
+                    f'w:fill="{HIGHLIGHT_FILL}"/>',
 }
+CHAR_CUSTOM = {"Key"}
 
 
 # pandoc decides whether to inject its own code style by matching the style
@@ -149,7 +160,8 @@ def patch_styles(xml):
     for sid, rpr_inner in CHAR_SPEC.items():
         pat = re.compile(
             rf'(<w:style [^>]*w:styleId="{sid}"[^>]*>)(.*?)(</w:style>)', re.S)
-        new = (f'<w:style w:type="character" w:styleId="{sid}">'
+        custom = ' w:customStyle="1"' if sid in CHAR_CUSTOM else ""
+        new = (f'<w:style w:type="character"{custom} w:styleId="{sid}">'
                f'<w:name w:val="{sid}"/><w:rPr>{rpr_inner}</w:rPr></w:style>')
         if pat.search(xml):
             xml = pat.sub(new, xml, count=1)
@@ -236,7 +248,8 @@ def build_chapter(md_path, reference):
         subprocess.run(
             ["pandoc", str(tmp), "-o", str(out),
              "--reference-doc", str(reference),
-             "--from", "markdown+pipe_tables+implicit_figures+backtick_code_blocks",
+             "--from", "markdown+pipe_tables+implicit_figures"
+                       "+backtick_code_blocks+bracketed_spans",
              "--highlight-style=tango",
              "--resource-path", str(EDU)],
             check=True, capture_output=True, text=True)

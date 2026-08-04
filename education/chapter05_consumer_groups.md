@@ -53,7 +53,7 @@ rpk topic consume orders -g oms-processor -o start -f '%p %o %k\n'
 
 Everything interesting follows from three rules.
 
-**Rule 1 — a partition has exactly one owner in the group, at any instant.** Never two. This is the
+[**Rule 1 — a partition has exactly one owner in the group, at any instant.** Never two.]{custom-style="Key"} This is the
 rule that makes per-partition ordering safe to depend on: if two consumers could interleave work on
 the same key, the ordering guarantee from Chapter 3 would be worthless the moment you scaled out.
 
@@ -87,7 +87,7 @@ snapshot taken before the first commit, so read it as evidence of *ownership* on
 conflict with §2's statement that c1 processed those 120 records; processing and committing are
 different events, and the entire second half of this chapter is about the gap between them.
 
-**Rule 3 — assignment counts partitions, not records.** Add a second consumer and the six partitions
+[**Rule 3 — assignment counts partitions, not records.**]{custom-style="Key"} Add a second consumer and the six partitions
 split 3/3. The *work* does not:
 
 ```
@@ -98,8 +98,8 @@ c2 owns p3, p4, p5   ->  15 + 15 + 30  =  60 records   (33%)
 (By this point 180 records had been produced in total — the 120 above plus a further 60 while the
 second consumer was joining. The split is 120/60 of 180, not of the earlier 120.)
 
-Doubling the consumers left one of them doing twice the work of the other, and **nothing in the
-protocol will ever correct that.** The group has no idea some partitions are hot.
+Doubling the consumers left one of them doing twice the work of the other, and [**nothing in the
+protocol will ever correct that.** The group has no idea some partitions are hot.]{custom-style="Key"}
 
 ![Figure 1 — how partitions are assigned to group members](images/ch05_fig1_assignment.png)
 
@@ -127,30 +127,30 @@ c1  ->  p0    0              <-- owns a partition, but it has never held a recor
 c7  ->  --    0              <-- owns nothing: more consumers than partitions
 ```
 
-**Seven consumers, five doing work.** Two distinct flavours of idle, and it's worth separating them
-because only one is structural. `c7` has no assignment at all — with six partitions, the seventh
+[**Seven consumers, five doing work.** Two distinct flavours of idle, and it's worth separating them
+because only one is structural.]{custom-style="Key"} `c7` has no assignment at all — with six partitions, the seventh
 member is surplus by definition. `c1` does have an assignment, but partition 0 is empty, so it is
 functionally idle too. Note also that `c1` was the *original* consumer that single-handedly processed
 the first 120 records; rebalancing demoted it to the empty partition with no regard for history.
 
 The number to take away:
 
-> **Your worst-case lag is set by your hottest partition, not by your consumer count.** If p2 falls
+> [**Your worst-case lag is set by your hottest partition, not by your consumer count.**]{custom-style="Key"} If p2 falls
 > behind, adding consumers cannot help — it already has a dedicated one, and Rule 1 forbids a second.
 
 Your only levers are a faster consumer, a different key, or more partitions. And more partitions
 rewrites `hash(key) % n`, breaking ordering retroactively for roughly half the keys (Ch3 §2d,
-Ch4 §7c). **Partition count is not just a storage decision — it's your permanent maximum
-throughput**, chosen before you have any data about what that needs to be.
+Ch4 §7c). [**Partition count is not just a storage decision — it's your permanent maximum
+throughput**]{custom-style="Key"}, chosen before you have any data about what that needs to be.
 
 ### 2a. Idle is not the same as useless
 
 That conclusion needs immediate qualification, because the next demo contradicted the obvious reading
-of it. When the p2 owner was killed, **`c7` inherited the partition instantly.** It was already
+of it. [When the p2 owner was killed, **`c7` inherited the partition instantly.**]{custom-style="Key"} It was already
 connected, already authenticated, already a group member — failover needed no process start, no
 metadata fetch, just an assignment.
 
-So a surplus consumer is a **warm standby** you pay for in steady state. Whether that's a good trade
+[So a surplus consumer is a **warm standby** you pay for in steady state.]{custom-style="Key"} Whether that's a good trade
 depends entirely on how expensive your consumer's startup is. For a JVM service with a slow warm-up,
 one idle replica may be excellent value. For a cheap process under a Deployment that Kubernetes will
 restart in two seconds anyway, it's waste.
@@ -173,15 +173,15 @@ p5:  ORD-6, ORD-9                             17%
 The natural question is why Redpanda doesn't notice that p3 is quiet and send some of p2's traffic
 there. Two independent reasons, and the second is the important one.
 
-**The broker never gets a vote.** `hash(key) % 6` is computed **client-side, in the producer**,
-before the record is sent. By the time it arrives at a broker it is already addressed to partition 2.
+**The broker never gets a vote.** [`hash(key) % 6` is computed **client-side, in the producer**,
+before the record is sent.]{custom-style="Key"} By the time it arrives at a broker it is already addressed to partition 2.
 The broker is a destination, not a router.
 
 **And if it could, it must not.** Move `ORD-2` to p3 to level out disk usage and `ORD-2`'s history is
-now split across two partitions, read by two different consumers, with no ordering between them — a
-cancel could be processed before the order it cancels. That is exactly the damage from Chapter 3's
-repartitioning demo, except inflicted silently, mid-flight, by the broker. **Redpanda declines to
-balance your data because balancing it would break the one guarantee you're paying for.**
+now split across two partitions, [read by two different consumers, with no ordering between them — a
+cancel could be processed before the order it cancels.]{custom-style="Key"} That is exactly the damage from Chapter 3's
+repartitioning demo, except inflicted silently, mid-flight, by the broker. [**Redpanda declines to
+balance your data because balancing it would break the one guarantee you're paying for.**]{custom-style="Key"}
 
 ![Figure 2 — two problems that look identical](images/ch05_fig2_skew.png)
 
@@ -195,16 +195,16 @@ balance your data because balancing it would break the one guarantee you're payi
 
 ### 3a. Two problems that look identical
 
-**Small-numbers skew fixes itself.** Twelve keys into six buckets should average two each; random
+[**Small-numbers skew fixes itself.** Twelve keys into six buckets should average two each]{custom-style="Key"}; random
 assignment lands like the table above routinely, for the same reason twelve coin flips rarely give
 exactly six heads. A real OMS has thousands to millions of distinct order IDs and the distribution
 flattens on its own. **Don't over-learn this particular skew** — it's an artifact of the demo.
 
-**A genuinely hot single key is unfixable by partitioning.** If one client's account ID were 40% of
-volume, no partition count helps: that key must live on one partition to keep its ordering. The
+[**A genuinely hot single key is unfixable by partitioning.** If one client's account ID were 40% of
+volume, no partition count helps]{custom-style="Key"}: that key must live on one partition to keep its ordering. The
 answers are a composite key such as `account-shard-3` (spreads the load, gives up per-account
-ordering, keeps per-order ordering) or a dedicated topic for that flow. It's a data-modelling
-decision, not a tuning one, and saying so is the right answer if an interviewer asks how you'd handle
+ordering, keeps per-order ordering) or a dedicated topic for that flow. [It's a data-modelling
+decision, not a tuning one]{custom-style="Key"}, and saying so is the right answer if an interviewer asks how you'd handle
 a hot partition.
 
 Notably absent from both lists: **adding partitions**. It doesn't reliably fix skew — the
@@ -221,17 +221,17 @@ management system it is the direct answer to *how stale is our view of the book*
 Three things about that table that matter at 3am:
 
 **Lag is per-partition; `TOTAL-LAG` is only the sum.** Total lag can look healthy while one partition
-is badly behind. Given the skew above, a stall on p2 would be 42% of your traffic while the other
-five partitions keep the aggregate looking survivable. **Alert on max per-partition lag, not just the
-total.**
+is badly behind. Given the skew above, [a stall on p2 would be 42% of your traffic while the other
+five partitions keep the aggregate looking survivable.]{custom-style="Key"} [**Alert on max per-partition lag, not just the
+total.**]{custom-style="Key"}
 
 **A dash is not a zero.** Partition 0 shows `CURRENT-OFFSET  -` even when the group is fully caught
-up. A dash means *this group has never committed an offset for this partition*, which is very
-different from having committed offset 0. Nothing ever arrived, so nothing was ever committed. Read
+up. [A dash means *this group has never committed an offset for this partition*, which is very
+different from having committed offset 0.]{custom-style="Key"} Nothing ever arrived, so nothing was ever committed. Read
 it alongside `LOG-END-OFFSET` to tell "idle partition" apart from "consumer never started."
 
-**Lag falling to zero says nothing about correctness.** It means the group committed offsets up to
-the high-water mark. Whether the consumer actually *did* anything useful with those records — or
+[**Lag falling to zero says nothing about correctness.** It means the group committed offsets up to
+the high-water mark.]{custom-style="Key"} Whether the consumer actually *did* anything useful with those records — or
 crashed after committing — is a separate question that lag cannot answer.
 
 ---
@@ -242,13 +242,13 @@ Whenever membership changes — a consumer joins, leaves, or is declared dead �
 reassigns partitions. This is a **rebalance**, and it happens far more often than people expect:
 every deploy, every scale event, every pod eviction, every OOM kill.
 
-`BALANCER  cooperative-sticky` is rpk's default and the modern one. The older *eager* strategies
+`BALANCER  cooperative-sticky` is rpk's default and the modern one. [The older *eager* strategies
 (`range`, `roundrobin`) revoke **every** assignment from **every** member and redistribute from
-scratch — a genuine stop-the-world pause across the whole group. Cooperative rebalancing moves only
+scratch]{custom-style="Key"} — a genuine stop-the-world pause across the whole group. Cooperative rebalancing moves only
 the partitions that actually need to move, so consumers untouched by the change keep working.
 
-A practical consequence of watching this live: **the `describe` output barely changes.** Going from
-2 members to 7 changed `MEMBERS` and the `MEMBER-ID` column and nothing else, because no new data had
+A practical consequence of watching this live: [**the `describe` output barely changes.** Going from
+2 members to 7 changed `MEMBERS` and the `MEMBER-ID` column and nothing else]{custom-style="Key"}, because no new data had
 arrived. The rebalance moved *ownership*, not progress. If you're trying to observe a rebalance, count
 distinct owners rather than reading offsets:
 
@@ -259,7 +259,7 @@ echo "owners:  $(rpk group describe oms-processor | awk 'NF>6 && $1=="orders"{pr
 
 When those two numbers disagree, you have surplus consumers.
 
-**Rebalances make the distribution less fair over time, not more.** After two consumers died, the
+[**Rebalances make the distribution less fair over time, not more.**]{custom-style="Key"} After two consumers died, the
 group settled at 5 members for 6 partitions with `527953fc` owning **both p2 and p3** — the hot
 partition plus another one, on a single consumer. Nothing rebalances for load, so each failure is an
 opportunity for the assignment to get worse.
@@ -279,8 +279,8 @@ c2   offsets  393 .. 624     (232)
         393, 394, 395 processed TWICE
 ```
 
-**SIGTERM — graceful.** `c6` ended at 137, `c7` began at 138. The dying consumer committed its final
-offset and left the group explicitly, so the coordinator reassigned immediately without waiting for
+**SIGTERM — graceful.** `c6` ended at 137, `c7` began at 138. [The dying consumer committed its final
+offset and left the group explicitly, so the coordinator reassigned immediately]{custom-style="Key"} without waiting for
 any timeout. **Zero duplicates, zero gaps.**
 
 **SIGKILL — what production actually does.** `c7` had consumed through offset 395, but its last
@@ -293,7 +293,7 @@ coordinator could only detect it by missed heartbeats, and `c2` correctly resume
 2 395 ORD-2         2 395 ORD-2
 ```
 
-Three records processed twice — and 75 + 63 + 258 + 232 = **628 processed for 625 records written**.
+Three records processed twice — and [75 + 63 + 258 + 232 = **628 processed for 625 records written**.]{custom-style="Key"}
 
 ![Figure 3 — what a rebalance actually costs](images/ch05_fig3_relay.png)
 
@@ -306,11 +306,11 @@ Three records processed twice — and 75 + 63 + 258 + 232 = **628 processed for 
 > **Exactly-once exists, but is narrower than it sounds:** Kafka/Redpanda transactions cover read-process-write loops that stay *inside* the cluster. The moment the side effect is an external order gateway or a REST call, you are back to at-least-once and idempotency is yours to own.
 
 The mechanism is the gap between *consumed* and *committed*. Committing is periodic, not per-record;
-doing it per record would mean a synchronous round trip for every message. **Everything read since
-the last commit gets read again. That's not a bug — that's the definition of at-least-once delivery.**
+doing it per record would mean a synchronous round trip for every message. [**Everything read since
+the last commit gets read again. That's not a bug — that's the definition of at-least-once delivery.**]{custom-style="Key"}
 
-OOM kills, `kubectl delete pod --force`, node failures and liveness-probe kills (Ch2 §7) are all the
-SIGKILL case. The graceful path is the exception, not the norm.
+[OOM kills, `kubectl delete pod --force`, node failures and liveness-probe kills (Ch2 §7) are all the
+SIGKILL case.]{custom-style="Key"} The graceful path is the exception, not the norm.
 
 ---
 
@@ -319,10 +319,10 @@ SIGKILL case. The graceful path is the exception, not the norm.
 The duplicate count is **throughput × time since last commit**. That makes it tunable, and the
 tuning is a straight trade: a short `auto.commit.interval` means fewer duplicates and more commit
 traffic; a long one means better throughput and a bigger replay window. You saw three records because
-rpk commits often. A consumer committing every 30 seconds on a busy partition replays thousands.
+rpk commits often. [A consumer committing every 30 seconds on a busy partition replays thousands.]{custom-style="Key"}
 
-**Which is why tuning is not the fix.** You can make duplicates rarer; you cannot make them
-impossible. The fix is an **idempotent consumer**:
+[**Which is why tuning is not the fix.** You can make duplicates rarer; you cannot make them
+impossible.]{custom-style="Key"} The fix is an **idempotent consumer**:
 
 - dedupe on an event ID you carry in the record
 - make the write conditional on current state (`UPDATE ... WHERE status = 'PENDING'`)
@@ -331,8 +331,8 @@ impossible. The fix is an **idempotent consumer**:
 > "We assume each message is processed exactly once" is the assumption that produces double-executed
 > trades. In an OMS, reprocessing a fill must be *safe*, not merely unlikely.
 
-**Exactly-once exists, but it's narrower than the name suggests.** Kafka/Redpanda transactions give
-you exactly-once for read-process-write loops that stay **inside** the cluster — consume from topic A,
+[**Exactly-once exists, but it's narrower than the name suggests.** Kafka/Redpanda transactions give
+you exactly-once for read-process-write loops that stay **inside** the cluster]{custom-style="Key"} — consume from topic A,
 produce to topic B, commit offsets and output atomically. The moment your side effect leaves the
 cluster (an order gateway, a REST call, a row in Postgres outside the transaction), you are back to
 at-least-once and idempotency is your responsibility.
@@ -356,24 +356,24 @@ Three consequences worth knowing:
 **Offsets survive your consumers.** During an early test the group showed `STATE Empty` with
 `MEMBERS 0` after every consumer exited — the group and its committed offsets persisted with nothing
 running. That's why a consumer restarting resumes instead of replaying from the beginning, and why
-`-o start` did *not* make a newly joined member re-read history: `-o start` only decides where to
-begin when the group has **no committed offset** for a partition.
+`-o start` did *not* make a newly joined member re-read history: [`-o start` only decides where to
+begin when the group has **no committed offset** for a partition.]{custom-style="Key"}
 
 **One partition of that topic is your coordinator.** `COORDINATOR-PARTITION __consumer_offsets/7`
 — the group name hashes to one of the 16 partitions, and the broker leading it coordinates your
-group. This is why group membership is affected by broker failures: lose the leader of that partition
-and your group needs a new coordinator before it can rebalance.
+group. [This is why group membership is affected by broker failures: lose the leader of that partition
+and your group needs a new coordinator before it can rebalance.]{custom-style="Key"}
 
 **`cleanup.policy=compact`, not `delete`.** Compaction keeps the *latest* value per key rather than
 expiring old records by age, and the key here is (group, topic, partition) — so the current offset
-survives indefinitely while superseded ones are collected. That is exactly the right policy for this
-data and exactly the wrong one for an order journal, for the same reason: compaction preserves the
+survives indefinitely while superseded ones are collected. [That is exactly the right policy for this
+data and exactly the wrong one for an order journal]{custom-style="Key"}, for the same reason: compaction preserves the
 *latest state* and discards the *history* (Ch4 §7a).
 
 It has to be this way, because the alternative is silent. An ordinary topic like `orders` carries
 `retention.ms=604800000`, so its records are deleted after seven days by design. If offsets expired
-on a timer like that, a consumer group that was idle over a long weekend would come back, find no
-committed offset, fall through to `auto.offset.reset`, and **replay the topic from the beginning** —
+on a timer like that, [a consumer group that was idle over a long weekend would come back, find no
+committed offset, fall through to `auto.offset.reset`, and **replay the topic from the beginning**]{custom-style="Key"} —
 reprocessing every order it had already handled, with no error anywhere. Compaction is what stops a
 quiet group from becoming a duplicate storm.
 
@@ -392,7 +392,7 @@ rpk group seek <group> --to 1785801782636      # a specific epoch-millisecond ti
 rpk group seek <group> --topics orders -to start   # one topic only
 ```
 
-**The group must be empty first.** A seek rewrites the committed offsets, and a live member would
+[**The group must be empty first.** A seek rewrites the committed offsets]{custom-style="Key"}, and a live member would
 carry on from its own in-memory position and then commit over the top of your change. So the
 procedure is always: stop the consumers, confirm the group has no members, seek, restart.
 
@@ -416,15 +416,15 @@ transactional :   rows=8000  total=800000    rows=8000   total=800000
 gateway       :   calls=8000 total=800000    calls=16216 total=1621600
 ```
 
-**The transactional ledger did not move at all.** Not by one share. It upserts on `(order_id, seq)`,
+[**The transactional ledger did not move at all.** Not by one share.]{custom-style="Key"} It upserts on `(order_id, seq)`,
 so reprocessing rewrites rows that already hold the correct value, and the answer is identical
 whether you process the topic once or a hundred times.
 
-**The gateway doubled**, because every replayed fill was a fresh non-rollback-able call, and
-821,600 shares were "executed" that nobody ordered.
+[**The gateway doubled**, because every replayed fill was a fresh non-rollback-able call, and
+821,600 shares were "executed" that nobody ordered.]{custom-style="Key"}
 
 So the rule for replay is the same rule as for crash recovery, which is why it is worth seeing
-twice: **replay is free for idempotent state and catastrophic for external side effects.** Before
+twice: [**replay is free for idempotent state and catastrophic for external side effects.**]{custom-style="Key"} Before
 you seek a group in production, the question is not "can I replay" — you always can — it is *what
 else does this consumer touch?* If it only writes to a store keyed by a business key, replay is a
 non-event. If it sends orders, emails, or payments, you must disable the side effect first, or
@@ -435,9 +435,9 @@ uses a *different* `group.id` on the same topic, so it gets its own offsets and 
 without disturbing the live group at all (§1, rule 1 applies per group, not across groups).
 
 > **The staleness number goes strange during a replay, and it should.** The consumer reports the age
-> of the events it is handling, and during this replay it read `staleness=1116.16s` — the records
+> of the events it is handling, and during this replay [it read `staleness=1116.16s` — the records
 > were eighteen minutes old. That is correct and it is the reason to measure event age rather than
-> record lag: an alert on "my view of the book is 18 minutes stale" is meaningful, whereas
+> record lag]{custom-style="Key"}: an alert on "my view of the book is 18 minutes stale" is meaningful, whereas
 > `TOTAL-LAG 10001` needs someone to know how fast this consumer drains before it means anything.
 
 ### A bug this replay found
@@ -453,8 +453,8 @@ KafkaError{code=_NO_OFFSET,val=-168,str="Commit failed: Local: No offset stored"
 That is not an error condition — it means "there is nothing stored to commit", the successor will
 redeliver from the last committed position, and the idempotent write makes that safe. But the
 consumer treated every exception during commit as fatal, so a routine rebalance became a
-`CrashLoopBackOff` in the middle of a recovery operation. **Code that is careful about correctness
-tends to be over-eager about failing**, and the place that bites is always the rebalance path,
+`CrashLoopBackOff` in the middle of a recovery operation. [**Code that is careful about correctness
+tends to be over-eager about failing**]{custom-style="Key"}, and the place that bites is always the rebalance path,
 because that is the path you cannot easily test on a single quiet consumer.
 
 ---
@@ -474,8 +474,8 @@ because that is the path you cannot easily test on a single quiet consumer.
 | No rebalance listener | `onPartitionsRevoked` commits before losing a partition, shrinking the duplicate window |
 
 The biggest gap is the second row. Everything here auto-commits on a timer, which means the consumer
-can commit a record it has not finished processing. Committing **after** the side effect succeeds
-converts a possible *lost* record into a possible *duplicate* record — and with an idempotent handler,
+can commit a record it has not finished processing. [Committing **after** the side effect succeeds
+converts a possible *lost* record into a possible *duplicate* record]{custom-style="Key"} — and with an idempotent handler,
 duplicates are harmless while losses are not.
 
 ---

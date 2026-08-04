@@ -28,9 +28,9 @@ Every command shown was executed and every output quoted is real. Nothing is ill
 
 Those broker pod IPs appear throughout the chapter and **yours will be different** — they change
 every time a pod is recreated, which on this cluster has already happened several times since
-(they are now `.112 / .144 / .114`). That is not an erratum, it is the point of §5: the stable
+(they are now `.112 / .144 / .114`). That is not an erratum, it is the point of §5: [the stable
 identity of a broker is its DNS name `redpanda-0.redpanda.redpanda.svc.cluster.local`, never its
-address. Any command you write against a pod IP is correct for about as long as the pod lives.
+address. Any command you write against a pod IP is correct for about as long as the pod lives.]{custom-style="Key"}
 
 ---
 
@@ -59,8 +59,8 @@ ecosystem, replace the implementation.
 
 The implementation differences are what interviews probe:
 
-- **A single C++ binary. No JVM**, so no garbage collector and no GC pauses. This is the reason
-  trading firms look at it — GC pauses are tail-latency events, and tail latency is what hurts.
+- [**A single C++ binary. No JVM**, so no garbage collector and no GC pauses. This is the reason
+  trading firms look at it — GC pauses are tail-latency events, and tail latency is what hurts.]{custom-style="Key"}
 - **Thread-per-core** (built on the Seastar framework). Work is pinned to cores rather than shared
   across a thread pool. It is also why the Helm chart insists on allocating **whole** CPU cores.
 - **No ZooKeeper and no separate controller cluster.** One process to deploy, monitor and upgrade.
@@ -68,8 +68,8 @@ The implementation differences are what interviews probe:
 
 **"Why not just use Kafka?"** — answer honestly. Kafka is more mature and has a far larger
 ecosystem of connectors and tooling. Redpanda buys lower tail latency and dramatically simpler
-operations. For market data and order flow, tail latency and operational simplicity are exactly the
-axes that matter. Saying "Kafka is worse" is a weaker answer than naming the trade-off.
+operations. [For market data and order flow, tail latency and operational simplicity are exactly the
+axes that matter. Saying "Kafka is worse" is a weaker answer than naming the trade-off.]{custom-style="Key"}
 
 ---
 
@@ -85,8 +85,8 @@ one integer per partition.
 Partitions exist to give you parallelism — six partitions allow six consumers to read at once.
 But they come with the single most important caveat in this chapter:
 
-> **Ordering is guaranteed *within* a partition and nowhere else.** There is no global order across
-> a topic.
+> [**Ordering is guaranteed *within* a partition and nowhere else.** There is no global order across
+> a topic.]{custom-style="Key"}
 
 ### 2a. How a record actually picks its partition
 
@@ -110,9 +110,9 @@ We measured exactly that (§8b has the commands):
 | 6 unkeyed records, one producer | **all 6 to one partition** |
 | 300 unkeyed records, one producer | **all 300 to one partition** |
 
-Three hundred records and it never switched. So "unkeyed spreads your data evenly" is false at
+Three hundred records and it never switched. [So "unkeyed spreads your data evenly" is false at
 small scale. Each *producer session* effectively picks a partition. Spread emerges across many
-producers and long-running ones, not within a single burst.
+producers and long-running ones, not within a single burst.]{custom-style="Key"}
 
 **Which** partition it picks is arbitrary and differs every run — we saw partition 1 on one run and
 partition 5 on the next for the identical command. Contrast that with keys, which are perfectly
@@ -127,9 +127,9 @@ cancels**, or a fill applied against a stale position.
 
 Now combine that with the sticky partitioner and you get the genuinely dangerous property:
 
-> **The bug is invisible in development.** Your test producer sends 50 unkeyed records, the sticky
+> [**The bug is invisible in development.** Your test producer sends 50 unkeyed records, the sticky
 > partitioner puts all 50 in one partition, one consumer reads them in perfect order, and every
-> test passes. In production, with many producers and long-lived sessions, records spread across
+> test passes.]{custom-style="Key"} In production, with many producers and long-lived sessions, records spread across
 > partitions and the ordering you were accidentally relying on evaporates.
 
 A correctness bug that only appears at volume is the worst kind there is, and "we didn't set a key"
@@ -160,16 +160,16 @@ Two operational consequences:
   queues behind it. This is the **hot partition** problem, and adding partitions does not
   necessarily fix it — it reshuffles every key and may just create a different collision.
 
-**The rule:** key by whatever must stay ordered — account, instrument, order ID — and understand
-that this choice simultaneously decides your parallelism ceiling *and* your hot-spot risk.
+[**The rule:** key by whatever must stay ordered — account, instrument, order ID — and understand
+that this choice simultaneously decides your parallelism ceiling *and* your hot-spot risk.]{custom-style="Key"}
 
 ### 2d. Partition count is effectively permanent
 
 *(Measured on `orders`, 3 Aug 2026.)*
 
-Everything above depends on `hash(key) % partition_count`. Change the divisor and every key is
+Everything above depends on `hash(key) % partition_count`. [Change the divisor and every key is
 re-evaluated. This is the single most damaging thing you can do to a keyed topic, and it takes one
-command.
+command.]{custom-style="Key"}
 
 We keyed four orders into a 6-partition topic, three events each, and recorded where they landed:
 
@@ -219,9 +219,9 @@ p0  off=2  CANCEL
 p6  off=0  FILL_AFTER_REPART
 ```
 
-Read that carefully. The fill sits at **offset 0 of partition 6** — a consumer assigned to that
+Read that carefully. The fill sits at **offset 0 of partition 6** — [a consumer assigned to that
 partition sees a fill as the first thing it has ever heard about the order, with no `NEW` preceding
-it. **A fill for an order that was never placed.** Downstream that is a reconciliation break, or a
+it. **A fill for an order that was never placed.**]{custom-style="Key"} Downstream that is a reconciliation break, or a
 message your consumer rejects as referencing an unknown order.
 
 The offsets actively mislead too: the `CANCEL` is at offset 2 and the *later* `FILL` is at offset 0,
@@ -229,8 +229,8 @@ because offsets only mean anything within a partition.
 
 #### Why this is so dangerous
 
-- **It is silent.** No error, no failed write, no warning. `rpk cluster health` still reports
-  `Healthy: true`. Producers notice nothing. No metric moves.
+- [**It is silent.** No error, no failed write, no warning. `rpk cluster health` still reports
+  `Healthy: true`. Producers notice nothing. No metric moves.]{custom-style="Key"}
 - **Partial breakage is worse than total breakage.** If every key moved you would know every order
   was affected. Instead most orders are fine and some are corrupted, and separating them means
   re-computing the hash for every key ever written.
@@ -248,8 +248,8 @@ because offsets only mean anything within a partition.
   you.
 
 > **The interview trap:** *"Consumers are lagging and the topic is at capacity — do you add
-> partitions?"* On an unkeyed topic, fine. On a keyed topic carrying order state, **no**, not without
-> a migration plan, because you would break per-key ordering for about half your keys. This is also
+> partitions?"* [On an unkeyed topic, fine. On a keyed topic carrying order state, **no**, not without
+> a migration plan, because you would break per-key ordering for about half your keys.]{custom-style="Key"} This is also
 > the sharpest argument for keeping topic definitions in version control: not bureaucracy, but
 > because one of the fields is irreversible and silently corrupts ordering when changed.
 
@@ -264,13 +264,13 @@ arriving before the order it cancels:
 1 ORD-1001 {"event":"PARTIAL_FILL"}
 ```
 
-It is not real. The command ended in `| sort`, and `CANCEL` precedes `NEW` alphabetically. The log
-itself was always correct — offsets 0, 1, 2 in the right order. **The display lied, not the data.**
+It is not real. The command ended in `| sort`, and `CANCEL` precedes `NEW` alphabetically. [The log
+itself was always correct — offsets 0, 1, 2 in the right order. **The display lied, not the data.**]{custom-style="Key"}
 
 > When someone reports "events arrived out of order," the first question is *how are you looking at
 > them?* Read **one partition at a time, with offsets** (`-p N -f '%o %k %v\n'`) before believing
-> any ordering complaint. A view merged across partitions has no meaningful order at all, and neither
-> does anything you have piped through `sort`.
+> any ordering complaint. [A view merged across partitions has no meaningful order at all, and neither
+> does anything you have piped through `sort`.]{custom-style="Key"}
 
 The three real causes, in the order worth checking: the producer wasn't keyed (§2a), someone changed
 the partition count (§2d), or a consumer group rebalanced mid-stream.
@@ -292,8 +292,8 @@ The structural fact that makes the failure drills make sense:
 
 > **Each partition is its own independent Raft group.**
 
-A topic with 6 partitions at RF 3 has **18 replicas and 6 independent Raft groups**, with each
-broker holding 6 replicas and leading 2 on average. So when a broker dies you do not see "the
+[A topic with 6 partitions at RF 3 has **18 replicas and 6 independent Raft groups**, with each
+broker holding 6 replicas and leading 2 on average.]{custom-style="Key"} So when a broker dies you do not see "the
 cluster" fail over — you see the specific partitions it led elect new leaders, while every other
 partition carries on completely untouched.
 
@@ -325,14 +325,14 @@ Raft requires a majority to agree. For a group of three, that is two.
 | 2 of 3 | yes | Writes still accepted; new leaders elected in ~1s; no data loss |
 | 1 of 3 | **no** | **Writes refused** |
 
-**Refusing writes is correct behaviour, not a bug.** A lone survivor cannot prove that a write it
-accepts would survive, so accepting one risks silently losing an acknowledged order. Halting is the
+[**Refusing writes is correct behaviour, not a bug.** A lone survivor cannot prove that a write it
+accepts would survive, so accepting one risks silently losing an acknowledged order.]{custom-style="Key"} Halting is the
 safe choice. Be ready to defend this — it is a favourite interview probe, and the wrong answer
 ("it should stay up") reveals that you would happily trade correctness for uptime.
 
-**Two brokers is a trap.** A majority of two is still two, so a two-broker cluster gives you a
+**Two brokers is a trap.** [A majority of two is still two, so a two-broker cluster gives you a
 second copy of the data and **zero** fault tolerance. Odd numbers buy availability: 3 survives one
-failure, 5 survives two. Going 3 → 4 costs a machine and improves nothing, because a majority of
+failure, 5 survives two.]{custom-style="Key"} Going 3 → 4 costs a machine and improves nothing, because a majority of
 four is three.
 
 ### The degraded-cluster trap (an SRE question, not a developer one)
@@ -345,12 +345,12 @@ He is conflating two different things:
 - **Copies of the data:** still 2. Nothing is lost or at risk of being lost.
 - **Fault tolerance:** now **zero.** One more failure halts all writes.
 
-So the cluster is not "degraded but fine" — it is **one failure away from a write outage.**
+[So the cluster is not "degraded but fine" — it is **one failure away from a write outage.**]{custom-style="Key"}
 
 The operational consequence matters more than the semantics: **while degraded, do not perform any
 maintenance that takes another broker down.** No rolling restart, no node drain, no kernel patch,
-no "let me just bounce it and see." The reflex to start restarting things when a cluster looks
-unhealthy is exactly what converts a degraded cluster into an outage.
+no "let me just bounce it and see." [The reflex to start restarting things when a cluster looks
+unhealthy is exactly what converts a degraded cluster into an outage.]{custom-style="Key"}
 
 ---
 
@@ -422,8 +422,8 @@ redpanda.redpanda.svc.cluster.local  ->  10.42.0.69
                                          10.42.0.75
 ```
 
-No virtual IP, no kube-proxy, no DNAT. DNS returns **all three real pod IPs** and the client chooses.
-So the collective name is still something you can "call" — it is a list, not a load balancer.
+No virtual IP, no kube-proxy, no DNAT. [DNS returns **all three real pod IPs** and the client chooses.
+So the collective name is still something you can "call" — it is a list, not a load balancer.]{custom-style="Key"}
 
 And because a headless Service exists, each pod additionally gets **its own** DNS name:
 
@@ -460,8 +460,8 @@ means, and why the list is not a connection list.
 
 **Why load balancing would be actively wrong.** Writes must go to the *leader* of the target
 partition. With leadership spread as `p0→b0, p1→b1, p2→b2, p3→b1 …`, a produce for partition 3 has
-to reach broker 1; broker 0 cannot accept it. Behind a load-balancing virtual IP, writes would land
-on an arbitrary broker and be rejected as `NOT_LEADER_FOR_PARTITION` roughly two thirds of the time.
+to reach broker 1; broker 0 cannot accept it. [Behind a load-balancing virtual IP, writes would land
+on an arbitrary broker and be rejected as `NOT_LEADER_FOR_PARTITION` roughly two thirds of the time.]{custom-style="Key"}
 The client's whole job is to route **deliberately**, based on leadership it learned in step 2 — so it
 needs individually addressable brokers.
 
@@ -529,8 +529,8 @@ statefulset:
     type: soft
 ```
 
-**In chart 26.1.9 this key is vestigial. Setting it changes nothing.** We set it, reinstalled, and
-the pods stayed `Pending` with the identical event. The live path is
+[**In chart 26.1.9 this key is vestigial. Setting it changes nothing.** We set it, reinstalled, and
+the pods stayed `Pending` with the identical event.]{custom-style="Key"} The live path is
 `statefulset.podTemplate.spec.affinity`, and the working override nulls the hard rule and
 substitutes a preference — see [`manifests/redpanda-values.yaml`](manifests/redpanda-values.yaml).
 
@@ -602,8 +602,8 @@ Error: Get "http://redpanda-0...:9644/v1/cluster_config/schema":
 ```
 
 The Job retried and the second pod completed. `kubectl -n redpanda get jobs` shows
-`redpanda-configuration Complete 1/1` in 37s. A failed pod belonging to a **Complete** Job is
-normal Kubernetes backoff, and the Job — not the pod — is the thing to judge. Leaving the corpse
+`redpanda-configuration Complete 1/1` in 37s. [A failed pod belonging to a **Complete** Job is
+normal Kubernetes backoff, and the Job — not the pod — is the thing to judge.]{custom-style="Key"} Leaving the corpse
 around is deliberate: it is where the logs live.
 
 ### 6f. What failure looks like (our first attempt)
@@ -618,8 +618,8 @@ The cascade, top to bottom:
 
 1. Helm hangs waiting on a StatefulSet that will never be Ready.
 2. `redpanda-1` and `redpanda-2` are `Pending`.
-3. Their PVCs are `Pending` too — `local-path` uses `WaitForFirstConsumer`, so **the volume is not
-   created until the pod is scheduled.** Pending PVCs here are a *symptom*, not the cause.
+3. Their PVCs are `Pending` too — [`local-path` uses `WaitForFirstConsumer`, so **the volume is not
+   created until the pod is scheduled.** Pending PVCs here are a *symptom*, not the cause.]{custom-style="Key"}
 4. `redpanda-0` is `Running` but never `Ready`, because it cannot form a quorum alone.
 5. The configuration Job fails permanently and Console crash-loops.
 
@@ -645,9 +645,9 @@ helm uninstall redpanda -n redpanda
 kubectl -n redpanda get pvc                     # ← they are STILL THERE
 ```
 
-> **`helm uninstall` does not delete PersistentVolumeClaims created from a StatefulSet's
+> [**`helm uninstall` does not delete PersistentVolumeClaims created from a StatefulSet's
 > `volumeClaimTemplates`.** Kubernetes leaves them deliberately — deleting a StatefulSet is not
-> assumed to mean "destroy the data."
+> assumed to mean "destroy the data."]{custom-style="Key"}
 
 For a genuinely clean reinstall you must remove them yourself:
 
@@ -735,9 +735,9 @@ replies with its **advertised listeners**, and the client then opens a **new con
 broker directly** — because it must reach the specific leader of each partition. Our brokers
 advertised their internal cluster DNS names, which the host could not resolve.
 
-> **The general rule, and the interview answer:** a broker must advertise an address that its
+> [**The general rule, and the interview answer:** a broker must advertise an address that its
 > clients can both **resolve** and **route to**, *from where the client actually is*. Bootstrap
-> connectivity proves nothing about whether the rest will work.
+> connectivity proves nothing about whether the rest will work.]{custom-style="Key"}
 
 This is the single most common Kafka networking problem in the wild. It bites people behind NAT, in
 Docker, across VPCs, and through load balancers — always the same shape.
@@ -971,9 +971,9 @@ rpk topic consume market-ticks -o :end -f '%p %o %k %v\n'    # the one to memori
 rpk topic consume market-ticks -o :end -f 'x\n' | wc -l      # count everything
 ```
 
-When a consume command "produces no output", ask whether it exited. A hung command and an empty
+When a consume command "produces no output", ask whether it exited. [A hung command and an empty
 topic look identical through `wc -l`, and confusing the two during an incident will send you
-chasing phantom data loss.
+chasing phantom data loss.]{custom-style="Key"}
 
 ---
 
@@ -998,9 +998,9 @@ rpk topic describe market-ticks -p | awk 'NR>1&&NF{print $2}' | sort -n | uniq -
 echo "during-drill" | timeout 20 rpk topic produce market-ticks -k AAPL
 ```
 
-> **Step 3 is the one that makes the drill trustworthy.** Running the checks immediately catches an
+> **Step 3 is the one that makes the drill trustworthy.** [Running the checks immediately catches an
 > intermediate state — a pod still `Terminating` is still serving — and you will draw a confident
-> conclusion from a cluster that was never in the state you thought. This bit us during the
+> conclusion from a cluster that was never in the state you thought.]{custom-style="Key"} This bit us during the
 > two-broker drill in §9b, where a write succeeded that "should" have failed, purely because the
 > second broker had not finished dying.
 
@@ -1026,9 +1026,9 @@ Three things to take away:
 
 1. **Failover is surgical.** Only the two partitions `redpanda-1` led changed hands. The other four
    never noticed.
-2. **Failover is not load-balanced.** Broker 2 took **both** orphaned partitions (leading 4, not 3).
+2. [**Failover is not load-balanced.** Broker 2 took **both** orphaned partitions (leading 4, not 3).
    The new leader is whichever eligible replica wins the election first; nothing is trying to be
-   fair in the moment.
+   fair in the moment.]{custom-style="Key"}
 3. **Writes never stopped.** 2 of 3 is a quorum.
 
 ### 9b. Kill two brokers — lose quorum
@@ -1058,18 +1058,18 @@ Four observations that are each worth an interview answer:
 
 - **The survivor steps down.** A leader that cannot reach a majority does not keep serving — it
   demotes itself. That is Raft refusing to risk a split brain.
-- **`redpanda/controller/0` is leaderless too.** The cluster's own metadata Raft group is subject to
-  the same arithmetic, so you lose administration as well as data: you cannot create a topic or
+- **`redpanda/controller/0` is leaderless too.** [The cluster's own metadata Raft group is subject to
+  the same arithmetic, so you lose administration as well as data]{custom-style="Key"}: you cannot create a topic or
   change config to dig yourself out.
 - **`Under-replicated partitions` reads 0 during a total outage.** This is the counter-intuitive one.
-  Under-replication is measured *by a leader* comparing itself to followers, and with no leaders
+  [Under-replication is measured *by a leader* comparing itself to followers, and with no leaders
   there is nobody to measure. **A metric that reads zero because the thing computing it is dead
-  looks exactly like healthy.** Alert on `Leaderless partitions` and `Nodes down` — never rely on
+  looks exactly like healthy.**]{custom-style="Key"} Alert on `Leaderless partitions` and `Nodes down` — never rely on
   `Under-replicated` alone.
 - **Producers hang; they do not error.** From the application's point of view this is a latency
-  event, not a failure, until its own timeout fires. Client-side timeouts are therefore a
+  event, not a failure, until its own timeout fires. [Client-side timeouts are therefore a
   correctness control, not a tuning knob: with no timeout, an OMS queues orders in memory
-  indefinitely and loses them on restart.
+  indefinitely and loses them on restart.]{custom-style="Key"}
 
 ### 9c. Recover, and prove nothing was lost
 
@@ -1102,8 +1102,8 @@ The reconciliation that matters — every record we had produced up to this poin
 > numbers will differ. What must hold is that the `-o :end` count equals the sum of the
 > high-watermarks, and that no acknowledged write is missing.*
 
-> **Every write that was acknowledged survived. The write that could not be safely acknowledged
-> never appeared.**
+> [**Every write that was acknowledged survived. The write that could not be safely acknowledged
+> never appeared.**]{custom-style="Key"}
 
 `during-outage` and `should-fail` were both written while a broker was down, and both are present.
 `quorum-test`, the one that hung, is absent — not silently dropped after being accepted, and not
@@ -1130,9 +1130,9 @@ Under-replicated partitions (0):  []
   broker 2 leads 4 partitions        ← broker 1 is back, and leads NOTHING
 ```
 
-The cluster reports perfect health while one third of it does no work. Redpanda's **leader
+The cluster reports perfect health while one third of it does no work. [Redpanda's **leader
 balancer** redistributes leadership on its own timer, so there is a window — minutes, not seconds —
-where you have full redundancy and skewed load.
+where you have full redundancy and skewed load.]{custom-style="Key"}
 
 Practical consequences:
 
@@ -1158,8 +1158,8 @@ outage (no leader to compute it). **`Leaderless` is the honest signal.**
 
 ### 9f. Where those numbers actually come from
 
-An alert you cannot collect is a wish. Everything above comes from `rpk cluster health`, which is a
-human command — fine at 3 a.m. with a terminal open, useless as a monitoring input. The real source
+[An alert you cannot collect is a wish. Everything above comes from `rpk cluster health`, which is a
+human command — fine at 3 a.m. with a terminal open, useless as a monitoring input.]{custom-style="Key"} The real source
 is the Admin API's Prometheus endpoints on port `9644`:
 
 | Endpoint | Contents |
@@ -1181,8 +1181,8 @@ redpanda_storage_disk_free_bytes{}                301212672000
 redpanda_storage_disk_free_space_alert{}          0
 ```
 
-**Consumer lag is not published directly, and this catches people out.** The broker exposes the
-group's *committed offset* per partition and the partition's *high-watermark* separately; lag is the
+[**Consumer lag is not published directly, and this catches people out.** The broker exposes the
+group's *committed offset* per partition and the partition's *high-watermark* separately]{custom-style="Key"}; lag is the
 subtraction, and you do it in the query:
 
 ```promql
@@ -1227,15 +1227,15 @@ kubectl rollout restart sts/redpanda -n redpanda        # DON'T
 
 It is not enough, and §9d already showed why. A StatefulSet restarts pods one at a time in reverse
 ordinal order and waits for each to be `Ready` before moving on, which sounds exactly right. But
-`Ready` is a Kubernetes-level assertion about the pod, and it knows nothing about **Raft leadership**.
+[`Ready` is a Kubernetes-level assertion about the pod, and it knows nothing about **Raft leadership**.]{custom-style="Key"}
 Restart a broker that currently leads twenty partitions and those partitions are leaderless — no
 reads, no writes — for as long as it takes the surviving brokers to hold elections. Do it three
 times in a row and you have inflicted three avoidable write outages during a maintenance window.
 
 ### Drain leadership first
 
-Redpanda has an explicit mechanism for this: **maintenance mode** moves every partition leadership
-off a broker before you touch it, so the restart costs nothing.
+Redpanda has an explicit mechanism for this: [**maintenance mode** moves every partition leadership
+off a broker before you touch it, so the restart costs nothing.]{custom-style="Key"}
 
 ```bash
 rpk cluster maintenance enable 1 --wait
@@ -1281,8 +1281,8 @@ Leaderless partitions (0):        []
 can lose one broker and keep quorum; start the second restart before the first broker has caught up
 and you are down two, which on a three-node cluster means the topic stops accepting writes — the
 §9c outage, self-inflicted during planned maintenance. That is how a routine patch night becomes an
-incident, and it is why the gate is `rpk cluster health` rather than `kubectl get pods`: the pod is
-`Ready` well before the broker has finished recovering its Raft groups.
+incident, and [it is why the gate is `rpk cluster health` rather than `kubectl get pods`: the pod is
+`Ready` well before the broker has finished recovering its Raft groups.]{custom-style="Key"}
 
 ### The whole loop
 
@@ -1309,17 +1309,17 @@ Kafka, does not promise that you can skip arbitrary versions. Upgrade one broker
 and the cluster is healthy, and only then continue. A mixed-version cluster running for ten minutes
 is normal; one running for a week because nobody finished is a genuine hazard.
 
-**And the thing people forget**: `rpk cluster maintenance disable` at the end. A broker left in
+**And the thing people forget**: `rpk cluster maintenance disable` at the end. [A broker left in
 maintenance mode leads no partitions, so the remaining two carry all the work and you have quietly
-reduced a three-broker cluster to two — with no alert anywhere, because every pod is `Running` and
+reduced a three-broker cluster to two — with no alert anywhere]{custom-style="Key"}, because every pod is `Running` and
 `Healthy: true`. Check `rpk cluster maintenance status` after any maintenance window.
 
 ---
 
 ## 11. Where this sandbox differs from production
 
-State these before you are asked. Volunteering a limitation reads as competence; being caught
-unaware of it does not.
+[State these before you are asked. Volunteering a limitation reads as competence; being caught
+unaware of it does not.]{custom-style="Key"}
 
 | Sandbox | Production | Consequence |
 |---|---|---|
@@ -1331,9 +1331,9 @@ unaware of it does not.
 | No monitoring stack | Prometheus + Grafana + alerting | drills are run by eye rather than by alert |
 | Single consumer, manual | consumer groups, autoscaling | rebalancing not yet exercised |
 
-The honest framing: **this cluster teaches you Redpanda's behaviour faithfully — quorum, failover,
+The honest framing: [**this cluster teaches you Redpanda's behaviour faithfully — quorum, failover,
 ordering and recovery are all real — while teaching you nothing about hardware fault tolerance,
-because there is only one piece of hardware.**
+because there is only one piece of hardware.**]{custom-style="Key"}
 
 Two of those rows are worth expanding, because they are the ones an interviewer will push on.
 

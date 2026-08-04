@@ -43,7 +43,7 @@ Run on **`vm-k8-redpanda-1` (192.168.1.186)**, single-node k3s v1.36.2, Redpanda
 
 ## 1. Two control planes
 
-Kubernetes deploys the brokers. It has **no idea what a topic is**.
+[Kubernetes deploys the brokers. It has **no idea what a topic is**.]{custom-style="Key"}
 
 | Decided by Kubernetes / Helm | Decided by Redpanda itself |
 |---|---|
@@ -52,9 +52,9 @@ Kubernetes deploys the brokers. It has **no idea what a topic is**.
 | Networking, listeners, TLS | Replication factor per topic |
 | The broker config file | ACLs, users, quotas, consumer groups |
 
-When you run `rpk topic create orders -p 6 -r 3`, **nothing in Kubernetes changes**. That command
+When you run `rpk topic create orders -p 6 -r 3`, [**nothing in Kubernetes changes**. That command
 speaks the Kafka admin protocol to a broker, which writes the definition into the **controller Raft
-group** — the `redpanda/controller/0_0` directory on each broker's PVC. It is replicated by Raft like
+group**]{custom-style="Key"} — the `redpanda/controller/0_0` directory on each broker's PVC. It is replicated by Raft like
 any other data.
 
 So in this cluster `kubectl get topics` returns nothing, because no such object exists.
@@ -82,8 +82,8 @@ datadir-redpanda-1   Bound   20Gi
 datadir-redpanda-2   Bound   20Gi
 ```
 
-It survives Job deletion, pod restarts, broker crashes and full cluster shutdown. It does **not**
-survive deleting the PVCs — which is exactly why `market-ticks` had to be recreated after the failed
+[It survives Job deletion, pod restarts, broker crashes and full cluster shutdown. It does **not**
+survive deleting the PVCs]{custom-style="Key"} — which is exactly why `market-ticks` had to be recreated after the failed
 install on 27 July, when recovery required `kubectl -n redpanda delete pvc --all`. This is also why
 `helm uninstall` deliberately leaves StatefulSet PVCs behind (Ch3 §6g).
 
@@ -120,8 +120,8 @@ Both directions fail identically, both exit **1**. Meanwhile:
 - Every pod is `Running`
 - `rpk cluster health` says `Healthy: true`, no nodes down, no leaderless partitions
 
-> **"Infrastructure green" and "service usable" are different assertions, and only one of them is
-> being monitored.** A pipeline that stops at `helm install` + `rollout status` will report success
+> [**"Infrastructure green" and "service usable" are different assertions, and only one of them is
+> being monitored.**]{custom-style="Key"} A pipeline that stops at `helm install` + `rollout status` will report success
 > on a cluster no application can use. This is the same shape as Chapter 2's `Available=True` while
 > a rollout was broken: the signal is true, it just isn't answering the question you care about.
 
@@ -141,8 +141,8 @@ log_segment_size              134217728
 ```
 
 Those are defaults applied to topics created *later*. There is no field anywhere in the broker config
-that says "a topic named `orders` with 6 partitions." Topics are not configuration — they are data in
-the controller Raft group, so they can only be created by talking to a **running** cluster over the
+that says "a topic named `orders` with 6 partitions." [Topics are not configuration — they are data in
+the controller Raft group, so they can only be created by talking to a **running** cluster]{custom-style="Key"} over the
 admin API. That ordering constraint is what forces everything else in this chapter.
 
 ### The shortcut, and why to reject it
@@ -154,16 +154,16 @@ auto_create_topics_enabled    false
 Set that to `true` and topics spring into existence the moment any client produces to a name that
 doesn't exist. It removes the seeding problem entirely, and you should still not do it:
 
-- New topics inherit `default_topic_partitions`, which is **1** here. One partition means no
-  parallelism and, at RF 3, a single leader carrying all traffic.
-- **A typo silently creates a topic** instead of erroring. Produce to `oders` and you get a working
-  producer writing to a topic nobody will ever consume. With auto-create off you get an immediate,
+- [New topics inherit `default_topic_partitions`, which is **1** here. One partition means no
+  parallelism and, at RF 3, a single leader carrying all traffic.]{custom-style="Key"}
+- [**A typo silently creates a topic** instead of erroring. Produce to `oders` and you get a working
+  producer writing to a topic nobody will ever consume.]{custom-style="Key"} With auto-create off you get an immediate,
   unmissable `UNKNOWN_TOPIC_OR_PARTITION`.
 - Partition count is effectively permanent (Ch3 §2d), so an accidentally auto-created topic is a
   mistake you cannot cleanly undo once it has data.
 
-**Leave it `false` and seed deliberately.** "We disable auto-create and provision topics explicitly"
-is a good sentence in an interview.
+[**Leave it `false` and seed deliberately.** "We disable auto-create and provision topics explicitly"
+is a good sentence in an interview.]{custom-style="Key"}
 
 ---
 
@@ -186,8 +186,8 @@ args:
     echo "seeding complete"
 ```
 
-Note the broker address is the **headless Service name**, not a specific broker (Ch3 §5b). Hardcoding
-`redpanda-0…` would make seeding fail whenever broker 0 happened to be down, against a cluster that
+Note the broker address is the **headless Service name**, not a specific broker (Ch3 §5b). [Hardcoding
+`redpanda-0…` would make seeding fail whenever broker 0 happened to be down]{custom-style="Key"}, against a cluster that
 could have served the request from either survivor.
 
 **First run against a fresh cluster works perfectly:**
@@ -226,8 +226,8 @@ Warning  BackoffLimitExceeded  job-controller  Job has reached the specified bac
 | `rpk topic describe` | exit 0 | exit 1 |
 
 Three pods, because `backoffLimit: 2` means one attempt plus two retries. Then the Job fails
-permanently. Nothing is actually wrong — the topics are correct, the cluster is healthy, the
-application works — and **the pipeline goes red anyway.**
+permanently. [Nothing is actually wrong — the topics are correct, the cluster is healthy, the
+application works — and **the pipeline goes red anyway.**]{custom-style="Key"}
 
 ### The wait that lies
 
@@ -240,11 +240,11 @@ error: timed out waiting for the condition on jobs/seed-topics
 exit=1
 ```
 
-The Job was marked `Failed` after about **34 seconds**. The wait sat there for the full **90**, then
+[The Job was marked `Failed` after about **34 seconds**. The wait sat there for the full **90**]{custom-style="Key"}, then
 reported a *timeout* rather than the actual failure.
 
-> `kubectl wait --for=condition=complete` only ever watches for success. On failure it cannot
-> distinguish "still working" from "already dead," so your pipeline is both **slower than necessary**
+> [`kubectl wait --for=condition=complete` only ever watches for success. On failure it cannot
+> distinguish "still working" from "already dead,"]{custom-style="Key"} so your pipeline is both **slower than necessary**
 > and **wrong about the cause**. Someone reading CI sees "timed out waiting for condition" and starts
 > investigating cluster performance, while the real message — `TOPIC_ALREADY_EXISTS` — sat in the pod
 > logs the whole time.
@@ -312,8 +312,8 @@ Same manifest, run twice, exit 0 both times. That is what §4's version could no
 is actively wrong: it aborts on the first problem, so a run with three drifted topics reports one
 and hides the other two. You then fix it, re-run, and discover the next one — a slow serial reveal
 during a deploy window. Without `-e` the script collects every problem in a `drift` counter, prints
-them all, and fails once at the end. **A checker should report everything it found, not the first
-thing it found.**
+them all, and fails once at the end. [**A checker should report everything it found, not the first
+thing it found.**]{custom-style="Key"}
 
 **No `jq`.** The natural approach is `rpk topic describe --format json | jq`, but the Redpanda broker
 image ships `rpk` and `bash` and no `jq`. Rather than build and maintain a custom image just to add
@@ -352,16 +352,16 @@ sleep 20
 kubectl -n redpanda scale sts redpanda --replicas=3
 ```
 
-The naive Job cannot survive this, and the reason is arithmetic rather than bad luck. Its retry
+The naive Job cannot survive this, and the reason is arithmetic rather than bad luck. [Its retry
 budget is `backoffLimit: 2` — three pods, with backoff between them, **about 32 seconds total**. Broker
-startup took between 21 seconds and roughly 2 minutes depending on image cache. The Job frequently
+startup took between 21 seconds and roughly 2 minutes]{custom-style="Key"} depending on image cache. The Job frequently
 exhausts its entire budget before the cluster has finished starting, and is then marked `Failed`
 permanently even though the cluster becomes perfectly healthy moments later.
 
 ### 6b. Pod-Ready is not cluster-ready
 
-The obvious fix is to wait for the broker pods to be Ready. **That is not sufficient, and this is the
-most important measurement in the chapter.** Real timestamps from one run:
+The obvious fix is to wait for the broker pods to be Ready. [**That is not sufficient, and this is the
+most important measurement in the chapter.**]{custom-style="Key"} Real timestamps from one run:
 
 ```
 21:31:21   Job applied            0 brokers running, DNS resolves to nothing
@@ -371,8 +371,8 @@ most important measurement in the chapter.** Real timestamps from one run:
 21:32:18   seeding complete
 ```
 
-For **nine seconds** every Kubernetes signal was green — three pods `Running`, `2/2 Ready`,
-`rollout status` reporting success — while the cluster reported:
+[For **nine seconds** every Kubernetes signal was green — three pods `Running`, `2/2 Ready`,
+`rollout status` reporting success]{custom-style="Key"} — while the cluster reported:
 
 ```
 Healthy:                          false
@@ -386,15 +386,15 @@ Under-replicated partitions (0):  []
 All three brokers up and registered, nothing down, and 11 of 18 partitions unable to accept a write.
 The processes had started and joined the cluster before Raft had elected leaders.
 
-It was 11 and not 18 for a reason worth internalising: **each partition is its own independent Raft
+It was 11 and not 18 for a reason worth internalising: [**each partition is its own independent Raft
 group** (Ch3 §3). They elect independently and finish at different times, so seven had completed and
-eleven had not. There is no single instant at which "the cluster" becomes ready — only a per-partition
+eleven had not.]{custom-style="Key"} There is no single instant at which "the cluster" becomes ready — only a per-partition
 process that a cluster-level health check summarises for you.
 
-Note also `Under-replicated partitions (0)` while 11 partitions were leaderless. With no leader there
-is nobody to compute under-replication, so the metric reads zero. That is the **second** time this
+Note also `Under-replicated partitions (0)` while 11 partitions were leaderless. [With no leader there
+is nobody to compute under-replication, so the metric reads zero.]{custom-style="Key"} That is the **second** time this
 metric has lied in a way that would matter at 3am — the first was the two-broker quorum drill in
-Ch3 §9b. **Alert on `Leaderless`. Never on `Under-replicated` alone.**
+Ch3 §9b. [**Alert on `Leaderless`. Never on `Under-replicated` alone.**]{custom-style="Key"}
 
 ![Figure 2 — Pod-Ready is not cluster-ready](images/ch04_fig2_readiness_race.png)
 
@@ -436,8 +436,8 @@ initContainers:
 ```
 
 **The trap:** the first version of this used `-X brokers=` and hung for five minutes against a cluster
-that was demonstrably healthy. `rpk cluster health` is an **Admin API** call on **:9644**. `-X brokers=`
-sets the **Kafka API** (:9093) broker list and is *silently ignored* by this subcommand, so rpk fell
+that was demonstrably healthy. [`rpk cluster health` is an **Admin API** call on **:9644**. `-X brokers=`
+sets the **Kafka API** (:9093) broker list and is *silently ignored* by this subcommand]{custom-style="Key"}, so rpk fell
 back to its default of `127.0.0.1:9644` — which inside a seeding pod is nothing at all:
 
 ```
@@ -446,12 +446,12 @@ dial tcp 127.0.0.1:9644: connect: connection refused
 ```
 
 It was doubly misleading because testing the same command from inside `redpanda-0` *worked* — there,
-localhost:9644 really is a broker's admin API. The lesson generalises well beyond rpk: **a health gate
-that cannot reach its target is indistinguishable from a target that is unhealthy.** This one failed
+localhost:9644 really is a broker's admin API. The lesson generalises well beyond rpk: [**a health gate
+that cannot reach its target is indistinguishable from a target that is unhealthy.**]{custom-style="Key"} This one failed
 closed for entirely the wrong reason, and would have blocked every deploy while pointing the
 on-call engineer at the cluster instead of at the manifest.
 
-Topic operations use `-X brokers=` (:9093). Cluster operations use `-X admin.hosts=` (:9644).
+[Topic operations use `-X brokers=` (:9093). Cluster operations use `-X admin.hosts=` (:9644).]{custom-style="Key"}
 
 ### 6d. Why the simpler gates don't work
 
@@ -492,19 +492,19 @@ The naive Job retried by *dying and being recreated*, so its patience was govern
 — and that single knob controls both "how long will we tolerate a slow dependency" and "how many
 times do we retry a genuine error." You cannot raise one without raising the other.
 
-The guard retries in a loop inside one long-lived init container, which **decouples the two budgets**:
-a 600-second wait for a slow cluster, with `backoffLimit: 2` still governing real failures. A slow
+[The guard retries in a loop inside one long-lived init container, which **decouples the two budgets**:
+a 600-second wait for a slow cluster, with `backoffLimit: 2` still governing real failures.]{custom-style="Key"} A slow
 start is absorbed patiently; a broken cluster still turns the pipeline red within a bounded time.
 
 ---
 
 ## 7. Idempotent is not reconciling
 
-The §5 guard is re-runnable, which feels like the finish line. It isn't. It converges on
-**presence**, not on **correctness** — it only ever asks *does this topic exist?*
+The §5 guard is re-runnable, which feels like the finish line. It isn't. [It converges on
+**presence**, not on **correctness** — it only ever asks *does this topic exist?*]{custom-style="Key"}
 
-Create a topic by hand with the wrong shape — 2 partitions where the manifest declares 6 — and the
-existence-only guard reports success forever. The pipeline is green. The topic is wrong. Nobody finds
+[Create a topic by hand with the wrong shape — 2 partitions where the manifest declares 6 — and the
+existence-only guard reports success forever.]{custom-style="Key"} The pipeline is green. The topic is wrong. Nobody finds
 out until an ordering bug surfaces in production, and by then the fix is the one thing you cannot
 safely do (Ch3 §2d).
 
@@ -545,8 +545,8 @@ because two plausible-sounding alternatives are both wrong.
 *Not* `cleanup.policy=compact`. Compaction keeps the latest record per key and discards the rest,
 which for `orders` keyed by `order_id` means keeping the last event of each order and **throwing
 away its fill history**. That destroys the exact thing Chapter 6's `seq` check reads, and it does it
-silently, in the background, weeks after someone set the flag. Compaction is right for a *current
-state* topic — the latest position per account — and wrong for an event journal.
+silently, in the background, weeks after someone set the flag. [Compaction is right for a *current
+state* topic — the latest position per account — and wrong for an event journal.]{custom-style="Key"}
 
 *Not* multi-year retention on broker disk either, even though broker-dealer order records carry
 regulatory retention measured in years (SEC Rule 17a-4 and the FINRA rules that lean on it). Those
@@ -558,20 +558,20 @@ actually reads.
 
 So the 7 days is sized against **operational** need, not legal need: long enough to replay a bad
 deploy, re-run a day's positions, or bootstrap a new consumer group from the start of the week, and
-short enough that the brokers' local disks are not the system of record. That framing — retention
+short enough that the brokers' local disks are not the system of record. [That framing — retention
 answers "how far back can I replay", archival answers "what must I be able to produce in five
-years" — is the answer to give when someone asks why the number is what it is.
+years"]{custom-style="Key"} — is the answer to give when someone asks why the number is what it is.
 
 ### 7b. Tier 2 — repairable, but it is an operation
 
 Replication factor. Technically fixable, but the fix copies every partition to another broker: real
-disk, real network, potentially hours. That is a maintenance activity, not something a deploy should
-silently kick off at 2am during peak trading. **Report it, fail, let a human schedule it.**
+disk, real network, potentially hours. [That is a maintenance activity, not something a deploy should
+silently kick off at 2am during peak trading.]{custom-style="Key"} **Report it, fail, let a human schedule it.**
 
 ### 7c. Tier 3 — effectively permanent
 
-Partition count. Cannot shrink. Growing it changes `hash(key) % n` for roughly half the keys, so an
-order's history splits across two partitions and its ordering guarantee is broken *retroactively*
+Partition count. Cannot shrink. [Growing it changes `hash(key) % n` for roughly half the keys, so an
+order's history splits across two partitions and its ordering guarantee is broken *retroactively*]{custom-style="Key"}
 (Ch3 §2d). The script must never, under any circumstances, auto-fix this:
 
 ```
@@ -587,8 +587,8 @@ exit=1
 Fix what is cheap and reversible. Refuse to fix what is expensive or destructive — loudly, with a
 non-zero exit, naming the field and both values.
 
-> The failure mode to design against is not *"the script could not fix it."* It is **"the script
-> reported success on a cluster that was wrong."** A green pipeline is evidence that the checks
+> [The failure mode to design against is not *"the script could not fix it."* It is **"the script
+> reported success on a cluster that was wrong."**]{custom-style="Key"} A green pipeline is evidence that the checks
 > passed, not that the topic is correct — and those are only the same statement if the checks
 > actually compare the thing you care about.
 
@@ -628,17 +628,17 @@ What that buys you over a Job:
 Be precise about that middle pair, because it is the row people wave at to justify an operator and
 it is not as one-sided as "Job: undetected". §7 is the section where the Job *does* detect drift —
 it fixes retention in place and fails the deploy on partition and replication drift. The real
-difference is **when**, not whether: the Job only looks when you deploy, so drift introduced at
-11 a.m. on a Tuesday sits undiscovered until the next release. And an operator does not magically
-fix Tier 3 either — you cannot reduce a partition count by reconciling harder.
+difference is **when**, not whether: [the Job only looks when you deploy, so drift introduced at
+11 a.m. on a Tuesday sits undiscovered until the next release.]{custom-style="Key"} And [an operator does not magically
+fix Tier 3 either — you cannot reduce a partition count by reconciling harder.]{custom-style="Key"}
 
 The honest trade-off: for a three-broker lab with two topics, the Job is proportionate. For
 production with many topics across teams, the operator earns its keep — topic definitions become
 reviewable pull requests instead of somebody's shell history, and drift gets fixed rather than
 discovered during an incident.
 
-**Same pattern, wider than Redpanda.** Schema Registry subjects, OpenSearch index templates, database
-migrations and Kafka ACLs are all this identical problem: state that lives inside an application,
+**Same pattern, wider than Redpanda.** [Schema Registry subjects, OpenSearch index templates, database
+migrations and Kafka ACLs are all this identical problem]{custom-style="Key"}: state that lives inside an application,
 created after the application is running, invisible to Kubernetes. Chapters 5 and 6 hit it again.
 
 ---
@@ -670,8 +670,8 @@ decisions are all about *where the gates go* and *what turns the build red*.
 Points worth being able to defend:
 
 **The topic spec is a reviewed artefact, not shell history.** The declared list lives in
-`seed-topics.sh` in Git, mounted into the Job from a ConfigMap. Changing a partition count is a pull
-request with a diff, which is the only control that reliably stops Tier 3 mistakes.
+`seed-topics.sh` in Git, mounted into the Job from a ConfigMap. [Changing a partition count is a pull
+request with a diff, which is the only control that reliably stops Tier 3 mistakes.]{custom-style="Key"}
 
 ```bash
 kubectl -n redpanda create configmap topic-spec \
@@ -689,8 +689,8 @@ metadata is right; only an actual round-trip proves a client can use it.
 `kubectl get pods` becomes unreadable exactly when you need it during an incident.
 
 **Fail red on Tier 2 and Tier 3 drift.** Tempting to warn and continue so deploys aren't blocked by
-something that "isn't really broken." Don't: a warning in CI output is a warning nobody reads, and
-these are precisely the two categories that get more expensive the longer they go unnoticed.
+something that "isn't really broken." Don't: [a warning in CI output is a warning nobody reads, and
+these are precisely the two categories that get more expensive the longer they go unnoticed.]{custom-style="Key"}
 
 ### 9a. The `kubectl wait` trap, restated
 
@@ -716,8 +716,8 @@ Then always print the logs, on success and failure alike — the useful message
 **Two things in that snippet are easy to get wrong, and I got both wrong first.**
 
 The `exit 1` is inside a subshell, so it exits *the subshell*, not your script. It does not fail the
-pipeline. What actually carries the failure is `wait -n`, which returns the exit status of whichever
-job finished — and that is a **status you have exactly one command to capture**. My original version
+pipeline. [What actually carries the failure is `wait -n`, which returns the exit status of whichever
+job finished — and that is a **status you have exactly one command to capture**.]{custom-style="Key"} My original version
 ended the block at `wait -n $ok $bad` and read correctly in isolation. Then the next sentence says
 "always print the logs", and the moment you follow that instruction:
 
@@ -726,7 +726,7 @@ $ bash wait-original.sh; echo "exit = $?"
 exit = 0                # the failure is gone; $? now belongs to kubectl logs
 ```
 
-A deploy gate that reports success on every failed seed, introduced by adding a log line. Hence
+[A deploy gate that reports success on every failed seed, introduced by adding a log line.]{custom-style="Key"} Hence
 `rc=$?` on the same line, before anything else runs.
 
 The `kill` matters too: the losing waiter otherwise sits there for the remaining timeout. Harmless
@@ -751,8 +751,8 @@ immediately rather than waiting out the loser's timeout.
 | `admin.hosts` over plaintext | mTLS to the Admin API, credentials from a Secret, never in the manifest |
 | Single node, so "3 brokers" share a failure domain | Real anti-affinity across nodes and zones (Ch3 §6c) |
 
-The single biggest gap is the fourth row. Everything in this chapter runs **at deploy time**, so
-between deploys the cluster can drift and nothing notices. That is the structural argument for the
+The single biggest gap is the fourth row. [Everything in this chapter runs **at deploy time**, so
+between deploys the cluster can drift and nothing notices.]{custom-style="Key"} That is the structural argument for the
 operator in §8, and it is the honest answer to "why would you ever run a controller for this?"
 
 ---

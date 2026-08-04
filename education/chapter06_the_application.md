@@ -59,7 +59,7 @@ Run on **`vm-k8-redpanda-1` (192.168.1.186)**, single-node k3s v1.36.2, Redpanda
 
 > **Both ledgers see exactly the same stream. Only one of them survives a crash.**
 >
-> That difference is the whole chapter. It is not about how carefully you consume — both paths consumed identically. It is about whether the **effect** of consuming can be undone or repeated safely.
+> That difference is the whole chapter. It is not about how carefully you consume — both paths consumed identically. [It is about whether the **effect** of consuming can be undone or repeated safely.]{custom-style="Key"}
 
 Two programs, one container image, one topic, two ledgers:
 
@@ -72,11 +72,11 @@ Two programs, one container image, one topic, two ledgers:
 Two details in that table are load-bearing and easy to get wrong.
 
 **`strategy: Recreate`, not `RollingUpdate`.** A rolling update surges a second pod before removing
-the first. Two pods cannot mount the same `ReadWriteOnce` volume, so the new pod blocks on the PVC
-forever while the old one refuses to die. The rollout hangs until `progressDeadlineSeconds` and you
+the first. [Two pods cannot mount the same `ReadWriteOnce` volume, so the new pod blocks on the PVC
+forever while the old one refuses to die.]{custom-style="Key"} The rollout hangs until `progressDeadlineSeconds` and you
 get a `ProgressDeadlineExceeded` that looks like a scheduling problem. This is Chapter 2 §5's
-`maxSurge` lesson, arriving from an unexpected direction: **the surge is only free if nothing the
-pod holds is exclusive.**
+`maxSurge` lesson, arriving from an unexpected direction: [**the surge is only free if nothing the
+pod holds is exclusive.**]{custom-style="Key"}
 
 **One replica, when there are six partitions.** Chapter 5 §2 established that partition count is the
 parallelism ceiling, so this leaves five sixths of the available parallelism unused. That is
@@ -126,8 +126,8 @@ Three things worth saying out loud.
 
 **The key is the ordering guarantee, and it is computed client-side.** `hash(order_id) % 6` happens
 *in the producer* (Chapter 5 §3). The record arrives at the broker pre-addressed. Every event for
-`ORD-42` lands on the same partition and is therefore read in the order it was written. Drop the
-key and you get round-robin, and a `CANCEL` can be processed before the `NEW` it cancels.
+`ORD-42` lands on the same partition and is therefore read in the order it was written. [Drop the
+key and you get round-robin, and a `CANCEL` can be processed before the `NEW` it cancels.]{custom-style="Key"}
 
 **Delivery is asynchronous, and the callback is the only truth.** `produce()` enqueues; it does not
 send. Success or failure arrives later in `on_delivery`. A program that calls `produce()` in a loop
@@ -139,13 +139,13 @@ if stats["failed"] or remaining:
     sys.exit(1)
 ```
 
-`flush()` returns the number of messages **still unsent** after the timeout. Ignoring that return
-value is how a batch job reports success while silently dropping its tail.
+`flush()` returns the number of messages **still unsent** after the timeout. [Ignoring that return
+value is how a batch job reports success while silently dropping its tail.]{custom-style="Key"}
 
 **That queue is bounded, and filling it is a failure mode of its own.** `produce()` enqueues into a
-local buffer capped by `queue.buffering.max.messages` (100,000 by default). When the brokers are
+local buffer capped by `queue.buffering.max.messages` (100,000 by default). [When the brokers are
 slower than the loop — during a broker restart, say — the buffer fills and `produce()` raises
-`BufferError` rather than blocking. This is producer-side backpressure, the exact mirror of consumer
+`BufferError` rather than blocking.]{custom-style="Key"} This is producer-side backpressure, the exact mirror of consumer
 lag, and the naive loop dies on it at precisely the moment you most want records to survive. The
 producer here drains and retries instead, and counts how often it had to:
 
@@ -161,8 +161,8 @@ while True:
 `backpressure_waits=0` on a healthy run. A non-zero value is the earliest warning that the brokers
 cannot keep up, and it appears well before anything shows on the consumer side.
 
-**`enable.idempotence` requires `acks=all`.** librdkafka refuses the combination outright, and the
-refusal is the lesson: producer idempotence is *built on* acks=all, not an alternative to it. It
+**`enable.idempotence` requires `acks=all`.** [librdkafka refuses the combination outright, and the
+refusal is the lesson: producer idempotence is *built on* acks=all, not an alternative to it.]{custom-style="Key"} It
 solves exactly one problem — the producer sent a record, the ack was lost in flight, the producer
 retried, and the record was appended **twice**. A sequence number per producer session lets the
 broker discard the retry. It says nothing whatsoever about the consumer.
@@ -171,8 +171,8 @@ broker discard the retry. It says nothing whatsoever about the consumer.
 assigns when the client connects. Restart the producer — or let a failed `order-gateway` Job be
 retried — and it gets a *new* producer id, so every record it re-emits is brand new as far as the
 broker is concerned. `enable.idempotence` protects against a retry *inside* one run and nothing
-else. What actually makes a re-run of this Job safe is the **consumer's** upsert on
-`(order_id, seq)`, which is a property of the business key, not of the client library. Worth being
+else. [What actually makes a re-run of this Job safe is the **consumer's** upsert on
+`(order_id, seq)`, which is a property of the business key, not of the client library.]{custom-style="Key"} Worth being
 precise about, because "we have idempotence enabled" is a very common answer to "what happens if
 the producer restarts", and it is the wrong one.
 
@@ -182,7 +182,7 @@ the producer restarts", and it is the wrong one.
 
 ![Figure 2 — the acks ladder](images/ch06_fig2_acks.png)
 
-> **Loss and duplication fail in opposite directions, and you must pick which one you can live with.**
+> [**Loss and duplication fail in opposite directions, and you must pick which one you can live with.**]{custom-style="Key"}
 >
 > A duplicate is **loud** — it shows up as a wrong total you can reconcile, and an idempotent handler erases it. A lost record is **silent** — there is no artefact to find, no counter to alert on, and reconciliation only catches it if you independently know what should have been there. For an order management system this is not a tuning decision. A missing fill is a position you do not know you hold.
 >
@@ -208,11 +208,11 @@ acks=0     produced=15000 delivered=15000 failed=0   in topic: 14971 / 15000   2
 ```
 
 **Read those two lines carefully, because they are identical where it matters.** Both runs report
-`delivered=15000 failed=0`. One of them is missing 29 records. There was no exception, no failed
-callback, no retry, no metric, no log line. The application cannot know. The only way I detected it
+`delivered=15000 failed=0`. [One of them is missing 29 records. There was no exception, no failed
+callback, no retry, no metric, no log line. The application cannot know.]{custom-style="Key"} The only way I detected it
 was by independently counting what was in the topic afterwards.
 
-**And `acks=0` did not even go faster — it was 0.2 seconds slower.** Do not read that as evidence
+[**And `acks=0` did not even go faster — it was 0.2 seconds slower.**]{custom-style="Key"} Do not read that as evidence
 that durability is free; read it as evidence that this test could not price durability at all. The
 run was rate-limited at `RATE=600`, so 15,000 records cannot complete in under 25 seconds no matter
 how little the brokers are asked to do. Both runs sat on that floor, and the 0.2s is scheduling
@@ -232,8 +232,8 @@ This is the asymmetry that matters for an order management system:
 
 `acks=all` is the floor for order flow — and on this workload it was not even the slower option.
 
-> **Nuance worth having ready.** `acks=all` means a **quorum**, not every replica — Redpanda uses
-> Raft, so a 3-replica partition acknowledges once 2 of 3 have it. That is why the broker kill cost
+> **Nuance worth having ready.** [`acks=all` means a **quorum**, not every replica — Redpanda uses
+> Raft, so a 3-replica partition acknowledges once 2 of 3 have it.]{custom-style="Key"} That is why the broker kill cost
 > latency and nothing else: the surviving two already had the data and one of them became leader.
 
 ---
@@ -273,8 +273,8 @@ network problem rather than a missing registry.
 "enable.auto.commit": False,
 ```
 
-Auto-commit commits on a timer, in the background, **whether or not you have finished processing**.
-It converts a duplicate into a lost record, which §3 just established is the worse failure. So:
+[Auto-commit commits on a timer, in the background, **whether or not you have finished processing**.
+It converts a duplicate into a lost record, which §3 just established is the worse failure.]{custom-style="Key"} So:
 explicit commits only.
 
 The processing loop reduces to:
@@ -294,13 +294,13 @@ if since_commit >= COMMIT_EVERY or elapsed:      # 2. periodically:
 | state → offset | the records are processed **again** | yes, if the handler is idempotent |
 | offset → state | the records are **never processed** | no — silent, permanent |
 
-Committing the offset first is the more natural way to write it, and it is data loss with extra
-steps.
+[Committing the offset first is the more natural way to write it, and it is data loss with extra
+steps.]{custom-style="Key"}
 
 Note also that commits are **periodic, not per-record**. Committing after every record would be
 correct and unusably slow — an offset commit is a round-trip to the group coordinator. So a window
-always exists. Chapter 5 §7 put it as: *duplicates = throughput × time since last commit.* Tuning
-`COMMIT_EVERY` changes the size of the window. It never closes it.
+always exists. [Chapter 5 §7 put it as: *duplicates = throughput × time since last commit.* Tuning
+`COMMIT_EVERY` changes the size of the window. It never closes it.]{custom-style="Key"}
 
 ---
 
@@ -321,8 +321,8 @@ naive ledger      = 800000
 OVER-COUNTED BY   = 0     (0 fills replayed)
 ```
 
-**Zero duplicates. The demo failed.** Except it didn't — that result is a genuinely useful thing to
-know, and I had built the mechanism without noticing.
+[**Zero duplicates. The demo failed.** Except it didn't — that result is a genuinely useful thing to
+know, and I had built the mechanism without noticing.]{custom-style="Key"}
 
 Both ledgers were written inside the **same SQLite transaction**, and that transaction was committed
 immediately before the offset commit. When the process was SIGKILLed mid-batch:
@@ -334,9 +334,9 @@ immediately before the offset commit. When the process was SIGKILLed mid-batch:
 
 Net effect: **effectively-once, with no dedupe logic at all.**
 
-> **This is the cheap answer, and most consumers qualify for it.** If your state lives in one
+> **This is the cheap answer, and most consumers qualify for it.** [If your state lives in one
 > transactional store and you commit the offset after the transaction, at-least-once delivery is
-> already harmless. No dedupe table, no event-ID set, no exactly-once protocol, no Kafka
+> already harmless.]{custom-style="Key"} No dedupe table, no event-ID set, no exactly-once protocol, no Kafka
 > transactions. It is worth knowing because it is free, and because it tells you precisely when you
 > *do* need something more.
 
@@ -372,9 +372,9 @@ db.execute("INSERT INTO fills … ON CONFLICT(order_id, seq) DO UPDATE SET qty =
 > **Bug #2, and it is a good one.** My first attempt at this used two *connections to the same file*
 > rather than two files. It deadlocked. SQLite's write lock is held by the transactional connection
 > from its first write until `commit()`, so the autocommit connection was starved on every single
-> event, sat on its 5-second busy timeout, and the consumer crawled to **one record processed**. The
+> event, sat on its 5-second busy timeout, and the consumer crawled to **one record processed**. [The
 > pod looked healthy — `1/1 Running`, no restarts, no errors in the log, just a startup banner and
-> then silence. **A hung consumer and a healthy consumer look identical from `kubectl get pods`.**
+> then silence. **A hung consumer and a healthy consumer look identical from `kubectl get pods`.**]{custom-style="Key"}
 > The only signal was lag not moving. Separate files fixed it, and is the truer model anyway: the
 > execution venue is a *different system*, not another table in your database.
 
@@ -393,14 +393,14 @@ The three numbers have to agree or the demo is not evidence of anything, so chec
 
 **Eleven duplicate executions.** The transactional ledger is unharmed — it shows 7,989 only because
 11 upserts were staged and not yet committed at the moment I read it; committed, it lands on
-exactly 8,000, forever, no matter how many times you crash it. The gateway is permanently wrong and
-there is no artefact anywhere that says so.
+exactly 8,000, forever, no matter how many times you crash it. [The gateway is permanently wrong and
+there is no artefact anywhere that says so.]{custom-style="Key"}
 
-For an OMS: 1,100 shares were executed that nobody ordered. Not mispriced, not delayed — executed.
+[For an OMS: 1,100 shares were executed that nobody ordered. Not mispriced, not delayed — executed.]{custom-style="Key"}
 
 **The fix is not tuning.** It is an idempotency key that the *receiver* honours. This is exactly why
-every serious payment API makes you send one: the receiver, not the sender, is the only party that
-can deduplicate a side effect it has already performed.
+every serious payment API makes you send one: [the receiver, not the sender, is the only party that
+can deduplicate a side effect it has already performed.]{custom-style="Key"}
 
 ---
 
@@ -421,8 +421,8 @@ because my commit trigger was record-count only:
 if since_commit >= COMMIT_EVERY:      # 50
 ```
 
-On an idle topic the final partial batch never reaches 50, so **the tail of the stream is never
-committed**. And that turns a one-off window into a permanent one. Every restart replays the same
+[On an idle topic the final partial batch never reaches 50, so **the tail of the stream is never
+committed**. And that turns a one-off window into a permanent one.]{custom-style="Key"} Every restart replays the same
 13 records:
 
 | Restart | Gateway calls | Duplicate executions |
@@ -433,8 +433,8 @@ committed**. And that turns a one-off window into a permanent one. Every restart
 | *n*th hard kill | 8000 + 11*n* | **11*n*** |
 
 I measured the first two and stopped; the third row is arithmetic, not a reading, because by then
-the mechanism is not in doubt. It compounds forever. A pod that restarts nightly would re-execute
-the same 11 fills every night, and the gateway total would drift further from the truth every day
+the mechanism is not in doubt. It compounds forever. [A pod that restarts nightly would re-execute
+the same 11 fills every night, and the gateway total would drift further from the truth every day]{custom-style="Key"}
 while the transactional ledger stayed exactly right — which is what makes this so hard to notice.
 
 The fix is one clause:
@@ -460,8 +460,8 @@ Measured after the fix — lag reaches 0 and **stays** there:
 t+10s  lag=0    t+20s  lag=0    t+30s  lag=0    t+40s  lag=0    t+50s  lag=0    t+60s  lag=0
 ```
 
-> **The operational tell.** Non-zero lag on an idle topic that never drains is almost always a
-> commit-policy bug, not a slow consumer. A slow consumer's lag *changes*. Chapter 5 §4's advice to
+> **The operational tell.** [Non-zero lag on an idle topic that never drains is almost always a
+> commit-policy bug, not a slow consumer. A slow consumer's lag *changes*.]{custom-style="Key"} Chapter 5 §4's advice to
 > alert on **max per-partition lag** would have caught this; a "total lag" dashboard showing 13 out
 > of 10,000 would not have raised an eyebrow.
 
@@ -477,13 +477,13 @@ kubectl delete pod $POD --force --grace-period=0
 ```
 
 That is documented as skipping the grace period, and I had been treating it as a SIGKILL. **From the
-application's point of view it frequently isn't.** The container runtime may still deliver SIGTERM,
-and my consumer has a SIGTERM handler that commits and closes the group cleanly. A fast process
+application's point of view it frequently isn't.** [The container runtime may still deliver SIGTERM,
+and my consumer has a SIGTERM handler that commits and closes the group cleanly.]{custom-style="Key"} A fast process
 finishes its shutdown path before anything harder arrives. I was running the *graceful* path while
 believing I was testing the hard one.
 
-`kill -9 1` from inside the container does not work either: the kernel shields PID 1 of a namespace
-from signals it has no handler for, and SIGKILL cannot have a handler.
+[`kill -9 1` from inside the container does not work either: the kernel shields PID 1 of a namespace
+from signals it has no handler for, and SIGKILL cannot have a handler.]{custom-style="Key"}
 
 What actually works is killing the process from the **node**, where it is an ordinary process:
 
@@ -499,8 +499,8 @@ restartCount: 1
 lastState:    Error:137          # 128 + 9 = SIGKILL
 ```
 
-Two things to notice. First, `137` is how you confirm a hard kill after the fact — and it is the
-same exit code an **OOM kill** produces, which is the most common way this happens in production.
+Two things to notice. First, [`137` is how you confirm a hard kill after the fact — and it is the
+same exit code an **OOM kill** produces, which is the most common way this happens in production.]{custom-style="Key"}
 Second, the pod name did not change and `restartCount` incremented: this was a **container restart
 in place**, not a pod replacement (Chapter 1 §2a). The PVC, the pod IP, and the node assignment all
 stayed put. Only the process died.
@@ -509,8 +509,8 @@ stayed put. Only the process died.
 > coordinator only notices a dead member when heartbeats stop, which takes `session.timeout.ms`
 > (librdkafka's default is **45 seconds**). I sampled the ledgers at 35s twice and saw no change,
 > and briefly thought the duplicates had stopped compounding. They hadn't — I was reading before the
-> replay had happened. **A graceful `SIGTERM` leaves the group explicitly and reassigns instantly;
-> a hard kill costs you a session timeout of downtime on those partitions.** That is a real
+> replay had happened. [**A graceful `SIGTERM` leaves the group explicitly and reassigns instantly;
+> a hard kill costs you a session timeout of downtime on those partitions.**]{custom-style="Key"} That is a real
 > availability difference, not just a data one.
 
 ---
@@ -538,13 +538,13 @@ if seq <= prev:      replays += 1     # same events delivered again
 elif seq > prev + 1: gaps    += 1     # something arrived out of order, or was lost
 ```
 
-Zero gaps across 2,000 independent orders is **ordering demonstrated**, not assumed. Every order's
+[Zero gaps across 2,000 independent orders is **ordering demonstrated**, not assumed.]{custom-style="Key"} Every order's
 `NEW → FILL → FILL → FILL → FILL` arrived in sequence, because every one of those five events
 carried the same key and therefore landed on the same partition.
 
-This is also a cheap production check worth stealing. If your events carry a per-entity sequence
+This is also a cheap production check worth stealing. [If your events carry a per-entity sequence
 number, the consumer can detect ordering violations *itself*, continuously, for the cost of one
-dictionary. It is far better than discovering the problem during reconciliation the next morning.
+dictionary.]{custom-style="Key"} It is far better than discovering the problem during reconciliation the next morning.
 
 ---
 
@@ -567,25 +567,25 @@ write-ups of this kind of test and they are not the same measurement).
 
 **Compare like with like.** Chapter 5's 42% is *one partition's share of all traffic*. The span
 above is a *max-minus-min*, so putting "42%" next to "9%" compares two different quantities and any
-interviewer who does the arithmetic will notice. The number that actually corresponds to Chapter 5's
-42% is partition 1's share here: 1,740 / 10,000 = **17.4%**, against an even 16.7%. So the honest
+interviewer who does the arithmetic will notice. [The number that actually corresponds to Chapter 5's
+42% is partition 1's share here: 1,740 / 10,000 = **17.4%**, against an even 16.7%.]{custom-style="Key"} So the honest
 statement is 42% → 17.4% on the same measure, and that is still a striking result.
 
 Is 9% even skew, or is it just noise? Each key contributes all 5 of its events to one partition, so
 the count per partition is 5 × Binomial(2000, ⅙), with a standard deviation of
 5 × √(2000 × ⅙ × ⅚) ≈ **83 records**. The six deviations from the mean are −42, +73, +8, −77, +38
-and −2 — every one inside a single standard deviation. **This distribution is not "slightly uneven";
-it is indistinguishable from random.** There is nothing here to fix.
+and −2 — [every one inside a single standard deviation. **This distribution is not "slightly uneven";
+it is indistinguishable from random.**]{custom-style="Key"} There is nothing here to fix.
 
-The takeaway is a good interview answer, but state it precisely: **key skew is a function of key
-cardinality and of how evenly volume is distributed across those keys** — not of the partitioner.
+The takeaway is a good interview answer, but state it precisely: [**key skew is a function of key
+cardinality and of how evenly volume is distributed across those keys** — not of the partitioner.]{custom-style="Key"}
 The second half matters, and this test was rigged in its favour: the producer gives every order
 exactly 5 events. Real order flow is nothing like that. A handful of accounts generate most of the
 volume, so you can have 2,000 keys and still have terrible skew.
 
-Which is why the real pathology is a *single hot key* — one account generating 40% of order flow —
+Which is why [the real pathology is a *single hot key* — one account generating 40% of order flow —
 and no amount of repartitioning fixes it, because all of that key's events must stay on one
-partition to preserve its ordering. That needs a composite key (`account-shard-N`) or a dedicated
+partition to preserve its ordering.]{custom-style="Key"} That needs a composite key (`account-shard-N`) or a dedicated
 topic. Before you treat uneven partitions as a problem: count your distinct keys, then check
 whether volume per key is anywhere near uniform.
 
@@ -605,8 +605,8 @@ revokes **all** its partitions, then the group reassigns from scratch — a stop
 the whole group. `cooperative-sticky` moves only the partitions that need to move.
 
 With one consumer this is invisible. With thirty it is the difference between a rebalance nobody
-notices and a periodic full-group stall. **The lesson is that "the group's rebalance behaviour" is a
-property of the clients, not the cluster** — and a mixed fleet of clients with different defaults
+notices and a periodic full-group stall. [**The lesson is that "the group's rebalance behaviour" is a
+property of the clients, not the cluster**]{custom-style="Key"} — and a mixed fleet of clients with different defaults
 is a genuinely nasty thing to debug.
 
 **The same trap exists on the producer side, and it is worse.** §2 describes the key's partition as
@@ -617,7 +617,7 @@ is a genuinely nasty thing to debug.
 | librdkafka (`confluent-kafka`, and therefore this app) | `consistent_random` — CRC-32 |
 | the Java client | `murmur2_random` |
 
-**The same order id lands on a different partition depending on which client library produced it.**
+[**The same order id lands on a different partition depending on which client library produced it.**]{custom-style="Key"}
 In a fleet where a Python service and a Java service both write to `orders`, per-key ordering — the
 guarantee this entire chapter is built on — is quietly broken for every key both of them touch, and
 nothing anywhere reports an error. The fix is to pin the partitioner explicitly
@@ -632,10 +632,10 @@ here, and this is the instance of it that costs you correctness rather than late
 | transactional writes only (batched commit) | ~1,550 events/s |
 | plus one autocommit (fsync) write per event | ~200 events/s |
 
-Roughly **8× slower**, and nothing about the Kafka side changed. The cost was entirely the
+[Roughly **8× slower**, and nothing about the Kafka side changed.]{custom-style="Key"} The cost was entirely the
 per-event `fsync`. This is the honest counterweight to §7: making every side effect immediately
 durable is not free, which is exactly why real systems batch, and why batching is what creates the
-replay window in the first place. **The window is not carelessness; it is the price of throughput.**
+replay window in the first place. [**The window is not carelessness; it is the price of throughput.**]{custom-style="Key"}
 
 ---
 
@@ -653,16 +653,16 @@ replay window in the first place. **The window is not carelessness; it is the pr
 | No liveness probe on the consumer | A probe that fails when the poll loop stalls — see below |
 
 That last row is worth its own line, because §7 handed me the reason. A consumer stuck on a lock
-was `1/1 Running` with a clean log and zero restarts. **Kubernetes cannot tell a working consumer
-from a hung one**, because "the process is alive" is all a default health check knows. A liveness
+was `1/1 Running` with a clean log and zero restarts. [**Kubernetes cannot tell a working consumer
+from a hung one**, because "the process is alive" is all a default health check knows.]{custom-style="Key"} A liveness
 probe that checks *"have I processed a record, or deliberately idled, in the last N seconds"* would
 have caught it in 30 seconds. Chapter 2 §6–§7 built the probe machinery; this is the workload that
 actually needs it.
 
 **But Kubernetes is not the only thing watching, and the better answer is layered.** The Kafka
 client has its own liveness notion: `max.poll.interval.ms` (librdkafka default 300000, five
-minutes). If the application does not call `poll()` within that window, the broker evicts it from
-the group and reassigns its partitions to someone who can make progress — no probe required. The
+minutes). [If the application does not call `poll()` within that window, the broker evicts it from
+the group and reassigns its partitions to someone who can make progress — no probe required.]{custom-style="Key"} The
 reason that did not save the §7 hang is that the loop *was* still polling: each event returned
 inside SQLite's 5-second busy timeout, so from the group's point of view the consumer was healthy,
 just slow. It was doing one record at a time, which is a throughput collapse rather than a stall.
@@ -675,8 +675,8 @@ So the two mechanisms cover different failures, and a good answer names both:
 | Process alive but making no progress | a progress-based liveness probe | as fast as you set it |
 | Progress far below normal | neither — only a lag or throughput **alert** | whenever you look |
 
-That third row is the §7 case, and it is the one people forget in interviews. No health check of
-any kind catches "working, but 8× too slow". That is a monitoring problem, not a probe problem.
+That third row is the §7 case, and it is the one people forget in interviews. [No health check of
+any kind catches "working, but 8× too slow". That is a monitoring problem, not a probe problem.]{custom-style="Key"}
 
 ---
 
@@ -698,8 +698,8 @@ finally:
 
 Find the bug before reading on. It is the same bug §5 spends a whole table warning about.
 
-**Any exception from `decode` or `apply_event` escapes the loop, and `finally` then commits the
-offset of the record that just failed.** Malformed JSON, a missing field, `SQLITE_BUSY`, a full
+[**Any exception from `decode` or `apply_event` escapes the loop, and `finally` then commits the
+offset of the record that just failed.**]{custom-style="Key"} Malformed JSON, a missing field, `SQLITE_BUSY`, a full
 disk — all of them advance the offset past work that was never done. That is the *offset first,
 state second* ordering that §5 labels **"silent, permanent."** I wrote the table warning against it
 and then implemented it four sections later, in a `finally` block, where it does not look like an
@@ -719,8 +719,8 @@ Once you handle the record properly there is a real decision to make, and it is 
 | The book stays correct | **no** — a fill is missing | yes |
 | You find out | only if you look at a counter | immediately, lag alerts |
 
-For most streaming workloads — metrics, logs, clickstream — skipping is right, because one bad
-record is worth less than the pipeline. **For order flow it is usually wrong.** An unreadable fill
+[For most streaming workloads — metrics, logs, clickstream — skipping is right, because one bad
+record is worth less than the pipeline. **For order flow it is usually wrong.**]{custom-style="Key"} An unreadable fill
 is a position you cannot compute, and skipping it books a number you know to be incorrect while
 looking perfectly healthy. Stopping is loud, and loud is recoverable.
 
@@ -760,9 +760,9 @@ reconciled total: 800000
 ```
 
 Note *where* the dead letter is written: the same transactional connection as the fills, so the
-dead-letter row and the offset that skips the record become durable together. Writing it anywhere
+dead-letter row and the offset that skips the record become durable together. [Writing it anywhere
 else — a log line, a second database, an HTTP call — reintroduces §7's problem, and the one record
-you most need a durable trace of is the one whose trace can go missing.
+you most need a durable trace of is the one whose trace can go missing.]{custom-style="Key"}
 
 > **Why validate in `decode` rather than let a `KeyError` surface?** Because
 > `KeyError: 'seq'` three frames deep does not tell an on-call engineer which
@@ -773,9 +773,9 @@ you most need a durable trace of is the one whose trace can go missing.
 
 **In an interview this is the highest-value thing in the chapter**, because it is the one question
 where the correct answer is a business question wearing a technical costume. "Do you block or skip"
-has no universally right answer, and saying "block, because for order flow a missing fill is worse
+has no universally right answer, and [saying "block, because for order flow a missing fill is worse
 than a stalled partition, and I'd alert on partition-level lag to catch it" demonstrates that you
-know that.
+know that.]{custom-style="Key"}
 
 ---
 

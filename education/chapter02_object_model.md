@@ -94,8 +94,8 @@ kubectl get rs -l app=web -o jsonpath='{.items[0].metadata.labels.pod-template-h
 dbb6fffff
 ```
 
-Kubernetes hashes your **pod template**, then stamps the result as a **real label** on the
-ReplicaSet, on every pod it creates, and — critically — **into the ReplicaSet's own selector**.
+Kubernetes hashes your **pod template**, then [stamps the result as a **real label** on the
+ReplicaSet, on every pod it creates, and — critically — **into the ReplicaSet's own selector**.]{custom-style="Key"}
 
 Your manifest said:
 
@@ -108,8 +108,8 @@ selector:
 The live ReplicaSet is actually selecting on `app=web` **AND** `pod-template-hash=dbb6fffff`.
 
 > **Why it must exist.** During a rollout two ReplicaSets are alive at once, both matching
-> `app=web`. Without the hash, each would look at all the pods, count enough, decide it was
-> satisfied, and do nothing. **The rollout would deadlock.** The hash is what lets each generation
+> `app=web`. [Without the hash, each would look at all the pods, count enough, decide it was
+> satisfied, and do nothing. **The rollout would deadlock.**]{custom-style="Key"} The hash is what lets each generation
 > distinguish "my pods" from "the other generation's pods."
 
 ### Reading a pod name
@@ -123,7 +123,7 @@ web  -  8649f6f78d  -  8lhkw
 
 The hash does not distinguish instances — it **groups** them. All pods of one generation share it.
 
-**Change the template, get a new hash, get a new ReplicaSet.** That is the entire trigger condition
+[**Change the template, get a new hash, get a new ReplicaSet.**]{custom-style="Key"} That is the entire trigger condition
 for a rollout, and §5 shows what does *not* trigger one.
 
 ---
@@ -138,8 +138,8 @@ The first manifest put labels only in `spec.template`. Then:
 kubectl get deploy,rs,pods -l app=web     # returned the pods, but NOT the Deployment
 ```
 
-`spec.template.metadata.labels` describes the **pods the Deployment will create**. It says nothing
-about the Deployment object itself, which had no labels at all and therefore matched no selector.
+[`spec.template.metadata.labels` describes the **pods the Deployment will create**. It says nothing
+about the Deployment object itself]{custom-style="Key"}, which had no labels at all and therefore matched no selector.
 
 Real manifests repeat them in both places:
 
@@ -180,17 +180,17 @@ kubectl scale deploy web --replicas=3
 kubectl apply -f web.yaml          # file still says replicas: 1
 ```
 
-The Deployment snapped straight back to 1. `apply` does not merge your intent with the cluster's
-current state — the file wins.
+The Deployment snapped straight back to 1. [`apply` does not merge your intent with the cluster's
+current state — the file wins.]{custom-style="Key"}
 
-Also worth noting: **scaling does not create a new ReplicaSet.** The pod template is unchanged, so
-the hash is unchanged, so there is no new revision. Only template changes make revisions.
+Also worth noting: [**scaling does not create a new ReplicaSet.** The pod template is unchanged, so
+the hash is unchanged]{custom-style="Key"}, so there is no new revision. Only template changes make revisions.
 
 **And the dangerous version — `rollout undo`:** covered in §8. It changes the cluster and tells
 nothing else, which is how a rollback gets silently re-broken by the next deploy.
 
-> **The rule:** anything you do imperatively is a change your Git repository does not know about,
-> and the next `apply` will overwrite it. Imperative commands are for **diagnosis and emergencies**.
+> **The rule:** [anything you do imperatively is a change your Git repository does not know about,
+> and the next `apply` will overwrite it.]{custom-style="Key"} Imperative commands are for **diagnosis and emergencies**.
 > The fix always goes in the file.
 
 ---
@@ -208,8 +208,8 @@ strategy:
 ```
 
 Read as a pair, they define a window: with `replicas: 3` you may have 3 or 4 pods, and at least 3
-must be available. So the controller must **add before it removes**. For anything serving orders,
-`maxUnavailable: 0` is the setting you want — capacity never dips.
+must be available. [So the controller must **add before it removes**. For anything serving orders,
+`maxUnavailable: 0` is the setting you want — capacity never dips.]{custom-style="Key"}
 
 The progression is visible in `rollout status`:
 
@@ -239,7 +239,7 @@ deployment.apps/web configured
 ...and yet nothing rolled. Same ReplicaSets, same pod ages, no new revision. Only the
 `last-applied-configuration` annotation changed.
 
-> **"configured" does not mean "rolled out."** Only pod-template changes cause pod churn. Change a
+> [**"configured" does not mean "rolled out."** Only pod-template changes cause pod churn.]{custom-style="Key"} Change a
 > Deployment label or fix an annotation and `apply` reports `configured` while your pods sit
 > undisturbed. People see that word and assume they caused a restart.
 
@@ -253,7 +253,7 @@ deployment.apps/web configured
 
 > **The asymmetry, and the rules that follow from it**
 >
-> **Readiness gates the rollout. Liveness does not.** A bad readiness probe stops the deploy and protects you. A bad liveness probe ships cleanly, destroys the good pods, and only then starts killing.
+> [**Readiness gates the rollout. Liveness does not.** A bad readiness probe stops the deploy and protects you. A bad liveness probe ships cleanly, destroys the good pods, and only then starts killing.]{custom-style="Key"}
 >
 > **Debugging heuristic:** CrashLoopBackOff with `Exit Code: 0` means something EXTERNAL killed the container — nearly always the liveness probe. A real app crash gives a non-zero code or a signal.
 >
@@ -314,15 +314,15 @@ kubectl get endpointslices -l kubernetes.io/service-name=web \
 10.42.0.82  ready=false      ← the broken pod
 ```
 
-Same mechanism as Chapter 1 §5, now doing its real job. The broken pod **is** in the slice but
-flagged not-ready, so kube-proxy writes no iptables rule for it. It runs, consumes memory, and
+Same mechanism as Chapter 1 §5, now doing its real job. [The broken pod **is** in the slice but
+flagged not-ready, so kube-proxy writes no iptables rule for it.]{custom-style="Key"} It runs, consumes memory, and
 receives nothing:
 
 ```
 200 200 200 200 200 200
 ```
 
-**You shipped a broken build to production and not one user request touched it.**
+[**You shipped a broken build to production and not one user request touched it.**]{custom-style="Key"}
 
 ### Two status conditions that disagree, deliberately
 
@@ -331,14 +331,14 @@ Available=True     MinimumReplicasAvailable
 Progressing=True   ReplicaSetUpdated
 ```
 
-`Available=True` **while the deploy is broken**, because three pods are serving. Availability
-answers "is the service up," not "did my deployment work." Monitor both; they are different
+`Available=True` **while the deploy is broken**, because three pods are serving. [Availability
+answers "is the service up," not "did my deployment work."]{custom-style="Key"} Monitor both; they are different
 questions.
 
 ### The timeout that does nothing
 
-`kubectl rollout status --timeout=60s` failed after 60 seconds. That is **client-side impatience
-only** — it killed your `kubectl`, not the rollout:
+`kubectl rollout status --timeout=60s` failed after 60 seconds. [That is **client-side impatience
+only** — it killed your `kubectl`, not the rollout]{custom-style="Key"}:
 
 ```
 progressDeadlineSeconds=600      # 10 minutes before the Deployment gives up... on reporting
@@ -349,7 +349,7 @@ new RS age: 2m54s                # still going
 Deployment stops after ten minutes." It does not stop. When the deadline passes with no progress,
 the controller sets a **status condition** — `Progressing=False` with reason
 `ProgressDeadlineExceeded` — and then carries on trying forever. Nothing is rolled back, nothing is
-paused, no pod is deleted. It is a flag for you and your monitoring to read, not a circuit breaker:
+paused, no pod is deleted. [It is a flag for you and your monitoring to read, not a circuit breaker]{custom-style="Key"}:
 
 ```bash
 kubectl get deploy web -o jsonpath='{.status.conditions[?(@.type=="Progressing")].reason}'
@@ -427,8 +427,8 @@ down cleanly, and reported success. The kubelet killed it:
 Container web failed liveness probe, will be restarted
 ```
 
-> **`CrashLoopBackOff` + `Exit Code: 0` means something external killed the container, and it is
-> almost always the liveness probe.** A genuine crash gives a non-zero exit code or a signal. That
+> [**`CrashLoopBackOff` + `Exit Code: 0` means something external killed the container, and it is
+> almost always the liveness probe.**]{custom-style="Key"} A genuine crash gives a non-zero exit code or a signal. That
 > one rule saves you from reading application logs that show nothing wrong.
 
 Note also that the **pod names never changed** while the restart counter climbed — the same three
@@ -439,21 +439,21 @@ being recreated.
 
 ### The production version of this mistake
 
-Backoff is exponential — roughly 10s, 20s, 40s, doubling to a 5-minute cap. A struggling app
+[Backoff is exponential — roughly 10s, 20s, 40s, doubling to a 5-minute cap.]{custom-style="Key"} A struggling app
 therefore recovers *more slowly* the longer it struggles.
 
 The classic amplifier, and a strong thing to say in an interview:
 
-> **Never let a liveness probe check a dependency.** If your probe reports unhealthy because the
-> database is unreachable, then a brief database blip makes Kubernetes kill **every replica
+> [**Never let a liveness probe check a dependency.** If your probe reports unhealthy because the
+> database is unreachable]{custom-style="Key"}, then a brief database blip makes Kubernetes kill **every replica
 > simultaneously**, and the restart storm hammers the recovering database. You have converted a
 > dependency hiccup into a self-inflicted outage.
 
 Liveness should answer only *"is this process wedged and unrecoverable?"* Dependency health belongs
 in **readiness**, which merely removes you from the load balancer and lets you recover in place.
 
-For slow-starting applications use a **`startupProbe`**, which suspends liveness until the app
-finishes booting. Otherwise liveness kills a healthy JVM halfway through startup, forever.
+[For slow-starting applications use a **`startupProbe`**, which suspends liveness until the app
+finishes booting.]{custom-style="Key"} Otherwise liveness kills a healthy JVM halfway through startup, forever.
 
 ---
 
@@ -471,7 +471,7 @@ web-85cb69bbbd  revision=4   desired=3   probePath=/
 web-749d9d4b8   revision=3   desired=0   probePath=/healthz
 ```
 
-Each retired ReplicaSet still holds **its own full pod template** — not a diff, not a tombstone.
+[Each retired ReplicaSet still holds **its own full pod template** — not a diff, not a tombstone.]{custom-style="Key"}
 Rollback is therefore instant and involves no reconstruction: it just scales an old snapshot back
 up. `revisionHistoryLimit` (default **10**) is literally how many of these snapshots are kept, and
 therefore how far back you can roll.
@@ -487,8 +487,8 @@ REVISION  CHANGE-CAUSE
 4         <none>
 ```
 
-Revision 2 **vanished**. The ReplicaSet that *was* revision 2 is now revision 4 — a ReplicaSet
-carries only its most recent revision number, so rolling back re-tags it.
+Revision 2 **vanished**. The ReplicaSet that *was* revision 2 is now revision 4 — [a ReplicaSet
+carries only its most recent revision number, so rolling back re-tags it.]{custom-style="Key"}
 
 > **Consequence:** if someone in the incident channel says "roll back to revision 2," that revision
 > may no longer exist and `--to-revision=2` will fail. Always re-read `rollout history` before
@@ -530,7 +530,7 @@ The cluster is healthy; **both** your file and the annotation Kubernetes diffs a
 describe the broken version. The next `apply` — yours, or CI's from an unchanged Git repo —
 re-ships the outage.
 
-> **`rollout undo` buys you minutes, not a fix. Revert in Git.** This is the 3am failure mode: roll
+> [**`rollout undo` buys you minutes, not a fix. Revert in Git.**]{custom-style="Key"} This is the 3am failure mode: roll
 > back, go to bed, and the morning's first pipeline redeploys the break.
 
 ---
@@ -539,13 +539,13 @@ re-ships the outage.
 
 **No.** This matters because Chapter 3 runs a three-broker Raft cluster.
 
-`maxUnavailable` is a **capacity** guarantee, not a **consensus** guarantee. The Deployment
+[`maxUnavailable` is a **capacity** guarantee, not a **consensus** guarantee.]{custom-style="Key"} The Deployment
 controller counts pods reporting Ready. It has no concept of voting, majorities, or Raft. Point one
 at three brokers with `maxUnavailable: 1` and it will take one down, see two Ready, and proceed —
 because two Ready satisfies its arithmetic.
 
-There is a subtler trap, and Chapter 3 §9 demonstrates it: **a pod reporting Ready is not the same
-as the cluster being healthy.** After a broker failure, `Under-replicated partitions` read `0`
+There is a subtler trap, and Chapter 3 §9 demonstrates it: [**a pod reporting Ready is not the same
+as the cluster being healthy.**]{custom-style="Key"} After a broker failure, `Under-replicated partitions` read `0`
 because the metric lagged; after recovery the cluster reported `Healthy: true` while one broker led
 zero partitions. A readiness probe checking "is my port open" would have said yes throughout, and a
 rollout driven by it would have marched straight on to the next broker.
@@ -555,7 +555,7 @@ What actually protects a quorum:
 - **A StatefulSet**, which updates one pod at a time in reverse ordinal order and waits for each to
   be Ready. Part of why Redpanda uses one.
 - **A PodDisruptionBudget**, which guards against *voluntary* disruptions such as `kubectl drain`
-  during node maintenance. Note it does **not** restrain your own Deployment rollout.
+  during node maintenance. [Note it does **not** restrain your own Deployment rollout.]{custom-style="Key"}
 - **A readiness probe that reflects cluster health**, not process liveness — for a broker, closer to
   "am I caught up and serving my partitions" than "is my socket open."
 
@@ -573,11 +573,11 @@ resources:
   limits:   {cpu: 500m, memory: 256Mi}  # for the KERNEL
 ```
 
-**Requests and limits are read by different things at different times, and that is the whole idea.**
+[**Requests and limits are read by different things at different times, and that is the whole idea.**]{custom-style="Key"}
 
 The **request** is a scheduling claim. The scheduler sums the requests of all pods already on a node
-and will only place your pod where the remainder fits. It is a promise made once, at placement time,
-and nothing enforces it afterwards — a container requesting 64Mi may happily use 200Mi if the node
+and will only place your pod where the remainder fits. [It is a promise made once, at placement time,
+and nothing enforces it afterwards]{custom-style="Key"} — a container requesting 64Mi may happily use 200Mi if the node
 has it spare.
 
 The **limit** is a runtime ceiling enforced by the kernel through cgroups, and the two resources
@@ -589,7 +589,7 @@ behave completely differently at the ceiling:
 | Recoverable | Yes, continuously | No. The container is dead |
 | How it looks | Latency, timeouts, probe failures | `OOMKilled`, exit 137, restart |
 
-**CPU is compressible; memory is not.** You cannot give a process 90% of a byte, so there is no
+[**CPU is compressible; memory is not.** You cannot give a process 90% of a byte]{custom-style="Key"}, so there is no
 throttling option — the only enforcement available is killing it. This one asymmetry explains most
 of the advice you will hear about resource configuration.
 
@@ -614,11 +614,11 @@ qos-besteffort   BestEffort      # no requests and no limits at all
 
 Two consequences worth stating out loud, because they are what interviewers are probing for:
 
-**Setting no resources does not make a pod modest, it makes it a liability.** BestEffort is the
+[**Setting no resources does not make a pod modest, it makes it a liability.**]{custom-style="Key"} BestEffort is the
 first thing killed when a node comes under memory pressure, whatever the pod is doing. A
 BestEffort database is evicted before a Burstable batch job that is causing the pressure.
 
-**Guaranteed costs you utilisation and buys you predictability.** Requests equal to limits means the
+[**Guaranteed costs you utilisation and buys you predictability.**]{custom-style="Key"} Requests equal to limits means the
 scheduler reserves your peak, so the node runs emptier. For a broker or a position keeper that is
 the right trade. For a bursty stateless web tier it usually is not.
 
@@ -637,9 +637,9 @@ $ kubectl -n qos-demo get pod oom-victim -o jsonpath='{.status.containerStatuses
 {"terminated":{"exitCode":137,"reason":"OOMKilled","startedAt":"...","finishedAt":"..."}}
 ```
 
-**Exit code 137 is 128 + 9 — the process was SIGKILLed.** Chapter 6 §9 reaches the same 137 from a
-`kill -9`, and that ambiguity is the point: 137 alone does not tell you *who* did the killing. The
-`reason: OOMKilled` field is what distinguishes the kernel's OOM killer from an operator, a node
+[**Exit code 137 is 128 + 9 — the process was SIGKILLed.**]{custom-style="Key"} Chapter 6 §9 reaches the same 137 from a
+`kill -9`, and that ambiguity is the point: 137 alone does not tell you *who* did the killing. [The
+`reason: OOMKilled` field is what distinguishes the kernel's OOM killer from an operator]{custom-style="Key"}, a node
 shutdown, or a failed liveness probe's escalation.
 
 Note what the application saw: **nothing.** No exception, no chance to flush, no shutdown hook,
@@ -656,8 +656,8 @@ kubectl describe pod <p> | grep -E 'Reason|Exit Code|Limits|Requests'
 kubectl top pod <p>                       # current usage against the limit
 ```
 
-And the thing to say next, which matters more than the diagnosis: **an OOMKill is not automatically
-a reason to raise the limit.** It is evidence of one of three things — a limit set below the real
+And the thing to say next, which matters more than the diagnosis: [**an OOMKill is not automatically
+a reason to raise the limit.**]{custom-style="Key"} It is evidence of one of three things — a limit set below the real
 working set, a workload whose memory grows with input it does not bound, or a leak. Raising the
 limit fixes the first and merely postpones the other two. Chapter 6's consumer had the second kind:
 an unbounded per-order dictionary under a 256Mi limit, which is fine for 2,000 orders and fatal for
