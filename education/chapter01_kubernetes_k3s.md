@@ -73,80 +73,41 @@ restart a process. Self-healing and declarative deployment are the point.
 
 ---
 
-## 2a. The ranch — a mental model
+## 2a. The vocabulary, in one table
 
-Kubernetes vocabulary arrives all at once and every word sounds like every other word. Before the
-real definitions, here is a picture to hang them on.
+Kubernetes vocabulary arrives all at once and every word sounds like every other word. Here is the
+whole object model on one page, in the order the pieces stack up.
 
-### The ranch model
-
-A mental model to hang the vocabulary on. Every analogy leaks — see "where it breaks down" below.
-
-| On the ranch | In Kubernetes | What the mapping captures |
+| Object | What it is | What it does for you |
 |---|---|---|
-| **The ranch** | **Cluster** | One property, one management. Everything Kubernetes runs lives here. |
-| **A field** | **Node** | Finite grass = CPU, memory, disk. Many herds can graze one field, but only as many as it can feed. No grass left, and new herds wait at the gate: **Pending**. |
-| **A herd** | **Pod** | Same water trough (one IP), same shelter (volumes), **same fate** — they are placed and destroyed together. Most herds are a single cow. |
-| **A cow** | **Container** | One running process doing one job — the app, a sidecar, a helper. You never turn out a single cow on its own; you place the whole herd. |
-| **The herd plan** | **Deployment** | You never say "start that cow." You say **"I want three herds of this breed."** Keeping that true is someone else's job, forever. |
-| **The brand** | **Label** | A mark burned on every animal in a herd. Nothing keeps a *list* of herds — everything works by saying "whichever herds carry this brand, right now." |
-| **The barn name** | **Service** | Herds get replaced and new ones get new ear tags (pod IPs). Callers never chase a cow — they ask for the barn by name, and are sent to a healthy herd. |
-| **The ranch manager** | **Control plane** | Walks the property forever: count the herds, compare to the plan, replace what's missing, put new herds on fields that still have grass. **Never stops walking.** |
+| **Cluster** | The whole installation — one control plane and the nodes it manages. | The boundary of everything below. Every object you create lives in exactly one cluster. |
+| **Node** | A machine, physical or virtual, that runs workloads. | Supplies finite CPU, memory and disk. Many pods run on one node, but only as many as it can fit — when a node has no room, new pods sit in **`Pending`** until one does. |
+| **Pod** | The smallest thing Kubernetes will schedule. One or more containers that share a network namespace and can share volumes. | Gives its containers **one IP address, shared storage, and a shared fate** — they are placed together and destroyed together. Most pods hold exactly one container; multi-container pods are the sidecar pattern and are the exception. |
+| **Container** | One running process, from an image. | Does the actual work — your application, a sidecar, a helper. You never schedule a container on its own; you schedule the pod that holds it. |
+| **Deployment** | A declaration of desired state: this pod template, this many replicas. | Lets you say **"I want three of these"** instead of starting anything. A controller then makes it true and *keeps* it true, indefinitely, including after you are asleep. |
+| **Label** | An arbitrary key/value pair attached to an object. | The glue for everything else. **Nothing in Kubernetes holds a list of pods.** Objects find each other by asking "whichever pods carry `app=web`, right now" — so membership is recomputed continuously as pods come and go. |
+| **Selector** | A query over labels. | What a Deployment uses to find its pods and a Service uses to find its endpoints. The reason a replaced pod is picked up automatically: it carries the same label, so it matches the same selector. |
+| **Service** | A stable name and virtual IP in front of a changing set of pods. | Pods are replaced constantly and every replacement gets a **new IP**. Callers address the Service name, which never changes, and are routed to whichever pods are currently healthy. |
+| **Control plane** | The API server, scheduler, controller-manager and datastore. | Runs the reconciliation loop forever: compare actual state to declared state, fix the difference. Deciding *which node* a new pod goes to is the **scheduler**; noticing a pod is missing and ordering a replacement is the **controller-manager** (both in §4). |
 
-**Cows share a herd. Herds graze on fields. The ranch manager keeps the herd plan true and the barn
-name stable.**
-
-> **TWO KINDS OF DEATH — never confuse these, they are debugged completely differently**
->
-> **A cow dies** (container crashes) → a new cow is born **into the same herd**. Same ear tag, same
-> trough, same field. In Kubernetes: same pod name, same UID, same IP — only **RESTARTS** climbs.
-> Your app is crashing; the pod is fine.
->
-> **The herd dies** (pod deleted, evicted, or its field is lost) → an **entirely new herd** is born,
-> with a new ear tag. In Kubernetes: new pod name, new UID, new IP, RESTARTS back to 0. Nothing is
-> carried over. Nothing teleports.
-
-**The ranch is the cluster.** Everything Kubernetes manages lives on this one property.
-
-**Cows are containers.** Each cow is one running process doing a job — the app, a sidecar, a helper.
-
-**A herd is a pod.** Cows in a herd stay together: same water trough (one IP), same shelter
-(volumes), same fate. You don't turn out a single cow alone if it belongs with its herd — you place
-the whole herd. Worth knowing: **most herds are a single cow.** Multi-cow herds are the sidecar
-pattern, and they're the exception, not the rule.
-
-**A field is a node.** Fields have limited grass — CPU, memory, disk. Many herds can graze one
-field, but only as many as the field can feed. No grass left, and new herds wait at the gate:
-`Pending`.
-
-**The herd plan is a Deployment.** You never say "start that cow." You say *"I want three herds of
-this breed on the ranch."* Keeping that true is somebody else's permanent job.
-
-**The brand is a label.** A mark burned on every animal in a herd. This is the piece that makes the
-rest work: nothing in Kubernetes keeps a *list* of pods. Everything works by saying "whichever herds
-carry this brand, right now." Herds come and go; the brand keeps matching.
-
-**The ranch manager is the control plane.** It walks the property forever: count the herds, compare
-to the plan, replace what's missing, put new herds on fields that still have grass. Two of those
-jobs have names you'll meet in section 4 — deciding *which field* a new herd goes to is the
-**scheduler**, and noticing a herd is missing and ordering a replacement is the
-**controller-manager**.
-
-**The barn name is a Service.** Herds get replaced and the new ones carry new ear tags (pod IPs).
-Callers don't chase a cow — they ask for the barn by name, and get sent to whichever healthy herd is
-available.
-
-> **In one line:** cows share a herd; herds graze on fields; the ranch manager keeps the herd plan
-> true and the barn name stable.
+In one sentence: **containers run inside pods, pods are scheduled onto nodes, Deployments declare
+how many pods should exist, labels are how everything finds everything else, and the control plane
+never stops checking.**
 
 ### Two kinds of death
 
-This is where the analogy earns its keep, because these two events look similar and are debugged
-completely differently.
+Two events look nearly identical in `kubectl get pods` and are debugged completely differently. Get
+this one distinction wrong and you will spend an afternoon looking in the wrong place, so it comes
+this early on purpose.
 
-**A cow dies — the herd survives.** A container inside the pod crashes. The rancher does not disband
-the herd; a replacement cow is born straight into it. Same herd, same ear tag, same trough, same
-field. Verified on this cluster with a container rigged to exit every twenty seconds:
+> **A container dies** → it is restarted **inside the same pod**. Same pod name, same UID, same IP.
+> Only the **RESTARTS** counter climbs. Your application is crashing; the pod is fine.
+>
+> **A pod dies** (deleted, evicted, or its node is lost) → an **entirely new pod** is created. New
+> name, new UID, new IP, RESTARTS back to 0. Nothing is carried over, and nothing is moved.
+
+**A container dies — the pod survives.** A container inside the pod crashes and the kubelet restarts
+it in place. Verified on this cluster with a container rigged to exit every twenty seconds:
 
 ```
 demo2-8d894f964-4vv4m   uid 2125afc0-...   10.42.0.15   RESTARTS 0
@@ -157,8 +118,8 @@ demo2-8d894f964-4vv4m   uid 2125afc0-...   10.42.0.15   RESTARTS 2
 Same pod name, same UID, same IP throughout — only `RESTARTS` climbs. The container ID changed each
 cycle, so it genuinely was a new container every time. **The pod never died.**
 
-**The herd dies — a new herd is born.** The pod is deleted, evicted, or the node it was on is lost.
-Nothing is preserved:
+**A pod dies — a replacement is created.** The pod is deleted, evicted, or the node it was on is
+lost. Nothing is preserved:
 
 ```
 demo-7c6d4f4799-m5hvt   uid 1fa44916-...   10.42.0.13    ← before
@@ -166,7 +127,7 @@ demo-7c6d4f4799-4gsfn   uid 9bf0944b-...   10.42.0.14    ← after
 ```
 
 New name, new UID, new IP, restart counter back to zero. **Pods are never relocated, restored, or
-resumed. They are replaced.** Nothing teleports.
+resumed. They are replaced.**
 
 **Why this matters in practice.** A climbing `RESTARTS` count means your *application* is crashing
 while the pod is perfectly healthy — investigate with `kubectl logs <pod> --previous`, which shows
@@ -174,28 +135,28 @@ the output of the container that died. A *changing pod name* means something rep
 entirely: an eviction, node pressure, or a rollout — investigate with `kubectl describe` and
 `kubectl get events`. Confusing the two costs hours.
 
-### Where the analogy breaks down
+### Five things the table glosses over
 
-Every analogy leaks, and knowing exactly where yours leaks is what stops it producing a confidently
-wrong answer under pressure.
+A one-page summary buys clarity by leaving things out. These are the omissions that most often turn
+into a confidently wrong answer under pressure, and each is picked up properly later in the chapter.
 
-- **Herds are never driven to another field.** A real rancher can walk cattle from one field to the
-  next. Kubernetes cannot: a pod is never relocated. It is destroyed, and a *new* pod — new name,
-  new ear tag — is created, possibly on a different node. Cattle get replaced, not moved.
-- **Cattle are not actually reborn.** "A new cow is born into the herd" is doing some work above. In
-  reality the container image is simply run again from scratch: a fresh, identical animal with no
-  memory of the last one. Anything written inside the container's own filesystem is gone. Only a
-  mounted volume survives.
-- **Cows in a herd don't share a stomach.** Containers in a pod share a network address and can
-  share volumes, but each has its own filesystem and its own processes. The sharing is narrower than
-  "same herd" suggests.
-- **The barn doesn't do the directing.** The manager keeps the barn's *sign* accurate, but the
-  actual redirection of each caller happens automatically in the plumbing — iptables rules, not a
-  person pointing. See section 5.
-- **A trough can be dug into one specific field.** This is the storage limitation in section 6: with
-  `local-path`, a herd's water exists only in the field where it was first dug. If that field is
-  lost, the replacement herd isn't sent elsewhere — it waits at the gate forever, because the only
-  field it's allowed to graze is gone.
+- **A pod is never moved.** "Kubernetes reschedules the work elsewhere" is how everyone describes a
+  node failure, and it is misleading. The pod is not relocated, migrated or resumed — it is
+  destroyed, and a *different* pod with a new name, new UID and new IP is created, possibly on
+  another node. There is no live migration anywhere in Kubernetes.
+- **A restarted container is not a resumed one.** The image is run again from scratch, with no
+  memory of the previous run. Anything written to the container's own filesystem is gone; only a
+  mounted volume survives. A container that "restarted successfully" may have lost state.
+- **Containers in a pod share less than you would think.** They share a network namespace — so they
+  reach each other on `localhost` — and can share mounted volumes. They do **not** share a
+  filesystem or a process namespace by default. Each has its own root filesystem and its own PID 1.
+- **The Service does not route anything.** It is a record, not a proxy. The control plane keeps its
+  list of healthy pod IPs accurate, and the actual redirection happens in kernel packet-filtering
+  rules on each node. Nothing is listening on a Service IP, which is why you cannot ping one (§5).
+- **A volume can be pinned to one specific node.** With `local-path`, the default storage in this
+  cluster, a volume is a directory on the node where it was first created. Lose that node and the
+  replacement pod is not scheduled elsewhere — it stays `Pending` indefinitely, because the only
+  node it is permitted to run on is gone (§6).
 
 ---
 
@@ -540,8 +501,8 @@ while the others idle. The fixes are a **headless Service** plus client-side loa
 service mesh doing L7 proxying. For a firm moving market data over gRPC this is a live concern, not
 trivia.
 
-> **The one-liner:** pod IPs are cattle, Service names are the stable address you build against —
-> and Services balance connections, not requests.
+> **The one-liner:** pod IPs are disposable, Service names are the stable address you build against
+> — and Services balance connections, not requests.
 
 ---
 
