@@ -112,6 +112,13 @@ SPEC = {
     "TableCaption":  dict(font=HEAD_FONT, half_pt=19, italic=True, color="404040",
                           before=60, after=120),
     "SourceCode":    dict(font=MONO_FONT, half_pt=18, after=60, line=240),
+    # The table of contents. Pandoc emits a Word TOC field and relies on the
+    # reference doc for these three; the stock reference styles them in the
+    # default theme font, which reads as a different document.
+    "TOCHeading":    dict(font=HEAD_FONT, half_pt=28, bold=True, color="1F3864",
+                          before=0, after=200),
+    "TOC1":          dict(font=BODY_FONT, half_pt=22, bold=True, before=100, after=40),
+    "TOC2":          dict(font=BODY_FONT, half_pt=21, after=40, indent=220),
 }
 
 CHAR_SPEC = {
@@ -178,6 +185,31 @@ def patch_styles(xml):
     return xml
 
 
+def patch_settings(xml):
+    """Tell Word to evaluate fields when the document opens.
+
+    Pandoc's --toc writes a real Word TOC *field*, not literal text, and a
+    field carries a cached result that is displayed until something
+    recalculates it. The cached result inherited from pandoc's stock reference
+    document is the string "No table of contents entries found." -- so every
+    chapter opened with that sitting at the top of page one, which is what
+    this flag fixes. `fill_toc` below populates the cache as well, so the
+    document still reads correctly in a viewer that ignores this.
+    """
+    if "<w:updateFields" in xml:
+        return xml
+    flag = '<w:updateFields w:val="true"/>'
+    # CT_Settings is an ordered sequence, so this cannot simply be appended --
+    # Word reports a corrupt file if the elements are out of schema order.
+    # updateFields sits after savePreviewPicture and before footnotePr.
+    for anchor in ("<w:footnotePr", "<w:endnotePr", "<w:compat",
+                   "<w:docVars", "<w:rsids", "<m:mathPr", "<w:themeFontLang"):
+        i = xml.find(anchor)
+        if i != -1:
+            return xml[:i] + flag + xml[i:]
+    return xml.replace("</w:settings>", flag + "</w:settings>")
+
+
 def patch_sectpr(xml):
     sect = (f'<w:sectPr><w:pgSz w:w="{PAGE_W_TWIPS}" w:h="{PAGE_H_TWIPS}"/>'
             f'<w:pgMar w:top="{MARGIN_Y}" w:right="{MARGIN_X}" '
@@ -203,6 +235,8 @@ def build_reference(dest):
         sp.write_text(patch_styles(sp.read_text()), encoding="utf-8")
         dp = work / "word" / "document.xml"
         dp.write_text(patch_sectpr(dp.read_text()), encoding="utf-8")
+        stp = work / "word" / "settings.xml"
+        stp.write_text(patch_settings(stp.read_text()), encoding="utf-8")
         with zipfile.ZipFile(dest, "w", zipfile.ZIP_DEFLATED) as z:
             for f in sorted(work.rglob("*")):
                 if f.is_file():
@@ -225,6 +259,106 @@ def size_images(md_text):
     return re.sub(r"!\[([^\]]*)\]\((images/[^)]+\.png)\)", repl, md_text)
 
 
+def xml_escape(s):
+    return (s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;"))
+
+
+def fill_toc(docx_path):
+    """Give the TOC field a real cached result, and the headings anchors.
+
+    Pandoc writes the table of contents as a Word *field*, which carries a
+    cached result that is shown until something recalculates it. Left alone
+    that cache is either empty or -- inherited from pandoc's stock reference
+    document -- the string "No table of contents entries found.", which is
+    what appeared at the top of page one of every chapter.
+
+    `patch_settings` asks Word to recalculate on open, and pandoc marks the
+    field dirty, so in Word the contents populate themselves. This function is
+    the belt to those braces: it bookmarks every heading and writes the
+    entries into the field's cached result, so the contents are present and
+    clickable even in a reader that never evaluates a field. Word replaces the
+    lot on open and adds the page numbers, which cannot be known here without
+    laying the document out.
+    """
+    with zipfile.ZipFile(docx_path) as z:
+        parts = {n: z.read(n) for n in z.namelist()}
+    doc = parts["word/document.xml"].decode("utf-8")
+
+    sdt = re.search(r'<w:sdt>(?:(?!</w:sdt>).)*?Table of Contents.*?</w:sdt>',
+                    doc, re.S)
+    if not sdt:
+        return 0
+    head, body_xml = doc[:sdt.start()], doc[sdt.end():]
+
+    # Pandoc's own writer self-closes with a space (`<w:pStyle ... />`) while
+    # the Word-authored reference does not, and which one produces a given
+    # paragraph depends on the styles present. Tolerate both.
+    style_re = re.compile(r'<w:pStyle w:val="Heading([12])"\s*/>')
+    entries, seq = [], 0
+
+    def anchor_heading(m):
+        nonlocal seq
+        p = m.group(0)
+        lvl = style_re.search(p)
+        if not lvl:
+            return p
+        text = "".join(re.findall(r"<w:t(?:\s[^>]*)?>(.*?)</w:t>", p, re.S))
+        if not text.strip():
+            return p
+        seq += 1
+        name = f"_Toc{9000 + seq}"
+        entries.append((int(lvl.group(1)), name, text))
+        mark = (f'<w:bookmarkStart w:id="{9000 + seq}" w:name="{name}"/>'
+                f'<w:bookmarkEnd w:id="{9000 + seq}"/>')
+        # After </w:pPr> so the bookmark sits inside the paragraph but ahead of
+        # its runs; a heading always has a pPr because it carries pStyle.
+        return p.replace("</w:pPr>", "</w:pPr>" + mark, 1)
+
+    body_xml = re.sub(r"<w:p\b(?:(?!</w:p>).)*?</w:p>", anchor_heading,
+                      body_xml, flags=re.S)
+    if not entries:
+        return 0
+
+    def para(level, name, text, lead="", tail=""):
+        return (f'<w:p><w:pPr><w:pStyle w:val="TOC{level}"/></w:pPr>{lead}'
+                f'<w:hyperlink w:anchor="{name}">'
+                f'<w:r><w:t xml:space="preserve">{xml_escape(text)}</w:t></w:r>'
+                f'</w:hyperlink>{tail}</w:p>')
+
+    # The field must stay well formed across the paragraphs it spans:
+    # begin / instruction / separate open it, the entries are its result, and
+    # exactly one end closes it.
+    lead = ('<w:r><w:fldChar w:fldCharType="begin" w:dirty="true"/>'
+            '<w:instrText xml:space="preserve">TOC \\o "1-2" \\h \\z \\u</w:instrText>'
+            '<w:fldChar w:fldCharType="separate"/></w:r>')
+    tail = '<w:r><w:fldChar w:fldCharType="end"/></w:r>'
+
+    paras = [para(*entries[0], lead=lead)]
+    paras += [para(*e) for e in entries[1:-1]]
+    if len(entries) > 1:
+        paras.append(para(*entries[-1], tail=tail))
+    else:
+        paras[0] = paras[0][: -len("</w:p>")] + tail + "</w:p>"
+
+    toc = ("<w:sdt><w:sdtPr><w:docPartObj>"
+           '<w:docPartGallery w:val="Table of Contents"/><w:docPartUnique/>'
+           "</w:docPartObj></w:sdtPr><w:sdtContent>"
+           '<w:p><w:pPr><w:pStyle w:val="TOCHeading"/></w:pPr>'
+           "<w:r><w:t>Contents</w:t></w:r></w:p>"
+           + "".join(paras) +
+           # Start the chapter on a fresh page rather than running straight on
+           # from the contents list.
+           '<w:p><w:pPr><w:spacing w:after="0"/></w:pPr>'
+           '<w:r><w:br w:type="page"/></w:r></w:p>'
+           "</w:sdtContent></w:sdt>")
+
+    parts["word/document.xml"] = (head + toc + body_xml).encode("utf-8")
+    with zipfile.ZipFile(docx_path, "w", zipfile.ZIP_DEFLATED) as z:
+        for name, data in parts.items():
+            z.writestr(name, data)
+    return len(entries)
+
+
 def build_chapter(md_path, reference):
     OUT.mkdir(exist_ok=True)
     text = size_images(md_path.read_text())
@@ -242,10 +376,10 @@ def build_chapter(md_path, reference):
             check=True, capture_output=True, text=True)
     except subprocess.CalledProcessError as e:
         print(f"  FAILED {md_path.name}: {e.stderr.strip()[:300]}")
-        return None
+        return None, 0
     finally:
         tmp.unlink(missing_ok=True)
-    return out
+    return out, fill_toc(out)
 
 
 def main():
@@ -257,9 +391,10 @@ def main():
         n = re.search(r"chapter0(\d)", md.name).group(1)
         if wanted and n not in wanted:
             continue
-        out = build_chapter(md, reference)
+        out, toc = build_chapter(md, reference)
         if out:
-            print(f"  {md.name:<36}-> docx/{out.name}  ({out.stat().st_size//1024} KB)")
+            print(f"  {md.name:<36}-> docx/{out.name}  "
+                  f"({out.stat().st_size//1024} KB, {toc} contents entries)")
 
 
 if __name__ == "__main__":
