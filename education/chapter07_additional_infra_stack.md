@@ -107,7 +107,7 @@ The confusion that causes real problems is between the **WAF** and the **API gat
 Chapter 1 noted that k3s ships Traefik as its built-in ingress controller. Two developments make the ingress question worth revisiting rather than inheriting:
 
 - **The Ingress API is feature-frozen**, and **Gateway API is its designated successor**, now GA for `Gateway`, `GatewayClass`, `HTTPRoute`, `GRPCRoute` and `TLSRoute` ([Kubernetes docs](https://kubernetes.io/docs/concepts/services-networking/gateway/)).
-- **Ingress NGINX reached end of life in March 2026** ([Datadog's migration guide](https://www.datadoghq.com/blog/migrate-to-gateway-api/) covers the practical path). If you inherit a cluster running it, [migration is a security obligation, not a nice-to-have — future vulnerabilities will have no supported fix]{custom-style="Key"}.
+- **Ingress NGINX reached end of life in March 2026** ([Datadog's migration guide](https://www.datadoghq.com/blog/migrate-to-gateway-api/) covers the practical path). If you inherit a cluster running it, migration is a security obligation, not a nice-to-have — future vulnerabilities will have no supported fix.
 
 The development most relevant to an OMS is newer still: **Gateway API v1.6 graduated `TCPRoute` and `UDPRoute` to Standard** ([release announcement](https://kubernetes.io/blog/2026/08/03/gateway-api-v1-6-release/)). [Raw layer-4 routing now has a stable, portable Kubernetes API — which is exactly what FIX traffic needs]{custom-style="Key"}, and which previously forced you into vendor-specific annotations or a separate load balancer.
 
@@ -164,6 +164,8 @@ This is the area where a generic answer is most obviously wrong for a trading pl
 | **Leaky bucket** | Smooths output to a constant rate | Protecting a fragile downstream that cannot burst |
 | **Sliding window** | Accurate count over a moving period | Quotas and billing, where precision matters more than smoothness |
 | **Fixed window** | Simple, but allows 2× the limit across a boundary | Avoid for anything that matters |
+
+Two of those rows carry the whole decision. [**Token bucket is the right default precisely because it tolerates bursts**]{custom-style="Key"}, which is the shape of real OMS traffic; [**fixed window should be avoided because it permits 2× the limit across a boundary**]{custom-style="Key"} — two full bursts back to back, one on each side of the reset.
 
 **[The critical design point: a global rate limit is the wrong control.]{custom-style="Key"}** If the limit is shared, one algorithmic client having a bad morning consumes the budget and every other client is throttled — [you have converted one client's bug into a platform-wide outage]{custom-style="Key"}, and you will explain that to the other clients. **Limits must be per client, with per-client quotas**, so the blast radius of any one participant's behaviour is that participant.
 
@@ -273,7 +275,7 @@ At a few hundred internal users, identity stops being a list and becomes a set o
 | **Leaver** | Access removed same day | The contractor whose account worked for three months after the engagement ended |
 | **Recertification** | Periodic review with a named reviewer and evidence the revocations happened | A campaign that was completed but never enforced |
 
-The mechanism is an IdP (Okta, Entra ID, Ping) fed by HR, pushing to applications over **SCIM**, with SAML or OIDC for login. The key architectural rule: **the IdP is the only identity source.** [Anything holding local accounts — including the PAM system itself — becomes a place a leaver survives.]{custom-style="Key"}
+The mechanism is an IdP (Okta, Entra ID, Ping) fed by HR, pushing to applications over **SCIM**, with SAML or OIDC for login. The key architectural rule: **the IdP is the only identity source.** Anything holding local accounts — including the PAM system itself — becomes a place a leaver survives.
 
 ### 2c. Privileged access, and what Symantec PAM actually is
 
@@ -320,6 +322,8 @@ There is **no out-of-the-box Kubernetes connector** in Symantec PAM. That is not
 | Leaver on Friday | Still cluster-admin on Monday | Dead within the token TTL |
 | Audit identity | A CN string | A stable IdP subject that joins to the SSO logs |
 
+The row to commit to memory is the leaver: [**an SRE who resigns on Friday holding a client certificate is still `cluster-admin` on Monday**]{custom-style="Key"}, whereas an OIDC identity disabled in the IdP is dead within the token TTL. That asymmetry is the entire argument, and it is the version of it to make to an audit committee.
+
 The current mechanism is **structured `AuthenticationConfiguration`**, which went GA in Kubernetes v1.34 and supersedes the older `--oidc-*` flags. It supports multiple issuers, dynamic reload without an API server restart, and CEL-based claim validation — so you can **[refuse a token at the API server that did not involve MFA, or whose lifetime exceeds policy]{custom-style="Key"}**, rather than trusting the IdP to have enforced it:
 
 ```yaml
@@ -349,6 +353,8 @@ jwt:
 | `create` on `serviceaccounts/token` | Mints tokens for other, more privileged service accounts |
 | `escalate` / `bind` | Grants rights the holder does not have — the documented exceptions to RBAC's anti-escalation guard |
 | `create` on `pods` | Without the `restricted` PSA, a `hostPath: /` pod reads the kubeconfig. **The PSA is an access control, not a hardening preference.** |
+
+Two of those rows deserve pulling out of the table. [**`get` on `nodes/proxy` is the one people miss**: it executes in any pod on the node while bypassing audit logging and admission control]{custom-style="Key"}, which means it defeats the evidence trail the rest of this section is built on — an attacker using it leaves no record of what they ran. And [**the `restricted` PSA is an access control, not a hardening preference**]{custom-style="Key"}; without it, `create` on `pods` is a `hostPath: /` mount away from the node's kubeconfig.
 
 The workable pattern is **standing read-only, elevation on demand**: a `ClusterRole` granting `get`/`list`/`watch` bound into `market` for the SRE group, and a second binding for an incident group that adds `pods/exec` and `scale`. Crucially, [the RoleBindings are static and permanent — **what expires is the IdP group membership**]{custom-style="Key"}. Elevation is granted and revoked in the system that already logs, approves and recertifies it, which is far easier to evidence than a controller creating and deleting bindings.
 
@@ -392,6 +398,8 @@ rpk security acl create --allow-principal User:position-keeper \
 | `DELETE` on any topic | `rpk topic delete orders` destroys books and records |
 | `ALTER` / `ALTERCONFIGS` | **Lowering `retention.ms` destroys regulated records as surely as deleting the topic, and much more quietly** |
 | Group `DELETE` | Deleting `oms-processor` resets committed offsets — a replay, with all of Chapter 5 §9's consequences |
+
+The quiet one in that table is `ALTERCONFIGS`. [**Lowering `retention.ms` destroys regulated records as surely as deleting the topic, and much more quietly** — a topic deletion is conspicuous]{custom-style="Key"} and gets noticed, whereas a retention change reads as routine tuning and expires the evidence on a timer. Treat `ALTERCONFIGS` on a records topic as a recordkeeping control rather than an operational convenience. In the other direction, the grant most worth withholding is [**`WRITE` on `orders` for `position-keeper`**: that is the segregation-of-duties boundary that matters here]{custom-style="Key"}, because a consumer bug or a compromised consumer must never be able to inject orders.
 
 Two mechanical details. Redpanda 25.x and later support **roles**, so you bind ACLs to `OMS-Producers` and assign principals to it — the same argument as ClusterRole plus RoleBinding, and much easier to recertify because a reviewer sees one role rather than forty ACL rows. And note an asymmetry that catches people: **SASL principals carry the `User:` prefix; OIDC-derived principals do not**, so an ACL written as `User:order-gateway` will not match an OIDC principal mapping to `order-gateway`.
 
@@ -681,7 +689,7 @@ A MongoDB replica set holds an election the way Raft does, so Chapter 3's mental
 
 One asymmetry is worth saying out loud because it is a point in MongoDB's favour. On Kafka, `acks=all` means "all *in-sync* replicas," and the in-sync set can shrink to just the leader. **MongoDB's `"majority"` is computed from the configured voting membership, not from a shrinkable set** — which puts it on the Redpanda side of the line Chapter 6 drew, and makes it a genuinely stronger guarantee than Kafka's default.
 
-**The arbiter trap is the one to remember.** Since MongoDB 5.0 the default write concern is `w: "majority"` — *unless* the set contains an arbiter, in which case it silently drops to `w: 1`. That is exactly `acks=all` with `min.insync.replicas=1`: a configuration that reads as safe in every document and is not. [It is the reason to run three data-bearing members rather than two plus an arbiter.]{custom-style="Key"}
+**The arbiter trap is the one to remember.** Since MongoDB 5.0 the default write concern is `w: "majority"` — *unless* the set contains an arbiter, in which case it silently drops to `w: 1`. That is exactly `acks=all` with `min.insync.replicas=1`: a configuration that reads as safe in every document and is not. It is the reason to run three data-bearing members rather than two plus an arbiter.
 
 **What `w: 1` loss actually looks like.** The primary applies the write and replies OK. The consumer commits its Kafka offset and moves on. The primary dies before any secondary pulls that oplog entry, a new primary is elected without it, and [when the old primary rejoins it **rolls back** everything after the divergence point. The write is gone.]{custom-style="Key"}
 
@@ -905,7 +913,7 @@ A client submits an order at 09:31, thirty seconds into the busiest minute of th
 
 2. **The request reaches the edge.** TLS terminates at a nearby point of presence against a **publicly-trusted certificate**, because you cannot make a client install your root. The WAF inspects it. A **per-client** rate limiter checks this client's own budget rather than a shared one, so the algorithmic client having a bad morning three racks over is irrelevant. The edge stamps the **real client IP** into a forwarded header and mints a **request ID**. *(§1, §4)*
 
-3. **The edge re-originates to the cluster** over a second TLS session, this one against a **privately-issued certificate**, because the origin's name is internal and no public CA could issue for it — and [issuing it publicly would publish your topology to Certificate Transparency logs forever]{custom-style="Key"}. *(§4)*
+3. **The edge re-originates to the cluster** over a second TLS session, this one against a **privately-issued certificate**, because the origin's name is internal and no public CA could issue for it — and issuing it publicly would publish your topology to Certificate Transparency logs forever. *(§4)*
 
 4. **`order-gateway` authorises the order.** Authentication came from the token; **entitlement does not**. Which accounts this user may trade is answered against current state, not a claim that was true when the token was minted. *(§2)*
 
