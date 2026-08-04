@@ -1,0 +1,87 @@
+// Chapter 7, Figure 1 — the six additions, placed against the system Chapters
+// 1-6 actually built. The blue column is existing; everything coloured is new.
+//
+// Deliberately narrow: rendered type size scales inversely with pixel width
+// once the PNG is stretched to the page. Target roughly 1000x1200.
+//
+// Render:
+//   dot -Tpng -Gdpi=150 ch07_fig1_where_it_attaches.dot -o ../images/ch07_fig1_where_it_attaches.png
+
+digraph where_it_attaches {
+  rankdir=TB;
+  bgcolor="white";
+  nodesep=0.3;
+  ranksep=0.36;
+  node  [fontname="Helvetica", fontsize=11, shape=box, style="filled,rounded", penwidth=1.2];
+  edge  [fontname="Helvetica", fontsize=11];
+  graph [fontname="Helvetica", fontsize=11];
+
+  title [shape=plaintext, style="", fillcolor="none", label=<
+    <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0">
+      <TR><TD><FONT POINT-SIZE="15"><B>Where the six additions attach</B></FONT></TD></TR>
+      <TR><TD><FONT POINT-SIZE="11" COLOR="#555555">Blue = built in Chapters 1&#8211;6. Everything else is this chapter.</FONT></TD></TR>
+    </TABLE>>];
+
+  users [shape=box, fillcolor="#f4f4f4", color="#555555", label=<
+    <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="3">
+      <TR><TD ALIGN="LEFT"><B>Outside</B></TD></TR>
+      <TR><TD ALIGN="LEFT"><FONT POINT-SIZE="11">Thousands of clients: web, REST, FIX</FONT></TD></TR>
+    </TABLE>>];
+
+  cdn [fillcolor="#fdf2f2", color="#c0392b", label=<
+    <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="3">
+      <TR><TD ALIGN="LEFT"><B>&#167;1  Edge</B></TD></TR>
+      <TR><TD ALIGN="LEFT"><FONT POINT-SIZE="11">CDN, WAF, DDoS, per-client rate limits.<BR/>Web via the CDN; FIX via a private path.</FONT></TD></TR>
+    </TABLE>>];
+
+  subgraph cluster_k8s {
+    label="  the k3s cluster (Chapters 1-6)  ";
+    labeljust="l";
+    style="filled,rounded"; fillcolor="#f7fbff"; color="#2471a3"; fontcolor="#2471a3"; penwidth=1.6;
+
+    gw [fillcolor="#eef4fb", color="#2471a3", label=<
+      <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="3">
+        <TR><TD ALIGN="LEFT"><B><FONT FACE="Courier">order-gateway</FONT></B></TD></TR>
+        <TR><TD ALIGN="LEFT"><FONT POINT-SIZE="11">producer</FONT></TD></TR>
+      </TABLE>>];
+
+    rp [fillcolor="#eef4fb", color="#2471a3", label=<
+      <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="3">
+        <TR><TD ALIGN="LEFT"><B>Redpanda &#183; topic <FONT FACE="Courier">orders</FONT></B></TD></TR>
+        <TR><TD ALIGN="LEFT"><FONT POINT-SIZE="11">3 brokers, RF 3</FONT></TD></TR>
+      </TABLE>>];
+
+    pk [fillcolor="#eef4fb", color="#2471a3", label=<
+      <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="3">
+        <TR><TD ALIGN="LEFT"><B><FONT FACE="Courier">position-keeper</FONT></B></TD></TR>
+        <TR><TD ALIGN="LEFT"><FONT POINT-SIZE="11">consumer, group <FONT FACE="Courier">oms-processor</FONT></FONT></TD></TR>
+      </TABLE>>];
+
+    gw -> rp -> pk [color="#2471a3", penwidth=1.4];
+  }
+
+  db [fillcolor="#eafaf1", color="#1e8449", label=<
+    <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="3">
+      <TR><TD ALIGN="LEFT"><B>&#167;5  MongoDB</B></TD></TR>
+      <TR><TD ALIGN="LEFT"><FONT POINT-SIZE="11">Replaces the SQLite ledger.<BR/>The Kafka offset moves in here too.</FONT></TD></TR>
+    </TABLE>>];
+
+  exec [shape=box, fillcolor="#fdf6e3", color="#b7950b", label=<
+    <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="3">
+      <TR><TD ALIGN="LEFT"><B>execution gateway</B> (external)</TD></TR>
+      <TR><TD ALIGN="LEFT"><FONT POINT-SIZE="11">Non-idempotent. Still escapes<BR/>every guarantee in this chapter.</FONT></TD></TR>
+    </TABLE>>];
+
+  cross [shape=box, fillcolor="#f4ecf7", color="#6c3483", label=<
+    <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="4">
+      <TR><TD ALIGN="LEFT"><B>Wraps every box above</B></TD></TR>
+      <TR><TD ALIGN="LEFT"><FONT POINT-SIZE="11"><B>&#167;2 Identity</B> &#8212; who may reach it, and the proof after<BR/><B>&#167;3 Secrets</B> &#8212; where the credentials come from<BR/><B>&#167;4 Certificates</B> &#8212; TLS on every hop, brokers included<BR/><B>&#167;6 Telemetry</B> &#8212; one trace across all of it</FONT></TD></TR>
+    </TABLE>>];
+
+  title -> users [style=invis];
+  users -> cdn [color="#c0392b", penwidth=1.4];
+  cdn   -> gw   [color="#c0392b", penwidth=1.4];
+  pk -> db   [color="#1e8449", penwidth=1.4];
+  pk -> exec [color="#b7950b", penwidth=1.4, style=dashed];
+  db -> cross [style=invis];
+}

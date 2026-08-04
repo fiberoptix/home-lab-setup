@@ -1,0 +1,95 @@
+// Chapter 7, Figure 2 — how a human gets a shell in production, and what each
+// step leaves behind. The amber column is the point: every step produces an
+// artefact, and all of them resolve to one identity.
+//
+// Text is kept short on purpose. Rendered type size scales inversely with the
+// PNG's pixel width once it is stretched to the page, so a wide diagram is an
+// illegible one. Target is roughly 1000x1200.
+//
+// Render:
+//   dot -Tpng -Gdpi=150 ch07_fig2_privileged_path.dot -o ../images/ch07_fig2_privileged_path.png
+
+digraph privileged_path {
+  rankdir=TB;
+  bgcolor="white";
+  nodesep=0.28;
+  ranksep=0.34;
+  node  [fontname="Helvetica", fontsize=11, shape=box, style="filled,rounded", penwidth=1.2];
+  edge  [fontname="Helvetica", fontsize=11];
+  graph [fontname="Helvetica", fontsize=11];
+
+  title [shape=plaintext, style="", fillcolor="none", label=<
+    <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0">
+      <TR><TD><FONT POINT-SIZE="15"><B>02:14 &#183; how does an SRE get a shell?</B></FONT></TD></TR>
+      <TR><TD><FONT POINT-SIZE="11" COLOR="#555555">Right-hand column: the evidence each step leaves</FONT></TD></TR>
+    </TABLE>>];
+
+  s1 [fillcolor="#eef4fb", color="#2471a3", label=<
+    <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="3">
+      <TR><TD ALIGN="LEFT"><B>1 &#183; Authenticate to the IdP</B></TD></TR>
+      <TR><TD ALIGN="LEFT"><FONT POINT-SIZE="11">MFA; managed device</FONT></TD></TR>
+    </TABLE>>];
+
+  s2 [fillcolor="#eef4fb", color="#2471a3", label=<
+    <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="3">
+      <TR><TD ALIGN="LEFT"><B>2 &#183; Request elevation</B></TD></TR>
+      <TR><TD ALIGN="LEFT"><FONT POINT-SIZE="11">Join <FONT FACE="Courier">sre-oms-breakglass</FONT><BR/>for 60 minutes</FONT></TD></TR>
+    </TABLE>>];
+
+  s3 [fillcolor="#eef4fb", color="#2471a3", label=<
+    <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="3">
+      <TR><TD ALIGN="LEFT"><B>3 &#183; PAM brokers a session</B></TD></TR>
+      <TR><TD ALIGN="LEFT"><FONT POINT-SIZE="11">To a bastion. Credential<BR/>injected; you never see it</FONT></TD></TR>
+    </TABLE>>];
+
+  s4 [fillcolor="#eef4fb", color="#2471a3", label=<
+    <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="3">
+      <TR><TD ALIGN="LEFT"><B>4 &#183; Fresh OIDC token</B></TD></TR>
+      <TR><TD ALIGN="LEFT"><FONT POINT-SIZE="11">Its <FONT FACE="Courier">groups</FONT> claim now carries breakglass,<BR/>so the standing RoleBinding applies.<BR/><B>Nothing changed in the cluster.</B></FONT></TD></TR>
+    </TABLE>>];
+
+  s5 [fillcolor="#eef4fb", color="#2471a3", label=<
+    <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="3">
+      <TR><TD ALIGN="LEFT"><B>5 &#183; <FONT FACE="Courier">logs</FONT>, then <FONT FACE="Courier">exec</FONT></B></TD></TR>
+    </TABLE>>];
+
+  s6 [fillcolor="#eafaf1", color="#1e8449", label=<
+    <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="3">
+      <TR><TD ALIGN="LEFT"><B>6 &#183; Elevation expires</B></TD></TR>
+      <TR><TD ALIGN="LEFT"><FONT POINT-SIZE="11">Next token has no breakglass.<BR/><FONT FACE="Courier">exec</FONT> stops working.<BR/><B>Nothing to clean up.</B></FONT></TD></TR>
+    </TABLE>>];
+
+  e1 [shape=note, fillcolor="#fdf6e3", color="#b7950b", label=<
+    <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="2">
+      <TR><TD ALIGN="LEFT"><FONT POINT-SIZE="11">SSO event +<BR/>MFA assertion</FONT></TD></TR>
+    </TABLE>>];
+
+  e2 [shape=note, fillcolor="#fdf6e3", color="#b7950b", label=<
+    <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="2">
+      <TR><TD ALIGN="LEFT"><FONT POINT-SIZE="11">Approver,<BR/>justification,<BR/>ticket ID</FONT></TD></TR>
+    </TABLE>>];
+
+  e3 [shape=note, fillcolor="#fdf6e3", color="#b7950b", label=<
+    <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="2">
+      <TR><TD ALIGN="LEFT"><FONT POINT-SIZE="11">Session recording<BR/>+ command log</FONT></TD></TR>
+    </TABLE>>];
+
+  e5 [shape=note, fillcolor="#fdf6e3", color="#b7950b", label=<
+    <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="2">
+      <TR><TD ALIGN="LEFT"><FONT POINT-SIZE="11"><FONT FACE="Courier">RequestResponse</FONT><BR/>audit events, to<BR/>Object Lock storage,<BR/>attributed to you</FONT></TD></TR>
+    </TABLE>>];
+
+  { rank=same; s1; e1; }
+  { rank=same; s2; e2; }
+  { rank=same; s3; e3; }
+  { rank=same; s5; e5; }
+
+  s1 -> e1 [style=dashed, color="#b7950b", arrowhead=none];
+  s2 -> e2 [style=dashed, color="#b7950b", arrowhead=none];
+  s3 -> e3 [style=dashed, color="#b7950b", arrowhead=none];
+  s5 -> e5 [style=dashed, color="#b7950b", arrowhead=none];
+
+  title -> s1 [style=invis];
+  s1 -> s2 -> s3 -> s4 -> s5 -> s6 [color="#2471a3", penwidth=1.4];
+
+}
