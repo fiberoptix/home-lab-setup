@@ -50,14 +50,22 @@ case "${1:-}" in
 
   seed)
     n=${2:-120}
-    emit 1 "$n" | rpk topic produce "$TOPIC" -f '%k\t%v\n' >/dev/null
+    # pipefail is set, so this catches a produce that failed while the emit
+    # side succeeded. Reporting "produced 120 records" after the brokers
+    # refused them makes every later count in the lab a lie.
+    if ! emit 1 "$n" | rpk topic produce "$TOPIC" -f '%k\t%v\n' >/dev/null; then
+      echo "ERROR: produce failed; the record count below is NOT $n"
+      rpk topic describe "$TOPIC" -p
+      exit 1
+    fi
     echo "produced $n records"
     rpk topic describe "$TOPIC" -p
     ;;
 
   load)                        # trickle, so you can watch lag build during a kill
     n=${2:-600}
-    ( emit 10000 $((10000 + n)) | while IFS= read -r line; do
+    # seq is inclusive at both ends, so the end point is start + n - 1.
+    ( emit 10000 $((10000 + n - 1)) | while IFS= read -r line; do
         printf '%s\n' "$line"; sleep 0.1
       done | rpk topic produce "$TOPIC" -f '%k\t%v\n' >/dev/null ) &
     echo "load generator started as job $! ($n records at 10/s)"
@@ -65,19 +73,31 @@ case "${1:-}" in
 
   start)
     n=${2:?usage: start N}
+    # APPEND, never truncate. Restarting c1 after a kill is the central move of
+    # the lab, and `>` would erase the pre-crash offsets -- which are exactly
+    # the evidence `dups` compares against.
     # < /dev/null keeps nohup from writing its "ignoring input" banner into the log
     nohup rpk topic consume "$TOPIC" -g "$GROUP" -o start \
-      -f '%p %o %k\n' < /dev/null > "$LOGDIR/c$n.log" 2>&1 &
+      -f '%p %o %k\n' < /dev/null >> "$LOGDIR/c$n.log" 2>&1 &
     echo "c$n started, pid $!"
     ;;
 
   who)
     rpk group describe "$GROUP"
     echo
+    # $7 is MEMBER-ID. The full header is
+    #   TOPIC PARTITION CURRENT-OFFSET LOG-START-OFFSET LOG-END-OFFSET LAG \
+    #   MEMBER-ID CLIENT-ID HOST
+    # -- nine columns, which is worth checking against your rpk version before
+    # trusting any fixed index (Ch5 1).
     m=$(rpk group describe "$GROUP" | awk '/^MEMBERS/{print $2}')
     o=$(rpk group describe "$GROUP" | awk -v t="$TOPIC" 'NF>6 && $1==t{print $7}' | sort -u | wc -l)
     echo "members=$m  owners=$o"
-    [ "$m" -gt "$o" ] && echo "  -> $((m - o)) surplus consumer(s): more members than partitions (Ch5 2)"
+    # if/fi, not &&: a trailing && test that is false makes the whole script
+    # exit 1, so the healthy case would look like a failure to any caller.
+    if [ "$m" -gt "$o" ]; then
+      echo "  -> $((m - o)) surplus consumer(s): more members than partitions (Ch5 2)"
+    fi
     ;;
 
   work)

@@ -39,8 +39,19 @@ education/
 │   └── k8s/            producer Job and consumer Deployment + PVC
 ├── diagrams/           Graphviz .dot sources — edit these
 ├── images/             rendered .png — generated, never edited by hand
-└── manifests/          working config referenced by the chapters
+├── manifests/          working config referenced by the chapters
+├── tools/build_docx.py builds docx/ — 11pt, single-spaced, full-width figures
+├── docx/               Word builds — generated, never edited by hand
+└── scratch/            review notes and the figure-legibility tooling
 ```
+
+Build the Word versions of every chapter with:
+
+```bash
+python3 education/tools/build_docx.py        # or pass chapter numbers: 3 6
+```
+
+Requires `pandoc`. Output goes to `education/docx/`.
 
 `manifests/` holds real, tested artefacts rather than snippets. They are meant to be re-used on
 another cluster:
@@ -95,6 +106,33 @@ for f in *.dot; do dot -Tpng -Gdpi=150 "$f" -o "../images/${f%.dot}.png"; done
 ```
 
 Requires `graphviz` (`sudo apt install graphviz`).
+
+### Keeping figures legible on a printed page
+
+A figure is scaled uniformly to fit the page, so a figure that is physically large on screen is the
+one whose type ends up *smallest* on paper. Two rules keep every label at 10pt or better in the
+Word and PDF builds:
+
+- **Width ≤ 1155px and height ≤ 1386px** when rendered at `-Gdpi=150`.
+- **Prose belongs in the chapter, not in the figure.** A bordered "lesson" box rasterised into a
+  PNG is the first thing to become unreadable. Write it as a blockquote under the figure instead,
+  where it renders at full body size.
+
+A figure that is *taller* than 1.2× its width cannot fill the column, because height becomes the
+binding constraint — so stacking blocks to save width is usually counter-productive. Check any
+change with:
+
+```bash
+python3 education/scratch/figcheck.py
+```
+
+It reports the on-page point size of the smallest type in every figure and exits non-zero if any
+falls below 10pt. `scratch/tighten.py` and `scratch/rewrap.py` will reclaim space automatically by
+shrinking padding and re-wrapping long label lines, neither of which touches content.
+
+Anything that is purely tabular should be a **Markdown table in the chapter**, not a figure. Tables
+reflow to the page width and always print at body size; four of the original figures were converted
+for exactly this reason.
 
 > **Editing gotchas** in Graphviz HTML-style labels:
 > - Newlines in the source render as literal spaces. Keep each table cell's content on one source

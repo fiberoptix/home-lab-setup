@@ -1,0 +1,52 @@
+// Chapter 2 — The same broken probe, wired to LIVENESS, causes a total outage
+// Render: dot -Tpng -Gdpi=150 ch02_figB_probe_liveness.dot -o ../images/ch02_figB_probe_liveness.png
+
+digraph probe {
+  nodesep=0.25;
+  rankdir=TB;
+  bgcolor="white";
+  node  [fontname="Helvetica", fontsize=11, shape=box, style="filled,rounded", penwidth=1.2];
+  edge  [fontname="Helvetica", fontsize=11];
+  graph [fontname="Helvetica", fontsize=11];
+
+  title [shape=plaintext, style="", fillcolor="none", label=<
+    <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0">
+      <TR><TD><FONT POINT-SIZE="16"><B>The same broken probe,<BR/>wired to LIVENESS, causes a total outage</B></FONT></TD></TR>
+      <TR><TD><FONT POINT-SIZE="11" COLOR="#555555">both runs used<BR/>httpGet /healthz on nginx, which answers 404</FONT></TD></TR>
+    </TABLE>>];
+
+  subgraph cluster_live {
+    label="  LIVENESS probe broken  —  causes an OUTAGE  ";
+    style="filled,rounded"; fillcolor="#fdf2f2"; color="#c0392b"; fontcolor="#c0392b"; penwidth=1.6;
+
+    l1 [fillcolor="#ffffff", color="#c0392b", label=<
+      <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="3">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>1.</B> Readiness still passes on /</TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="11" COLOR="#c0392b">so the rollout believes each new pod is healthy</FONT></TD></TR>
+      </TABLE>>];
+
+    l2 [fillcolor="#ffffff", color="#c0392b", label=<
+      <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="3">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>2. ROLLOUT SUCCEEDS</B> — revision 5</TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="11">all 3 known-good pods are <B>deleted</B><BR/>liveness gates nothing during a rollout</FONT></TD></TR>
+      </TABLE>>];
+
+    l3 [fillcolor="#ffffff", color="#c0392b", label=<
+      <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="3">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>3.</B> Only now does liveness act</TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="11" COLOR="#555555">Container web failed liveness probe,<BR/>will be restarted  →  CrashLoopBackOff</FONT></TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="11">backoff<BR/>doubles: 10s, 20s, 40s ... 5 min cap</FONT></TD></TR>
+      </TABLE>>];
+
+    lout [fillcolor="#c0392b", fontcolor="white", color="#7b241c", label=<
+      <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="3">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT COLOR="white"><B>3 pods · 0 Ready · TOTAL OUTAGE</B></FONT></TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT COLOR="white" FACE="Courier" POINT-SIZE="11">000 000 000 000 000 000</FONT></TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT COLOR="white" POINT-SIZE="11">restarts=4 and climbing on every pod</FONT></TD></TR>
+      </TABLE>>];
+
+    l1 -> l2 -> l3 -> lout [color="#c0392b"];
+  }
+
+  title -> l1 [style=invis];
+}

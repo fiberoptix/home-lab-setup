@@ -6,16 +6,18 @@
 //   dot -Tpng -Gdpi=150 ch04_fig1_control_planes.dot -o ../images/ch04_fig1_control_planes.png
 
 digraph control_planes {
+  nodesep=0.15;
+  ranksep=0.26;
   rankdir=TB;
   bgcolor="white";
-  node  [fontname="Helvetica", fontsize=10, shape=box, style="filled,rounded", penwidth=1.2];
-  edge  [fontname="Helvetica", fontsize=9];
+  node  [fontname="Helvetica", fontsize=11, shape=box, style="filled,rounded", penwidth=1.2];
+  edge  [fontname="Helvetica", fontsize=11];
   graph [fontname="Helvetica", fontsize=11];
 
   title [shape=plaintext, style="", fillcolor="none", label=<
     <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0">
       <TR><TD><FONT POINT-SIZE="16"><B>Two control planes, and the gap between them</B></FONT></TD></TR>
-      <TR><TD><FONT POINT-SIZE="10" COLOR="#555555">Helm can build the brokers. It cannot create a topic.</FONT></TD></TR>
+      <TR><TD><FONT POINT-SIZE="11" COLOR="#555555">Helm can build the brokers. It cannot create a topic.</FONT></TD></TR>
     </TABLE>>];
 
   // ============================================ KUBERNETES SIDE
@@ -24,16 +26,16 @@ digraph control_planes {
     style="filled,rounded"; fillcolor="#eaf2fb"; color="#1f618d"; fontcolor="#1f618d"; penwidth=1.6;
 
     k8s [fillcolor="#ffffff", color="#1f618d", label=<
-      <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="3">
+      <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="2">
         <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>redpanda-values.yaml  →  Helm  →  StatefulSet</B></TD></TR>
-        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="9">how many brokers &#183; CPU &#183; memory &#183; PVC size<BR/>StorageClass &#183; listeners &#183; TLS &#183; the broker config file</FONT></TD></TR>
-        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="9" COLOR="#1f618d">reconciled continuously: kill a pod and it comes back</FONT></TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="11">how many brokers &#183; CPU &#183; memory &#183; PVC size<BR/>StorageClass &#183; listeners &#183; TLS &#183; the broker config file</FONT></TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="11" COLOR="#1f618d">reconciled continuously: kill a pod and it comes back</FONT></TD></TR>
       </TABLE>>];
 
     k8sout [fillcolor="#1f618d", fontcolor="white", color="#154360", label=<
-      <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="4">
+      <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="2">
         <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT COLOR="white"><B>3 pods Running &#183; 2/2 Ready &#183; Healthy: true</B></FONT></TD></TR>
-        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT COLOR="white" POINT-SIZE="9">every Kubernetes signal is green</FONT></TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT COLOR="white" POINT-SIZE="11">every Kubernetes signal is green</FONT></TD></TR>
       </TABLE>>];
 
     k8s -> k8sout [color="#1f618d"];
@@ -41,10 +43,10 @@ digraph control_planes {
 
   // ============================================ THE GAP
   gap [fillcolor="#fdf2f2", color="#c0392b", penwidth=1.8, label=<
-    <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5">
+    <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="2">
       <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT COLOR="#c0392b"><B>THE GAP &#8212; nothing owns this</B></FONT></TD></TR>
-      <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="9" FACE="Courier">$ rpk topic produce orders<BR/>UNKNOWN_TOPIC_OR_PARTITION<BR/>exit=1</FONT></TD></TR>
-      <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="9">Infrastructure green. Service unusable.<BR/><B>kubectl get topics</B> returns nothing &#8212; no such object exists.</FONT></TD></TR>
+      <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="11" FACE="Courier">$ rpk topic produce orders<BR/>UNKNOWN_TOPIC_OR_PARTITION<BR/>exit=1</FONT></TD></TR>
+      <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="11">Infrastructure green. Service unusable.<BR/><B>kubectl get topics</B> returns nothing &#8212; no such object exists.</FONT></TD></TR>
     </TABLE>>];
 
   // ============================================ REDPANDA SIDE
@@ -53,16 +55,16 @@ digraph control_planes {
     style="filled,rounded"; fillcolor="#eafaf1"; color="#1e8449"; fontcolor="#1e8449"; penwidth=1.6;
 
     rp [fillcolor="#ffffff", color="#1e8449", label=<
-      <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="3">
+      <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="2">
         <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>Kafka admin protocol  →  controller Raft group</B></TD></TR>
-        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="9">topics &#183; partitions per topic &#183; replication factor<BR/>retention &#183; ACLs &#183; users &#183; quotas &#183; consumer groups</FONT></TD></TR>
-        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="9" COLOR="#1e8449">requires a RUNNING, HEALTHY cluster to accept the call</FONT></TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="11">topics &#183; partitions per topic &#183; replication factor<BR/>retention &#183; ACLs &#183; users &#183; quotas &#183; consumer groups</FONT></TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="11" COLOR="#1e8449">requires a RUNNING, HEALTHY cluster to accept the call</FONT></TD></TR>
       </TABLE>>];
 
     disk [fillcolor="#ffffff", color="#1e8449", shape=cylinder, style="filled", label=<
-      <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="3">
-        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT FACE="Courier" POINT-SIZE="9">redpanda/controller/0_0<BR/>on datadir-redpanda-{0,1,2}</FONT></TD></TR>
-        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="9">survives: Job deletion, pod restart, full shutdown<BR/><B>destroyed by: deleting the PVCs</B></FONT></TD></TR>
+      <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="2">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT FACE="Courier" POINT-SIZE="11">redpanda/controller/0_0<BR/>on datadir-redpanda-{0,1,2}</FONT></TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="11">survives: Job deletion, pod restart, full shutdown<BR/><B>destroyed by: deleting the PVCs</B></FONT></TD></TR>
       </TABLE>>];
 
     rp -> disk [color="#1e8449", label=" replicated by Raft "];
@@ -71,12 +73,5 @@ digraph control_planes {
   k8sout -> gap [style=invis];
   gap -> rp [color="#c0392b", style=bold, label="  a post-deploy step must cross this line  "];
 
-  note [shape=plaintext, style="", fillcolor="none", label=<
-    <TABLE BORDER="2" CELLBORDER="0" CELLSPACING="0" CELLPADDING="7" COLOR="#b7950b" BGCOLOR="#fffdf3">
-      <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>The same fact, seen from both sides</B></TD></TR>
-      <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="9">Rebuild from <FONT FACE="Courier">redpanda-values.yaml</FONT> and you get three healthy brokers and <B>zero topics</B>.<BR/>Delete every Kubernetes object used for seeding and <B>the topics survive untouched</B>.<BR/><BR/>Because topic state is not Kubernetes state, <FONT FACE="Courier">helm install</FONT> + <FONT FACE="Courier">rollout status</FONT> is not a<BR/>sufficient deployment gate. It asserts the brokers exist, not that the service can be used.</FONT></TD></TR>
-    </TABLE>>];
-
-  disk -> note [style=invis];
   title -> k8s [style=invis];
 }

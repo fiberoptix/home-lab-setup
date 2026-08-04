@@ -32,7 +32,7 @@ ORDERS = int(os.environ.get("ORDERS", "50"))
 RATE = float(os.environ.get("RATE", "0"))
 PREFIX = os.environ.get("PREFIX", "ORD")
 
-stats = {"delivered": 0, "failed": 0}
+stats = {"delivered": 0, "failed": 0, "backpressure": 0}
 
 
 def on_delivery(err, msg):
@@ -49,10 +49,19 @@ def main():
         "acks": ACKS,
         "client.id": os.environ.get("HOSTNAME", "producer"),
     }
-    # librdkafka rejects enable.idempotence together with acks!=all, so only
-    # set it when it is actually coherent. That refusal is itself the lesson:
-    # idempotence is BUILT ON acks=all, it is not an alternative to it.
+    # librdkafka rejects enable.idempotence together with acks!=all, and it does
+    # so from the Producer constructor with a message that does not name the
+    # environment variable you actually set. Fail here instead, where we can say
+    # what to change. The refusal is itself the lesson: idempotence is BUILT ON
+    # acks=all, it is not an alternative to it.
     if IDEMPOTENCE:
+        if ACKS != "all":
+            sys.exit(
+                f"ACKS={ACKS} cannot be combined with IDEMPOTENCE=true: the "
+                "producer-side duplicate guard needs every write acknowledged "
+                "by a majority before it can safely retry. Set IDEMPOTENCE=false "
+                "to test reduced durability, or ACKS=all to keep the guard."
+            )
         conf["enable.idempotence"] = True
 
     print(
@@ -71,12 +80,25 @@ def main():
             # The KEY is the order id. This is the whole ordering guarantee:
             # hash(order_id) % partitions is stable, so every event for this
             # order lands on one partition and is read in the order written.
-            p.produce(
-                TOPIC,
-                key=order_id.encode(),
-                value=encode(event),
-                on_delivery=on_delivery,
-            )
+            # produce() enqueues into a BOUNDED local buffer
+            # (queue.buffering.max.messages, 100k by default). When the brokers
+            # are slower than this loop the buffer fills and produce() raises
+            # BufferError rather than blocking. That is producer-side
+            # backpressure, the mirror image of consumer lag, and the naive
+            # version of this loop dies on it at exactly the moment you most
+            # want records to survive -- a broker outage. Drain and retry.
+            while True:
+                try:
+                    p.produce(
+                        TOPIC,
+                        key=order_id.encode(),
+                        value=encode(event),
+                        on_delivery=on_delivery,
+                    )
+                    break
+                except BufferError:
+                    stats["backpressure"] += 1
+                    p.poll(0.5)
             sent += 1
             p.poll(0)
             if RATE:
@@ -87,6 +109,7 @@ def main():
 
     print(
         f"produced={sent} delivered={stats['delivered']} failed={stats['failed']} "
+        f"backpressure_waits={stats['backpressure']} "
         f"unflushed={remaining} in {elapsed:.1f}s",
         flush=True,
     )

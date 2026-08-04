@@ -5,16 +5,18 @@
 //   dot -Tpng -Gdpi=150 ch06_fig1_dataflow.dot -o ../images/ch06_fig1_dataflow.png
 
 digraph dataflow {
+  nodesep=0.12;
+  ranksep=0.2;
   rankdir=TB;
   bgcolor="white";
-  node  [fontname="Helvetica", fontsize=10, shape=box, style="filled,rounded", penwidth=1.2];
-  edge  [fontname="Helvetica", fontsize=9];
+  node  [fontname="Helvetica", fontsize=12, shape=box, style="filled,rounded", penwidth=1.2];
+  edge  [fontname="Helvetica", fontsize=12];
   graph [fontname="Helvetica", fontsize=11];
 
   title [shape=plaintext, style="", fillcolor="none", label=<
     <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0">
       <TR><TD><FONT POINT-SIZE="16"><B>The order pipeline, end to end</B></FONT></TD></TR>
-      <TR><TD><FONT POINT-SIZE="10" COLOR="#555555">2000 orders &#215; (1 NEW + 4 FILL) = 10000 events &#183; 8000 fills &#183; 800000 shares</FONT></TD></TR>
+      <TR><TD><FONT POINT-SIZE="12" COLOR="#555555">2000 orders &#215; (1 NEW + 4 FILL) = 10000 events<BR/>8000 fills &#183; 800000 shares</FONT></TD></TR>
     </TABLE>>];
 
   // ------------------------------------------------------- producer
@@ -23,62 +25,55 @@ digraph dataflow {
     style="filled,rounded"; fillcolor="#eef5fc"; color="#2471a3"; fontcolor="#2471a3"; penwidth=1.6;
 
     prod [fillcolor="#ffffff", color="#2471a3", label=<
-      <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="4">
-        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT FACE="Courier" POINT-SIZE="10">producer.py</FONT></TD></TR>
-        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="9">key = <FONT FACE="Courier">order_id</FONT> &#8212; the entire ordering guarantee<BR/>value = <FONT FACE="Courier">{event_id, order_id, seq, type, qty}</FONT></FONT></TD></TR>
-        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="9"><FONT FACE="Courier">acks=all</FONT> &#183; <FONT FACE="Courier">enable.idempotence=true</FONT></FONT></TD></TR>
-        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="9" COLOR="#555555">A Job, not a Deployment: emitting a fixed batch<BR/>has an end. Exits non-zero if any delivery failed.</FONT></TD></TR>
+      <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="2">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT FACE="Courier" POINT-SIZE="12">producer.py</FONT></TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="12">key = <FONT FACE="Courier">order_id</FONT> &#8212; the entire ordering guarantee<BR/>value = <FONT FACE="Courier">{event_id, order_id, seq, type, qty}</FONT></FONT></TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="12"><FONT FACE="Courier">acks=all</FONT> &#183; <FONT FACE="Courier">enable.idempotence=true</FONT></FONT></TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="12" COLOR="#555555">A Job, not a Deployment: emitting a fixed batch<BR/>has an end. Exits non-zero if any delivery failed.</FONT></TD></TR>
       </TABLE>>];
   }
 
   // ------------------------------------------------------- topic
   topic [fillcolor="#fef9e7", color="#b7950b", label=<
-    <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="4">
-      <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT FACE="Courier" POINT-SIZE="11"><B>orders-v2</B></FONT>  <FONT POINT-SIZE="9">6 partitions &#183; RF 3</FONT></TD></TR>
-      <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="9"><FONT FACE="Courier">hash(order_id) % 6</FONT> is computed <B>in the producer</B>.<BR/>Every event for one order lands on one partition,<BR/>so it is read in the order it was written.</FONT></TD></TR>
-      <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="9" COLOR="#1e8449"><B>measured: seq_gaps = 0 across all 2000 orders</B></FONT></TD></TR>
+    <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="2">
+      <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT FACE="Courier" POINT-SIZE="12"><B>orders-v2</B></FONT>  <FONT POINT-SIZE="12">6 partitions &#183; RF 3</FONT></TD></TR>
+      <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="12"><FONT FACE="Courier">hash(order_id) % 6</FONT> is computed <B>in the producer</B>.<BR/>Every event for one order lands on one partition,<BR/>so it is read in the order it was written.</FONT></TD></TR>
+      <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="12" COLOR="#1e8449"><B>measured: seq_gaps = 0 across all 2000 orders</B></FONT></TD></TR>
     </TABLE>>];
 
   // ------------------------------------------------------- consumer
   subgraph cluster_cons {
-    label="  Deployment: position-keeper (replicas 1, strategy Recreate)  ";
+    label="  Deployment: position-keeper  ";
     style="filled,rounded"; fillcolor="#f4ecf7"; color="#6c3483"; fontcolor="#6c3483"; penwidth=1.6;
 
     cons [fillcolor="#ffffff", color="#6c3483", label=<
-      <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="4">
-        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT FACE="Courier" POINT-SIZE="10">consumer.py</FONT>  <FONT POINT-SIZE="9">group <FONT FACE="Courier">position-keeper</FONT></FONT></TD></TR>
-        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="9"><FONT FACE="Courier">enable.auto.commit=false</FONT><BR/>commit every <B>50 records OR 5 seconds</B></FONT></TD></TR>
-        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="9" COLOR="#555555">Write state first, commit the offset second.<BR/>The reverse order loses records instead of<BR/>duplicating them.</FONT></TD></TR>
+      <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="2">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT FACE="Courier" POINT-SIZE="12">consumer.py</FONT>  <FONT POINT-SIZE="12">group <FONT FACE="Courier">position-keeper</FONT></FONT></TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="12"><FONT FACE="Courier">enable.auto.commit=false</FONT><BR/>commit every <B>50 records OR 5 seconds</B></FONT></TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="12" COLOR="#555555">Write state first, commit the offset second.<BR/>The reverse order loses records instead of<BR/>duplicating them.</FONT></TD></TR>
       </TABLE>>];
   }
 
   // ------------------------------------------------------- the two sinks
   good [fillcolor="#eafaf1", color="#1e8449", label=<
-    <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="4">
+    <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="2">
       <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>fills</B> &#8212; transactional + idempotent</TD></TR>
-      <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT FACE="Courier" POINT-SIZE="9">INSERT ... ON CONFLICT(order_id, seq)<BR/>          DO UPDATE SET qty = excluded.qty</FONT></TD></TR>
-      <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="9">Keyed on the <B>natural business key</B>. Re-applying<BR/>an event overwrites the same row.<BR/>Staged in a transaction, so a crash rolls it back.</FONT></TD></TR>
-      <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="10" COLOR="#1e8449"><B>800000 after every crash tested</B></FONT></TD></TR>
+      <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT FACE="Courier" POINT-SIZE="12">INSERT ... ON CONFLICT(order_id, seq)<BR/>  DO UPDATE SET qty = excluded.qty</FONT></TD></TR>
+      <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="12">Keyed on the <B>natural business key</B>.<BR/>Re-applying an event overwrites<BR/>the same row. Staged in a transaction,<BR/>so a crash rolls it back.</FONT></TD></TR>
+      <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="12" COLOR="#1e8449"><B>800000 after every crash tested</B></FONT></TD></TR>
     </TABLE>>];
 
   bad [fillcolor="#fdf2f2", color="#c0392b", label=<
-    <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="4">
+    <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="2">
       <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>gateway</B> &#8212; external, non-transactional</TD></TR>
-      <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT FACE="Courier" POINT-SIZE="9">UPDATE gateway SET total = total + qty,<BR/>                   calls = calls + 1</FONT></TD></TR>
-      <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="9">Autocommit: durable the instant it runs, <B>no rollback</B>.<BR/>Stands in for a POST to an execution venue,<BR/>an email, a payment.</FONT></TD></TR>
-      <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="10" COLOR="#c0392b"><B>+11 duplicate executions per hard restart</B></FONT></TD></TR>
-    </TABLE>>];
-
-  note [shape=plaintext, style="", fillcolor="none", label=<
-    <TABLE BORDER="2" CELLBORDER="0" CELLSPACING="0" CELLPADDING="7" COLOR="#b7950b" BGCOLOR="#fffdf3">
-      <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>Both ledgers see exactly the same stream. Only one of them survives a crash.</B></TD></TR>
-      <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="9">That difference is the whole chapter. It is not about how carefully you consume &#8212; both paths consumed<BR/>identically. It is about whether the <B>effect</B> of consuming can be undone or repeated safely.</FONT></TD></TR>
+      <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT FACE="Courier" POINT-SIZE="12">UPDATE gateway<BR/>  SET total = total + qty,<BR/>      calls = calls + 1</FONT></TD></TR>
+      <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="12">Autocommit: durable the instant it runs,<BR/><B>no rollback</B>. Stands in for a POST to an<BR/>execution venue, an email, a payment.</FONT></TD></TR>
+      <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="12" COLOR="#c0392b"><B>+11 duplicate executions<BR/>per hard restart</B></FONT></TD></TR>
     </TABLE>>];
 
   title -> prod [style=invis];
   prod  -> topic [color="#2471a3", penwidth=1.6, label="  10000 events  "];
-  topic -> cons  [color="#6c3483", penwidth=1.6, label="  6 partitions, 1 consumer  "];
+  topic -> cons  [color="#6c3483", penwidth=1.6, label="  6 partitions\n1 consumer  "];
   cons  -> good  [color="#1e8449", penwidth=1.6, label="  staged  "];
   cons  -> bad   [color="#c0392b", penwidth=1.6, label="  immediate  "];
-  good  -> note  [style=invis];
 }

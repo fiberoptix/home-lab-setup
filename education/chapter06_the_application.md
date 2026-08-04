@@ -28,7 +28,7 @@ Run on **`vm-k8-redpanda-1` (192.168.1.186)**, single-node k3s v1.36.2, Redpanda
 | Commit policy | explicit, every **50 records or 5 seconds** (§10 explains the "or 5 seconds") |
 
 **Prerequisite reading:** Chapter 5 in full — this chapter is its practical half. Chapter 3 §2
-(partitions, offsets, keys) and Chapter 2 §4 (deployment strategies) are assumed.
+(partitions, offsets, keys) and Chapter 2 §5 (rolling updates) are assumed.
 
 ---
 
@@ -44,14 +44,22 @@ Run on **`vm-k8-redpanda-1` (192.168.1.186)**, single-node k3s v1.36.2, Redpanda
 8. **The bug that made it repeat forever** — the tail that never commits
 9. `kubectl delete pod --force` is not a SIGKILL, and what is
 10. The fix, and ordering proven rather than assumed
-11. Chapter 5's skew prediction, tested at 2000 keys
-12. What it cost, client differences, production gaps, runbook, glossary, interview questions
+11. Chapter 5's skew prediction, tested at 2000 keys — and how to compare the two numbers honestly
+12. Two surprises: client-default rebalancing, and what a durable side effect costs per event
+13. Where this sandbox differs from production, and the layers that watch a stalled consumer
+14. **The poison message** — and the `finally` block that silently skipped it
+15. Runbook, and the commands worth knowing by heart
+16. Glossary, interview questions, check yourself
 
 ---
 
 ## 1. The shape of the application
 
-![Dataflow](images/ch06_fig1_dataflow.png)
+![Figure 1 — the order flow, end to end](images/ch06_fig1_dataflow.png)
+
+> **Both ledgers see exactly the same stream. Only one of them survives a crash.**
+>
+> That difference is the whole chapter. It is not about how carefully you consume — both paths consumed identically. It is about whether the **effect** of consuming can be undone or repeated safely.
 
 Two programs, one container image, one topic, two ledgers:
 
@@ -66,7 +74,7 @@ Two details in that table are load-bearing and easy to get wrong.
 **`strategy: Recreate`, not `RollingUpdate`.** A rolling update surges a second pod before removing
 the first. Two pods cannot mount the same `ReadWriteOnce` volume, so the new pod blocks on the PVC
 forever while the old one refuses to die. The rollout hangs until `progressDeadlineSeconds` and you
-get a `ProgressDeadlineExceeded` that looks like a scheduling problem. This is Chapter 2 §4's
+get a `ProgressDeadlineExceeded` that looks like a scheduling problem. This is Chapter 2 §5's
 `maxSurge` lesson, arriving from an unexpected direction: **the surge is only free if nothing the
 pod holds is exclusive.**
 
@@ -134,17 +142,53 @@ if stats["failed"] or remaining:
 `flush()` returns the number of messages **still unsent** after the timeout. Ignoring that return
 value is how a batch job reports success while silently dropping its tail.
 
+**That queue is bounded, and filling it is a failure mode of its own.** `produce()` enqueues into a
+local buffer capped by `queue.buffering.max.messages` (100,000 by default). When the brokers are
+slower than the loop — during a broker restart, say — the buffer fills and `produce()` raises
+`BufferError` rather than blocking. This is producer-side backpressure, the exact mirror of consumer
+lag, and the naive loop dies on it at precisely the moment you most want records to survive. The
+producer here drains and retries instead, and counts how often it had to:
+
+```python
+while True:
+    try:
+        p.produce(TOPIC, key=..., value=..., on_delivery=on_delivery); break
+    except BufferError:
+        stats["backpressure"] += 1
+        p.poll(0.5)                  # let delivery callbacks drain the queue
+```
+
+`backpressure_waits=0` on a healthy run. A non-zero value is the earliest warning that the brokers
+cannot keep up, and it appears well before anything shows on the consumer side.
+
 **`enable.idempotence` requires `acks=all`.** librdkafka refuses the combination outright, and the
 refusal is the lesson: producer idempotence is *built on* acks=all, not an alternative to it. It
 solves exactly one problem — the producer sent a record, the ack was lost in flight, the producer
 retried, and the record was appended **twice**. A sequence number per producer session lets the
 broker discard the retry. It says nothing whatsoever about the consumer.
 
+**And it dies with the session.** The sequence numbers are scoped to a producer id that the broker
+assigns when the client connects. Restart the producer — or let a failed `order-gateway` Job be
+retried — and it gets a *new* producer id, so every record it re-emits is brand new as far as the
+broker is concerned. `enable.idempotence` protects against a retry *inside* one run and nothing
+else. What actually makes a re-run of this Job safe is the **consumer's** upsert on
+`(order_id, seq)`, which is a property of the business key, not of the client library. Worth being
+precise about, because "we have idempotence enabled" is a very common answer to "what happens if
+the producer restarts", and it is the wrong one.
+
 ---
 
 ## 3. `acks` measured: the silent 29
 
-![The acks ladder](images/ch06_fig3_acks.png)
+![Figure 2 — the acks ladder](images/ch06_fig2_acks.png)
+
+> **Loss and duplication fail in opposite directions, and you must pick which one you can live with.**
+>
+> A duplicate is **loud** — it shows up as a wrong total you can reconcile, and an idempotent handler erases it. A lost record is **silent** — there is no artefact to find, no counter to alert on, and reconciliation only catches it if you independently know what should have been there. For an order management system this is not a tuning decision. A missing fill is a position you do not know you hold.
+>
+> **`acks=all` is the floor**, and in this test it did not even cost anything.
+>
+> **`enable.idempotence=true` is a different guarantee** and requires `acks=all` underneath it. It stops the *producer* from appending the same record twice when an ack is lost and it retries. It says nothing about the consumer — consumer-side duplicates are Figure 3’s problem.
 
 | `acks` | "delivered" means | Survives |
 |---|---|---|
@@ -152,8 +196,11 @@ broker discard the retry. It says nothing whatsoever about the consumer.
 | `1` | the **leader** has it | leader staying up |
 | `all` | a **quorum of replicas** has it | loss of any single broker |
 
-The test: produce 15,000 events at a throttled rate, and force-delete `redpanda-1` mid-produce.
-Same code both times, one environment variable different.
+The test: produce 15,000 events at a throttled rate, and delete `redpanda-1` mid-produce. Two
+environment variables differ, not one — `IDEMPOTENCE` has to come off with `acks=0`, because
+librdkafka refuses the combination (§2). That is forced, not a second variable under test:
+idempotence guards against a *producer* retry appending twice, and has no bearing on whether a
+broker that never answered kept the record.
 
 ```
 acks=all   produced=15000 delivered=15000 failed=0   in topic: 15000 / 15000   26.8s
@@ -165,7 +212,16 @@ acks=0     produced=15000 delivered=15000 failed=0   in topic: 14971 / 15000   2
 callback, no retry, no metric, no log line. The application cannot know. The only way I detected it
 was by independently counting what was in the topic afterwards.
 
-The benefit purchased for those 29 records was **0.2 seconds**.
+**And `acks=0` did not even go faster — it was 0.2 seconds slower.** Do not read that as evidence
+that durability is free; read it as evidence that this test could not price durability at all. The
+run was rate-limited at `RATE=600`, so 15,000 records cannot complete in under 25 seconds no matter
+how little the brokers are asked to do. Both runs sat on that floor, and the 0.2s is scheduling
+noise. To measure what `acks=all` actually costs you would have to remove the rate limit and
+saturate the brokers, at which point the interesting number is not elapsed time but the p99 of the
+delivery callback.
+
+So the finding here is the **29 records**, not the timing. Whatever `acks=0` buys, this run did not
+show it buying anything, and it silently dropped 0.19% of the order flow to get it.
 
 This is the asymmetry that matters for an order management system:
 
@@ -174,7 +230,7 @@ This is the asymmetry that matters for an order management system:
 - A **lost record is silent.** There is no artefact to find and no counter to alert on. A missing
   fill is a position you do not know you hold.
 
-`acks=all` is the floor for order flow. The 0.2s is not for sale.
+`acks=all` is the floor for order flow — and on this workload it was not even the slower option.
 
 > **Nuance worth having ready.** `acks=all` means a **quorum**, not every replica — Redpanda uses
 > Raft, so a 3-replica partition acknowledges once 2 of 3 have it. That is why the broker kill cost
@@ -291,7 +347,15 @@ as the safe one. To show the real failure I had to model the thing that actually
 
 ## 7. The crash that did: when the side effect escapes
 
-![The commit window](images/ch06_fig2_commit_window.png)
+![Figure 3 — the commit window, and what a crash costs](images/ch06_fig3_commit_window.png)
+
+> **A transactional state store plus commit-after-write is effectively-once, for free.**
+>
+> No dedupe table, no event-ID set, no exactly-once protocol. The crash rolls the writes back and redelivery re-applies them. This is worth knowing because it is the **cheap** answer, and most consumers qualify.
+>
+> **Duplicates hurt exactly when the side effect escapes the transaction.** An HTTP call, an email, a payment, a message to another system. Those need an idempotency key that the *receiver* honours — which is why real payment APIs make you send one.
+>
+> **And note the order of the two commits.** State first, offset second → a crash costs a duplicate. Offset first, state second → a crash costs a **lost record**. One is recoverable by design; the other is silent.
 
 The dangerous case is a side effect that **cannot be rolled back**: a POST to an execution venue, an
 email, a payment, a message to another system. So the second ledger became a **separate SQLite file
@@ -319,9 +383,13 @@ Now the same hard kill, with the same 8,000 fills:
 ```
 truth                    : 8000 fills / 800000 shares
 transactional idempotent : rows=7989  total=798900     ← 11 staged, will settle at exactly 8000
-external gateway         : calls=8011  total=802200
+external gateway         : calls=8011  total=801100
 DUPLICATES               : 11 executions, 1100 shares over-executed
 ```
+
+The three numbers have to agree or the demo is not evidence of anything, so check them: 8,011 calls
+× 100 shares = 801,100, which is 1,100 more than the 800,000 that was actually ordered, which is
+11 duplicate fills — the same 11 the transactional ledger has staged and will absorb.
 
 **Eleven duplicate executions.** The transactional ledger is unharmed — it shows 7,989 only because
 11 upserts were staged and not yet committed at the moment I read it; committed, it lands on
@@ -362,8 +430,12 @@ committed**. And that turns a one-off window into a permanent one. Every restart
 | clean | 8000 | 0 |
 | 1st hard kill | 8011 | **11** |
 | 2nd hard kill | 8022 | **22** |
+| *n*th hard kill | 8000 + 11*n* | **11*n*** |
 
-It compounds. Forever. A pod that restarts nightly would re-execute the same 11 fills every night.
+I measured the first two and stopped; the third row is arithmetic, not a reading, because by then
+the mechanism is not in doubt. It compounds forever. A pod that restarts nightly would re-execute
+the same 11 fills every night, and the gateway total would drift further from the truth every day
+while the transactional ledger stayed exactly right — which is what makes this so hard to notice.
 
 The fix is one clause:
 
@@ -430,7 +502,7 @@ lastState:    Error:137          # 128 + 9 = SIGKILL
 Two things to notice. First, `137` is how you confirm a hard kill after the fact — and it is the
 same exit code an **OOM kill** produces, which is the most common way this happens in production.
 Second, the pod name did not change and `restartCount` incremented: this was a **container restart
-in place**, not a pod replacement (Chapter 1 §7). The PVC, the pod IP, and the node assignment all
+in place**, not a pod replacement (Chapter 1 §2a). The PVC, the pod IP, and the node assignment all
 stayed put. Only the process died.
 
 > **A caveat on measuring this.** After a hard kill, the group does not reassign immediately. The
@@ -489,15 +561,33 @@ This run had **2,000 distinct keys** instead of 12. The distribution:
 |---|---|---|---|---|---|---|
 | Records | 1625 | 1740 | 1675 | 1590 | 1705 | 1665 |
 
-Spread from 1,590 to 1,740 — a **9.4% span**, against a perfectly even 1,666.7. The prediction
-holds, measured.
+Spread from 1,590 to 1,740: a span of 150 records, which is **9.0% of the perfectly even 1,666.7**
+(or 9.4% if you quote it against the minimum — say which you mean, because both numbers appear in
+write-ups of this kind of test and they are not the same measurement).
 
-That contrast is the useful takeaway, and it is a genuinely good interview answer: **key skew is a
-function of key cardinality, not of partitioning.** Before you treat uneven partitions as a
-problem, count your distinct keys. With thousands of them, hashing is fine and unevenness is noise.
-The real pathology is a *single hot key* — one account generating 40% of order flow — and no amount
-of repartitioning fixes that, because all of that key's events must stay on one partition to
-preserve its ordering. That needs a composite key (`account-shard-N`) or a dedicated topic.
+**Compare like with like.** Chapter 5's 42% is *one partition's share of all traffic*. The span
+above is a *max-minus-min*, so putting "42%" next to "9%" compares two different quantities and any
+interviewer who does the arithmetic will notice. The number that actually corresponds to Chapter 5's
+42% is partition 1's share here: 1,740 / 10,000 = **17.4%**, against an even 16.7%. So the honest
+statement is 42% → 17.4% on the same measure, and that is still a striking result.
+
+Is 9% even skew, or is it just noise? Each key contributes all 5 of its events to one partition, so
+the count per partition is 5 × Binomial(2000, ⅙), with a standard deviation of
+5 × √(2000 × ⅙ × ⅚) ≈ **83 records**. The six deviations from the mean are −42, +73, +8, −77, +38
+and −2 — every one inside a single standard deviation. **This distribution is not "slightly uneven";
+it is indistinguishable from random.** There is nothing here to fix.
+
+The takeaway is a good interview answer, but state it precisely: **key skew is a function of key
+cardinality and of how evenly volume is distributed across those keys** — not of the partitioner.
+The second half matters, and this test was rigged in its favour: the producer gives every order
+exactly 5 events. Real order flow is nothing like that. A handful of accounts generate most of the
+volume, so you can have 2,000 keys and still have terrible skew.
+
+Which is why the real pathology is a *single hot key* — one account generating 40% of order flow —
+and no amount of repartitioning fixes it, because all of that key's events must stay on one
+partition to preserve its ordering. That needs a composite key (`account-shard-N`) or a dedicated
+topic. Before you treat uneven partitions as a problem: count your distinct keys, then check
+whether volume per key is anywhere near uniform.
 
 ---
 
@@ -518,6 +608,22 @@ With one consumer this is invisible. With thirty it is the difference between a 
 notices and a periodic full-group stall. **The lesson is that "the group's rebalance behaviour" is a
 property of the clients, not the cluster** — and a mixed fleet of clients with different defaults
 is a genuinely nasty thing to debug.
+
+**The same trap exists on the producer side, and it is worse.** §2 describes the key's partition as
+`hash(order_id) % 6`, but *which* hash is also a client default, not a cluster property:
+
+| Client | Default partitioner |
+|---|---|
+| librdkafka (`confluent-kafka`, and therefore this app) | `consistent_random` — CRC-32 |
+| the Java client | `murmur2_random` |
+
+**The same order id lands on a different partition depending on which client library produced it.**
+In a fleet where a Python service and a Java service both write to `orders`, per-key ordering — the
+guarantee this entire chapter is built on — is quietly broken for every key both of them touch, and
+nothing anywhere reports an error. The fix is to pin the partitioner explicitly
+(`partitioner=murmur2_random` in librdkafka) rather than inherit it, in exactly the way you would
+pin the assignment strategy. Defaults that differ between clients of the same cluster are the theme
+here, and this is the instance of it that costs you correctness rather than latency.
 
 **A durable side effect per event is expensive.**
 
@@ -550,14 +656,147 @@ That last row is worth its own line, because §7 handed me the reason. A consume
 was `1/1 Running` with a clean log and zero restarts. **Kubernetes cannot tell a working consumer
 from a hung one**, because "the process is alive" is all a default health check knows. A liveness
 probe that checks *"have I processed a record, or deliberately idled, in the last N seconds"* would
-have caught it in 30 seconds. Chapter 2 §5 built the probe machinery; this is the workload that
+have caught it in 30 seconds. Chapter 2 §6–§7 built the probe machinery; this is the workload that
 actually needs it.
+
+**But Kubernetes is not the only thing watching, and the better answer is layered.** The Kafka
+client has its own liveness notion: `max.poll.interval.ms` (librdkafka default 300000, five
+minutes). If the application does not call `poll()` within that window, the broker evicts it from
+the group and reassigns its partitions to someone who can make progress — no probe required. The
+reason that did not save the §7 hang is that the loop *was* still polling: each event returned
+inside SQLite's 5-second busy timeout, so from the group's point of view the consumer was healthy,
+just slow. It was doing one record at a time, which is a throughput collapse rather than a stall.
+
+So the two mechanisms cover different failures, and a good answer names both:
+
+| Failure | Caught by | How long |
+|---|---|---|
+| Poll loop wedged entirely | `max.poll.interval.ms`, broker-side | up to 5 minutes, tunable |
+| Process alive but making no progress | a progress-based liveness probe | as fast as you set it |
+| Progress far below normal | neither — only a lag or throughput **alert** | whenever you look |
+
+That third row is the §7 case, and it is the one people forget in interviews. No health check of
+any kind catches "working, but 8× too slow". That is a monitoring problem, not a probe problem.
 
 ---
 
-## 14. Runbook — reproducing every result in this chapter
+## 14. The poison message, and the `finally` block that hid it
 
-All commands run on `vm-k8-redpanda-1`. Source lives in `education/app/`.
+Everything up to here assumed the records parse. Here is the first version of the consumer's main
+loop, which is the version that was in this chapter until I audited it:
+
+```python
+try:
+    while running:
+        ...
+        event = decode(msg.value())          # unguarded
+        apply_event(db, gw, event)
+finally:
+    db.commit()
+    c.commit(asynchronous=False)             # runs even when the loop threw
+```
+
+Find the bug before reading on. It is the same bug §5 spends a whole table warning about.
+
+**Any exception from `decode` or `apply_event` escapes the loop, and `finally` then commits the
+offset of the record that just failed.** Malformed JSON, a missing field, `SQLITE_BUSY`, a full
+disk — all of them advance the offset past work that was never done. That is the *offset first,
+state second* ordering that §5 labels **"silent, permanent."** I wrote the table warning against it
+and then implemented it four sections later, in a `finally` block, where it does not look like an
+ordering decision at all. It looks like tidy shutdown code.
+
+One unparseable fill and an order is silently missing from the book, forever, with no artefact
+anywhere. Exactly the failure mode §3 argues `acks=all` exists to prevent — reintroduced on the
+consumer side.
+
+### Blocking is usually the right answer for order flow
+
+Once you handle the record properly there is a real decision to make, and it is not a technical one:
+
+| | Skip it | Block on it |
+|---|---|---|
+| Partition keeps moving | yes | **no** — everything behind it stops |
+| The book stays correct | **no** — a fill is missing | yes |
+| You find out | only if you look at a counter | immediately, lag alerts |
+
+For most streaming workloads — metrics, logs, clickstream — skipping is right, because one bad
+record is worth less than the pipeline. **For order flow it is usually wrong.** An unreadable fill
+is a position you cannot compute, and skipping it books a number you know to be incorrect while
+looking perfectly healthy. Stopping is loud, and loud is recoverable.
+
+So the consumer takes `POISON=stop|dlq` and defaults to `stop`. Measured, both paths:
+
+```
+POISON stop orders-v2/4@1705: ValueError('seq and qty must be integers')
+offset NOT committed; records will be redelivered
+FINAL processed=0 idempotent_total=800000 gateway_total=800000 gateway_calls=8000 poisoned=1
+```
+
+```
+$ kubectl -n market get pods -l app=position-keeper
+NAME                               READY   STATUS   RESTARTS      AGE
+position-keeper-6d87b4cf59-pfhmg   0/1     Error    2 (21s ago)   102s
+
+$ kubectl -n market get pod ... -o jsonpath='{...lastState.terminated.exitCode}'
+75
+
+$ rpk group describe position-keeper | grep TOTAL-LAG
+TOTAL-LAG              1
+```
+
+**`processed=0`, exit 75, restart count climbing, lag pinned at 1.** The bad record is still at the
+head of partition 4 and nothing behind it will be processed until a human looks. The position is
+untouched at 800,000 — the consumer refused to book a number it could not compute. Exit 75 is
+`EX_TEMPFAIL`, chosen so the runbook can tell "I was told to stop" from "I refuse to proceed".
+
+Switching to `dlq` records the record and moves on:
+
+```
+POISON dlq orders-v2/4@1705: ValueError('seq and qty must be integers')
+
+TOTAL-LAG              0
+dead letter: (4, 1705, "ValueError('seq and qty must be integers')")
+reconciled total: 800000
+```
+
+Note *where* the dead letter is written: the same transactional connection as the fills, so the
+dead-letter row and the offset that skips the record become durable together. Writing it anywhere
+else — a log line, a second database, an HTTP call — reintroduces §7's problem, and the one record
+you most need a durable trace of is the one whose trace can go missing.
+
+> **Why validate in `decode` rather than let a `KeyError` surface?** Because
+> `KeyError: 'seq'` three frames deep does not tell an on-call engineer which
+> field of which record was wrong. `ValueError('seq and qty must be integers')`
+> alongside `orders-v2/4@1705` is a complete problem report. This is also the
+> hand-rolled version of what a Schema Registry does at the broker boundary,
+> which is Chapter 7.
+
+**In an interview this is the highest-value thing in the chapter**, because it is the one question
+where the correct answer is a business question wearing a technical costume. "Do you block or skip"
+has no universally right answer, and saying "block, because for order flow a missing fill is worse
+than a stalled partition, and I'd alert on partition-level lag to catch it" demonstrates that you
+know that.
+
+---
+
+## 15. Runbook — reproducing the demos in this chapter
+
+All commands run on `vm-k8-redpanda-1`. Source lives in `education/app/` in the repository; copy it
+to the node first, because `build.sh` needs a Docker daemon and `k3s ctr`, both of which are there
+and not on your laptop:
+
+```bash
+scp -r education/app/* vm-k8-redpanda-1:~/oms/
+```
+
+This runbook reproduces §3, §7, §8, §9 and §14. It does **not** reproduce §6 (the both-ledgers-
+transactional run — that code no longer exists, the two paths are hardcoded), §10's malformed-order
+query, or §12's throughput comparison, which needs a knob to disable the gateway write that the
+program does not have.
+
+Every block below is written to survive being run twice. That is not tidiness: a runbook you cannot
+re-run is a runbook you cannot practise, and Chapter 4 §6a is the whole argument for why
+`AlreadyExists` on the second pass is a defect and not a nuisance.
 
 ### Build and load
 
@@ -569,10 +808,22 @@ cd ~/oms
 ### Clean slate
 
 ```bash
+kubectl apply -f k8s/namespace.yaml          # nothing else works without this
+
 kubectl -n market delete deploy position-keeper --ignore-not-found
+# Wait for the pod to actually be GONE before deleting its volume, or the PVC
+# sits in Terminating behind a finalizer while the pod still mounts it.
+kubectl -n market wait --for=delete pod -l app=position-keeper --timeout=60s
 kubectl -n market delete pvc position-state --ignore-not-found
-sleep 8
-rpk topic delete orders-v2; rpk group delete position-keeper
+
+rpk topic delete orders-v2 2>/dev/null
+# The group must be Empty before it can be deleted. If this silently fails, the
+# next run resumes from stale committed offsets on a freshly recreated topic --
+# which looks exactly like data loss and is not.
+rpk group delete position-keeper 2>/dev/null
+rpk group describe position-keeper 2>&1 | grep -q NOT_FOUND \
+  || echo "WARNING: group still exists; offsets will carry over"
+
 rpk topic create orders-v2 -p 6 -r 3
 ```
 
@@ -580,12 +831,16 @@ rpk topic create orders-v2 -p 6 -r 3
 
 ```bash
 # 2000 orders = 10000 events = 800000 shares
+kubectl -n market delete pod bulk-gateway --ignore-not-found
 kubectl -n market run bulk-gateway --restart=Never --image=oms:dev \
   --image-pull-policy=IfNotPresent \
   --env=BROKERS=redpanda.redpanda.svc.cluster.local:9093 --env=TOPIC=orders-v2 \
   --env=ORDERS=2000 --env=ACKS=all --env=IDEMPOTENCE=true \
   --command -- python producer.py
-kubectl -n market logs bulk-gateway
+# `kubectl run` returns as soon as the object exists, not when the container is
+# running, so an immediate `logs` fails with ContainerCreating.
+kubectl -n market wait --for=condition=Ready pod/bulk-gateway --timeout=120s
+kubectl -n market logs -f bulk-gateway
 
 kubectl apply -f k8s/consumer.yaml
 kubectl -n market logs -f deploy/position-keeper
@@ -597,27 +852,42 @@ kubectl -n market logs -f deploy/position-keeper
 POD=$(kubectl -n market get pod -l app=position-keeper -o jsonpath='{.items[0].metadata.name}')
 kubectl -n market exec $POD -- python -c "
 import sqlite3
-db=sqlite3.connect('/state/positions.db'); gw=sqlite3.connect('/state/gateway.db')
+# Read-only, with a busy timeout. A plain connect() competes for SQLite's write
+# lock with the consumer that is actively writing, and you get 'database is
+# locked' -- which after 7 looks like the deadlock rather than your own query.
+db=sqlite3.connect('file:/state/positions.db?mode=ro', uri=True)
+gw=sqlite3.connect('file:/state/gateway.db?mode=ro', uri=True)
+db.execute('PRAGMA busy_timeout=5000'); gw.execute('PRAGMA busy_timeout=5000')
 rows=db.execute('SELECT COUNT(*) FROM fills').fetchone()[0]
 idem=db.execute('SELECT COALESCE(SUM(qty),0) FROM fills').fetchone()[0]
 t,calls=gw.execute('SELECT total,calls FROM gateway WHERE id=1').fetchone()
+dead=db.execute('SELECT COUNT(*) FROM dead_letters').fetchone()[0]
+# Derived from the ledger, not hardcoded to the 2000-order workload.
 print(f'idempotent rows={rows} total={idem}')
-print(f'gateway calls={calls} total={t}   duplicates={calls-8000}')"
+print(f'gateway calls={calls} total={t}   duplicates={calls-rows}')
+print(f'dead letters={dead}')"
 ```
 
 ### Demo A — `acks=0` silent loss (§3)
 
 ```bash
+rpk topic delete acks-zero 2>/dev/null
 rpk topic create acks-zero -p 6 -r 3
+kubectl -n market delete pod acks-gw --ignore-not-found
 kubectl -n market run acks-gw --restart=Never --image=oms:dev --image-pull-policy=IfNotPresent \
   --env=BROKERS=redpanda.redpanda.svc.cluster.local:9093 --env=TOPIC=acks-zero \
   --env=ORDERS=3000 --env=ACKS=0 --env=IDEMPOTENCE=false --env=RATE=600 \
   --command -- python producer.py
 sleep 12
-kubectl -n redpanda delete pod redpanda-1 --force --grace-period=0    # kill a broker mid-produce
+# A PLAIN delete, never --force --grace-period=0. Chapter 1 7 explains why:
+# force-deleting a broker drops the object from the API without waiting for the
+# kubelet to confirm the container died, so the StatefulSet can start the
+# replacement while the original still holds the volume. A graceful delete
+# still takes the broker out mid-produce, which is all this demo needs.
+kubectl -n redpanda delete pod redpanda-1
 
 kubectl -n market logs acks-gw | grep ^produced          # claims 15000 delivered, 0 failed
-rpk topic describe acks-zero -p | awk 'NR>1{s+=$NF} END{print s}'   # actually 14971
+rpk topic describe acks-zero -p | awk 'NR>1 && NF {s += $8 - $7} END {print s}'   # actually 14971
 ```
 
 Re-run with `ACKS=all IDEMPOTENCE=true` for the control.
@@ -625,53 +895,117 @@ Re-run with `ACKS=all IDEMPOTENCE=true` for the control.
 ### Demo B — a real SIGKILL and duplicate executions (§7, §9)
 
 ```bash
-pgrep -ax python                 # find the consumer as the NODE sees it
-sudo kill -9 <pid>               # NOT kubectl delete --force; see §9
+pgrep -af 'python consumer.py'   # find the consumer as the NODE sees it
+sudo kill -9 <pid>               # NOT kubectl delete --force; see 9
 
 kubectl -n market get pod -l app=position-keeper \
   -o jsonpath='{.items[0].status.containerStatuses[0].lastState.terminated}{"\n"}'
 # expect reason Error, exitCode 137
 
 sleep 60                         # session.timeout.ms ~45s before reassignment
-# then read the ledgers: gateway calls exceed 8000, idempotent total does not move
+# then read the ledgers: gateway calls exceed the fill count, idempotent total does not move
 ```
 
-> Do **not** use `pkill -9 -f "python consumer.py"` — the pattern matches the shell running it and
-> kills your own session. `pgrep -ax python` then `kill -9 <pid>` is safe.
+> `pgrep -af` *lists*; it is safe. The command to avoid is `pkill -9 -f "python consumer.py"`,
+> because that pattern also matches the shell you typed it in and kills your own session. `-af`
+> rather than `-ax` because the bare pattern `python` also matches the producer pod and any other
+> Python on the node.
 
 ### Demo C — the tail that never commits (§8)
 
-Set `COMMIT_SECONDS` to a huge value to restore the bug, then watch lag stall:
+Restoring the bug needs an uncommitted tail to leave behind, and a drained topic has none. So set
+the huge `COMMIT_SECONDS`, wait for the new pod, and *then* produce a batch that is deliberately
+**not** a multiple of `COMMIT_EVERY`:
 
 ```bash
 kubectl -n market set env deploy/position-keeper COMMIT_SECONDS=999999
-watch -n5 "rpk group describe position-keeper | grep TOTAL-LAG"   # sticks at a non-zero number
+kubectl -n market rollout status deploy/position-keeper --timeout=120s
+
+# 13 orders = 65 events; 65 mod 50 = 15 records that will never reach the count trigger
+kubectl -n market delete pod tail-gw --ignore-not-found
+kubectl -n market run tail-gw --restart=Never --image=oms:dev --image-pull-policy=IfNotPresent \
+  --env=BROKERS=redpanda.redpanda.svc.cluster.local:9093 --env=TOPIC=orders-v2 \
+  --env=ORDERS=13 --command -- python producer.py
+
+watch -n5 "rpk group describe position-keeper | grep TOTAL-LAG"   # sticks at 15
 kubectl -n market set env deploy/position-keeper COMMIT_SECONDS=5  # lag drains to 0 and holds
+```
+
+Note that `kubectl set env` restarts the pod, which replays the uncommitted tail and adds to the
+gateway's duplicate count. Read the ledgers *before* running this demo if you care about Demo B's
+numbers.
+
+### Demo D — poison messages (§14)
+
+```bash
+printf 'ORD-1\t{"order_id":"ORD-1","seq":"NOT-AN-INT","type":"FILL","qty":100}\n' \
+  | rpk topic produce orders-v2 -f '%k\t%v\n'
+
+# default POISON=stop: consumer exits 75, CrashLoopBackOff, lag pinned at 1
+kubectl -n market get pods -l app=position-keeper
+rpk group describe position-keeper | grep TOTAL-LAG
+
+# switch to skip-and-record
+kubectl -n market set env deploy/position-keeper POISON=dlq
+kubectl -n market rollout status deploy/position-keeper --timeout=120s
+rpk group describe position-keeper | grep TOTAL-LAG      # drains to 0
 ```
 
 ### Useful one-liners
 
 ```bash
-# records actually in a topic (NF works because the [0 1 2] replicas column splits into 3 fields)
-rpk topic describe orders-v2 -p | awk 'NR>1{s+=$NF} END{print s}'
+# records actually in a topic. $8 is HIGH-WATERMARK and $7 is LOG-START-OFFSET,
+# because the [0 1 2] replicas column splits into three awk fields. Subtracting
+# matters once retention has expired a segment: the high-watermark keeps
+# counting from the beginning of time, but those records are gone.
+# `NF` guards against the trailing blank line.
+rpk topic describe orders-v2 -p | awk 'NR>1 && NF {s += $8 - $7} END {print s}'
 
-# per-partition distribution, for the skew check in 11
-rpk group describe position-keeper | tail -n +3 | awk '{print $2, $5}'
+# per-partition distribution, for the skew check in 11.
+# NOT `rpk group describe`: that reports LAG per partition, not records held,
+# and it prints a seven-line summary block before the table.
+rpk topic describe orders-v2 -p | awk 'NR>1 && NF {print "p" $1, $8 - $7}'
 
 # confirm the exit code of the last container death
 kubectl -n market get pod $POD -o jsonpath='{.status.containerStatuses[0].lastState.terminated.exitCode}'
 ```
 
+### Commands to know by heart
+
+The subset worth being able to type without looking up, because they are what you reach for when
+something is wrong rather than when you are reproducing a demo.
+
+| Command | What it answers |
+|---|---|
+| `rpk group describe <group>` | Who owns which partition, and how far behind each one is |
+| `rpk topic describe <topic> -p` | How many records are actually there, and who leads each partition |
+| `rpk group seek <group> --to start\|end\|timestamp` | Replay, or skip past a jam |
+| `kubectl -n <ns> logs -f deploy/<name>` | The only place a delivery failure is reported |
+| `kubectl get pod <p> -o jsonpath='{.status.containerStatuses[0].lastState.terminated}'` | Why the *previous* container died — exit code and reason |
+| `kubectl -n <ns> rollout restart deploy/<name>` | Pick up a rebuilt image behind a mutable tag |
+| `kubectl -n <ns> set env deploy/<name> KEY=value` | Change a knob and roll it, in one step |
+| `pgrep -af 'python consumer.py'` | Find the process as the **node** sees it, before `kill -9` |
+
+Two of these are worth knowing precisely because their obvious cousins are wrong:
+`rpk group describe` reports **lag** per partition, not records held, so it cannot answer "how is my
+data distributed" (use `rpk topic describe -p`), and `pkill -f` with a loose pattern will match and
+kill the shell you typed it in.
+
 ---
 
-## 15. Glossary
+## 16. Glossary
 
 | Term | Meaning |
 |---|---|
 | **Delivery callback** | Asynchronous per-record result from the producer. The only place a produce failure is reported. |
 | **`flush()`** | Blocks until queued records are delivered; returns the count **still unsent**. A non-zero return is silent data loss if ignored. |
 | **Producer idempotence** | Broker-side dedupe of *producer retries* via a per-session sequence number. Requires `acks=all`. Unrelated to consumer duplicates. |
-| **Quorum ack** | `acks=all` means a majority of replicas, not all of them. 2 of 3 for RF 3. |
+| **Quorum ack** | In **Redpanda**, `acks=all` means a Raft majority — 2 of 3 for RF 3. In **Kafka** it means all *in-sync* replicas, which is a different and weaker promise; see the next row. |
+| **`min.insync.replicas`** | Kafka only. `acks=all` waits for the in-sync set, and if replicas have fallen out of sync that set can shrink to just the leader — so with the default `min.insync.replicas=1`, `acks=all` will happily acknowledge a write that exists on one broker and vanishes with it. Setting it to 2 (with RF 3) makes the producer get an error instead. Redpanda's Raft majority is not subject to this, which is exactly why the distinction is worth knowing: **the same `acks=all` means materially different things on the two systems.** |
+| **`max.poll.interval.ms`** | Client-side liveness. Fail to call `poll()` within it (librdkafka default 5 min) and the broker evicts you from the group. Catches a wedged loop; does **not** catch a loop that is merely far too slow. |
+| **Partitioner** | The hash choosing a key's partition — a **client** default, not a cluster property. librdkafka uses CRC-32, the Java client murmur2. Mixed fleets silently break per-key ordering. |
+| **Poison message** | A record the consumer cannot process. Blocks the partition if you stop, corrupts your state silently if you skip. Which is correct depends on the business, not the technology. |
+| **Dead-letter queue** | Where skipped poison messages go. Must be written in the same transaction as the offset advance, or you lose the trace of the record you most need to trace. |
 | **Effectively-once** | At-least-once delivery plus an idempotent handler, so replay is harmless. Not a protocol — a property of your code. |
 | **Idempotency key** | A caller-supplied unique ID that lets the **receiver** discard a repeated request. The only defence for non-transactional side effects. |
 | **Commit window** | Records processed since the last offset commit. The maximum replay on a crash. |
@@ -681,15 +1015,30 @@ kubectl -n market get pod $POD -o jsonpath='{.status.containerStatuses[0].lastSt
 
 ---
 
-## 16. Interview questions this material answers
+## 17. Interview questions this material answers
 
-**Q: Walk me through what `acks=all` guarantees and what it costs.**
+**Q: Walk me through what `acks=all` guarantees and what it costs.** (§3)
 It means a quorum of replicas has the record before the producer is told it succeeded — 2 of 3 for
-RF 3, since Redpanda uses Raft. It costs a round-trip to the followers. I measured it: killing a
-broker mid-produce with `acks=all` cost latency and zero records; the identical run with `acks=0`
-reported `delivered=15000 failed=0` and 29 records were simply not in the topic. The producer had
-no way to know. For order flow I treat `acks=all` as a floor, because a duplicate is loud and
-recoverable while a lost fill is silent.
+RF 3, since Redpanda uses Raft. On Kafka I'd add a caveat: there `acks=all` means all *in-sync*
+replicas, and with the default `min.insync.replicas=1` that set can shrink to the leader alone, so
+you can lose an acknowledged write. I'd set it to 2 with RF 3. As for cost: killing a broker
+mid-produce with `acks=all` lost zero records, while the identical run with `acks=0` reported
+`delivered=15000 failed=0` and was missing 29 records from the topic. I'll be straight that my test
+did not actually price the durability, because it was rate-limited — `acks=0` came out 0.2s slower,
+which is noise. The cost is a round trip to the followers and it shows up in the p99 of the delivery
+callback under saturation, not in wall-clock on a throttled run. For order flow I treat `acks=all`
+as a floor regardless, because a duplicate is loud and recoverable while a lost fill is silent.
+
+**Q: A record arrives that your consumer can't parse. What happens?** (§14)
+That depends on a decision someone has to make deliberately, and the default in most code is the
+wrong one. My first version let the exception escape the loop into a `finally` that committed the
+offset — so a single malformed fill was skipped permanently and silently, which is the worst
+outcome available. Now it's explicit: the default stops, commits nothing, and exits 75, so the
+record stays at the head of the partition and lag alerts. Everything behind it stalls, which sounds
+bad until you compare it to booking a position you know is wrong. For order flow I'd block; for
+metrics or clickstream I'd route to a dead-letter table and keep going. If you do skip, write the
+dead letter in the same transaction as the offset advance, or you can lose the only record of the
+record you lost.
 
 **Q: Your consumer crashes. How do you make sure you don't process the same message twice?**
 The honest answer is you don't — you make processing it twice harmless. I'd first ask where the
@@ -748,36 +1097,55 @@ at-least-once plus idempotency, and the guarantee has to live in the receiver.
 
 ---
 
-## 17. Check yourself
+## 18. Check yourself
 
-1. Why is `order_id` the message key rather than `event_id`?
-2. What does `produce()` return, and why is that not "the message was sent"?
-3. What does a non-zero return from `flush()` mean, and what happens if you ignore it?
-4. Why does `enable.idempotence=true` refuse to work with `acks=1`?
-5. In the `acks=0` test, why couldn't the producer detect the 29 lost records?
-6. Which failure is worse for an OMS — a duplicate or a lost record? Why?
-7. Why must the image be imported into k3s separately after `docker build`?
-8. What breaks if `imagePullPolicy` is left at `Always` in this lab?
-9. Why is the consumer Deployment `strategy: Recreate` instead of `RollingUpdate`?
-10. Why is `enable.auto.commit=false` a correctness setting and not a performance one?
-11. Which comes first, the state commit or the offset commit? What does the other order cost?
-12. Explain why the first hard-kill test produced zero duplicates in both ledgers.
-13. What is "effectively-once", and what does it require of your state store?
-14. Why did two SQLite connections to one file hang the consumer instead of erroring?
-15. How did the pod appear in `kubectl get pods` while it was hung?
-16. Why did the gateway ledger over-count when the transactional one didn't?
-17. Why did lag stick at exactly 13 and never drain?
-18. Why does the idle path (`msg is None`) also need a commit check?
-19. Why did duplicates go 11 → 22 → 33 instead of staying at 11?
-20. Why isn't `kubectl delete pod --force --grace-period=0` a reliable SIGKILL test?
-21. Why can't you `kill -9 1` from inside the container?
-22. What is exit code 137, and what are three ways to get it?
-23. Why did reassignment take ~45 seconds after the hard kill but nothing after a SIGTERM?
-24. What does `seq_gaps=0` prove that `processed=10000` does not?
-25. Chapter 5 measured 42% skew; this chapter measured 9%. What changed, and what didn't?
-26. Why is `BALANCER range` here but `cooperative-sticky` in Chapter 5?
-27. Why is a per-event durable side effect 8× slower, and what does that imply about the commit window?
-28. What liveness probe would have caught the hang in §7, and why wouldn't a default one?
+Section references rather than answers — if you cannot reconstruct the answer from the section, that
+is the part to re-read.
+
+1. Why is `order_id` the message key rather than `event_id`? (§1)
+2. What does `produce()` return, and why is that not "the message was sent"? (§2)
+3. What does a non-zero return from `flush()` mean, and what happens if you ignore it? (§2)
+4. What is `BufferError`, and why is retrying it the correct response rather than an error? (§2)
+5. Why does `enable.idempotence=true` refuse to work with `acks=1`? (§2)
+6. Does producer idempotence protect you if the producer Job restarts? What does? (§2)
+7. In the `acks=0` test, why couldn't the producer detect the 29 lost records? (§3)
+8. Why can't that test tell you what `acks=all` costs in latency? (§3)
+9. What does `acks=all` mean on Kafka rather than Redpanda, and why does `min.insync.replicas`
+   matter there? (§16)
+10. Which failure is worse for an OMS — a duplicate or a lost record? Why? (§3)
+11. Why must the image be imported into k3s separately after `docker build`? (§4)
+12. What breaks if `imagePullPolicy` is left at `Always` in this lab? (§4)
+13. Why is the consumer Deployment `strategy: Recreate` instead of `RollingUpdate`? (§5)
+14. Why is `enable.auto.commit=false` a correctness setting and not a performance one? (§5)
+15. Which comes first, the state commit or the offset commit? What does the other order cost? (§5)
+16. Explain why the first hard-kill test produced zero duplicates in both ledgers. (§6)
+17. What is "effectively-once", and what does it require of your state store? (§6)
+18. Why did two SQLite connections to one file hang the consumer instead of erroring? (§7)
+19. How did the pod appear in `kubectl get pods` while it was hung? (§7)
+20. Why did the gateway ledger over-count when the transactional one didn't? (§7)
+21. Why did lag stick at exactly 13 and never drain? (§8)
+22. Why does the idle path (`msg is None`) also need a commit check? (§8)
+23. Why did duplicates go 11 → 22, and what would the *n*th restart cost? (§8)
+24. Why isn't `kubectl delete pod --force --grace-period=0` a reliable SIGKILL test? (§9)
+25. Why can't you `kill -9 1` from inside the container? (§9)
+26. What is exit code 137, and what are three ways to get it? (§9)
+27. Why did reassignment take ~45 seconds after the hard kill but nothing after a SIGTERM? (§9)
+28. What does `seq_gaps=0` prove that `processed=10000` does not? (§10)
+29. Chapter 5 measured 42% of traffic on one partition; what is the comparable number here, and why
+    is it not the 9% span? (§11)
+30. Is the 9% span evidence of a good hash, or of nothing at all? How would you tell? (§11)
+31. This test gave every key equal volume. Why does that make the result optimistic? (§11)
+32. Why is `BALANCER range` here but `cooperative-sticky` in Chapter 5? (§12)
+33. Two clients produce the same `order_id` to the same topic and it lands on different partitions.
+    How? (§12)
+34. Why is a per-event durable side effect 8× slower, and what does that imply about the commit
+    window? (§12)
+35. What liveness probe would have caught the hang in §7, and why wouldn't a default one? (§13)
+36. What does `max.poll.interval.ms` catch that a liveness probe doesn't, and vice versa? (§13)
+37. Which of the two catches a consumer that is running at one-eighth of normal speed? (§13)
+38. Find the bug in the original `finally` block, and name the section that warned against it. (§14)
+39. A fill won't parse. Do you block the partition or skip it? Defend either answer. (§14)
+40. Why must a dead-letter write share the transaction with the offset advance? (§14)
 
 ---
 

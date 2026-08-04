@@ -68,13 +68,25 @@ spec:
 # ---------------------------------------------------------------------------
 # FAILURE DRILL A — broken readiness probe (fails SAFE)
 #
-#   sed -i 's|path: /$|path: /healthz|' web-deployment.yaml
-#   kubectl apply -f web-deployment.yaml
+#   kubectl patch deploy web --type=json -p \
+#     '[{"op":"replace","path":"/spec/template/spec/containers/0/readinessProbe/httpGet/path","value":"/healthz"}]'
 #
 # nginx returns 404 for /healthz and an httpGet probe only accepts 200-399.
 # Expect: 4 pods, 3 Ready, rollout STALLS, service keeps serving 200s.
 # Recover:  kubectl rollout undo deploy web
-#           ...then FIX THE FILE, or the next apply re-ships the break.
+#
+# This drill used to read `sed -i 's|path: /$|path: /healthz|'`, which is a
+# no-op: the `path: /` line above ends in a COMMENT, so `/$` never matches.
+# sed exits 0 having changed nothing, apply reports "unchanged", and the
+# reader concludes a broken readiness probe has no effect. Keep the lesson:
+# a text edit that silently matches nothing is one of the easiest ways to
+# draw a confident wrong conclusion from a drill. If you do edit the file,
+# verify the edit landed before believing the result:
+#
+#   grep -n 'path:' web-deployment.yaml
+#
+# `kubectl patch` is used here instead because it addresses the field by
+# path rather than by text, so a mistake is an error rather than a silence.
 #
 # ---------------------------------------------------------------------------
 # FAILURE DRILL B — broken liveness probe (fails DEADLY)

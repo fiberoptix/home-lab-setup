@@ -25,7 +25,7 @@ metadata:
 spec:
   replicas: 1
   # Recreate, not RollingUpdate: two replicas cannot share a ReadWriteOnce
-  # volume, so a surge would deadlock on the PVC (Ch2 4).
+  # volume, so a surge would deadlock on the PVC (Ch2 5).
   strategy:
     type: Recreate
   selector:
@@ -41,11 +41,30 @@ spec:
       # then the successor replays. 30s is the default; being explicit here
       # because on this workload it is a correctness knob, not a nicety.
       terminationGracePeriodSeconds: 30
+      # This workload never calls the Kubernetes API. Mounting a token anyway
+      # hands any code that runs in the container -- including a dependency
+      # you did not audit -- a credential scoped to the namespace's default
+      # ServiceAccount. Declining it is free.
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        # local-path volumes are created root-owned. fsGroup makes the kubelet
+        # chgrp the mount so an unprivileged process can write its ledger.
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: consumer
           image: oms:dev
           imagePullPolicy: IfNotPresent      # no registry; image side-loaded
           command: ["python", "consumer.py"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true     # state belongs on the volume
+            capabilities:
+              drop: ["ALL"]
           env:
             - name: BROKERS
               value: redpanda.redpanda.svc.cluster.local:9093

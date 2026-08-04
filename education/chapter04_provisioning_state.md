@@ -59,7 +59,11 @@ any other data.
 
 So in this cluster `kubectl get topics` returns nothing, because no such object exists.
 
-![Two control planes](images/ch04_fig1_control_planes.png)
+![Figure 1 — two control planes, and the gap between them](images/ch04_fig1_control_planes.png)
+
+> **The same fact, seen from both sides**
+>
+> Rebuild from `redpanda-values.yaml` and you get three healthy brokers and **zero topics**. Delete every Kubernetes object used for seeding and **the topics survive untouched**. Because topic state is not Kubernetes state, `helm install` + `rollout status` is not a sufficient deployment gate. It asserts the brokers exist, not that the service can be used.
 
 Two consequences that look contradictory but are the same fact seen from opposite sides:
 
@@ -261,8 +265,32 @@ if ! rpk topic describe "$name" >/dev/null 2>&1; then
 fi
 ```
 
-That is the whole idea, and it is enough to stop the pipeline going red on every redeploy. Run
-against a cluster where the topic is missing, then again with nothing changed:
+That is the whole idea, and it is enough to stop the pipeline going red on every redeploy.
+
+The runs below use a throwaway topic called `drift-demo` rather than `orders`, so that partition
+and replication drift can be inflicted deliberately without damaging a topic the later chapters
+depend on. It is not in the shipped `TOPICS` array — to follow along, add it:
+
+```bash
+TOPICS=(
+  "orders:6:3:retention.ms=604800000"
+  "executions:6:3:retention.ms=604800000"
+  "orders-v2:6:3:retention.ms=604800000"
+  "drift-demo:6:3:retention.ms=604800000"      # add this line
+)
+```
+
+and then inflict each kind of drift by hand between runs:
+
+```bash
+# Tier 1 — a config the script can fix in place
+rpk topic alter-config drift-demo --set retention.ms=3600000
+
+# Tier 3 — a partition count it cannot. Recreate it wrong on purpose.
+rpk topic delete drift-demo && rpk topic create drift-demo -p 2 -r 3
+```
+
+Run against a cluster where the topic is missing, then again with nothing changed:
 
 ```
 ############ RUN 1: topic missing -> creates it
@@ -368,7 +396,19 @@ is nobody to compute under-replication, so the metric reads zero. That is the **
 metric has lied in a way that would matter at 3am — the first was the two-broker quorum drill in
 Ch3 §9b. **Alert on `Leaderless`. Never on `Under-replicated` alone.**
 
-![Pod-Ready is not cluster-ready](images/ch04_fig2_readiness_race.png)
+![Figure 2 — Pod-Ready is not cluster-ready](images/ch04_fig2_readiness_race.png)
+
+> **Why every simpler gate fails**
+>
+> **Wait for DNS?** The chart sets `publishNotReadyAddresses: true`, so the headless Service hands out brokers that are not yet accepting connections. Resolution is not a readiness signal.
+>
+> **Wait for pods Ready?** Measured above: 9 seconds early. Each partition is its own Raft group and elects independently — 7 of 18 had finished, 11 had not. There is no instant when "the cluster" becomes ready.
+>
+> **Just sleep?** Scheduled→Ready was **21s** here and closer to **2 minutes** with cold images. `sleep 60` would pass today and fail that run; `sleep 180` is safe and wastes 3 minutes on every deploy forever.
+>
+> **Poll for Healthy: true.** Cost 0s on an already-healthy cluster, 50s here. Self-adjusting, and bounded so a genuinely broken cluster still fails the pipeline.
+>
+> **Alert on Leaderless, never on Under-replicated alone** — with no leader there is nobody to compute under-replication, so it read `0` while 11 partitions were dead. Second time this metric lied.
 
 ### 6c. The fix, and the trap inside the fix
 
@@ -471,7 +511,13 @@ safely do (Ch3 §2d).
 So the script has to compare shape, not just existence. What it should do about a mismatch depends
 entirely on the field, which sorts into three tiers.
 
-![Idempotent is not reconciling](images/ch04_fig3_drift_tiers.png)
+![Figure 3 — idempotent is not reconciling](images/ch04_fig3_drift_tiers.png)
+
+> **The design rule**
+>
+> A reconciler should fix what is **cheap and reversible**, and refuse to fix what is **expensive or destructive** — loudly, with a non-zero exit, naming the field and both values. The failure mode to avoid is not "the script could not fix it." It is **"the script reported success on a cluster that was wrong"** — which is exactly what the existence-only guard does, and why a green pipeline is not evidence of a correct topic.
+>
+> **For Tier 3 the only real defence is prevention:** auto-create off, partition count reviewed at creation, and sized for growth up front, because it is the one number you can never take back.
 
 ### 7a. Tier 1 — reconcile in place
 
@@ -491,6 +537,30 @@ retention.ms                          604800000      DYNAMIC_TOPIC_CONFIG
 ```
 
 Detected, corrected, exit 0, and the follow-up `describe` confirms it stuck.
+
+**Where does 7 days come from, though?** `retention.ms=604800000` has been sitting in the spec since
+§5 as if it were self-evident, and for an order journal at a broker-dealer it is worth defending —
+because two plausible-sounding alternatives are both wrong.
+
+*Not* `cleanup.policy=compact`. Compaction keeps the latest record per key and discards the rest,
+which for `orders` keyed by `order_id` means keeping the last event of each order and **throwing
+away its fill history**. That destroys the exact thing Chapter 6's `seq` check reads, and it does it
+silently, in the background, weeks after someone set the flag. Compaction is right for a *current
+state* topic — the latest position per account — and wrong for an event journal.
+
+*Not* multi-year retention on broker disk either, even though broker-dealer order records carry
+regulatory retention measured in years (SEC Rule 17a-4 and the FINRA rules that lean on it). Those
+obligations also demand things a Kafka topic does not provide — a durable, non-rewriteable format,
+and the ability to produce specific records on request. The pattern is to treat the topic as the
+*transport and short-term buffer*, and to land an immutable copy in archival storage (tiered
+storage, or a consumer writing to object storage with a retention lock) which is what the regulator
+actually reads.
+
+So the 7 days is sized against **operational** need, not legal need: long enough to replay a bad
+deploy, re-run a day's positions, or bootstrap a new consumer group from the start of the week, and
+short enough that the brokers' local disks are not the system of record. That framing — retention
+answers "how far back can I replay", archival answers "what must I be able to produce in five
+years" — is the answer to give when someone asks why the number is what it is.
 
 ### 7b. Tier 2 — repairable, but it is an operation
 
@@ -549,10 +619,18 @@ What that buys you over a Job:
 | | Job | Operator |
 |---|---|---|
 | Runs | Once, at deploy | Continuously reconciles |
-| Drift | Undetected (§7) | Corrected |
+| Drift **detected** | At deploy time only (§7) | Continuously |
+| Drift **corrected** | Tier 1 fixed in place; Tier 2/3 reported and the deploy fails (§7) | Tier 1 the same; Tier 2/3 still need a human |
 | Visibility | `rpk` only | `kubectl get topics` |
 | Ordering | You handle readiness (§6) | Controller retries until healthy |
 | Cost | One YAML file | Another controller to run, upgrade and monitor |
+
+Be precise about that middle pair, because it is the row people wave at to justify an operator and
+it is not as one-sided as "Job: undetected". §7 is the section where the Job *does* detect drift —
+it fixes retention in place and fails the deploy on partition and replication drift. The real
+difference is **when**, not whether: the Job only looks when you deploy, so drift introduced at
+11 a.m. on a Tuesday sits undiscovered until the next release. And an operator does not magically
+fix Tier 3 either — you cannot reduce a partition count by reconciling harder.
 
 The honest trade-off: for a three-broker lab with two topics, the Job is proportionate. For
 production with many topics across teams, the operator earns its keep — topic definitions become
@@ -622,15 +700,40 @@ concurrently and take whichever fires first, so a genuine failure surfaces immed
 message:
 
 ```bash
-kubectl -n redpanda wait --for=condition=complete job/seed-topics --timeout=600s &
-ok=$!
-kubectl -n redpanda wait --for=condition=failed   job/seed-topics --timeout=600s && exit 1 &
-bad=$!
-wait -n $ok $bad
+kubectl -n redpanda wait --for=condition=complete job/seed-topics --timeout=600s & ok=$!
+( kubectl -n redpanda wait --for=condition=failed job/seed-topics --timeout=600s && exit 1 ) & bad=$!
+
+wait -n $ok $bad; rc=$?          # capture IMMEDIATELY -- see below
+
+kubectl -n redpanda logs job/seed-topics --all-containers
+kill $ok $bad 2>/dev/null        # whichever waiter is still running
+exit $rc
 ```
 
 Then always print the logs, on success and failure alike — the useful message
 (`TOPIC_ALREADY_EXISTS`, or a `DRIFT` line) is in the pod, not in the `wait` output.
+
+**Two things in that snippet are easy to get wrong, and I got both wrong first.**
+
+The `exit 1` is inside a subshell, so it exits *the subshell*, not your script. It does not fail the
+pipeline. What actually carries the failure is `wait -n`, which returns the exit status of whichever
+job finished — and that is a **status you have exactly one command to capture**. My original version
+ended the block at `wait -n $ok $bad` and read correctly in isolation. Then the next sentence says
+"always print the logs", and the moment you follow that instruction:
+
+```
+$ bash wait-original.sh; echo "exit = $?"
+exit = 0                # the failure is gone; $? now belongs to kubectl logs
+```
+
+A deploy gate that reports success on every failed seed, introduced by adding a log line. Hence
+`rc=$?` on the same line, before anything else runs.
+
+The `kill` matters too: the losing waiter otherwise sits there for the remaining timeout. Harmless
+in a shell, an accumulating pile of processes in a CI runner that does this on every deploy.
+
+Verified both paths on bash 5.3 — failure returns 1 with the logs printed, success returns 0
+immediately rather than waiting out the loser's timeout.
 
 ---
 
@@ -708,7 +811,9 @@ kubectl -n redpanda get pods -l app.kubernetes.io/name=redpanda \
 | **Seeding / bootstrapping** | Creating application-level state after the application is running. |
 | **Idempotent** | Re-running produces the same result without error. Converges on *presence*. |
 | **Reconciling** | Continuously corrects live state to match declared state. Converges on *correctness*. |
-| **`auto.create.topics.enable`** | Creates topics implicitly on first produce. Off here, deliberately. |
+| **`auto.create.topics.enable`** | Creates topics implicitly on first produce. Off here, deliberately. Redpanda spells it **`auto_create_topics_enabled`** — same knob, and this chapter uses both spellings because `rpk` accepts only the second while every Kafka document you will read uses the first. |
+| **`retention.ms`** | How long records survive before deletion. Sized for how far back you can replay, *not* for regulatory retention — that belongs in archival storage (§7a). |
+| **`cleanup.policy=compact`** | Keeps only the latest record per key. Correct for a current-state topic, destructive for an event journal, and it does its damage silently (§7a). |
 | **Post-install hook** | A Helm-managed Job that runs after the release is applied. |
 | **`backoffLimit`** | Retries before a Job is marked `Failed`. `2` means three pods total. |
 | **Operator / CRD** | A controller plus custom resource types, making app state a Kubernetes object. |
@@ -818,6 +923,9 @@ With it off you get an immediate `UNKNOWN_TOPIC_OR_PARTITION`.
 
 ## What's next
 
-- **Chapter 5 — Schema Registry**: the same provisioning problem, with subjects instead of topics.
-- **Chapter 7 — the market-data application**: consumer groups, offsets, and the client-side settings
-  (`acks`, `enable.idempotence`, partitioner choice) that decide whether the pipeline is correct.
+- **Chapter 5 — consumer groups and rebalancing**: who owns which partition, what a rebalance
+  costs, and the difference a SIGTERM makes over a SIGKILL.
+- **Chapter 6 — the application**: the client-side settings (`acks`, `enable.idempotence`,
+  partitioner choice) that decide whether the pipeline is correct.
+- **Chapter 7 — Schema Registry**: this same provisioning problem, with subjects instead of
+  topics.

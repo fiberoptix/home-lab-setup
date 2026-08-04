@@ -21,10 +21,16 @@ Every command shown was executed and every output quoted is real. Nothing is ill
 | Redpanda | `v26.1.12` |
 | `rpk` | `v26.1.14` |
 | Namespace | `redpanda` |
-| Brokers | `redpanda-0/1/2`, pod IPs `10.42.0.69 / .74 / .73` |
+| Brokers | `redpanda-0/1/2`, pod IPs `10.42.0.69 / .74 / .73` **at the time of writing** |
 | CoreDNS | `10.43.0.10` |
 | Test topic | `market-ticks`, 6 partitions, RF 3 |
 | Values file | [`manifests/redpanda-values.yaml`](manifests/redpanda-values.yaml) |
+
+Those broker pod IPs appear throughout the chapter and **yours will be different** — they change
+every time a pod is recreated, which on this cluster has already happened several times since
+(they are now `.112 / .144 / .114`). That is not an erratum, it is the point of §5: the stable
+identity of a broker is its DNS name `redpanda-0.redpanda.redpanda.svc.cluster.local`, never its
+address. Any command you write against a pod IP is correct for about as long as the pod lives.
 
 ---
 
@@ -38,9 +44,10 @@ Every command shown was executed and every output quoted is real. Nothing is ill
 6. **The install, step by step** — a re-usable runbook, including the failed first attempt
 7. **Wiring up `rpk`** — and the advertised-listener problem that blocked it
 8. **Verified demos** — partitioning, keys, and reading a log without hanging your terminal
-9. **Failure drills** — kill one broker, kill two, prove nothing was lost
-10. Where this sandbox differs from production
-11. Commands, glossary, and self-test
+9. **Failure drills** — kill one broker, kill two, prove nothing was lost, and what to alert on
+10. **Rolling restarts and upgrades** — the same thing done deliberately, without an outage
+11. Where this sandbox differs from production
+12. Commands, glossary, and self-test
 
 ---
 
@@ -294,7 +301,21 @@ partition carries on completely untouched.
 
 ## 4. Quorum: why three
 
-![Figure 2 — the quorum arithmetic](images/ch03_fig2_quorum.png)
+**Quorum = majority = floor(3/2) + 1 = 2 of 3**
+
+| State | Brokers up | Majority? | Result |
+|---|---|---|---|
+| **Healthy** | 3 of 3 | yes — 3 ≥ 2 | **Writes accepted.** Leader + 1 follower must ack. |
+| **Lose one** | 2 of 3 | yes — 2 ≥ 2 | **Writes still accepted.** If the dead one led a partition, a new leader is elected in ~1 second. No data loss. |
+| **Lose two** | 1 of 3 | **NO — 1 < 2** | **Writes REFUSED.** The survivor steps down rather than accept writes it cannot prove are safe. |
+
+> **The point of the third broker**
+>
+> With **2** brokers, a majority is still 2 — so losing either one halts writes. Two brokers buy you a second copy of the data and **zero** fault tolerance.
+>
+> **Odd numbers are what buy availability.** 3 survives 1 failure, 5 survives 2. Going 3 → 4 costs a machine and improves nothing: a majority of 4 is 3.
+>
+> **Refusing writes is the correct behaviour, not a bug.** A minority that kept accepting trades could not guarantee they survive — that is how you lose money.
 
 Raft requires a majority to agree. For a group of three, that is two.
 
@@ -359,13 +380,28 @@ selector and EndpointSlices. Only the virtual IP is missing.
 Your cluster runs one of each, in the same namespace, from the same Helm release:
 
 ```
-NAME               TYPE        CLUSTER-IP      SELECTOR
-redpanda           ClusterIP   None            name=redpanda      <- headless, the brokers
-redpanda-console   ClusterIP   10.43.128.189   name=console       <- normal, the web UI
+$ kubectl -n redpanda get svc \
+    -o custom-columns='NAME:.metadata.name,TYPE:.spec.type,CLUSTER-IP:.spec.clusterIP,SELECTOR:.spec.selector'
+
+NAME                TYPE        CLUSTER-IP      SELECTOR
+redpanda            ClusterIP   None            map[app.kubernetes.io/instance:redpanda app.kubernetes.io/name:redpanda]
+redpanda-console    ClusterIP   10.43.128.189   map[app.kubernetes.io/instance:redpanda app.kubernetes.io/name:console]
+redpanda-external   NodePort    10.43.3.201     map[app.kubernetes.io/instance:redpanda app.kubernetes.io/name:redpanda]
 ```
 
-Both are `type: ClusterIP`. Both have selectors. The difference is the third column, and what it
-changes is **who picks the pod**.
+The first two are `type: ClusterIP`. Both have selectors. The difference is the third column, and
+what it changes is **who picks the pod**.
+
+Note the selectors are real chart labels, not the tidy `name=redpanda` you might expect — Helm
+charts label on `app.kubernetes.io/{name,instance}` so that two releases of the same chart in one
+namespace do not select each other's pods. It matters here because if you write a NetworkPolicy or
+a second Service by hand and guess the label, it will select nothing, and a Service that selects
+nothing looks identical to a Service whose pods are all unhealthy. Read the selector, don't assume
+it.
+
+`redpanda-external` is the third one, and it is the closest thing this cluster has to an external
+boundary: a NodePort onto the same broker pods, with no TLS and no authentication in front of it.
+§11 comes back to what that would need before anyone outside the cluster could be allowed near it.
 
 **Normal ClusterIP — Kubernetes picks, and hides the pods:**
 
@@ -664,7 +700,17 @@ works and the other does not, that is your first clue about which port is miscon
 
 ### 7c. The advertised-listener problem
 
-![Figure 3 — why rpk could not reach the brokers](images/ch03_fig3_rpk_connectivity.png)
+![Figure 2 — why rpk could not reach the brokers](images/ch03_figA_rpk_broken.png)
+
+![Figure 3 — the DNS fix that solved it](images/ch03_figB_rpk_fixed.png)
+
+> **Why this shortcut is legitimate here — and why it would not be in production**
+>
+> The host IS the Kubernetes node, so the pod network (10.42.0.0/24) sits on a local bridge and is directly routable. From any OTHER machine on the LAN those pod IPs are unreachable and this fails.
+>
+> **The real fix** is to configure external.advertisedPorts / external.domain so brokers advertise an address clients can actually reach. The general rule, and the interview answer:
+>
+> **a broker must advertise an address its clients can resolve AND route to — from where the client is.**
 
 Pointing `rpk` at the NodePort looked obviously right and failed:
 
@@ -699,6 +745,12 @@ Docker, across VPCs, and through load balancers — always the same shape.
 **The fix we chose:** teach the host to resolve cluster DNS, then talk to brokers directly.
 
 ```bash
+# The drop-in directory does not exist on a stock Ubuntu install -- systemd
+# reads it if present but does not ship it. Without this line `tee` fails with
+# "No such file or directory", and because the redirect swallows stdout the
+# error is easy to skim past and conclude that DNS simply did not take effect.
+sudo mkdir -p /etc/systemd/resolved.conf.d
+
 sudo tee /etc/systemd/resolved.conf.d/k3s-cluster-dns.conf >/dev/null <<'EOF'
 # Route *.cluster.local queries to k3s CoreDNS so host tools (rpk) can resolve
 # the internal, headless-Service broker names. "~" = routing-only domain.
@@ -804,8 +856,20 @@ Read this table fluently, because it is the single most useful diagnostic in Red
 - **`LEADER`** — who serves this partition. It is *not* evenly spread on creation — here broker 0
   took three and broker 2 only one — and the leader balancer evens it out shortly after. **The
   initial assignment varies between runs**, so expect different numbers when you repeat this.
-- **`HIGH-WATERMARK`** — the next offset to be written, so it is also **the number of committed
-  records** in that partition. Summing this column is the authoritative record count.
+- **`HIGH-WATERMARK`** — the next offset to be written. It equals the number of committed records
+  **only while `LOG-START-OFFSET` is 0**, which is true for every topic in this chapter because none
+  of them has yet had a segment expired by retention. Once retention deletes the head of the log,
+  the high-watermark keeps counting from the beginning of time while those records are gone, and
+  the count you want is `HIGH-WATERMARK - LOG-START-OFFSET`. Get into the habit now:
+
+```bash
+# records actually present, correct even after retention has expired segments
+rpk topic describe demo-ticks -p | awk 'NR>1 && NF {s += $8 - $7} END {print s}'
+```
+
+  This is the difference between "how many records has this partition ever held" and "how many can
+  I still read", and on a topic with a seven-day retention those two numbers diverge on day eight.
+  The `NF` guard skips the trailing blank line that would otherwise contribute an empty field.
 
 ```bash
 # total committed records — note field 8
@@ -1028,10 +1092,15 @@ The reconciliation that matters — every record we had produced up to this poin
 | p1 | 0 | never received anything |
 | **total** | **32** | and `-o :end` read back exactly **32** |
 
-> *Chronology note: these totals are the state at the end of the two-broker drill. The §9a drill
-> was re-run afterwards to verify its commands, which added `during-drill` at p3 offset 14 — so the
-> topic now holds 33. Your own numbers will differ; what must hold is that the `-o :end` count
-> equals the sum of the high-watermarks, and that no acknowledged write is missing.*
+> *Chronology and naming note, because the payloads above do not match the commands earlier in this
+> chapter. The table is the state at the end of the original two-broker drill, in which the two
+> test writes were called `during-outage` and `should-fail`. The commands printed in §9a and §9c
+> were re-run afterwards to verify them exactly as written, and that pass used the clearer names
+> `during-drill` and `quorum-test` — the re-run added `during-drill` at p3 offset 14, so the topic
+> now holds 33. Same drill, same result, different payload strings; `during-outage` corresponds to
+> §9a's `during-drill`, and `should-fail` to a second successful write during the outage. Your own
+> numbers will differ. What must hold is that the `-o :end` count equals the sum of the
+> high-watermarks, and that no acknowledged write is missing.*
 
 > **Every write that was acknowledged survived. The write that could not be safely acknowledged
 > never appeared.**
@@ -1087,9 +1156,167 @@ The trap is treating `Under-replicated` as your primary durability alarm. We wat
 both immediately after a broker died (before the leader noticed) and throughout a total quorum
 outage (no leader to compute it). **`Leaderless` is the honest signal.**
 
+### 9f. Where those numbers actually come from
+
+An alert you cannot collect is a wish. Everything above comes from `rpk cluster health`, which is a
+human command — fine at 3 a.m. with a terminal open, useless as a monitoring input. The real source
+is the Admin API's Prometheus endpoints on port `9644`:
+
+| Endpoint | Contents |
+|---|---|
+| `:9644/public_metrics` | The curated set — stable names, intended for dashboards and alerts |
+| `:9644/metrics` | Everything, including internal seastar counters. Large, and not a stable contract |
+
+Prefer `/public_metrics`. On this cluster it exposes 2,114 series; `/metrics` is far larger and its
+names can change between releases.
+
+The families worth knowing by name, all confirmed on this cluster:
+
+```
+redpanda_kafka_under_replicated_replicas{redpanda_topic="orders",redpanda_partition="0",...}  0
+redpanda_kafka_consumer_group_committed_offset{redpanda_group="oms-processor",
+                                               redpanda_topic="orders",
+                                               redpanda_partition="1",...}  375
+redpanda_storage_disk_free_bytes{}                301212672000
+redpanda_storage_disk_free_space_alert{}          0
+```
+
+**Consumer lag is not published directly, and this catches people out.** The broker exposes the
+group's *committed offset* per partition and the partition's *high-watermark* separately; lag is the
+subtraction, and you do it in the query:
+
+```promql
+max by (redpanda_topic, redpanda_partition) (
+    redpanda_kafka_max_offset - on(redpanda_topic, redpanda_partition)
+    redpanda_kafka_consumer_group_committed_offset{redpanda_group="position-keeper"}
+)
+```
+
+Alert on the **max across partitions**, never the sum or the average — Chapter 5 §3 is the whole
+argument for why. One badly stuck partition is invisible in a total that six partitions contribute
+to, and it is the only one that matters.
+
+There is a second source people forget: **the client**. Set `statistics.interval.ms` and librdkafka
+hands your application a JSON blob per interval containing its own view of lag per partition
+(`consumer_lag`), which is the only number that reflects what your consumer actually sees rather
+than what the broker last heard it commit. Chapter 6 §14 makes the related point that lag in
+*records* is not directly actionable — a count means nothing without a rate — which is why the
+consumer there also emits an event-age measurement.
+
+`redpanda_storage_disk_free_space_alert` deserves its own line. It is Redpanda's own assessment of
+disk pressure, and it changes broker **behaviour**, not just your dashboard: as free space falls the
+broker begins throttling and eventually rejects writes rather than filling the disk. That matters
+disproportionately in this lab, because §6c established that local-path capacity requests are a
+fiction — all three "brokers" share one unquotaed filesystem, so a single runaway topic can take the
+entire quorum down at once, which is a failure mode a real three-node cluster does not have.
+
 ---
 
-## 10. Where this sandbox differs from production
+## 10. Rolling restarts and upgrades — the routine task
+
+Everything in §9 was a failure being inflicted. This section is the opposite: the ordinary,
+scheduled, deliberate version of taking a broker down, and it is **the single most common real task
+in operating a cluster like this**. Patching, resizing, changing a config that needs a restart, or
+a version upgrade all reduce to the same procedure.
+
+The naive version is one command:
+
+```bash
+kubectl rollout restart sts/redpanda -n redpanda        # DON'T
+```
+
+It is not enough, and §9d already showed why. A StatefulSet restarts pods one at a time in reverse
+ordinal order and waits for each to be `Ready` before moving on, which sounds exactly right. But
+`Ready` is a Kubernetes-level assertion about the pod, and it knows nothing about **Raft leadership**.
+Restart a broker that currently leads twenty partitions and those partitions are leaderless — no
+reads, no writes — for as long as it takes the surviving brokers to hold elections. Do it three
+times in a row and you have inflicted three avoidable write outages during a maintenance window.
+
+### Drain leadership first
+
+Redpanda has an explicit mechanism for this: **maintenance mode** moves every partition leadership
+off a broker before you touch it, so the restart costs nothing.
+
+```bash
+rpk cluster maintenance enable 1 --wait
+```
+
+```
+Successfully enabled maintenance mode for node 1. Waiting for node to drain...
+NODE-ID  ENABLED  FINISHED  ERRORS  PARTITIONS  ELIGIBLE  TRANSFERRING  FAILED
+1        true     true      false   42          0         14            0
+```
+
+Read that last row: 42 partitions on the broker, **0 still eligible** to lead, 14 transferred, 0
+failures. `--wait` is what makes the command useful in a script — without it you get the enable and
+have to poll `rpk cluster maintenance status` yourself.
+
+The drain is visible in the leadership distribution. Before, the six partitions of `orders-v2` were
+spread across all three brokers; during maintenance on node 1:
+
+```bash
+rpk topic describe orders-v2 -p | awk 'NR>1 && NF {print $2}' | sort | uniq -c
+      3 0          # broker 0 leads three
+      3 2          # broker 2 leads three
+                   # broker 1 leads NOTHING -- safe to restart
+```
+
+Now the restart is uneventful, because nothing depends on that broker to serve a request. Afterwards,
+return it to service and confirm before moving on:
+
+```bash
+kubectl -n redpanda delete pod redpanda-1              # plain delete; never --force ( 9b, Ch1 7)
+kubectl -n redpanda wait --for=condition=Ready pod/redpanda-1 --timeout=300s
+rpk cluster health                                     # Healthy: true BEFORE the next broker
+rpk cluster maintenance disable 1
+```
+
+```
+Healthy:                          true
+Nodes down:                       []
+Leaderless partitions (0):        []
+```
+
+**One broker at a time, and the health check between them is the whole procedure.** With RF 3 you
+can lose one broker and keep quorum; start the second restart before the first broker has caught up
+and you are down two, which on a three-node cluster means the topic stops accepting writes — the
+§9c outage, self-inflicted during planned maintenance. That is how a routine patch night becomes an
+incident, and it is why the gate is `rpk cluster health` rather than `kubectl get pods`: the pod is
+`Ready` well before the broker has finished recovering its Raft groups.
+
+### The whole loop
+
+```bash
+for id in 0 1 2; do
+  rpk cluster maintenance enable "$id" --wait || exit 1
+  kubectl -n redpanda delete pod "redpanda-$id"
+  kubectl -n redpanda wait --for=condition=Ready "pod/redpanda-$id" --timeout=300s || exit 1
+  until rpk cluster health | grep -q 'Healthy:.*true'; do sleep 5; done
+  rpk cluster maintenance disable "$id"
+done
+```
+
+Two things to say about that loop in an interview. It restarts brokers in ascending order while a
+StatefulSet would go descending — the order does not matter as long as it is *one at a time*, and
+doing it yourself is the point, because you are not letting the StatefulSet controller decide the
+pace. And there is no `--force` anywhere: every broker gets its full 90-second grace period (Ch1 §7)
+to flush and leave its Raft groups.
+
+**For an actual version upgrade**, the same loop applies with two additions: change the image once
+in the StatefulSet (or run `helm upgrade` with `--set image.tag=`) so each restarted pod comes back
+on the new version, and check the release notes for the supported upgrade path — Redpanda, like
+Kafka, does not promise that you can skip arbitrary versions. Upgrade one broker, verify it rejoins
+and the cluster is healthy, and only then continue. A mixed-version cluster running for ten minutes
+is normal; one running for a week because nobody finished is a genuine hazard.
+
+**And the thing people forget**: `rpk cluster maintenance disable` at the end. A broker left in
+maintenance mode leads no partitions, so the remaining two carry all the work and you have quietly
+reduced a three-broker cluster to two — with no alert anywhere, because every pod is `Running` and
+`Healthy: true`. Check `rpk cluster maintenance status` after any maintenance window.
+
+---
+
+## 11. Where this sandbox differs from production
 
 State these before you are asked. Volunteering a limitation reads as competence; being caught
 unaware of it does not.
@@ -1097,7 +1324,7 @@ unaware of it does not.
 | Sandbox | Production | Consequence |
 |---|---|---|
 | 3 brokers on **1 node** | 3 nodes, ideally 3 failure domains | RF 3 buys **zero** hardware fault tolerance here. Losing the VM loses all three "brokers". |
-| **soft** anti-affinity | hard, on `topology.kubernetes.io/zone` | the sandbox setting is the thing hard affinity exists to prevent |
+| **soft** anti-affinity | hard, and on the right topology key | the sandbox setting is the thing hard affinity exists to prevent |
 | `local-path` on one NVMe | per-node PVs, replicated or cloud-backed | one disk failure destroys every replica |
 | **TLS off** | TLS + SASL/mTLS | no encryption, no authentication, no authorisation |
 | host resolves `cluster.local` | proper external advertised listeners | works only because the host is the node |
@@ -1108,9 +1335,28 @@ The honest framing: **this cluster teaches you Redpanda's behaviour faithfully �
 ordering and recovery are all real — while teaching you nothing about hardware fault tolerance,
 because there is only one piece of hardware.**
 
+Two of those rows are worth expanding, because they are the ones an interviewer will push on.
+
+**Anti-affinity has two independent settings, and getting either wrong is a silent failure.** The
+`requiredDuringScheduling…` / `preferredDuringScheduling…` choice is *hard versus soft*: hard leaves
+a broker `Pending` forever rather than co-locating it, soft schedules it anyway and logs nothing you
+will ever read. The `topologyKey` is a separate question — `kubernetes.io/hostname` spreads across
+*nodes*, `topology.kubernetes.io/zone` across *availability zones*. You want hard on hostname as the
+minimum, because a soft rule gives you exactly what this sandbox has: three replicas that look
+distributed in `kubectl get pods` and share one kernel, one disk, and one power supply. Zone spread
+on top of that only helps if your nodes are actually labelled with zones, which a bare-metal cluster
+usually is not. **Check what the labels say before claiming a topology guarantee.**
+
+**"No monitoring stack" is doing a lot of work in that table.** §9f showed the metrics exist and are
+already being exported on `:9644` — what is missing is anything scraping them, storing them, or
+paging on them. That distinction matters in an interview: the gap here is not instrumentation, it is
+the absence of Prometheus, a retention window, alert rules and a route to a human. Every drill in
+§9 was verified by a person typing `rpk cluster health` and reading it, which is precisely the
+practice §9e argues against.
+
 ---
 
-## 11. Commands to know by heart
+## 12. Commands to know by heart
 
 ```bash
 # ---- cluster ----
@@ -1118,11 +1364,21 @@ rpk cluster health                     # Admin API :9644 — liveness
 rpk cluster info                       # brokers + topics
 rpk topic describe <t> -p | awk 'NR>1&&NF{print $2}' | sort -n | uniq -c   # leader balance
 
+# ---- maintenance: drain a broker before restarting it (10) ----
+rpk cluster maintenance status
+rpk cluster maintenance enable <id> --wait      # move leadership off, then wait
+rpk cluster maintenance disable <id>            # ALWAYS, or the broker stays idle
+
 # ---- topics ----
 rpk topic create <t> -p 6 -r 3
 rpk topic list
-rpk topic describe <t> -p              # HWM is field 8 — [0 1 2] contains spaces
+rpk topic describe <t> -p              # HWM is field 8, LOG-START is 7 — [0 1 2] contains spaces
+rpk topic describe <t> -p | awk 'NR>1 && NF {s += $8 - $7} END {print s}'   # records present
 rpk topic delete <t>
+
+# ---- metrics (9f) ----
+curl -s localhost:9644/public_metrics | grep redpanda_kafka_under_replicated_replicas
+curl -s localhost:9644/public_metrics | grep redpanda_storage_disk_free_space_alert
 
 # ---- produce / consume ----
 printf 'a\nb\n' | rpk topic produce <t> -k KEY    # one producer, keyed
@@ -1144,7 +1400,7 @@ helm history redpanda -n redpanda
 
 ---
 
-## 12. Glossary
+## 13. Glossary
 
 | Term | Meaning |
 |---|---|
@@ -1167,7 +1423,7 @@ helm history redpanda -n redpanda
 
 ---
 
-## 13. Check yourself
+## 14. Check yourself
 
 Answer out loud. Section references, not answers.
 
@@ -1203,14 +1459,27 @@ Answer out loud. Section references, not answers.
 30. Which write survived the outage, which did not, and why is that distinction the whole point? (§9c)
 31. The cluster reports `Healthy: true` but one broker leads no partitions. Is anything wrong? (§9d)
 32. Which single metric would you page on, and which one would mislead you? (§9e)
-33. This cluster has RF 3. How much hardware fault tolerance does it have? (§10)
+33. `rpk cluster health` is a human command. Where would a monitoring system get the same
+    numbers, and which endpoint should it scrape? (§9f)
+34. Consumer lag is not published as a metric. How do you compute it, and why alert on the max
+    across partitions rather than the total? (§9f)
+35. Why is `kubectl rollout restart sts/redpanda` insufficient for a broker upgrade, given that a
+    StatefulSet already restarts one pod at a time and waits for `Ready`? (§10)
+36. What does `rpk cluster maintenance enable --wait` do, and how would you prove it worked? (§10)
+37. Why is `rpk cluster health` the gate between brokers rather than `kubectl get pods`? (§10)
+38. Someone forgets `maintenance disable` after a patch. What breaks, and why does nothing
+    alert? (§10)
+39. This cluster has RF 3. How much hardware fault tolerance does it have? (§11)
+40. All three brokers share one filesystem. What does Redpanda do as it fills, and why is this
+    lab more exposed to it than a real three-node cluster? (§9f, §11)
 
 ---
 
 ## What's next
 
-- **Chapter 2** — the Kubernetes object model, hands-on. Material captured, still to be written.
-- **Consumer groups and rebalancing** — the next Redpanda topic, and directly relevant to an OMS:
-  how partitions are assigned to consumers, what happens during a rebalance, and why a rebalance is
-  another way to break ordering.
-- **Chapter 6** — the Python producer/consumer application.
+- **Chapter 4 — provisioning and state**: declaring topics as data rather than creating them by
+  hand, and what happens to a cluster's state when the volumes underneath it disappear.
+- **Chapter 5 — consumer groups and rebalancing**: how partitions are assigned to consumers, what a
+  rebalance costs, and why it is another way to break ordering.
+- **Chapter 6 — the application**: the Python producer and consumer, and the delivery semantics that
+  decide whether the numbers they produce are correct.

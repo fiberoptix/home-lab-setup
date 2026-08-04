@@ -5,23 +5,25 @@
 //   dot -Tpng -Gdpi=150 ch02_fig1_ownership.dot -o ../images/ch02_fig1_ownership.png
 
 digraph ownership {
+  nodesep=0.12;
+  ranksep=0.2;
   rankdir=TB;
   bgcolor="white";
-  node  [fontname="Helvetica", fontsize=10, shape=box, style="filled,rounded", penwidth=1.2];
-  edge  [fontname="Helvetica", fontsize=9];
+  node  [fontname="Helvetica", fontsize=12, shape=box, style="filled,rounded", penwidth=1.2];
+  edge  [fontname="Helvetica", fontsize=12];
   graph [fontname="Helvetica", fontsize=11];
 
   title [shape=plaintext, style="", fillcolor="none", label=<
     <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0">
       <TR><TD><FONT POINT-SIZE="16"><B>One manifest, three objects</B></FONT></TD></TR>
-      <TR><TD><FONT POINT-SIZE="10" COLOR="#555555">and the pod-template-hash that lets two generations coexist</FONT></TD></TR>
+      <TR><TD><FONT POINT-SIZE="12" COLOR="#555555">and the<BR/>pod-template-hash that lets two<BR/>generations coexist</FONT></TD></TR>
     </TABLE>>];
 
   // ------------------------------------------------------------- deployment
   deploy [fillcolor="#e8f0fe", color="#1a56c4", label=<
-    <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="3">
+    <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="2">
       <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>Deployment  web</B></TD></TR>
-      <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="9" COLOR="#555555">what you wrote. Owns the rollout strategy:<BR/>maxSurge 1 · maxUnavailable 0 · revisionHistoryLimit 10</FONT></TD></TR>
+      <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="12" COLOR="#555555">what you wrote. Owns the rollout strategy:<BR/>maxSurge 1 · maxUnavailable 0 ·<BR/>revisionHistoryLimit 10</FONT></TD></TR>
     </TABLE>>];
 
   // ----------------------------------------------------------- replicasets
@@ -30,32 +32,32 @@ digraph ownership {
     style="filled,rounded"; fillcolor="#fafafa"; color="#999999"; fontcolor="#555555";
 
     rsold [fillcolor="#ffffff", color="#888888", label=<
-      <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="3">
+      <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="2">
         <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>ReplicaSet  web-85cb69bbbd</B></TD></TR>
-        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="9">revision 4 · replicas: 0<BR/><B>selector:</B> app=web<BR/>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <B>pod-template-hash=85cb69bbbd</B></FONT></TD></TR>
-        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="9" COLOR="#1e8449">keeps its FULL pod template →<BR/>this is what rollout undo scales back up</FONT></TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="12">revision 4 · replicas: 0<BR/><B>selector:</B> app=web<BR/>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<BR/><B>pod-template-hash=85cb69bbbd</B></FONT></TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="12" COLOR="#1e8449">keeps its FULL pod template →<BR/>this is what rollout undo scales back up</FONT></TD></TR>
       </TABLE>>];
 
     rsnew [fillcolor="#ffffff", color="#1a56c4", label=<
-      <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="3">
+      <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="2">
         <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>ReplicaSet  web-8649f6f78d</B></TD></TR>
-        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="9">revision 5 · replicas: 3<BR/><B>selector:</B> app=web<BR/>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <B>pod-template-hash=8649f6f78d</B></FONT></TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="12">revision 5 · replicas: 3<BR/><B>selector:</B> app=web<BR/>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<BR/><B>pod-template-hash=8649f6f78d</B></FONT></TD></TR>
       </TABLE>>];
   }
 
   // ----------------------------------------------------------------- pods
   pods [fillcolor="#ffffff", color="#1a56c4", label=<
-    <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="3">
+    <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="2">
       <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>Pods</B>  (3 of them)</TD></TR>
-      <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="9">web - 8649f6f78d - 8lhkw<BR/>web - 8649f6f78d - h6fzl<BR/>web - 8649f6f78d - mw2zx</FONT></TD></TR>
-      <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="9" COLOR="#555555">labels: app=web, pod-template-hash=8649f6f78d</FONT></TD></TR>
+      <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="12">web - 8649f6f78d - 8lhkw<BR/>web - 8649f6f78d - h6fzl<BR/>web - 8649f6f78d - mw2zx</FONT></TD></TR>
+      <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="12" COLOR="#555555">labels:<BR/>app=web, pod-template-hash=8649f6f78d</FONT></TD></TR>
     </TABLE>>];
 
   anatomy [shape=plaintext, style="", fillcolor="none", label=<
-    <TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="6" COLOR="#1a56c4" BGCOLOR="#f5f9ff">
+    <TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="2" COLOR="#1a56c4" BGCOLOR="#f5f9ff">
       <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>Reading a pod name</B></TD></TR>
-      <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT FACE="Courier" POINT-SIZE="10">web  -  8649f6f78d  -  8lhkw</FONT></TD></TR>
-      <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="9"><B>web</B> = the Deployment<BR/><B>8649f6f78d</B> = pod-template-hash — <B>the VERSION</B>, shared by every pod of this generation<BR/><B>8lhkw</B> = random suffix — <B>the INSTANCE</B></FONT></TD></TR>
+      <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT FACE="Courier" POINT-SIZE="12">web  -  8649f6f78d  -  8lhkw</FONT></TD></TR>
+      <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="12"><B>web</B> = the Deployment<BR/><B>8649f6f78d</B> = pod-template-hash<BR/>— <B>the VERSION</B>,<BR/>shared by every pod of this generation<BR/><B>8lhkw</B> = random suffix — <B>the INSTANCE</B></FONT></TD></TR>
     </TABLE>>];
 
   // ---------------------------------------------------------------- edges
@@ -66,19 +68,13 @@ digraph ownership {
   pods   -> anatomy [style=invis];
 
   // ownerReferences point back UP
-  edge [fontsize=8, color="#1e8449", style=dotted, constraint=false];
+  edge [fontsize=12, color="#1e8449", style=dotted, constraint=false];
   pods  -> rsnew  [label="  ownerReference  "];
   rsnew -> deploy [label="  ownerReference  "];
 
   // -------------------------------------------------------------- callout
-  why [shape=plaintext, style="", fillcolor="none", label=<
-    <TABLE BORDER="2" CELLBORDER="0" CELLSPACING="0" CELLPADDING="7" COLOR="#b7950b" BGCOLOR="#fffdf3">
-      <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>Why the hash has to exist</B></TD></TR>
-      <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="9">Your manifest only said <FONT FACE="Courier">selector: matchLabels: app=web</FONT>. Kubernetes silently ADDS<BR/><FONT FACE="Courier">pod-template-hash</FONT> to each ReplicaSet's selector and to every pod it creates.<BR/><BR/>Without it, both ReplicaSets above would match all 3 pods on <FONT FACE="Courier">app=web</FONT> alone, each would<BR/>count 3 and consider itself satisfied, and <B>the rollout would deadlock</B>. The hash is what<BR/>lets each generation say &quot;these are mine, those are not.&quot;<BR/><BR/><B>Follow the dotted ownerReferences up</B> and you have garbage collection: delete the<BR/>Deployment and the ReplicaSets and Pods are collected automatically.</FONT></TD></TR>
-    </TABLE>>];
 
   // constraint=true is REQUIRED here: the ownerReference edges above set
   // constraint=false as an edge default, which would otherwise let this box
   // float to the top of the drawing.
-  anatomy -> why [style=invis, constraint=true];
 }

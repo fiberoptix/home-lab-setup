@@ -22,7 +22,17 @@ out loud. That is the real test, not whether the pods are running.
 Before anything else, get the layering straight. People often confuse Kubernetes with a hypervisor
 or with Docker. It is neither.
 
-![The stack, from physical hardware up to your workloads](images/ch01_fig1_stack.png)
+![Figure 1 — where k3s sits in the home lab](images/ch01_fig1_stack.png)
+
+**Inside VM 186 — the layers, top is what you deploy**
+
+| Layer | What it is |
+|---|---|
+| **Your workloads (Pods)** | Redpanda brokers · OpenSearch · your Python producer/consumer<br>Nothing here yet — this is what Parts 4–6 will add. |
+| **k3s v1.36.2** | Kubernetes itself — API server, scheduler, controllers, kubelet.<br>**One** binary, one systemd service; see §4 for what it actually costs in RAM. |
+| **containerd 2.3.2** | The container runtime that actually starts containers.<br>**Not Docker** — Kubernetes dropped the Docker shim in v1.24. |
+| **Ubuntu 24.04 LTS** | Guest OS · kernel 6.8 · swap **off** (Kubernetes requires it).<br>Docker is also installed here, but only for *building* images. |
+| **Virtual hardware** | 16 vCPU · 32 GB RAM · 300 GB disk on ZFS pool `vm-ephemeral`.<br>Cloned from template 9000 in ~30 seconds. |
 
 Read that from the bottom up:
 
@@ -68,7 +78,33 @@ restart a process. Self-healing and declarative deployment are the point.
 Kubernetes vocabulary arrives all at once and every word sounds like every other word. Before the
 real definitions, here is a picture to hang them on.
 
-![The ranch model](images/ch01_fig5_ranch_model.png)
+### The ranch model
+
+A mental model to hang the vocabulary on. Every analogy leaks — see "where it breaks down" below.
+
+| On the ranch | In Kubernetes | What the mapping captures |
+|---|---|---|
+| **The ranch** | **Cluster** | One property, one management. Everything Kubernetes runs lives here. |
+| **A field** | **Node** | Finite grass = CPU, memory, disk. Many herds can graze one field, but only as many as it can feed. No grass left, and new herds wait at the gate: **Pending**. |
+| **A herd** | **Pod** | Same water trough (one IP), same shelter (volumes), **same fate** — they are placed and destroyed together. Most herds are a single cow. |
+| **A cow** | **Container** | One running process doing one job — the app, a sidecar, a helper. You never turn out a single cow on its own; you place the whole herd. |
+| **The herd plan** | **Deployment** | You never say "start that cow." You say **"I want three herds of this breed."** Keeping that true is someone else's job, forever. |
+| **The brand** | **Label** | A mark burned on every animal in a herd. Nothing keeps a *list* of herds — everything works by saying "whichever herds carry this brand, right now." |
+| **The barn name** | **Service** | Herds get replaced and new ones get new ear tags (pod IPs). Callers never chase a cow — they ask for the barn by name, and are sent to a healthy herd. |
+| **The ranch manager** | **Control plane** | Walks the property forever: count the herds, compare to the plan, replace what's missing, put new herds on fields that still have grass. **Never stops walking.** |
+
+**Cows share a herd. Herds graze on fields. The ranch manager keeps the herd plan true and the barn
+name stable.**
+
+> **TWO KINDS OF DEATH — never confuse these, they are debugged completely differently**
+>
+> **A cow dies** (container crashes) → a new cow is born **into the same herd**. Same ear tag, same
+> trough, same field. In Kubernetes: same pod name, same UID, same IP — only **RESTARTS** climbs.
+> Your app is crashing; the pod is fine.
+>
+> **The herd dies** (pod deleted, evicted, or its field is lost) → an **entirely new herd** is born,
+> with a new ear tag. In Kubernetes: new pod name, new UID, new IP, RESTARTS back to 0. Nothing is
+> carried over. Nothing teleports.
 
 **The ranch is the cluster.** Everything Kubernetes manages lives on this one property.
 
@@ -239,7 +275,19 @@ what we did anyway.
 
 ## 3b. What that one line left on the machine
 
-![What the installer created on disk](images/ch01_fig4_install_anatomy.png)
+```bash
+curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="--write-kubeconfig-mode 644" sh -
+```
+
+That one line put the following on the machine (verified on VM 186, 27 July 2026):
+
+| Location | What landed there |
+|---|---|
+| **`/usr/local/bin/`**<br>the programs | `k3s` — 81 MB. The entire control plane, kubelet and containerd.<br>`kubectl -> k3s` — a **symlink**. Same binary, different behaviour by name.<br>`crictl -> k3s` — also a symlink; low-level container debugging.<br>`k3s-killall.sh` — stops everything, including orphaned containers.<br>`k3s-uninstall.sh` — removes the cluster completely. Your undo button. |
+| **`/etc/systemd/system/`**<br>how it starts | `k3s.service` — enabled, so it survives reboot. Its `ExecStart` is where your flag ended up:<br>`ExecStart=/usr/local/bin/k3s server '--write-kubeconfig-mode' '644'`<br>It also `modprobe`s `br_netfilter` and `overlay` first — kernel modules that pod networking and container filesystems depend on. |
+| **`/etc/rancher/k3s/`**<br>the credentials | `k3s.yaml` — the kubeconfig. Mode **644** because of your flag; the default would have been 600 (root only).<br>**It contains an admin client certificate.** Whoever can read this file has full control of the cluster — which is why 644 is a sandbox convenience, not something to repeat in production. |
+| **`/var/lib/rancher/k3s/`**<br>the state — 1.4 GB | `server/db/state.db` — the SQLite datastore. **THE cluster.** Every object you create lives in this one file.<br>`agent/` — containerd's data: pulled images, running containers.<br>Back up `state.db` and you have backed up the cluster's configuration. |
+| **`~/.kube/config`**<br>added by us, not the installer | Our copy of `k3s.yaml`, owned by `agamache`, mode 600. `kubectl` reads this path automatically, so no environment variable is needed.<br>**It points at `https://127.0.0.1:6443`** — so it only works *on* the VM. To run `kubectl` from the Z8, copy it and change that to `192.168.1.186`. |
 
 Two details in there are worth calling out.
 
@@ -311,7 +359,39 @@ and understanding a cluster.
 
 This is the diagram worth memorising.
 
-![Anatomy of the k3s install: one binary plus add-on pods](images/ch01_fig2_anatomy.png)
+**Part A — one process: `/usr/local/bin/k3s`**
+
+systemd unit `k3s.service`. In real Kubernetes each of these is a separate component.
+
+| Inside the one binary | What it does |
+|---|---|
+| **kube-apiserver** | The front door. Every command and every controller goes through it. The **only** part that touches the datastore. |
+| **kube-scheduler** | Decides **which node** a new pod runs on. One node here, but the mechanism is identical at any scale. |
+| **kube-controller-manager** | The repair loop. Compares desired state to actual and acts. **This** is what recreates a pod you delete. |
+| **kubelet** | The node agent. Takes pod specs from the API server, tells containerd to start containers, reports health back. |
+| **kube-proxy** | Programs iptables rules so a Service's virtual IP actually reaches a real pod. |
+| **SQLite — the datastore** | `/var/lib/rancher/k3s/server/db`. All cluster state lives here. **Production uses etcd (3 or 5 members).** |
+| **containerd 2.3.2** | The container runtime. Pulls images, starts and stops containers. **Not Docker.** |
+| **flannel — the CNI plugin** | Gives every pod its own IP address on the `10.42.0.0/16` pod network. |
+| **…plus, silently** | A cluster CA, TLS certs for every component, and service-account tokens — all generated for you at install time. |
+
+**Part B — add-ons, running as ordinary pods**
+
+Namespace `kube-system`. See them yourself with `kubectl get pods -A`. On first start, k3s installs
+these itself.
+
+| Add-on | Kind | What it does |
+|---|---|---|
+| **coredns** | Deployment 1/1 | Cluster DNS. Turns a Service *name* into its virtual IP. This is how Redpanda brokers will find each other. |
+| **local-path-provisioner** | Deployment 1/1 | The default StorageClass. Creates a directory on this node when a pod asks for a volume. Redpanda's disks come from here. |
+| **metrics-server** | Deployment 1/1 | Collects CPU and memory per pod. Powers `kubectl top` and would feed an autoscaler. |
+| **traefik** | Deployment 1/1 | Ingress controller. Routes outside HTTP traffic to the right Service based on hostname and URL path. |
+| **svclb-traefik** | DaemonSet 2/2 | "ServiceLB" — fakes a cloud load balancer so `type: LoadBalancer` works with no cloud. **DaemonSet = exactly one pod per node.** |
+| **helm-install-traefik** | Job, Completed | **"Completed" means SUCCESS, not failure.** Jobs run once and exit. k3s installs its own add-ons by running Helm inside a Job. |
+
+> **THE ONE SENTENCE TO REMEMBER**
+>
+> k3s is packaging, not a different Kubernetes. Same API, same kubectl, same YAML, same Helm charts. It bundles Part A into one binary and swaps etcd for SQLite. Everything you write here would deploy unchanged to EKS — you would just swap local-path storage for a real CSI driver.
 
 The install produced **two distinct categories of components** (Parts A and B in the illustration
 above), and keeping them straight is what makes `kubectl get pods -A` stop looking like noise. Some
@@ -336,7 +416,28 @@ single `k3s` process, managed by systemd as `k3s.service`:
 - **kube-proxy** — maintains the iptables rules that make Service virtual IPs work (section 5).
 - **SQLite** — where all cluster state is persisted, at `/var/lib/rancher/k3s/server/db`.
 
-Total memory for all of that: about **512 MB**.
+**How much memory is all of that?** More than the "about 512 MB" I originally wrote here, which I
+had not measured. On this cluster, under load:
+
+```
+$ ps aux | grep '[k]3s server'                 -> RSS 794 MB      the server process itself
+$ systemctl show k3s -p MemoryCurrent          -> 2344 MB         the whole k3s.service cgroup
+$ kubectl top pods -n kube-system
+coredns 73Mi · local-path-provisioner 49Mi · metrics-server 79Mi · traefik 122Mi · svclb 2Mi
+```
+
+Read those three carefully, because they measure different things and only one of them is "what
+Kubernetes costs you". The **794 MB** is the k3s server process — API server, scheduler, controllers
+and kubelet, all in one. The **2,344 MB** cgroup figure is much larger because `k3s.service`
+supervises containerd, and therefore every container on the node, *including the three Redpanda
+brokers*; quoting it as k3s overhead would be wrong by a factor of three. The add-on pods add
+roughly 325 MB on top of the server process.
+
+So the honest figure is **around 800 MB for the control plane, and about 1.1 GB with the default
+add-ons** — and it grows with the number of objects the API server is tracking, so a freshly
+installed cluster is lighter than this one. The reason to be careful is that the comparison being
+drawn matters: k3s is still dramatically lighter than a conventional control plane with separate
+etcd, and that point survives the correction. Made-up numbers do not.
 
 ### Part B — the add-ons, running as ordinary pods
 
@@ -358,7 +459,7 @@ These *are* pods, in the `kube-system` namespace, and you can inspect them like 
 If you understand only one technical thing from this chapter, make it this one. It explains
 Services, which are the backbone of everything you will build in later chapters.
 
-![The three networks: LAN, Service network, Pod network](images/ch01_fig3_networking.png)
+![Figure 2 — the three networks, and how a Service finds Pods](images/ch01_fig2_networking.png)
 
 There are three separate address ranges in play, and they behave very differently.
 
@@ -381,6 +482,9 @@ IPs behind it.
 3. **kube-proxy's iptables rules** rewrite the destination to one of the real pod IPs behind the
    Service. This is the load balancing.
 4. Traffic arrives at a real container.
+
+The Service *name* is the stable thing you build against, and it is how the Redpanda brokers, your
+producer, and your consumer will all find each other in later chapters.
 
 ### The missing link: EndpointSlice
 
@@ -468,7 +572,20 @@ on the hypervisor. Nothing was. **Proxmox's involvement ends at "VM 186 has a 30
 Everything below that is Kubernetes subdividing one ext4 filesystem into directories and calling
 each one a volume.
 
-![Figure 6 — where a PersistentVolume really lives](images/ch01_fig6_storage_stack.png)
+**One file, six layers down — where `/data/notes.txt` really lives**
+
+| Layer | What is actually there |
+|---|---|
+| **What the pod sees** | `/data/notes.txt`<br>The container believes it has a filesystem of its own. It does not. |
+| **The abstraction** | PersistentVolumeClaim **`demo-data`** (1Gi, RWO) → bound to PersistentVolume **`pvc-94ab5278…`**<br>You wrote the claim. The provisioner created the volume and named it. |
+| **The reality** | `/var/lib/rancher/k3s/storage/pvc-94ab5278…_default_demo-data/`<br>An ordinary directory, bind-mounted into the pod. No block device. No quota. |
+| **Guest filesystem** | `/dev/sda1` — ext4, 299 G, mounted at `/`<br>Every PVC on this node shares this one filesystem and its free space. |
+| **Virtual disk** | `/dev/sda` — 300 GB, a ZFS zvol handed to VM 186<br>**Proxmox's knowledge stops here.** It sees one disk, never the volumes inside. |
+| **Host storage** | ZFS pool **`vm-ephemeral`** on the HP Z8's NVMe drives<br>The only layer with real redundancy — and it is below Kubernetes, invisible to it. |
+
+> **Why this matters for Redpanda**
+>
+> Three brokers get three PVCs — three directories on the SAME ext4 filesystem, the SAME virtual disk, the SAME host. Raft quorum is real; the durability is not. One disk failure loses all three replicas at once.
 
 The layer that surprises people is the third one. A PersistentVolume on this cluster is **a
 directory**. Not a partition, not a LUN, not a device — `mkdir`. Everything above it is bookkeeping
@@ -639,10 +756,26 @@ a broker can flush and leave its Raft group cleanly.
 > for the kubelet to confirm the container died, so a StatefulSet can start the replacement while
 > the original still holds the volume. Two processes, one data directory.
 
+The Redpanda chart sets `terminationGracePeriodSeconds: 90` on the broker StatefulSet, three times
+the 30-second default — you can confirm it with
+`kubectl -n redpanda get sts redpanda -o jsonpath='{.spec.template.spec.terminationGracePeriodSeconds}'`.
+That number is the budget a broker has to flush and leave its Raft group, and force-deleting is
+precisely the act of refusing to honour it.
+
 **A pod that never becomes `Ready` may be correct.** During the install I ran
 `kubectl wait --for=condition=Ready pods --all`, and it reported a timeout. The cluster was fine —
 Job pods never reach `Ready`, because `Ready` means "able to serve traffic," which a finished batch
 task never will be. The command was wrong, not the cluster.
+
+Note the command itself is also narrower than it looks: `--all` means all pods *in the current
+namespace*, not in the cluster. To wait on everything you need `-A`, and then it will certainly
+trip over a Job pod somewhere:
+
+```bash
+kubectl wait --for=condition=Ready pods --all -A --timeout=120s     # will time out on Job pods
+kubectl wait --for=condition=Ready pods --all -A \
+  --field-selector=status.phase!=Succeeded --timeout=120s           # what you usually meant
+```
 
 **`RESTARTS 2` is not automatically alarming.** During bootstrap the Traefik install Job retried
 while waiting on its CRDs to be registered. Restarts during startup ordering are normal; restarts
@@ -741,8 +874,19 @@ struct.
 Catch these before they reach the cluster:
 
 ```bash
-kubectl apply -f file.yaml --dry-run=client    # parse + schema check, changes nothing
+kubectl apply -f file.yaml --dry-run=client    # local YAML parse only; never contacts the API
+kubectl apply -f file.yaml --dry-run=server    # full validation, admission and defaulting; writes nothing
 ```
+
+**Those two are not the same check, and the difference is the one that bites.** `--dry-run=client`
+parses the YAML locally and decodes it against kubectl's built-in schema, which is enough to catch
+the `name:web` error above. It cannot catch anything that only the API server knows: an unknown
+CRD, a field your cluster's version does not have, a validating webhook, a quota, or a Pod Security
+Admission rule like the `restricted` profile. `--dry-run=server` sends the object through the whole
+admission path and discards it at the last moment, so it catches all of those.
+
+Use client for a quick syntax check in an editor loop, and server before you believe a manifest is
+deployable.
 
 **A capital letter in an object name.**
 

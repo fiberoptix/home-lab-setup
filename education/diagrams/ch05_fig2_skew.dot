@@ -1,0 +1,49 @@
+// Chapter 5, Figure 3 — where partition skew comes from, and why no broker
+// will ever fix it for you. Real key->partition map from `orders`,
+// 12 keys / 6 partitions, measured 3 Aug 2026.
+//
+// Render:
+//   dot -Tpng -Gdpi=150 ch05_fig2_skew.dot -o ../images/ch05_fig2_skew.png
+
+digraph skew {
+  ranksep=0.2;
+  nodesep=0.12;
+  rankdir=TB;
+  bgcolor="white";
+  node  [fontname="Helvetica", fontsize=12, shape=box, style="filled,rounded", penwidth=1.2];
+  edge  [fontname="Helvetica", fontsize=12];
+  graph [fontname="Helvetica", fontsize=11];
+
+  title [shape=plaintext, style="", fillcolor="none", label=<
+    <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0">
+      <TR><TD><FONT POINT-SIZE="16"><B>Why one partition gets<BR/>hammered, and why the broker<BR/>won&#8217;t help</B></FONT></TD></TR>
+      <TR><TD><FONT POINT-SIZE="12" COLOR="#555555">12 order IDs,<BR/>equal volume each, hashed into 6 partitions</FONT></TD></TR>
+    </TABLE>>];
+
+  map [shape=plaintext, style="", fillcolor="none", label=<
+    <TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="2" COLOR="#7f8c8d" BGCOLOR="#fbfbfb">
+      <TR><TD ALIGN="LEFT"><B>partition</B></TD><TD ALIGN="LEFT"><B>keys that hashed there</B></TD><TD ALIGN="LEFT"><B>share</B></TD></TR>
+      <TR><TD ALIGN="LEFT"><FONT FACE="Courier">p0</FONT></TD><TD ALIGN="LEFT"><FONT FACE="Courier" COLOR="#c0392b">(none)</FONT></TD>
+          <TD ALIGN="LEFT"><FONT FACE="Courier" COLOR="#c0392b">0%</FONT></TD></TR>
+      <TR><TD ALIGN="LEFT"><FONT FACE="Courier">p1</FONT></TD><TD ALIGN="LEFT"><FONT FACE="Courier">ORD-4  ORD-5  ORD-12</FONT></TD>
+          <TD ALIGN="LEFT"><FONT FACE="Courier">25%</FONT></TD></TR>
+      <TR><TD ALIGN="LEFT"><FONT FACE="Courier"><B>p2</B></FONT></TD>
+          <TD ALIGN="LEFT"><FONT FACE="Courier"><B>ORD-2<BR/> ORD-3  ORD-7  ORD-10  ORD-11</B></FONT></TD>
+          <TD ALIGN="LEFT"><FONT FACE="Courier" COLOR="#b7950b"><B>42%</B></FONT></TD></TR>
+      <TR><TD ALIGN="LEFT"><FONT FACE="Courier">p3</FONT></TD><TD ALIGN="LEFT"><FONT FACE="Courier">ORD-8</FONT></TD>
+          <TD ALIGN="LEFT"><FONT FACE="Courier">8%</FONT></TD></TR>
+      <TR><TD ALIGN="LEFT"><FONT FACE="Courier">p4</FONT></TD><TD ALIGN="LEFT"><FONT FACE="Courier">ORD-1</FONT></TD>
+          <TD ALIGN="LEFT"><FONT FACE="Courier">8%</FONT></TD></TR>
+      <TR><TD ALIGN="LEFT"><FONT FACE="Courier">p5</FONT></TD><TD ALIGN="LEFT"><FONT FACE="Courier">ORD-6  ORD-9</FONT></TD>
+          <TD ALIGN="LEFT"><FONT FACE="Courier">17%</FONT></TD></TR>
+    </TABLE>>];
+
+  who [shape=plaintext, style="", fillcolor="none", label=<
+    <TABLE BORDER="2" CELLBORDER="0" CELLSPACING="0" CELLPADDING="2" COLOR="#1f618d" BGCOLOR="#f4f9fd">
+      <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>The broker never gets a vote</B></TD></TR>
+      <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="12"><FONT FACE="Courier">hash(key) %<BR/>6</FONT> is computed <B>client-side, in the<BR/>producer</B>, before the<BR/>record is sent. By the time it<BR/>reaches a broker it is already addressed to partition 2. The broker is a destination, not a router &#8212;<BR/>it has no opportunity to notice that p3 is quiet.<BR/><BR/><B>And if it could, it must<BR/>not.</B> Move ORD-2 to p3 to<BR/>level out disk, and ORD-2&#8217;s history is split across<BR/>two partitions, read by two consumers, with no ordering between them &#8212; a cancel could be processed<BR/>before the order it cancels.<BR/><B>Redpanda declines to<BR/>balance your data because balancing it would break<BR/>the one guarantee you are paying for.</B></FONT></TD></TR>
+    </TABLE>>];
+
+  title -> map [style=invis];
+  map -> who [style=invis];
+}

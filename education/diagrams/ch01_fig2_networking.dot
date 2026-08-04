@@ -1,0 +1,47 @@
+// Chapter 1, Figure 3 — The three networks and how a Service finds Pods
+// Render: dot -Tpng -Gdpi=150 ch01_fig2_networking.dot -o ../images/ch01_fig2_networking.png
+digraph networking {
+  rankdir=TB;
+  bgcolor="white";
+  compound=true;
+  nodesep=0.25;
+  ranksep=0.55;
+  fontname="DejaVu Sans";
+  node [fontname="DejaVu Sans", fontsize=11, shape=box, style="filled,rounded", height=0.6];
+  edge [fontname="DejaVu Sans", fontsize=11];
+
+  subgraph cluster_lan {
+    label=<<B>1. YOUR LAN — 192.168.1.0/24</B><BR ALIGN="LEFT"/>real addresses on real network interfaces>;
+    labeljust="l"; fontsize=12; margin=10;
+    style="filled,rounded"; fillcolor="#fff2cc"; color="#bf8f00"; penwidth=2;
+
+    laptop  [label="Your Z8 workstation", fillcolor="#ffffff", color="#bf8f00"];
+    node186 [label="Node: vm-k8-redpanda-1\n192.168.1.186", fillcolor="#ffffff", color="#bf8f00"];
+    laptop -> node186 [label="  kubectl → API server :6443  "];
+  }
+
+  subgraph cluster_svc {
+    label=<<B>2. SERVICE NETWORK — 10.43.0.0/16</B><BR ALIGN="LEFT"/>VIRTUAL: no interface owns these,<BR ALIGN="LEFT"/>they are iptables rules>;
+    labeljust="l"; fontsize=12; margin=10;
+    style="filled,rounded"; fillcolor="#deebf7"; color="#1f4e79"; penwidth=2;
+
+    svc_dns [label="kube-dns (CoreDNS)\n10.43.0.10", fillcolor="#ffffff", color="#1f4e79"];
+    svc_app [label="my-app (ClusterIP)\n10.43.12.7\nSTABLE — never changes", fillcolor="#bdd7ee", color="#1f4e79", penwidth=2];
+    {rank=same; svc_dns; svc_app;}
+  }
+
+  subgraph cluster_pod {
+    label=<<B>3. POD NETWORK — 10.42.0.0/16</B><BR ALIGN="LEFT"/>real IPs from flannel, but EPHEMERAL:<BR ALIGN="LEFT"/>a new pod gets a new IP>;
+    labeljust="l"; fontsize=12; margin=10;
+    style="filled,rounded"; fillcolor="#e2efda"; color="#548235"; penwidth=2;
+
+    pod_a   [label="my-app-7d4f-abc12\n10.42.0.21\nlabel: app=my-app", fillcolor="#c6e0b4", color="#548235"];
+    pod_b   [label="my-app-7d4f-xy890\n10.42.0.22\nlabel: app=my-app", fillcolor="#c6e0b4", color="#548235"];
+    {rank=same; pod_a; pod_b;}
+  }
+
+  node186 -> svc_dns [lhead=cluster_svc, color="#bf8f00", penwidth=2, minlen=1];
+  svc_app -> pod_a [label="selector\napp=my-app", color="#548235", penwidth=2, fontcolor="#548235"];
+  svc_app -> pod_b [color="#548235", penwidth=2];
+
+}

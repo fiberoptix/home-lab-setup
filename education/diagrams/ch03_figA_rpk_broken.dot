@@ -1,0 +1,52 @@
+// Chapter 3 — Why rpk could not reach the brokers
+// Render: dot -Tpng -Gdpi=150 ch03_figA_rpk_broken.dot -o ../images/ch03_figA_rpk_broken.png
+
+digraph rpk_connectivity {
+  rankdir=TB;
+  bgcolor="white";
+  compound=true;
+  node  [fontname="Helvetica", fontsize=11, shape=box, style="filled,rounded", penwidth=1.2];
+  edge  [fontname="Helvetica", fontsize=11];
+  graph [fontname="Helvetica", fontsize=11];
+
+  title [shape=plaintext, style="", fillcolor="none", label=<
+    <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0">
+      <TR><TD><FONT POINT-SIZE="16"><B>Why rpk could not reach the brokers</B></FONT></TD></TR>
+      <TR><TD><FONT POINT-SIZE="11" COLOR="#555555">the advertised-listener problem: the address you dial is not the address you get back</FONT></TD></TR>
+    </TABLE>>];
+
+  subgraph cluster_broken {
+    label="  ATTEMPT 1 — via the NodePort  (this is what failed)  ";
+    style="filled,rounded"; fillcolor="#fdf2f2"; color="#c0392b"; fontcolor="#c0392b"; penwidth=1.6;
+
+    rpk1 [fillcolor="#ffffff", color="#c0392b", label=<
+      <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="2">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>rpk</B>  (on the host, 192.168.1.186)</TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="11" COLOR="#555555">bootstrap = localhost:31092</FONT></TD></TR>
+      </TABLE>>];
+
+    np [fillcolor="#ffffff", color="#c0392b", label=<
+      <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="2">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>NodePort 31092</B></TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="11" COLOR="#555555">svc/redpanda-external</FONT></TD></TR>
+      </TABLE>>];
+
+    meta [shape=note, fillcolor="#fff8e1", color="#b7950b", label=<
+      <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="2">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>Metadata response</B></TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="11">&quot;the brokers you want are:<BR/>redpanda-0.redpanda.redpanda<BR/>&nbsp;&nbsp;.svc.cluster.local:9093<BR/>redpanda-1... redpanda-2...&quot;</FONT></TD></TR>
+      </TABLE>>];
+
+    fail [shape=box, fillcolor="#c0392b", fontcolor="white", color="#7b241c", label=<
+      <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="2">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT COLOR="white"><B>dial tcp: lookup redpanda-0...</B></FONT></TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT COLOR="white" POINT-SIZE="11">server misbehaving — the host has no<BR/>idea what *.cluster.local means</FONT></TD></TR>
+      </TABLE>>];
+
+    rpk1 -> np   [label="  1. connect, ask for metadata", color="#c0392b"];
+    np   -> meta [label="  2. broker answers with its\l     ADVERTISED address\l", color="#c0392b"];
+    meta -> fail [label="  3. rpk tries to resolve it", color="#c0392b"];
+  }
+
+  title -> rpk1 [style=invis];
+}

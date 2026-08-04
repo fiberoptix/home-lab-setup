@@ -17,18 +17,31 @@ spec:
   template:
     spec:
       restartPolicy: Never
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: producer
           image: oms:dev
           imagePullPolicy: IfNotPresent
           command: ["python", "producer.py"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
           env:
             - name: BROKERS
               value: redpanda.redpanda.svc.cluster.local:9093
             - name: TOPIC
               value: orders-v2
             - name: ORDERS
-              value: "50"          # 50 orders x 4 fills x 100 = 20000 shares
+              value: "2000"        # 2000 orders x 4 fills x 100 = 800000 shares
+                                   # the baseline every number in Ch6 is quoted against
             - name: ACKS
               value: "all"         # "0" for the silent-data-loss demo
             - name: IDEMPOTENCE

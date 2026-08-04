@@ -1,0 +1,54 @@
+// Chapter 3 — The DNS fix that solved it
+// Render: dot -Tpng -Gdpi=150 ch03_figB_rpk_fixed.dot -o ../images/ch03_figB_rpk_fixed.png
+
+digraph rpk_connectivity {
+  rankdir=TB;
+  bgcolor="white";
+  compound=true;
+  node  [fontname="Helvetica", fontsize=11, shape=box, style="filled,rounded", penwidth=1.2];
+  edge  [fontname="Helvetica", fontsize=11];
+  graph [fontname="Helvetica", fontsize=11];
+
+  title [shape=plaintext, style="", fillcolor="none", label=<
+    <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0">
+      <TR><TD><FONT POINT-SIZE="16"><B>The DNS fix that solved it</B></FONT></TD></TR>
+      <TR><TD><FONT POINT-SIZE="11" COLOR="#555555">resolve the cluster domain, then dial the advertised name directly</FONT></TD></TR>
+    </TABLE>>];
+
+  subgraph cluster_fixed {
+    label="  ATTEMPT 2 — teach the host about cluster DNS  (this works)  ";
+    style="filled,rounded"; fillcolor="#eafaf1"; color="#1e8449"; fontcolor="#1e8449"; penwidth=1.6;
+
+    rpk2 [fillcolor="#ffffff", color="#1e8449", label=<
+      <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="2">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>rpk</B>  (same host)</TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="11" COLOR="#555555">bootstrap = the three internal FQDNs :9093</FONT></TD></TR>
+      </TABLE>>];
+
+    resolved [fillcolor="#ffffff", color="#1e8449", label=<
+      <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="2">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>systemd-resolved</B></TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="11" COLOR="#555555">/etc/systemd/resolved.conf.d/<BR/>k3s-cluster-dns.conf<BR/>DNS=10.43.0.10<BR/>Domains=~cluster.local</FONT></TD></TR>
+      </TABLE>>];
+
+    coredns [fillcolor="#ffffff", color="#1e8449", label=<
+      <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="2">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>CoreDNS</B>  10.43.0.10</TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="11" COLOR="#555555">headless Service → per-pod A records</FONT></TD></TR>
+      </TABLE>>];
+
+    brokers [shape=box, fillcolor="#ffffff", color="#1e8449", label=<
+      <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="4">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>The three brokers, directly</B></TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="11">redpanda-0 → 10.42.0.69:9093<BR/>redpanda-1 → 10.42.0.74:9093<BR/>redpanda-2 → 10.42.0.73:9093</FONT></TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="11" COLOR="#1e8449">reachable over the cni0 bridge</FONT></TD></TR>
+      </TABLE>>];
+
+    rpk2     -> resolved [label="  1. resolve *.cluster.local", color="#1e8449"];
+    resolved -> coredns  [label="  2. routed to CoreDNS\l     (~ = routing-only domain)\l", color="#1e8449"];
+    coredns  -> brokers  [label="  3. returns real pod IPs", color="#1e8449"];
+    rpk2     -> brokers  [label="  4. connect straight to 9093\l     advertised name == dialled name\l", color="#1e8449", style=bold, constraint=false];
+  }
+
+  title -> rpk2 [style=invis];
+}

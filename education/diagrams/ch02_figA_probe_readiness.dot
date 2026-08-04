@@ -1,0 +1,52 @@
+// Chapter 2 — A broken READINESS probe fails safe
+// Render: dot -Tpng -Gdpi=150 ch02_figA_probe_readiness.dot -o ../images/ch02_figA_probe_readiness.png
+
+digraph probe {
+  nodesep=0.25;
+  rankdir=TB;
+  bgcolor="white";
+  node  [fontname="Helvetica", fontsize=11, shape=box, style="filled,rounded", penwidth=1.2];
+  edge  [fontname="Helvetica", fontsize=11];
+  graph [fontname="Helvetica", fontsize=11];
+
+  title [shape=plaintext, style="", fillcolor="none", label=<
+    <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0">
+      <TR><TD><FONT POINT-SIZE="16"><B>A broken READINESS probe fails safe</B></FONT></TD></TR>
+      <TR><TD><FONT POINT-SIZE="11" COLOR="#555555">both runs used httpGet /healthz on nginx, which answers 404</FONT></TD></TR>
+    </TABLE>>];
+
+  subgraph cluster_ready {
+    label="  READINESS probe broken  —  fails SAFE  ";
+    style="filled,rounded"; fillcolor="#eafaf1"; color="#1e8449"; fontcolor="#1e8449"; penwidth=1.6;
+
+    r1 [fillcolor="#ffffff", color="#1e8449", label=<
+      <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="3">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>1.</B> New pod starts, probe returns 404</TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="11" COLOR="#555555">Readiness probe failed: statuscode 404  (x25)</FONT></TD></TR>
+      </TABLE>>];
+
+    r2 [fillcolor="#ffffff", color="#1e8449", label=<
+      <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="3">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>2.</B> Pod never becomes Ready</TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="11">maxUnavailable 0 forbids deleting an old pod<BR/>until a replacement is Ready → <B>ROLLOUT STALLS</B></FONT></TD></TR>
+      </TABLE>>];
+
+    r3 [fillcolor="#ffffff", color="#1e8449", label=<
+      <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="3">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>3.</B> EndpointSlice marks it not-ready</TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="11" FACE="Courier">10.42.0.79  ready=true<BR/>10.42.0.80  ready=true<BR/>10.42.0.81  ready=true<BR/>10.42.0.82  ready=false  &#8592; broken</FONT></TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="11" COLOR="#555555">running, but kube-proxy writes no rule for it</FONT></TD></TR>
+      </TABLE>>];
+
+    rout [fillcolor="#1e8449", fontcolor="white", color="#145a32", label=<
+      <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="3">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT COLOR="white"><B>4 pods exist · 3 Ready · SERVICE FINE</B></FONT></TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT COLOR="white" FACE="Courier" POINT-SIZE="11">200 200 200 200 200 200</FONT></TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT COLOR="white" POINT-SIZE="11">the bad build never served one request</FONT></TD></TR>
+      </TABLE>>];
+
+    r1 -> r2 -> r3 -> rout [color="#1e8449"];
+  }
+
+  title -> r1 [style=invis];
+}

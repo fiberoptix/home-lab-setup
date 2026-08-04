@@ -34,13 +34,18 @@ Everything here was run on **`vm-k8-redpanda-1` (192.168.1.186)**, single-node k
 7. **Liveness probes — the one that causes outages**
 8. Rollback, revision renumbering, and the landmine `rollout undo` leaves behind
 9. Does a rolling update protect quorum? (No. This matters for Redpanda.)
-10. Production gap, commands, glossary, self-test
+10. **Requests, limits, the three QoS classes, and OOMKilled**
+11. Production gap, commands, glossary, self-test
 
 ---
 
 ## 1. One manifest, three objects
 
-![Figure 1 — the ownership chain and the template hash](images/ch02_fig1_ownership.png)
+![Figure 1 — the ownership chain and the pod-template-hash](images/ch02_fig1_ownership.png)
+
+> **Why the hash has to exist**
+>
+> Your manifest only said `selector: matchLabels: app=web`. Kubernetes silently ADDS `pod-template-hash` to each ReplicaSet's selector and to every pod it creates. Without it, both ReplicaSets above would match all 3 pods on `app=web` alone, each would count 3 and consider itself satisfied, and **the rollout would deadlock**. The hash is what lets each generation say "these are mine, those are not." **Follow the dotted ownerReferences up** and you have garbage collection: delete the Deployment and the ReplicaSets and Pods are collected automatically.
 
 You apply one YAML file and get **three** API objects, each with a different job:
 
@@ -242,7 +247,19 @@ deployment.apps/web configured
 
 ## 6. Readiness probes — the gate
 
-![Figure 2 — the same broken path, two very different outcomes](images/ch02_fig2_probe_failure_modes.png)
+![Figure 2 — a broken readiness probe fails safe](images/ch02_figA_probe_readiness.png)
+
+![Figure 3 — the same broken probe, wired to liveness, causes a total outage](images/ch02_figB_probe_liveness.png)
+
+> **The asymmetry, and the rules that follow from it**
+>
+> **Readiness gates the rollout. Liveness does not.** A bad readiness probe stops the deploy and protects you. A bad liveness probe ships cleanly, destroys the good pods, and only then starts killing.
+>
+> **Debugging heuristic:** CrashLoopBackOff with `Exit Code: 0` means something EXTERNAL killed the container — nearly always the liveness probe. A real app crash gives a non-zero code or a signal.
+>
+> **Never let a liveness probe check a dependency.** If it returns unhealthy because the database is down, Kubernetes kills every replica at once and the restart storm hammers the recovering database. Dependency health belongs in READINESS, which only removes you from the load balancer.
+>
+> **Slow starters need a startupProbe**, or liveness kills the app before it finishes booting.
 
 Without a probe, Kubernetes calls a pod Ready as soon as the container process starts. For most
 real applications that is a lie — a JVM or a Python service accepts a TCP connection long before it
@@ -324,14 +341,30 @@ questions.
 only** — it killed your `kubectl`, not the rollout:
 
 ```
-progressDeadlineSeconds=600      # the Deployment keeps trying for 10 minutes
+progressDeadlineSeconds=600      # 10 minutes before the Deployment gives up... on reporting
 new RS age: 2m54s                # still going
 ```
+
+**And `progressDeadlineSeconds` does less than its name suggests.** It is easy to read it as "the
+Deployment stops after ten minutes." It does not stop. When the deadline passes with no progress,
+the controller sets a **status condition** — `Progressing=False` with reason
+`ProgressDeadlineExceeded` — and then carries on trying forever. Nothing is rolled back, nothing is
+paused, no pod is deleted. It is a flag for you and your monitoring to read, not a circuit breaker:
+
+```bash
+kubectl get deploy web -o jsonpath='{.status.conditions[?(@.type=="Progressing")].reason}'
+# ProgressDeadlineExceeded
+```
+
+That condition is what `kubectl rollout status` watches for to decide a rollout has failed, which
+is why the distinction is easy to miss — the tooling behaves as if something happened, while in the
+cluster nothing did.
 
 > **Operational consequence:** a CI job that times out and exits red leaves a half-rolled deployment
 > still grinding in the cluster. The pipeline says "failed," everyone assumes nothing shipped, and a
 > surge pod sits there. If you want it *stopped*, say so: `kubectl rollout undo` or
-> `kubectl rollout pause`.
+> `kubectl rollout pause`. Automatic rollback is not a Deployment feature — if you want it, it
+> belongs in your deployment tooling, and it must key off that condition.
 
 ---
 
@@ -528,7 +561,111 @@ What actually protects a quorum:
 
 ---
 
-## 10. Where this differs from production
+## 10. Requests, limits, and the three QoS classes
+
+Every pod spec so far has carried a `resources:` block that I have not explained. It is the most
+consequential four lines in a manifest, it is where most production incidents that look like
+"Kubernetes is flaky" actually come from, and it is close to guaranteed as an interview topic.
+
+```yaml
+resources:
+  requests: {cpu: 50m, memory: 64Mi}    # for the SCHEDULER
+  limits:   {cpu: 500m, memory: 256Mi}  # for the KERNEL
+```
+
+**Requests and limits are read by different things at different times, and that is the whole idea.**
+
+The **request** is a scheduling claim. The scheduler sums the requests of all pods already on a node
+and will only place your pod where the remainder fits. It is a promise made once, at placement time,
+and nothing enforces it afterwards — a container requesting 64Mi may happily use 200Mi if the node
+has it spare.
+
+The **limit** is a runtime ceiling enforced by the kernel through cgroups, and the two resources
+behave completely differently at the ceiling:
+
+| | Over the CPU limit | Over the memory limit |
+|---|---|---|
+| What happens | **Throttled** — the cgroup is given fewer scheduler slices | **Killed** — the kernel OOM killer terminates the process |
+| Recoverable | Yes, continuously | No. The container is dead |
+| How it looks | Latency, timeouts, probe failures | `OOMKilled`, exit 137, restart |
+
+**CPU is compressible; memory is not.** You cannot give a process 90% of a byte, so there is no
+throttling option — the only enforcement available is killing it. This one asymmetry explains most
+of the advice you will hear about resource configuration.
+
+### The three QoS classes
+
+You never set the QoS class. The kubelet derives it from what you did or did not specify, and it
+decides who gets evicted when the **node** runs short of memory. All three, on this cluster:
+
+```
+$ kubectl -n qos-demo get pods -o custom-columns='NAME:.metadata.name,QOS:.status.qosClass'
+NAME             QOS
+qos-guaranteed   Guaranteed      # limits == requests, for every resource, on every container
+qos-burstable    Burstable       # requests set, limits higher or partly absent
+qos-besteffort   BestEffort      # no requests and no limits at all
+```
+
+| Class | How you get it | Evicted under node pressure |
+|---|---|---|
+| **Guaranteed** | requests **equal** limits, for every resource in every container | Last |
+| **Burstable** | anything in between | Second, worst offender relative to its request first |
+| **BestEffort** | no requests or limits specified | **First** |
+
+Two consequences worth stating out loud, because they are what interviewers are probing for:
+
+**Setting no resources does not make a pod modest, it makes it a liability.** BestEffort is the
+first thing killed when a node comes under memory pressure, whatever the pod is doing. A
+BestEffort database is evicted before a Burstable batch job that is causing the pressure.
+
+**Guaranteed costs you utilisation and buys you predictability.** Requests equal to limits means the
+scheduler reserves your peak, so the node runs emptier. For a broker or a position keeper that is
+the right trade. For a bursty stateless web tier it usually is not.
+
+### OOMKilled, and how to recognise it
+
+A container that exceeds its memory limit is killed by the kernel, not by Kubernetes, and the
+evidence is specific. A pod limited to 64Mi, allocating 10MB at a time:
+
+```
+$ kubectl -n qos-demo logs oom-victim
+30 MB
+40 MB
+50 MB                      <- last line before death; no error, no traceback
+
+$ kubectl -n qos-demo get pod oom-victim -o jsonpath='{.status.containerStatuses[0].state}'
+{"terminated":{"exitCode":137,"reason":"OOMKilled","startedAt":"...","finishedAt":"..."}}
+```
+
+**Exit code 137 is 128 + 9 — the process was SIGKILLed.** Chapter 6 §9 reaches the same 137 from a
+`kill -9`, and that ambiguity is the point: 137 alone does not tell you *who* did the killing. The
+`reason: OOMKilled` field is what distinguishes the kernel's OOM killer from an operator, a node
+shutdown, or a failed liveness probe's escalation.
+
+Note what the application saw: **nothing.** No exception, no chance to flush, no shutdown hook,
+because SIGKILL cannot be caught. This is the same class of failure as the SIGKILL in Chapter 5 §6
+and it has the same consequence for a consumer — offsets not committed, and the successor replays.
+An OOMKilled consumer is a duplicate-generating machine, and if the limit is genuinely too low it
+will do it on a loop.
+
+The diagnostic sequence to have cold:
+
+```bash
+kubectl get pod <p> -o jsonpath='{.status.containerStatuses[0].lastState.terminated}'  # 137? OOMKilled?
+kubectl describe pod <p> | grep -E 'Reason|Exit Code|Limits|Requests'
+kubectl top pod <p>                       # current usage against the limit
+```
+
+And the thing to say next, which matters more than the diagnosis: **an OOMKill is not automatically
+a reason to raise the limit.** It is evidence of one of three things — a limit set below the real
+working set, a workload whose memory grows with input it does not bound, or a leak. Raising the
+limit fixes the first and merely postpones the other two. Chapter 6's consumer had the second kind:
+an unbounded per-order dictionary under a 256Mi limit, which is fine for 2,000 orders and fatal for
+a week of production flow.
+
+---
+
+## 11. Where this differs from production
 
 | Sandbox | Production |
 |---|---|
@@ -542,7 +679,7 @@ What actually protects a quorum:
 
 ---
 
-## 11. Commands to know by heart
+## 12. Commands to know by heart
 
 ```bash
 # ---- see the whole chain ----
@@ -572,7 +709,7 @@ kubectl diff -f web.yaml                          # what WOULD change
 
 ---
 
-## 12. Glossary
+## 13. Glossary
 
 | Term | Meaning |
 |---|---|
@@ -582,16 +719,20 @@ kubectl diff -f web.yaml                          # what WOULD change
 | **Revision** | A numbered point in rollout history, tagged onto a ReplicaSet. Re-tagged on rollback. |
 | **`maxSurge`** | Extra pods allowed above the desired count during a rollout. |
 | **`maxUnavailable`** | How far below the desired count you may drop. `0` = never lose capacity. |
-| **`progressDeadlineSeconds`** | How long the Deployment keeps trying before declaring failure. Default 600. |
+| **`progressDeadlineSeconds`** | How long without progress before the Deployment sets `Progressing=False` / `ProgressDeadlineExceeded`. Default 600. It sets a **status condition only** — the rollout keeps retrying, nothing is rolled back (§6). |
 | **Readiness probe** | "Should I receive traffic?" Failure removes you from the EndpointSlice and **stalls a rollout**. |
 | **Liveness probe** | "Should I be killed and restarted?" Failure restarts the container. **Gates nothing.** |
 | **Startup probe** | Suspends liveness until a slow app finishes booting. |
 | **`CrashLoopBackOff`** | The kubelet is backing off between restart attempts. Exponential to a 5-min cap. |
+| **Request** | A scheduling claim, read once by the scheduler at placement. Not enforced at runtime (§10). |
+| **Limit** | A runtime ceiling enforced by the kernel via cgroups. CPU is throttled, memory is killed (§10). |
+| **QoS class** | Derived by the kubelet from your requests and limits — Guaranteed, Burstable, BestEffort. Decides eviction order under node pressure (§10). |
+| **`OOMKilled`** | The kernel's OOM killer terminated the container for exceeding its memory limit. Exit 137, no chance to clean up (§10). |
 | **PodDisruptionBudget** | Limits *voluntary* disruptions (drains). Does not restrain your own rollout. |
 
 ---
 
-## 13. Check yourself
+## 14. Check yourself
 
 1. You apply one Deployment manifest. Which three API objects appear, and which is *not* an object? (§1)
 2. What does `ownerReferences` make possible? (§1)
@@ -620,6 +761,14 @@ kubectl diff -f web.yaml                          # what WOULD change
 25. Does `maxUnavailable: 1` protect a 3-node Raft quorum? (§9)
 26. Name three things that *do* protect a quorum during maintenance. (§9)
 27. Why is "is my port open" a bad readiness probe for a Redpanda broker? (§9)
+28. Which of requests and limits does the scheduler read, and which does the kernel enforce? (§10)
+29. Why is exceeding a CPU limit survivable and exceeding a memory limit not? (§10)
+30. How do you get each of the three QoS classes, and which is evicted first? (§10)
+31. A pod with no `resources:` block at all — is that cautious or dangerous? (§10)
+32. A container shows exit code 137. Name three different causes, and the field that tells them
+    apart. (§10, Ch6 §9)
+33. Your consumer is OOMKilled once a day. Why might raising the limit be the wrong fix? (§10)
+34. What does an OOMKill cost a Kafka consumer specifically, beyond the restart? (§10, Ch5 §6)
 
 ---
 

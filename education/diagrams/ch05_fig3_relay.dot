@@ -1,0 +1,71 @@
+// Chapter 5, Figure 2 — ownership of ONE partition over time, across two
+// consumer deaths. SIGTERM hands over cleanly; SIGKILL replays. Real offsets
+// from partition 2 of `orders`, measured 3 Aug 2026.
+//
+// Render:
+//   dot -Tpng -Gdpi=150 ch05_fig3_relay.dot -o ../images/ch05_fig3_relay.png
+
+digraph relay {
+  nodesep=0.22;
+  ranksep=0.4;
+  rankdir=TB;
+  bgcolor="white";
+  node  [fontname="Helvetica", fontsize=11, shape=box, style="filled,rounded", penwidth=1.2];
+  edge  [fontname="Helvetica", fontsize=11];
+  graph [fontname="Helvetica", fontsize=11];
+
+  title [shape=plaintext, style="", fillcolor="none", label=<
+    <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0">
+      <TR><TD><FONT POINT-SIZE="16"><B>One partition, four owners, one overlap</B></FONT></TD></TR>
+      <TR><TD><FONT POINT-SIZE="11" COLOR="#555555">partition 2 of <FONT FACE="Courier">orders</FONT> &#8212; the same failure, killed two different ways</FONT></TD></TR>
+    </TABLE>>];
+
+  relay [shape=plaintext, style="", fillcolor="none", label=<
+    <TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="4" COLOR="#7f8c8d" BGCOLOR="#fbfbfb">
+      <TR><TD ALIGN="LEFT"><B>owner</B></TD><TD ALIGN="LEFT"><B>offsets</B></TD><TD ALIGN="LEFT"><B>handover</B></TD></TR>
+      <TR><TD ALIGN="LEFT"><FONT FACE="Courier">c1</FONT></TD>
+          <TD ALIGN="LEFT"><FONT FACE="Courier">  0 .. 74</FONT></TD>
+          <TD ALIGN="LEFT"><FONT POINT-SIZE="11" COLOR="#555555">rebalance &#8212; new members joined</FONT></TD></TR>
+      <TR><TD ALIGN="LEFT"><FONT FACE="Courier">c6</FONT></TD>
+          <TD ALIGN="LEFT"><FONT FACE="Courier"> 75 .. 137</FONT></TD>
+          <TD ALIGN="LEFT"><FONT POINT-SIZE="11" COLOR="#1e8449"><B>SIGTERM &#8212; committed, then left</B></FONT></TD></TR>
+      <TR><TD ALIGN="LEFT"><FONT FACE="Courier">c7</FONT></TD>
+          <TD ALIGN="LEFT"><FONT FACE="Courier">138 .. 395</FONT></TD>
+          <TD ALIGN="LEFT"><FONT POINT-SIZE="11" COLOR="#c0392b"><B>SIGKILL &#8212; no chance to commit</B></FONT></TD></TR>
+      <TR><TD ALIGN="LEFT"><FONT FACE="Courier">c2</FONT></TD>
+          <TD ALIGN="LEFT"><FONT FACE="Courier" COLOR="#c0392b"><B>393</B></FONT><FONT FACE="Courier"> .. 624</FONT></TD>
+          <TD ALIGN="LEFT"><FONT POINT-SIZE="11" COLOR="#c0392b">resumed from last COMMITTED offset</FONT></TD></TR>
+      <TR><TD COLSPAN="3" ALIGN="LEFT"><FONT POINT-SIZE="11"><B>75 + 63 + 258 + 232 = 628 processed, for 625 records written</B></FONT></TD></TR>
+    </TABLE>>];
+
+  // ------------------------------------------------------- SIGTERM
+  subgraph cluster_term {
+    label="  SIGTERM  &#8212;  graceful  ";
+    style="filled,rounded"; fillcolor="#eafaf1"; color="#1e8449"; fontcolor="#1e8449"; penwidth=1.6;
+
+    term [fillcolor="#ffffff", color="#1e8449", label=<
+      <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="4">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT FACE="Courier" POINT-SIZE="11">c6 ends  ...137<BR/>c7 starts   138</FONT></TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="11">The dying consumer committed its final offset and<BR/>left the group. The coordinator reassigned<BR/><B>immediately</B> &#8212; no heartbeat timeout needed.</FONT></TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="11" COLOR="#1e8449"><B>0 duplicates &#183; 0 gaps</B></FONT></TD></TR>
+      </TABLE>>];
+  }
+
+  // ------------------------------------------------------- SIGKILL
+  subgraph cluster_kill {
+    label="  SIGKILL  &#8212;  what production actually does  ";
+    style="filled,rounded"; fillcolor="#fdf2f2"; color="#c0392b"; fontcolor="#c0392b"; penwidth=1.6;
+
+    kill [fillcolor="#ffffff", color="#c0392b", label=<
+      <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="4">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT FACE="Courier" POINT-SIZE="11">c7 consumed through  395<BR/>c7 last COMMITTED    392<BR/>c2 resumed at        393</FONT></TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="11">Commits are periodic, not per-record. Everything<BR/>read since the last commit is read again.</FONT></TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="11" COLOR="#c0392b"><B>3 records processed twice</B><BR/><FONT FACE="Courier" POINT-SIZE="11">393 ORD-10 &#183; 394 ORD-11 &#183; 395 ORD-2</FONT></FONT></TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><FONT POINT-SIZE="11">Detection needs missed heartbeats &#8212; a hard-dead<BR/>member is only noticed on session timeout<BR/>(floor <FONT FACE="Courier">group_min_session_timeout_ms = 6000</FONT>).</FONT></TD></TR>
+      </TABLE>>];
+  }
+
+  title -> relay [style=invis];
+  relay -> term [style=invis];
+  term -> kill [color="#c0392b", style=bold, label="  same event, no commit  "];
+}

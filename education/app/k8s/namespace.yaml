@@ -1,0 +1,31 @@
+# The namespace every other object in this directory declares.
+#
+# It exists as a file because `kubectl apply -f k8s/` has to work from a clean
+# cluster. Without it the first apply fails with `namespaces "market" not
+# found` and the manifests look broken when they are merely unordered --
+# kubectl applies a directory in filename order, and `namespace.yaml` sorts
+# ahead of `consumer.yaml` and `producer-job.yaml` by luck rather than design.
+# For anything larger, use a tool that understands ordering (kustomize, Helm)
+# rather than relying on the alphabet.
+#
+# The Pod Security Admission labels are the cheapest security control in
+# Kubernetes: one label per namespace, enforced by the API server at admission,
+# no sidecar and no policy engine. `restricted` is the strictest built-in
+# profile -- it requires runAsNonRoot, a dropped capability set,
+# allowPrivilegeEscalation: false and a seccomp profile, all of which the two
+# workloads here now set. Applying this to a namespace whose pods do not comply
+# is a good drill in itself: the Deployment is admitted, and the ReplicaSet
+# then fails to create pods with a message naming each violated rule, which is
+# a failure mode worth having seen before you meet it during a deploy.
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: market
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: latest
+    # Warn and audit at the same level so violations are visible in kubectl
+    # output and in the audit log, not only at admission time.
+    pod-security.kubernetes.io/warn: restricted
+    pod-security.kubernetes.io/audit: restricted
