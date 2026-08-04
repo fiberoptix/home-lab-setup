@@ -392,18 +392,61 @@ material than the working version would have been.
   clients, not the cluster.** And a per-event durable side effect cost **~8×** throughput (1,550 → 200
   events/s), which is *why* commit windows exist.
 
+### ✅ Documentation session — audit, Word build, highlighting, Chapter 7 (Aug 3, 7:15 – 10:30 PM)
+
+**Pure documentation. The VM was not touched — no k3s, no Redpanda, no drills.** Snapshot
+`s05-app-running` is still the restore point and is unaffected.
+
+- **Audited Ch1–6 against the artefacts** and fixed as I went (commit `8baab57`). Real errors, not
+  polish: a wrong k3s memory claim, a broken `kubectl wait`, wrong `rpk group describe` column
+  indices, a `Service` selector that did not match, a bad anti-affinity example, and record counts
+  that disagreed with the scripts. Also hardened the shipped manifests — `restricted` PSA on ns
+  `market`, `automountServiceAccountToken: false`, non-root `USER` in the Dockerfile.
+- **Word `.docx` pipeline** (`education/tools/build_docx.py`, output committed to `education/docx/`).
+  7-inch column, Cambria 11 pt, single-spaced, images full width — Andrew's spec so it reads like a
+  textbook and prints legibly. **The TOC was removed entirely** after it rendered as a literal "No
+  table of contents entries found" banner on page 1; pandoc writes the field but only Word can
+  populate it, so patching was the wrong fix and he said "drop all TOC".
+- **Ch1's ranch allegory deleted** at his request; the piece-by-piece table stayed.
+- **~15 % yellow highlighting across all 7 chapters** so he can revise from the marks alone.
+  Character style `Key`, shade `#FFF3B0` (low saturation, chosen so print does not bleed). Marks are
+  stored in the Markdown, so rebuilds keep them. Mechanics and traps are in MEMORY.md.
+- **Chapter 7 — `additional_infra_stack`, 981 lines, 2 figures, 18 questions** (commits `720c655`,
+  `134943b`). Commissioned straight off the job description and scoped by him to **research only,
+  build nothing**: edge/Cloudflare, IAM + Symantec PAM, Vault, PKI/cert-manager, MongoDB, and
+  OTEL → Prometheus/Grafana/OpenSearch, each framed as "how would this attach to *our* OMS at
+  thousands of external and hundreds of internal users". Researched by five parallel subagents; the
+  edge one died twice on `resource_exhausted` and I wrote that section by hand.
+- **The chapter's argument, worth keeping:** every area maps onto something the earlier chapters
+  already measured. Mongo write concern *is* `acks`; an arbiter downgrades the default write concern
+  the way `min.insync.replicas=1` undermines `acks=all`; and putting the Kafka offset inside a Mongo
+  transaction buys exactly-once for the database while **changing nothing** about the non-idempotent
+  execution gateway — so **Ch5's 821,600 phantom shares would be exactly as phantom afterwards.**
+- **Two corrections to earlier chapters, made inside Ch7** rather than by editing them (he said not
+  to touch existing docs): Redpanda **does** now publish consumer-group lag behind an opt-in
+  property, which qualifies Ch3 without overturning "lag is derived, not intrinsic"; and Ch6's
+  "undetectable" hung consumer **is** detectable — a staleness gauge climbing at exactly one second
+  per second.
+
 ### ⏭️ Next
 
-1. **Chapter 7 — Schema Registry.** Reuses Ch4's provisioning pattern, and there is now a concrete
-   motivation: the app produces hand-rolled JSON with no contract, so renaming `qty` silently breaks
-   the consumer.
-2. Chapters 1–6 written. Remaining: 7 (Schema Registry), 8 (OpenSearch + Fluent Bit), 9 (failure drills).
-3. Loose ends worth an hour each: a **liveness probe that asserts progress** on the consumer (§13 of
-   Ch6 argues for it but it is not built), Redpanda Console via port-forward, `rpk group seek` for
-   replay, and a lag-alerting demo.
+1. **Nothing is blocked and nothing is half-finished.** All 7 chapters are written, audited,
+   highlighted, built to `.docx` and committed.
+2. **Open verification item:** the `.docx` highlighting has never been *seen*. There is no
+   LibreOffice on the Z8, so it was verified by inspecting the OOXML (318 `Key` runs, `FFF3B0` fill,
+   no leaked markup). Andrew had Ch7 open in Word at 10:31 PM — ask him whether the yellow looks
+   right before assuming it does.
+3. **If more chapters are wanted:** 8 (Schema Registry — still well motivated, since the app
+   produces hand-rolled JSON with no contract and renaming `qty` silently breaks the consumer),
+   9 (OpenSearch + Fluent Bit), 10 (failure drills).
+4. Hands-on loose ends, ~an hour each: a **liveness probe that asserts progress** on the consumer
+   (Ch6 §13 argues for it but it was never built), Redpanda Console via port-forward, `rpk group
+   seek` for replay, and a lag-alerting demo.
 
-**Timing:** interview ~Aug 1. Redpanda is now the strongest part of the story. Part 5 (OpenSearch)
-remains the one to cut.
+**Timing:** ⚠️ the "interview ~Aug 1" noted earlier is now **stale — today is Aug 3** and I do not
+know whether it happened, slipped, or is still ahead. He commissioned Ch7 off the job description on
+Aug 3, which reads like preparation rather than follow-up, but **ask rather than assume.** Redpanda
+is still the strongest part of the story; Part 5 (OpenSearch) remains the one to cut.
 
 **Restore point: `qm rollback 186 s05-app-running`** (taken Aug 3 19:13, live via guest-agent
 fs-freeze) — the OMS app deployed, reconciling, lag 0. Fallbacks: `s04-topics-seeded` (Aug 3 18:34,

@@ -130,14 +130,25 @@ Practical rules:
     "should" have failed.
 
   - **`education/` series** — printable study chapters with diagrams (Andrew's idea, for the
-    interview). **Ch1 (Kubernetes/k3s) 846 lines / 6 diagrams / 31 questions; Ch2 (object model)
-    631 lines / 2 diagrams / 27 questions; Ch3 (Redpanda) 1023 lines / 3 diagrams / 33 questions;
-    Ch4 (provisioning application state) 823 lines / 3 diagrams / 24 questions + 10 worked interview
-    answers; Ch5 (consumer groups) 488 lines / 3 diagrams / 24 questions + 9 interview answers;
-    Ch6 (the application) 792 lines / 3 diagrams / 28 questions + 9 interview answers.**
-    ⚠️ **Numbering settled Aug 3 (second shift):** the app took **6** because Andrew asked for
-    "chapter 6" when commissioning it, and chapters are numbered in writing order. Schema Registry
-    is now **7**, OpenSearch **8**, failure drills **9**. Ch2–Ch6 are deliberately **replayable runbooks** — Andrew re-runs this
+    interview). Counts are **post-audit, Aug 3 22:30** — the Aug 3 audit grew every chapter, so the
+    old numbers in this file were stale: **Ch1 (Kubernetes/k3s) 951 lines / 2 figs; Ch2 (object
+    model) 780 / 3; Ch3 (Redpanda) 1485 / 3; Ch4 (provisioning application state) 931 / 3;
+    Ch5 (consumer groups) 624 / 3; Ch6 (the application) 1160 / 3; Ch7 (additional infra stack)
+    981 / 2, 18 questions.** Ch4–Ch6 also carry 9–10 worked interview answers each.
+    ⚠️ **Numbering re-settled Aug 3 (third shift) — Ch7 is NOT Schema Registry.** Chapters are
+    numbered in writing order; the app took **6** because Andrew asked for "chapter 6" when
+    commissioning it. On Aug 3 he commissioned **`chapter07_additional_infra_stack`** from the job
+    description instead, so Schema Registry, OpenSearch and failure drills shift to **8, 9, 10** if
+    they get written at all.
+    ⚠️ **Ch7 deliberately breaks the "only document what Andrew ran" rule** — it is a *research*
+    chapter (edge/Cloudflare, IAM+PAM, Vault, PKI/cert-manager, MongoDB, OTEL+Prometheus+OpenSearch)
+    covering things not in the lab. Andrew asked for research, explicitly **not** for anything to be
+    built. Because every other chapter opens with a verified-facts header, **Ch7 opens by saying it
+    has none and that nothing in it was run** — keep that disclaimer if the chapter is ever edited.
+    Its two corrections to earlier chapters (Redpanda *does* now publish consumer lag behind an
+    opt-in property; Ch6's "undetectable" hung consumer *is* detectable via a staleness gauge) were
+    made **inside Ch7**, not by editing Ch3/Ch6, because Andrew said not to touch existing docs.
+    Ch2–Ch6 are deliberately **replayable runbooks** — Andrew re-runs this
     material, so where output varies between runs (sticky-partition choice, initial leader assignment,
     which partition an unkeyed producer picks) the text says so explicitly. `education/manifests/`
     holds real tested artefacts: `redpanda-values.yaml`, `web-deployment.yaml` (verified end-to-end
@@ -145,12 +156,56 @@ Practical rules:
     plus `seed-topics.sh` + `seed-topics-job.yaml` + `consumer-group-lab.sh` from Aug 3. **Ch6's
     application is source code, so it lives in `education/app/` (producer.py, consumer.py, oms.py,
     Dockerfile, build.sh, k8s/) rather than `manifests/`.**
-    Rule for this series: only document things Andrew actually ran. **Diagrams are Graphviz `.dot`
+    Rule for this series: only document things Andrew actually ran (**Ch7 is the one deliberate
+    exception — see above**). **Diagrams are Graphviz `.dot`
     sources in `education/diagrams/`, deliberately NOT AI-generated** (image models garble technical
     labels); `graphviz` installed on the Z8. Two HTML-label gotchas: newlines render as literal
     leading spaces (keep each table cell on one source line), and `BALIGN="LEFT"` only affects lines
     *after* a `<BR/>` — set **both** `ALIGN="LEFT" BALIGN="LEFT"` on the `<TD>`, and use a one-cell
     `<TABLE>` instead of `shape=box` for callout boxes.
+    ⚠️ **Figure font size is a function of the figure's pixel WIDTH, not its `fontsize=`.** Every
+    image is scaled to the full 7-inch column, so a wide diagram shrinks its own text below the
+    10 pt floor Andrew set. Fix is to make the diagram **narrower** (single column, shorter label
+    lines), not to raise `fontsize`. Both Ch7 figures needed this — fig2 went 7.9 pt → 12.1 pt purely
+    by restacking two columns into one. Also: **`edge` is a reserved word in DOT** and cannot be a
+    node id, and `\uXXXX` escapes do not work in plain DOT strings.
+
+  - **Word/`.docx` build — `education/tools/build_docx.py` (tracked).** `pandoc` + a generated
+    `reference.docx`: **7.00 in column, Cambria 11 pt, single-spaced, every image full column
+    width**. Output to `education/docx/`, committed. **No table of contents** — pandoc's `--toc`
+    emitted a literal "No table of contents entries found" on page 1 because the field needs a Word
+    render to populate, so on Aug 3 all TOC code (flag, `fill_toc`, `updateFields`, TOC styles) was
+    deleted rather than patched. Don't re-add it.
+    ⚠️ **Rebuilding rewrites every `.docx` even when nothing changed** (zip timestamps), so before
+    committing, diff the *inner* `word/document.xml` against `git show HEAD:<path>` and `git
+    checkout` the ones that are content-identical. Otherwise every build is 7 files of noise.
+    ⚠️ **No LibreOffice/soffice on the Z8**, so a `.docx` cannot be rendered or eyeballed here;
+    verification is by unzipping and inspecting `word/document.xml` + `word/styles.xml`.
+
+  - **Yellow highlighting for review passes (Aug 3).** Andrew's ask: read the ~125 pages once, then
+    revise from the highlights alone. Implemented as a **Word character style `Key` with shading
+    `#FFF3B0`** — a deliberately low-saturation yellow he chose so the ink does not bleed when
+    printed. **Target density ~15 % of prose words** (his number, from an estimate I gave him).
+    - Marks live **in the Markdown, not the `.docx`**, as `[text]{custom-style="Key"}`, so they
+      survive every rebuild. Needs `bracketed_spans` in pandoc's `--from`.
+    - `education/tools/highlight.py` (tracked) applies a list of verbatim anchors and **refuses to
+      write unless every anchor matches exactly once** — a silently-missed anchor is the one failure
+      you would never notice. `--check` validates and reports density without writing.
+    - ⚠️ **Anchor lists live in `education/scratch/anchors_ch0*.py`, which is GITIGNORED.** The
+      highlights themselves are safe (they are in the committed Markdown); the anchor lists are not.
+    - ⚠️ **Never re-run `highlight.py` against an already-highlighted file** — every existing anchor
+      reports "already highlighted", which masks whether the *new* ones are valid. Strip with
+      `re.sub(r'\[([^\[\]]*)\]\{custom-style="Key"\}', r'\1', text)`, then re-apply the full list.
+    - **By design it skips code blocks and tables**, so load-bearing facts sitting in table cells
+      cannot be marked and a highlights-only reader loses them. The fix that worked was to **restate
+      the strongest ones in prose**; done for 11 facts in Ch7. Watch for this in any new chapter.
+    - Density per chapter: Ch1 44 spans, Ch2 33, Ch3 41, Ch4 38, Ch5 39, Ch6 45, **Ch7 103** (Ch7 is
+      much denser because it is all prose — no lab transcripts to dilute it). All ≈14–15 %.
+
+  - **Ch1's "ranch" allegory was deleted Aug 3** at Andrew's request ("now unnecessary — use proper
+    terms"). The **table mapping each piece to what it does was kept** (he said that overview is
+    still valuable); the "where the analogy breaks down" section became "Five things the table
+    glosses over". Do not reintroduce farm metaphors anywhere in the series.
   - **Teaching format that works: Andrew types every command, I verify out-of-band over SSH and
     explain the output.** Used for Parts 3 & 4 and the Ch2 session. He catches his own anomalies this
     way (he spotted the 30-second delete himself), and his mistakes turn into the best documentation.
