@@ -436,17 +436,37 @@ material than the working version would have been.
    LibreOffice on the Z8, so it was verified by inspecting the OOXML (318 `Key` runs, `FFF3B0` fill,
    no leaked markup). Andrew had Ch7 open in Word at 10:31 PM — ask him whether the yellow looks
    right before assuming it does.
-3. **If more chapters are wanted:** 8 (Schema Registry — still well motivated, since the app
-   produces hand-rolled JSON with no contract and renaming `qty` silently breaks the consumer),
-   9 (OpenSearch + Fluent Bit), 10 (failure drills).
-4. Hands-on loose ends, ~an hour each: a **liveness probe that asserts progress** on the consumer
-   (Ch6 §13 argues for it but it was never built), Redpanda Console via port-forward, `rpk group
-   seek` for replay, and a lag-alerting demo.
+3. ⛔ **Do NOT start chapters 8–10 before the interviews** (see Timing below — they are Aug 6/7).
+   The motivation for 8 (Schema Registry) is still sound: the app produces hand-rolled JSON with no
+   contract, so renaming `qty` silently breaks the consumer. 9 is OpenSearch + Fluent Bit, 10 is
+   failure drills. **All of it is post-interview work.**
+4. Hands-on loose ends, ~an hour each. Only the first is worth doing before Aug 6: a **liveness
+   probe that asserts progress** on the consumer (Ch6 §13 argues for it but it was never built —
+   it closes the one story that currently has no ending). The rest can wait: Redpanda Console via
+   port-forward, `rpk group seek` for replay, and a lag-alerting demo.
 
-**Timing:** ⚠️ the "interview ~Aug 1" noted earlier is now **stale — today is Aug 3** and I do not
-know whether it happened, slipped, or is still ahead. He commissioned Ch7 off the job description on
-Aug 3, which reads like preparation rather than follow-up, but **ask rather than assume.** Redpanda
-is still the strongest part of the story; Part 5 (OpenSearch) remains the one to cut.
+**📅 Timing — INTERVIEWS ARE Aug 6 AND Aug 7** (confirmed Aug 3; the old "~Aug 1" had slipped).
+**That is 3 days from the Aug 3 session, and it changes the priority order.** Writing chapters 8–10
+is now the *wrong* call — there is not enough time to write, run and absorb new material, and
+unabsorbed documentation is worth nothing in a panel. **Reading and drilling what exists beats
+producing more of it.**
+
+Two days almost certainly means two panels, so expect breadth. The asymmetry to manage: Ch1–6 is
+material he *ran with his own hands* and can speak to from experience, whereas **Ch7 is the only
+material he has merely read** — and it maps directly onto the job description's bullet list, which
+makes it likely interview ground. That gap is the thing to close first.
+
+Suggested use of the 3 days (proposed Aug 3, not yet agreed with Andrew):
+- **Aug 4** — read all 7 chapters once, then revise from the yellow highlights. That is exactly what
+  the 15 % pass was built for. Ch7 twice, since it is the unpractised half.
+- **Aug 5** — hands on the box. Rebuild the muscle memory for the commands in the "know by heart"
+  sections, and do the one build that is still missing: **a liveness probe that asserts progress**
+  on the consumer. Ch6 §13 argues for it and it was never built, and "a hung consumer looks
+  identical to a healthy one" is a strong story that currently ends without a fix.
+- **Keep in reserve, only if time is genuinely free:** Redpanda Console, `rpk group seek` replay,
+  lag alerting. All are nice; none are worth trading sleep for.
+
+Redpanda remains the strongest part of the story. Part 5 (OpenSearch) is still the one to cut.
 
 **Restore point: `qm rollback 186 s05-app-running`** (taken Aug 3 19:13, live via guest-agent
 fs-freeze) — the OMS app deployed, reconciling, lag 0. Fallbacks: `s04-topics-seeded` (Aug 3 18:34,

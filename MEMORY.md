@@ -34,7 +34,11 @@ Practical rules:
   **operational** reasoning (what breaks, what the cluster does about it, what you do at 3am, which
   reflexes make an incident worse) over application design, and tie every concept back to a
   consequence for **order/trade processing** (e.g. unkeyed producers → a cancel processed before
-  its order; a degraded cluster → don't rolling-restart it). Interview ~Aug 1.
+  its order; a degraded cluster → don't rolling-restart it).
+  **📅 INTERVIEWS: Aug 6 AND Aug 7 (two days), confirmed Aug 3.** The earlier "~Aug 1" was wrong —
+  it slipped. Two days almost certainly means two different panels, so breadth matters as much as
+  depth: the Redpanda/k8s hands-on story is the strong half, Ch7's stack (Cloudflare, PAM, Vault,
+  PKI, MongoDB, OTEL) is the half he has only read about.
   **Parts 1, 2, 3 and 4 all COMPLETE (July 25–27).** Restore points on VM 186:
   `s01-base-clean` (pre-k3s) → `s02-k3s-up` (k3s only, **predates Redpanda**) →
   **`s03-redpanda-up` (Jul 27 14:58) = the one to roll back to.** Live snapshot with guest-agent
