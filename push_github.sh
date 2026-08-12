@@ -105,7 +105,11 @@ fi
 # Only high-confidence patterns, so this never cries wolf over the WORD
 # "password" appearing in documentation.
 KEY_BLOCK='BEGIN [A-Z ]*PRIVATE KEY'
-URL_WITH_PW='[a-z][a-z0-9+.-]*://[^/@[:space:]]+:[^/@[:space:]]+@'
+# The password component must not START with '<' or '*', which is what makes
+# this ignore documented placeholders like http://root:<pw>@host and the
+# root:***@host form used when echoing a remote URL. A real secret starting with
+# either character is not a case worth weakening the check for.
+URL_WITH_PW='[a-z][a-z0-9+.-]*://[^/@[:space:]]+:[^<*/@[:space:]][^/@[:space:]]*@'
 AWS_KEY='AKIA[0-9A-Z]{16}'
 
 ADDED="$(git diff -U0 "$RANGE" -- . 2>/dev/null | grep '^+' | grep -v '^+++' || true)"
