@@ -1,6 +1,8 @@
 *** AI STARTUP PROCEDURE - READ THIS FIRST ***
 
 *** AI Must NEVER EDIT this file ***
+(Sole exception if Andrew explicitly authorises a one-time edit. Ask for written approval. Do not edit
+this file again without the same explicit, in-writing approval.)
 
 Project: home-lab-setup - Building Proxmox VE DevOps/QA Environment
 
@@ -13,15 +15,26 @@ Apps: Capricorn (unified finance app)
 - QA: capricorn-qa.gothamtechnologies.com (home lab)
 
 === PROJECT SCOPE (STAY IN YOUR LANE) ===
-This project owns the INFRASTRUCTURE layer ONLY: hardware (HP Z6 G4 host, NAS, networking),
-Proxmox host config + kernel/package/storage management, VM provisioning/lifecycle (create,
-resize, snapshot, backup, restore, shut down), and host-level reachability (DNS, port-forwards,
-edge firewall). It does NOT own the APPLICATION layer — application state, functionality, image
-tags, DB schema/data, and app docker-compose internals belong to their OWN projects (e.g.
-Capricorn / unified_ui_DEV_PROD_GCP). Do NOT maintain or "reconcile" app compose files, app
-images, or app DB here. If captured, label them as a read-only reference snapshot and point to
-the owning project. At the VM level, document only infra facts (e.g. "vm-www-1 runs Docker +
-Traefik ingress on 80/443 and hosts the Capricorn PROD stack + splash").
+This project owns TWO things:
+
+1. The PROXMOX / INFRASTRUCTURE layer: hardware (HP Z6 G4 host, NAS, networking), Proxmox host
+   config + kernel/package/storage management, VM provisioning/lifecycle (create, resize, snapshot,
+   backup, restore, shut down), and host-level reachability (DNS, port-forwards, edge firewall).
+
+2. EDUCATIONAL R&D done inside that lab — the /education study tracks and the POC builds they are
+   written from (e.g. the k3s + Redpanda cluster on VM 186). Learning rigs, study material and the
+   experiments behind them BELONG HERE. See the EDUCATION PROGRAM section below.
+
+It does NOT own the APPLICATION layer. "Application layer" means Capricorn and any other real app
+running on the lab — their application state, functionality, image tags, DB schema/data, and app
+docker-compose internals belong to their OWN projects (e.g. Capricorn / unified_ui_DEV_PROD_GCP).
+Do NOT maintain or "reconcile" app compose files, app images, or app DB here. If captured, label
+them as a read-only reference snapshot and point to the owning project. At the VM level, document
+only infra facts (e.g. "vm-www-1 runs Docker + Traefik ingress on 80/443 and hosts the Capricorn
+PROD stack + splash").
+
+Note the distinction: the OMS producer/consumer in education/k8s-k3s-redpanda/app/ IS ours — it is
+study material, not a production app. Capricorn is not.
 
 
 === STARTUP CHECKLIST ===
@@ -33,6 +46,8 @@ Traefik ingress on 80/443 and hosts the Capricorn PROD stack + splash").
    c. PASSWORDS.md - All Passwords and Credentials stored here
    d. (Optional) /proxmox/Home_Lab_Proxmox_Design.md - Architecture philosophy & dual-access strategy
    e. (Optional) phases/phaseX_*.md - Read relevant phase files for detailed context on completed work
+   f. education/CONVENTIONS.md - MANDATORY before writing or editing ANY study material in
+      /education. Not optional if the session touches education content.
 3. ✅ Git Status Check:
    a. Run `git fetch --all` to update remote tracking branches (GitHub/GitLab)
    b. Run `git status` to check:
@@ -66,6 +81,38 @@ Traefik ingress on 80/443 and hosts the Capricorn PROD stack + splash").
 - NEVER write outside project directory on this host
 - Connect using SSH to hosts we build with generic username/pass in .env file
 
+=== EDUCATION PROGRAM (/education) ===
+/education holds printable study material written on top of the lab. It is a SHELF, not a book:
+one self-contained folder per subject (education/<track>/), shared tooling in education/tools/,
+and chapter numbering that RESTARTS inside each track.
+
+  education/README.md         the hub - track table. Keep this path; its GitHub URL was shared
+                              externally with an employer.
+  education/CONVENTIONS.md    HOW to write. Read before touching study material.
+  education/tools/            shared build pipeline. Track is the FIRST ARGUMENT:
+                              build_docx.py <track> [chapter numbers]   (--list to enumerate)
+                              figcheck.py <track>
+  education/<track>/          chapters + diagrams/ images/ docx/ [manifests/] [app/] scratch/
+  education/docx/README.md    stub only - preserves an externally shared link. No builds here.
+
+RULES:
+1. READ education/CONVENTIONS.md BEFORE writing or editing any educational material, and follow it.
+   It is the authority on chapter structure, diagrams, figure legibility, the Word build and the
+   highlight pass. Do NOT invent a new format per track.
+2. If a convention must change, change it in CONVENTIONS.md - NEVER fork it into a track README.
+3. ONLY DOCUMENT WHAT ANDREW ACTUALLY RAN. This is what makes the material worth anything.
+   A research-only chapter is allowed but MUST declare that in its opening paragraph (worked
+   example: track 1, chapter 7). Where real output varies between runs, say so in the text.
+4. Tracks are self-contained. A track never relative-links into another track; cross-references go
+   through education/README.md. Tooling is shared and never copied into a track.
+5. Anything in a track's scratch/ is GITIGNORED (education/*/scratch/). Never tell the reader to run
+   something that lives there - a fresh clone will not have it.
+6. Each study track gets its OWN phase file (phases/phaseX_<track>.md) and follows the MANDATORY
+   PHASE PROCESS below. Track READMEs are reader-facing indexes; phase files hold the working record
+   (decisions, blockers, what was actually run).
+7. Weight material toward OPERATIONAL reasoning - failure modes, what you do at 3am, which instincts
+   make an incident worse - and tie each concept to a consequence for the system being studied.
+
 === GitHub Account Info ===
 available in github_credentials.md in project root
 
@@ -82,22 +129,44 @@ This repo has TWO remotes:
     Auth = HTTP "wallet" (root:<pw> baked into the remote URL in .git/config), same as Capricorn.
     NOTE: the real password lives ONLY in .git/config (never pushed) and PASSWORDS.md (gitignored).
 
+⚠️ ALWAYS PUSH WITH THE SCRIPTS. NEVER run a raw `git push` at either remote.
+
+   ./push_github.sh     → PUBLIC GitHub (origin/main), curated tree
+   ./push_gitlab.sh     → PRIVATE GitLab (gitlab/main), FULL plaintext mirror incl. secrets
+
+   Both accept --dry-run, which runs every check and pushes NOTHING. Use it freely.
+   (push_gitlab.sh was formerly gl-backup.sh; the old name no longer exists.)
+
 RULES (CRITICAL):
 1. NEVER commit or push without asking Andrew first.
 2. BEFORE pushing, ALWAYS ASK: "Push to GitHub, GitLab, or both?" Then push only where told:
-   - GitHub only (PUBLIC, curated 'main'):   git push origin main
-   - GitLab only (PRIVATE, full mirror):     ./gl-backup.sh "message"
-   - Both:                                    do both of the above explicitly
+   - GitHub only (PUBLIC, curated 'main'):   ./push_github.sh
+   - GitLab only (PRIVATE, full mirror):     ./push_gitlab.sh "message"
+   - Both:                                    run both explicitly, GitHub first
+   Preview either with --dry-run first. push_github.sh will ask for typed confirmation;
+   it REFUSES to push unattended unless given --yes.
 3. GitHub (public) must NEVER contain sensitive information. There is no encryption — safety
    comes from .gitignore. These stay ignored and therefore NEVER land on GitHub:
    PASSWORDS.md, github_credentials.md, proxmox/credentials, proxmox/nas_credentials,
    /working/, /ddns/, *.pem, *.key, *.crt, .env*  (verify with: git check-ignore <file>)
-4. GitLab = COMPLETE plaintext backup. Use ./gl-backup.sh — it snapshots the ENTIRE working
-   tree (tracked + ignored, secrets included, minus .DS_Store) onto gitlab/main WITHOUT
-   touching the working tree or the GitHub-bound 'main'. Never `git push gitlab main` directly
-   (that would only send the curated tree); always use gl-backup.sh for the full mirror.
-5. NEVER push the ignored/secret files to origin/GitHub. If unsure, `git status --ignored`
-   and `git ls-files | grep -iE 'password|cred|\.env|\.key'` (must be empty) before pushing origin.
+   push_github.sh enforces this and FAILS CLOSED. Its four gates: origin really is GitHub and
+   we are on 'main'; no TRACKED file has a secret-looking name; every known sensitive path that
+   exists is still gitignored; and the outgoing diff contains no private-key blocks, no URL with
+   an embedded password (the GitLab wallet!), and no AWS keys. If it blocks, FIX THE CAUSE —
+   do not work around it with a raw git push.
+4. GitLab = COMPLETE plaintext backup. ./push_gitlab.sh snapshots the ENTIRE working tree
+   (tracked + ignored, secrets included, minus .DS_Store) onto gitlab/main WITHOUT touching the
+   working tree, the real index, or the GitHub-bound 'main'. It also handles nested git repos
+   (e.g. working/openclaw-ansible) so their files are captured rather than empty pointers.
+   Never `git push gitlab main` directly — that would send only the curated tree, defeating the
+   entire purpose of the mirror. GitLab will therefore always look "diverged" from main; that is
+   BY DESIGN (separate snapshot history, fully disjoint — no common ancestor), not a problem to fix.
+   Every snapshot is AUTO-STAMPED with `main @ <sha>` (plus `+dirty` if the tree has uncommitted
+   work), so a snapshot can always be correlated back to the real history. Still pass a message —
+   it is prepended — but forgetting it no longer discards the reason for the snapshot.
+5. NEVER push the ignored/secret files to origin/GitHub. push_github.sh checks this for you, but
+   if verifying by hand: `git status --ignored` and
+   `git ls-files | grep -iE 'password|cred|\.env|\.key'` (must be empty) before pushing origin.
 6. Push auth: GitHub via ~/.ssh/id_ed25519 (already trusted); GitLab via the HTTP wallet baked
    into the remote URL in .git/config — same credentials Capricorn/capricorn-docs use (GitLab
    root pw, see PASSWORDS.md). No SSH key needed. NEVER write that password into a tracked file.

@@ -26,19 +26,73 @@ Practical rules:
 
 ---
 
+## ⚠️ WORKSTATION GOTCHA — THIS REPO LIVES ON A CIFS SHARE (found Aug 12, 2026)
+
+The repo path `/home/agamache/DevShare/cursor-projects/home-lab-setup` is a **CIFS/NAS mount**
+(`/mnt/DevShare`), and **the editor's file cache goes stale against it.** Observed on Aug 12 while
+editing `CURSOR_RULES`:
+- Two edits landed **corrupted** — one paragraph truncated mid-sentence, and a stray line
+  (`EW instructs you to- CONFIRM that you will edi`) appeared inside a section that never contained
+  it. Neither string existed in `HEAD`; both were introduced by the write itself.
+- Read-backs returned **stale content that hid the damage**, and at one point reported a completely
+  different region of the file than `rg` did on the same path.
+- The IDE reported the file as **160 lines while disk had 204**.
+
+**Rules that follow from this — apply to any large/critical file in this repo:**
+1. **After editing an important file, VERIFY FROM THE SHELL**, not from a read-back:
+   `wc -l`, `md5sum`, and `rg -c '<expected phrase>'`. Trust the shell view.
+2. **Audit deletions before committing:** `git diff <file> | rg '^-' | rg -v '^---'` should show only
+   lines you meant to remove. This is what caught both corruptions.
+3. ⚠️ **A stale editor buffer WILL OVERWRITE good changes if saved — this actually happened.** At
+   16:04 on Aug 12, Andrew edited the "never edit" directive in `CURSOR_RULES` from a stale buffer
+   and **wiped all 3 uncommitted AI edits** (204 lines → 158). If Andrew has a file open and its line
+   count disagrees with disk, tell him to close and reopen it *before* he saves anything.
+4. ⭐ **THE REAL FIX IS TO COMMIT EARLY.** The clobbered edits were unrecoverable from git because
+   they had never been committed — they had to be retyped from session context, which only worked
+   because the session was still live. **Commit important file edits promptly** (locally is enough)
+   so the next clobber is repaired with `git checkout <file>` instead of from memory.
+5. Prefer **one atomic, asserted write** over many small edits on this mount. The successful rebuild
+   used a single Python pass that asserted each anchor matched exactly once and that Andrew's own
+   lines survived, then verified from the shell.
+
+---
+
 ## CURRENT STATE
 
-- **🔵 ACTIVE — Phase 14: Kubernetes + Redpanda POC (interview prep).** Plan + learning material
-  in `phases/phase14_k8s_redpanda_poc.md`. **🎯 THE ROLE: SRE / DevOps on an ORDER MANAGEMENT
-  SYSTEM at a hedge fund** (confirmed Jul 27). This drives everything — weight all material toward
-  **operational** reasoning (what breaks, what the cluster does about it, what you do at 3am, which
-  reflexes make an incident worse) over application design, and tie every concept back to a
-  consequence for **order/trade processing** (e.g. unkeyed producers → a cancel processed before
-  its order; a degraded cluster → don't rolling-restart it).
-  **📅 INTERVIEWS: Aug 6 AND Aug 7 (two days), confirmed Aug 3.** The earlier "~Aug 1" was wrong —
-  it slipped. Two days almost certainly means two different panels, so breadth matters as much as
-  depth: the Redpanda/k8s hands-on story is the strong half, Ch7's stack (Cloudflare, PAM, Vault,
-  PKI, MongoDB, OTEL) is the half he has only read about.
+- **🎉 ANDREW GOT THE JOB (confirmed Aug 12, 2026).** The interviews happened **Aug 6 and Aug 7** and
+  the outcome was an offer — **SRE / DevOps on an ORDER MANAGEMENT SYSTEM at a hedge fund.**
+  Phase 14 existed to prepare for those interviews, so **its goal is met and it is CLOSED.** Do not
+  extend it. The education material is no longer interview prep; it is **onboarding prep for the job
+  he now holds**, which changes the priority from breadth-before-a-panel to depth-on-the-real-stack.
+  ⚠️ **The employer's actual stack has not been captured yet.** Chapter 7's six areas (Cloudflare
+  edge, IAM + Symantec PAM, Vault, PKI/cert-manager, MongoDB, OTEL→Prometheus/Grafana/OpenSearch)
+  were derived from the **job description**, which is now the *oldest* information available. Andrew
+  said on Aug 12 he would describe the real stack. **Get that before scoping any new study track** —
+  everything in `phases/phase15_education_program.md` §4 is a straw man until then.
+
+- **🔵 ACTIVE — Phase 15: the education program** (`phases/phase15_education_program.md`).
+  Restructured `education/` from one flat series into a multi-track shelf (see the education section
+  below). Framework work only; the first new track gets its own phase file per the agreed model.
+  ⚠️ **`CURSOR_RULES` WAS EDITED on Aug 12 — the only time this has ever happened.** That file says
+  the AI must never edit it; **Andrew gave explicit one-time authorisation in writing**, and the note
+  recording that sits under the never-edit line. **Do not treat it as precedent** — get the same
+  explicit approval or do not touch it. Three changes went in:
+  - **`PROJECT SCOPE` rewritten (Andrew's own definition):** this repo owns **TWO** things — the
+    Proxmox/infrastructure layer **and educational R&D done inside the lab** (the `/education` tracks
+    plus the POC builds they are written from). "Application layer" = **Capricorn and other real apps
+    running on the lab**, which belong to their own projects. So the OMS producer/consumer in
+    `education/k8s-k3s-redpanda/app/` **IS ours** (study material); Capricorn is not. The old wording
+    said "INFRASTRUCTURE layer ONLY", which would have made a literal reader disown `/education`.
+  - **Startup checklist item 2f** — `education/CONVENTIONS.md` is a mandatory read when the session
+    touches education content.
+  - **New `=== EDUCATION PROGRAM (/education) ===` section**, 7 rules.
+
+- **✅ CLOSED — Phase 14: Kubernetes + Redpanda POC (was interview prep).** Plan + learning material
+  in `phases/phase14_k8s_redpanda_poc.md`. The role framing still governs how the material is
+  written: weight everything toward **operational** reasoning (what breaks, what the cluster does
+  about it, what you do at 3am, which reflexes make an incident worse) over application design, and
+  tie every concept back to a consequence for **order/trade processing** (e.g. unkeyed producers →
+  a cancel processed before its order; a degraded cluster → don't rolling-restart it).
   **Parts 1, 2, 3 and 4 all COMPLETE (July 25–27).** Restore points on VM 186:
   `s01-base-clean` (pre-k3s) → `s02-k3s-up` (k3s only, **predates Redpanda**) →
   **`s03-redpanda-up` (Jul 27 14:58) = the one to roll back to.** Live snapshot with guest-agent
@@ -83,8 +137,8 @@ Practical rules:
   **Part 4 — Redpanda (July 27, 1:00–2:50 PM). 3 brokers live in ns `redpanda`, healthy 3/3.**
   Chart `redpanda-26.1.9` / app `v26.1.12`, `rpk v26.1.14`, Helm v3.21.3. PVCs
   `datadir-redpanda-{0,1,2}` 20Gi local-path. Topic `market-ticks` 6 partitions RF 3. Full runbook =
-  `education/chapter03_redpanda.md`; the working values file is
-  **`education/manifests/redpanda-values.yaml`** (verified to reproduce the live release).
+  `education/k8s-k3s-redpanda/chapter03_redpanda.md`; the working values file is
+  **`education/k8s-k3s-redpanda/manifests/redpanda-values.yaml`** (verified to reproduce the live release).
   - ⚠️ **The chart's documented anti-affinity override `statefulset.podAntiAffinity.type: soft` is
     VESTIGIAL in 26.1.9 — it silently does nothing.** Hard anti-affinity means only 1 broker can
     schedule on a 1-node cluster. Real path: `statefulset.podTemplate.spec.affinity` — set
@@ -133,8 +187,48 @@ Practical rules:
     Checking too fast caught a `Terminating`-but-still-serving broker and produced a write that
     "should" have failed.
 
-  - **`education/` series** — printable study chapters with diagrams (Andrew's idea, for the
-    interview). Counts are **post-audit, Aug 3 22:30** — the Aug 3 audit grew every chapter, so the
+  - **⚠️ `education/` IS NOW A MULTI-TRACK SHELF, NOT A FLAT SERIES (restructured Aug 12, Phase 15).**
+    Everything below that says "the series" is **track 1**, and it lives at
+    **`education/k8s-k3s-redpanda/`**. Layout now:
+    - `education/README.md` — the hub: track table + how to start a track. **Keep this file at this
+      path** — its GitHub URL was emailed to the hiring team on Aug 5.
+    - **`education/CONVENTIONS.md` — READ THIS BEFORE WRITING OR EDITING ANY STUDY MATERIAL.** All
+      the *how to write* rules (chapter shape, the "only document what Andrew actually ran" rule,
+      Graphviz gotchas, figure legibility, docx spec, highlight pass), lifted out of the old README so
+      every future track inherits them instead of copying them. **Edit conventions HERE, never fork
+      them into a track README.** Andrew's Aug 12 instruction: this is the authority on format, so do
+      not invent a new one per track. **This is now wired into `CURSOR_RULES`** — startup checklist
+      item 2f makes it a mandatory read, and there is a full `=== EDUCATION PROGRAM (/education) ===`
+      section with 7 rules (Aug 12).
+    - `education/tools/` — **shared** across all tracks. `build_docx.py` and `figcheck.py` now take
+      the **track name as their first argument** (`build_docx.py k8s-k3s-redpanda 3 6`,
+      `--list` to enumerate tracks). `figcheck.py` was promoted out of the gitignored `scratch/`
+      and is now tracked. `highlight.py` was already argv-driven and unchanged.
+    - `education/docx/README.md` — a **stub only**, kept so the emailed
+      `github.com/.../tree/main/education/docx` link still resolves instead of 404ing. Do not put
+      builds there.
+    - `education/<track>/` — self-contained: chapters, `diagrams/`, `images/`, `docx/`, optional
+      `manifests/` + `app/`, and a gitignored `scratch/`.
+    - `.gitignore` is now **`education/*/scratch/`** (was `education/scratch/`). A new track's
+      scratch is ignored automatically; a file at `education/scratch/` would NOT be.
+    - Chapter numbering **restarts at 01 in every track**, so two tracks can both have a `chapter03`.
+    - The move was 67 `git mv`s; history is preserved (`git log --follow` works).
+    - ⚠️ Verified at the time: rebuilding all 7 chapters after the tooling refactor produced
+      **byte-identical `word/document.xml`** in all seven, so the refactor changed nothing. The
+      committed binaries were restored afterwards to keep the commit a pure rename.
+    - **`figcheck.py k8s-k3s-redpanda` exits 1, and that is ACCEPTED — do not "fix" it unprompted.**
+      4 of 19 figures sit at **9.4–9.9 pt** on the page (`ch02_fig1_ownership`,
+      `ch03_fig1_partitions`, `ch05_fig1_assignment`, `ch05_fig2_skew`), just under the 10 pt floor.
+      Pre-existing, not caused by the move; it only surfaced because promoting `figcheck.py` out of
+      the gitignored `scratch/` meant actually running it. **⭐ Andrew rendered AND PRINTED all seven
+      chapters on Aug 12 and said they look and print fine**, so the 10 pt floor is a *conservative
+      guide, not a hard requirement* — the real-world check passed. If these are ever revisited the
+      fix is a **narrower** diagram, never a bigger `fontsize`. Treat a non-zero `figcheck` exit on
+      track 1 as known, and only act on it for *new* figures.
+
+  - **Track 1 (`education/k8s-k3s-redpanda/`)** — printable study chapters with diagrams (Andrew's
+    idea, originally for the interview). Counts are **post-audit, Aug 3 22:30** — the Aug 3 audit
+    grew every chapter, so the
     old numbers in this file were stale: **Ch1 (Kubernetes/k3s) 951 lines / 2 figs; Ch2 (object
     model) 780 / 3; Ch3 (Redpanda) 1485 / 3; Ch4 (provisioning application state) 931 / 3;
     Ch5 (consumer groups) 624 / 3; Ch6 (the application) 1160 / 3; Ch7 (additional infra stack)
@@ -154,15 +248,15 @@ Practical rules:
     made **inside Ch7**, not by editing Ch3/Ch6, because Andrew said not to touch existing docs.
     Ch2–Ch6 are deliberately **replayable runbooks** — Andrew re-runs this
     material, so where output varies between runs (sticky-partition choice, initial leader assignment,
-    which partition an unkeyed producer picks) the text says so explicitly. `education/manifests/`
+    which partition an unkeyed producer picks) the text says so explicitly. `education/k8s-k3s-redpanda/manifests/`
     holds real tested artefacts: `redpanda-values.yaml`, `web-deployment.yaml` (verified end-to-end
     apply → rollout → 200s → delete on Jul 27, with both probe failure drills documented inline),
     plus `seed-topics.sh` + `seed-topics-job.yaml` + `consumer-group-lab.sh` from Aug 3. **Ch6's
-    application is source code, so it lives in `education/app/` (producer.py, consumer.py, oms.py,
+    application is source code, so it lives in `education/k8s-k3s-redpanda/app/` (producer.py, consumer.py, oms.py,
     Dockerfile, build.sh, k8s/) rather than `manifests/`.**
     Rule for this series: only document things Andrew actually ran (**Ch7 is the one deliberate
     exception — see above**). **Diagrams are Graphviz `.dot`
-    sources in `education/diagrams/`, deliberately NOT AI-generated** (image models garble technical
+    sources in `education/k8s-k3s-redpanda/diagrams/`, deliberately NOT AI-generated** (image models garble technical
     labels); `graphviz` installed on the Z8. Two HTML-label gotchas: newlines render as literal
     leading spaces (keep each table cell on one source line), and `BALIGN="LEFT"` only affects lines
     *after* a `<BR/>` — set **both** `ALIGN="LEFT" BALIGN="LEFT"` on the `<TD>`, and use a one-cell
@@ -174,9 +268,11 @@ Practical rules:
     by restacking two columns into one. Also: **`edge` is a reserved word in DOT** and cannot be a
     node id, and `\uXXXX` escapes do not work in plain DOT strings.
 
-  - **Word/`.docx` build — `education/tools/build_docx.py` (tracked).** `pandoc` + a generated
-    `reference.docx`: **7.00 in column, Cambria 11 pt, single-spaced, every image full column
-    width**. Output to `education/docx/`, committed. **No table of contents** — pandoc's `--toc`
+  - **Word/`.docx` build — `education/tools/build_docx.py <track> [chapter numbers]` (tracked).**
+    ⚠️ **The track argument is mandatory as of Aug 12** — it used to be derived from the script's own
+    location, which stopped being meaningful once there was more than one track. `pandoc` + a
+    generated `reference.docx`: **7.00 in column, Cambria 11 pt, single-spaced, every image full
+    column width**. Output to `education/<track>/docx/`, committed. **No table of contents** — pandoc's `--toc`
     emitted a literal "No table of contents entries found" on page 1 because the field needs a Word
     render to populate, so on Aug 3 all TOC code (flag, `fill_toc`, `updateFields`, TOC styles) was
     deleted rather than patched. Don't re-add it.
@@ -195,7 +291,7 @@ Practical rules:
     - `education/tools/highlight.py` (tracked) applies a list of verbatim anchors and **refuses to
       write unless every anchor matches exactly once** — a silently-missed anchor is the one failure
       you would never notice. `--check` validates and reports density without writing.
-    - ⚠️ **Anchor lists live in `education/scratch/anchors_ch0*.py`, which is GITIGNORED.** The
+    - ⚠️ **Anchor lists live in `education/k8s-k3s-redpanda/scratch/anchors_ch0*.py`, which is GITIGNORED.** The
       highlights themselves are safe (they are in the committed Markdown); the anchor lists are not.
     - ⚠️ **Never re-run `highlight.py` against an already-highlighted file** — every existing anchor
       reports "already highlighted", which masks whether the *new* ones are valid. Strip with
@@ -343,7 +439,7 @@ Practical rules:
   Python 3.12 + `confluent-kafka` 2.6.1, image `oms:dev` side-loaded into k3s containerd (no
   registry), topic `orders-v2` 6p/RF3, group `position-keeper`. Workload: **2000 orders × (1 NEW +
   4 FILL) = 10,000 events, 8,000 fills, 800,000 shares** — fixed arithmetic so the correct answer is
-  knowable without coordination. Source at `education/app/`. **The chapter is built around four
+  knowable without coordination. Source at `education/k8s-k3s-redpanda/app/`. **The chapter is built around four
   bugs, three of them mine; they are better material than the working version.**
   - ⭐ **The demo that "failed" and became the best finding.** Plan: two ledgers (idempotent upsert
     vs naive accumulate), hard-kill mid-stream, watch naive inflate. Result: **zero duplicates in
@@ -1321,19 +1417,50 @@ Same model as Capricorn/capricorn-docs: SAFE content → GitHub, EVERYTHING → 
 There is NO git-crypt and NO encryption — safety on GitHub comes purely from .gitignore.
 
 - **GitHub (PUBLIC):** https://github.com/fiberoptix/home-lab-setup — remote `origin` (SSH, id_ed25519).
-  Curated showcase. Secrets are .gitignore'd and NEVER reach GitHub. Push with: `git push origin main`.
+  Curated showcase. Secrets are .gitignore'd and NEVER reach GitHub. Push with: **`./push_github.sh`**.
 - **GitLab (PRIVATE):** http://gitlab.gothamtechnologies.com/production/home-lab-setup — remote `gitlab`.
   Full plaintext mirror of the ENTIRE working tree (incl. ignored secrets/binaries).
   Auth = HTTP "wallet" baked into the remote URL in .git/config
   (`http://root:<GitLab root pw — see PASSWORDS.md>@gitlab.gothamtechnologies.com/production/home-lab-setup.git`),
   identical to how Capricorn/capricorn-docs authenticate. No SSH key needed for GitLab.
   The real password lives ONLY in .git/config (never pushed) + PASSWORDS.md (gitignored).
-- **Push EVERYTHING to GitLab with `./gl-backup.sh "message"`** — it snapshots the whole working
-  tree (tracked + ignored, minus .DS_Store) onto `gitlab/main` via a temp index, WITHOUT touching
-  the working tree or the GitHub-bound `main`. Do NOT `git push gitlab main` directly (that only
-  sends the curated tree, not the secrets). Always use gl-backup.sh for the full private mirror.
+- ⚠️ **PUSH ONLY VIA THE TWO SCRIPTS (Aug 12, 2026). NEVER a raw `git push`.**
+  **`gl-backup.sh` WAS RENAMED to `push_gitlab.sh`** (`git mv`, history preserved) so the two
+  remotes have symmetrical entry points. The old name no longer exists — a stale `./gl-backup.sh`
+  just errors, which is the intended loud failure.
+  - **`./push_github.sh`** → PUBLIC GitHub (origin/main), curated tree. **New and it FAILS CLOSED.**
+    Four gates: origin really is GitHub and branch is `main`; no TRACKED file has a secret-looking
+    name; every known sensitive path that exists is still gitignored; and the outgoing diff has no
+    private-key blocks, no URL with an embedded password (**this is what would catch the GitLab
+    wallet leaking**), and no AWS keys. Then it prints the commits going public and requires a typed
+    `yes`. **Refuses to push unattended unless given `--yes`.** If it blocks, FIX THE CAUSE.
+  - **`./push_gitlab.sh "message"`** → PRIVATE GitLab (gitlab/main), full plaintext mirror. Same
+    proven logic as before (temp index, never touches the real index/worktree/`main`, handles nested
+    git repos). Added guard: it ABORTS if the `gitlab` remote ever resolves to github.com, because
+    this script deliberately stages secrets.
+  - **Both take `--dry-run`** — every check runs, nothing is pushed. Verified Aug 12: the GitLab
+    dry-run built a 208-file snapshot including PASSWORDS.md and the nested openclaw-ansible files,
+    and the real index was byte-identical afterwards.
+- ⚠️ **WHAT THE GITLAB MIRROR DOES AND DOES NOT PRESERVE** (understood properly Aug 12).
+  `gitlab/main` and `main` are **FULLY DISJOINT — `git merge-base` finds no common ancestor.**
+  As of Aug 12: **82 real commits on `main` vs 22 snapshots on `gitlab/main`.** The mirror preserves
+  **files perfectly** and **history coarsely**; it IS a real commit chain, so diffing between
+  snapshots works normally. What it never had was correlation — no way to tell which `main` commit a
+  snapshot matched — and two of the older snapshots are messaged only `Full snapshot <timestamp>`,
+  where the reason for the snapshot is simply gone.
+  - ✅ **Fixed Aug 12: snapshots are now AUTO-STAMPED.** Default message is
+    `Snapshot <ts> — main @ <sha>[+dirty]: <HEAD subject>`; a message you pass gets `[main @ <sha>]`
+    appended. **`+dirty` means the snapshot contains work that is in NO commit**, which is the case
+    worth noticing — the SHA alone would not describe the tree being pushed.
+  - **Nothing is lost on the GitHub side.** `push_github.sh` never creates a commit; it only pushes.
+    Commit messages are authored normally with `git commit` and are unaffected by either script.
+  - **Neither script pushes tags** (there are currently 0 tags in the repo). If tagging ever starts,
+    `push_github.sh` needs `--follow-tags`.
+  - Do NOT `git push gitlab main` directly — that sends only the curated tree, not the secrets.
 - **No auto-push-to-both.** Pushes are explicit; ALWAYS ASK "GitHub, GitLab, or both?" first.
   See the "GIT REMOTES & COMMIT ROUTING" section in CURSOR_RULES.
+- **GitLab always looks "diverged" from `main` (e.g. 82 ahead / 22 behind). That is BY DESIGN** —
+  it is a separate snapshot history built by push_gitlab.sh, not a problem to reconcile.
 - **Ignored-and-therefore-GitHub-safe:** PASSWORDS.md, github_credentials.md, proxmox/credentials,
   proxmox/nas_credentials, /working/, /ddns/, *.pem, *.key, *.crt, .env*,
   www/scripts/smb_credentials  (verify: `git check-ignore <f>`).

@@ -1,13 +1,136 @@
 # Current Phase
 
-**Updated:** August 3, 2026 - 9:15 PM EDT
+**Updated:** August 12, 2026 - 4:26 PM EDT
 
 ---
 
-## 🔵 ACTIVE: Phase 14 — Kubernetes + Redpanda POC (interview prep, ~1 week)
+## 🎉 ANDREW GOT THE JOB (Aug 12, 2026)
 
-**Full plan + learning material: `phases/phase14_k8s_redpanda_poc.md`.** This is a learning rig
-with a deadline (hedge-fund interview), not a production service.
+The interviews happened **Aug 6 and Aug 7** and the outcome was an offer: **SRE / DevOps on an order
+management system at a hedge fund.** Phase 14 was built to prepare for exactly those two days, so
+**Phase 14 is CLOSED — goal met.** Nothing in it is half-finished; all 7 chapters were written,
+audited, highlighted, built to `.docx` and committed, and the highlighting was **visually confirmed
+good in Word by Andrew on Aug 12**, which closes the last open verification item.
+
+**What changes:** the education material is no longer interview prep with a deadline. It is
+onboarding prep for a job he now holds, which means **depth on the real stack** rather than breadth
+before a panel.
+
+⚠️ **Blocking unknown:** the employer's *actual* stack has not been written down yet. Chapter 7's six
+areas came from the **job description**, which is now the oldest information available. Andrew is
+going to describe the real stack. **Do not scope a study track before that lands** — §4 of the
+Phase 15 plan is explicitly a straw man.
+
+---
+
+## 🔵 ACTIVE: Phase 15 — The Education Program (multi-track study repo)
+
+**Full plan: `phases/phase15_education_program.md`.**
+
+`education/` was written flat for one subject on one deadline. With the job won and a whole stack to
+learn, it had to stop being *a book* and become *a shelf*. Phase 15 is that conversion — framework
+and doc reconciliation only, **no new study content**.
+
+### ✅ Done (Aug 12)
+
+- **Track 1 moved to `education/k8s-k3s-redpanda/`** — 67 `git mv`s, history preserved
+  (`git log --follow` still reaches Jul 27). Chapters, `app/`, `diagrams/`, `images/`, `manifests/`,
+  `docx/` and the ignored `scratch/` all travelled together.
+- **`.gitignore` generalised** to `education/*/scratch/`, so every future track's scratch is ignored
+  automatically. Verified with `git check-ignore -v`.
+- **Tooling made shared and track-aware.** `education/tools/` stays at the top of the shelf;
+  `build_docx.py` and `figcheck.py` now take the **track as their first argument**, and
+  `build_docx.py --list` enumerates tracks. `figcheck.py` was **promoted out of the gitignored
+  `scratch/`** so a fresh clone can actually run the command the docs describe.
+  - **Regression check passed:** rebuilt all 7 chapters and compared the inner `word/document.xml`
+    against `git show HEAD:` — **byte-identical in all seven.** The committed binaries were then
+    restored so the commit stays a pure rename instead of 7 files of zip-timestamp noise.
+- **The shelf documents written:** `education/README.md` is now the hub (track table + how to start a
+  track), and `education/CONVENTIONS.md` holds every *how to write* rule so future tracks inherit
+  them instead of copying them.
+- **The emailed GitHub links preserved.** `education/README.md` stayed at its original path, and
+  `education/docx/README.md` is a stub pointing at the track's builds, so
+  `…/tree/main/education/docx` resolves instead of 404ing. Both URLs went to the hiring team Aug 5.
+- **Track 1's README corrected** — it had listed chapter 7 as "Schema Registry 🔲 Planned" when
+  chapter 7 was actually written as *the rest of the platform*. Schema Registry is now chapter 8.
+- **Root `README.md` now documents `education/`** — it previously never mentioned it at all, which
+  meant the repo's public face omitted the piece good enough to send to an employer.
+- **Paths reconciled** across `MEMORY.md`, `current_phase.md`, `phase14_k8s_redpanda_poc.md`,
+  chapters 1 and 6, and `seed-topics-job.yaml`.
+
+### 🐛 Found while doing it — then closed as acceptable
+
+**4 of 19 figures are below the 10 pt floor** Andrew set: `ch02_fig1_ownership` (9.7),
+`ch03_fig1_partitions` (9.9), `ch05_fig1_assignment` (10.0 borderline) and `ch05_fig2_skew` (9.4), so
+`figcheck.py` exits 1. Pre-existing; it only surfaced because promoting `figcheck.py` out of the
+gitignored `scratch/` meant actually running it.
+
+✅ **Resolved by real-world test, not by code: Andrew rendered and PRINTED all seven chapters on
+Aug 12 and confirmed they look and print correctly.** So the 10 pt floor is a conservative guide
+rather than a hard requirement, and these four stay as they are. **Do not "fix" the non-zero
+`figcheck` exit on track 1** — treat it as known and apply the check to *new* figures only. If they
+are ever revisited, the fix is a narrower diagram, never a bigger `fontsize`.
+
+### 📐 Conventions are now a file, and it is authoritative
+
+`education/CONVENTIONS.md` holds every *how to write* rule — chapter shape, the "only document what
+Andrew actually ran" rule, the Graphviz gotchas, figure legibility, the Word build and the highlight
+pass. **Read it before writing or editing any study material, and change conventions there rather
+than forking them into a track.**
+
+✅ **Wired into `CURSOR_RULES` on Aug 12.** Andrew gave **explicit one-time authorisation** to edit
+that file (it normally forbids AI edits outright — the authorisation note now sits under the
+never-edit line, and it is **not precedent**). Three changes:
+1. **`PROJECT SCOPE` rewritten to Andrew's definition:** the repo owns **two** things — the Proxmox
+   layer **and educational R&D done inside it**. "Application layer" means Capricorn and other real
+   apps on the lab. The old text said "INFRASTRUCTURE layer ONLY", which left `/education` unclaimed.
+2. **Checklist item 2f** — `CONVENTIONS.md` is a mandatory read for education sessions.
+3. **New `=== EDUCATION PROGRAM (/education) ===` section** with 7 rules (conventions first, don't
+   fork them, only document what was run, tracks self-contained, nothing from `scratch/`, one phase
+   file per track, operational weighting).
+
+### ⚠️ The repo is on a CIFS share and the editor cache lies — VERIFY EDITS FROM THE SHELL
+
+Editing `CURSOR_RULES` produced **two silent corruptions**: a truncated paragraph and a stray line
+(`EW instructs you to- CONFIRM that you will edi`) that had never existed in the file. Read-backs
+returned stale content that concealed both, once showing a completely different region of the file
+than `rg` showed for the same path, and the IDE reported 160 lines while disk had 204.
+
+Both were caught by auditing removals (`git diff <file> | rg '^-'`) and verified with `wc -l` /
+`md5sum` / `rg -c`. **Do that after every edit to an important file here.** And if Andrew has a file
+open whose line count disagrees with disk, he must reopen it before saving — a stale buffer will
+overwrite good work. Full rules at the top of `MEMORY.md`.
+
+### 🔧 Also done this session — push tooling (Aug 12, 4:00–4:25 PM)
+
+Andrew's idea: symmetrical scripts for both remotes, instructed by `CURSOR_RULES`, so pushing is
+never a hand-typed `git push`. See the two script sections below for detail.
+- **`push_github.sh` NEW** — fails closed on four gates before touching the public remote.
+- **`gl-backup.sh` → `push_gitlab.sh`** (`git mv`, history preserved). Old name is gone on purpose;
+  a stale call errors loudly rather than half-working. Added a github.com guard and `--dry-run`.
+- **Snapshot auto-stamping** — closed a long-standing context leak; see the GitLab mirror section.
+- `CURSOR_RULES` now opens that section with "ALWAYS PUSH WITH THE SCRIPTS. NEVER run a raw
+  `git push`", and rules 2–5 were rewritten around them.
+
+### ⏭️ Next
+
+1. **Get the real stack from Andrew** (blocking — see above).
+2. Fix the track list in `phases/phase15_education_program.md` §4 against that stack.
+3. Write `phases/phase16_<track>.md` as a normal phase plan and get it approved before writing
+   chapters. **Agreed model: one phase file per track**, with the track README staying a
+   reader-facing index and the phase file holding the working record.
+4. Track 1's own chapters 8–10 (Schema Registry, OpenSearch + Fluent Bit, failure drills) remain
+   planned and unblocked — the cluster is still at snapshot `s05-app-running`.
+5. Cosmetic-only, low priority: the 4 figures at 9.4–9.9 pt. **Andrew confirmed print quality is
+   fine**, so this is optional forever unless a reprint looks wrong.
+
+---
+
+## ✅ CLOSED: Phase 14 — Kubernetes + Redpanda POC (was interview prep, ~1 week)
+
+**Full plan + learning material: `phases/phase14_k8s_redpanda_poc.md`.** This was a learning rig
+with a deadline (hedge-fund interview), not a production service. **It did its job — see above.**
+All `education/` paths below moved to `education/k8s-k3s-redpanda/` on Aug 12.
 
 ### 🎯 THE ROLE (confirmed July 27) — SRE / DevOps on an ORDER MANAGEMENT SYSTEM
 
@@ -92,7 +215,7 @@ added on July 27 came out of something Andrew actually ran:
 **Chapter 3 (Redpanda) written July 27 — 1023 lines, 3 diagrams, 33 self-test questions.** It is
 deliberately a **runbook**, not just theory: full install (incl. the failed first attempt and its
 symptom cascade), the `rpk` wiring, verified demos, and the failure drills, so it can be replayed on
-another lab cluster. New `education/manifests/` folder holds real tested artefacts — currently
+another lab cluster. New `education/k8s-k3s-redpanda/manifests/` folder holds real tested artefacts — currently
 `redpanda-values.yaml`. Every command in it was executed and every output quoted is real; where a
 result varies between runs (sticky-partition choice, initial leader assignment) the chapter says so
 explicitly, because Andrew intends to re-run all of it.
@@ -116,7 +239,7 @@ rebalancing and delivery semantics. Ships `manifests/consumer-group-lab.sh`, a s
 replays the entire session. **Chapter numbering shifted:** Schema Registry is now 6, OpenSearch 7,
 the app 8, failure drills 9.
 
-**Diagrams are Graphviz `.dot` sources in `education/diagrams/`, NOT AI-generated** — image
+**Diagrams are Graphviz `.dot` sources in `education/k8s-k3s-redpanda/diagrams/`, NOT AI-generated** — image
 generators garble technical labels, and these need to be exactly right. Installed `graphviz` on the
 Z8 for this. Editing gotchas (both now in `education/README.md`): newlines inside HTML-style labels
 render as literal leading spaces, so keep each table cell on one source line; and `BALIGN="LEFT"`
@@ -178,7 +301,7 @@ holds the volume.
 **3-broker cluster live in ns `redpanda`.** Chart `redpanda-26.1.9` / app `v26.1.12`, `rpk v26.1.14`,
 Helm v3.21.3. PVCs `datadir-redpanda-{0,1,2}` 20Gi local-path. Topic `market-ticks` 6 partitions RF 3.
 Cluster currently **healthy 3/3**. Values file is committed at
-`education/manifests/redpanda-values.yaml` and verified to reproduce the live release
+`education/k8s-k3s-redpanda/manifests/redpanda-values.yaml` and verified to reproduce the live release
 (`helm get values` matches; `helm template` renders 0 × `requiredDuringScheduling`).
 
 **Two real problems solved — both are the good interview stories:**
@@ -352,7 +475,7 @@ Same format, five hands-on steps on topic `orders` (6 partitions, 1500 records, 
 
 Built unattended. Python 3.12 + `confluent-kafka` 2.6.1, one image `oms:dev` with two entrypoints,
 side-loaded into k3s containerd (no registry). Topic `orders-v2` 6p/RF3, group `position-keeper`,
-`order-gateway` Job + `position-keeper` Deployment in ns `market`. Source at `education/app/`.
+`order-gateway` Job + `position-keeper` Deployment in ns `market`. Source at `education/k8s-k3s-redpanda/app/`.
 Workload is **2000 orders × (1 NEW + 4 FILL) = 10,000 events / 8,000 fills / 800,000 shares**, with
 fixed arithmetic so the right answer is knowable without coordination.
 
@@ -402,7 +525,8 @@ material than the working version would have been.
   indices, a `Service` selector that did not match, a bad anti-affinity example, and record counts
   that disagreed with the scripts. Also hardened the shipped manifests — `restricted` PSA on ns
   `market`, `automountServiceAccountToken: false`, non-root `USER` in the Dockerfile.
-- **Word `.docx` pipeline** (`education/tools/build_docx.py`, output committed to `education/docx/`).
+- **Word `.docx` pipeline** (`education/tools/build_docx.py`, output committed to
+  `education/k8s-k3s-redpanda/docx/`).
   7-inch column, Cambria 11 pt, single-spaced, images full width — Andrew's spec so it reads like a
   textbook and prints legibly. **The TOC was removed entirely** after it rendered as a literal "No
   table of contents entries found" banner on page 1; pandoc writes the field but only Word can
@@ -428,28 +552,30 @@ material than the working version would have been.
   "undetectable" hung consumer **is** detectable — a staleness gauge climbing at exactly one second
   per second.
 
-### ⏭️ Next
+### ⏭️ Next — SUPERSEDED (this list was written Aug 3, before the interviews)
+
+> **Historical.** Read the Phase 15 section at the top of this file for what is actually next.
+> The deadline this list was organised around has passed and the outcome was an offer.
 
 1. **Nothing is blocked and nothing is half-finished.** All 7 chapters are written, audited,
    highlighted, built to `.docx` and committed.
-2. **Open verification item:** the `.docx` highlighting has never been *seen*. There is no
-   LibreOffice on the Z8, so it was verified by inspecting the OOXML (318 `Key` runs, `FFF3B0` fill,
-   no leaked markup). Andrew had Ch7 open in Word at 10:31 PM — ask him whether the yellow looks
-   right before assuming it does.
-3. ⛔ **Do NOT start chapters 8–10 before the interviews** (see Timing below — they are Aug 6/7).
-   The motivation for 8 (Schema Registry) is still sound: the app produces hand-rolled JSON with no
-   contract, so renaming `qty` silently breaks the consumer. 9 is OpenSearch + Fluent Bit, 10 is
-   failure drills. **All of it is post-interview work.**
-4. Hands-on loose ends, ~an hour each. Only the first is worth doing before Aug 6: a **liveness
-   probe that asserts progress** on the consumer (Ch6 §13 argues for it but it was never built —
-   it closes the one story that currently has no ending). The rest can wait: Redpanda Console via
-   port-forward, `rpk group seek` for replay, and a lag-alerting demo.
+2. ~~**Open verification item:** the `.docx` highlighting has never been *seen*.~~
+   ✅ **CLOSED Aug 12** — Andrew confirmed the yellow looks right in Word. The OOXML inspection
+   (318 `Key` runs, `FFF3B0` fill, no leaked markup) was correct. There is still no
+   LibreOffice on the Z8, so future highlight work is still verified by unzipping.
+3. ~~⛔ **Do NOT start chapters 8–10 before the interviews**~~ — no longer applies; the interviews
+   happened Aug 6/7. Chapters 8–10 are now simply **planned and unblocked**. The motivation for 8
+   (Schema Registry) is still sound: the app produces hand-rolled JSON with no contract, so renaming
+   `qty` silently breaks the consumer. 9 is OpenSearch + Fluent Bit, 10 is failure drills.
+4. Hands-on loose ends, ~an hour each, all still open and none urgent: a **liveness probe that
+   asserts progress** on the consumer (Ch6 §13 argues for it but it was never built — it closes the
+   one story that currently has no ending), Redpanda Console via port-forward, `rpk group seek` for
+   replay, and a lag-alerting demo.
 
-**📅 Timing — INTERVIEWS ARE Aug 6 AND Aug 7** (confirmed Aug 3; the old "~Aug 1" had slipped).
-**That is 3 days from the Aug 3 session, and it changes the priority order.** Writing chapters 8–10
-is now the *wrong* call — there is not enough time to write, run and absorb new material, and
-unabsorbed documentation is worth nothing in a panel. **Reading and drilling what exists beats
-producing more of it.**
+**📅 Timing — the interviews were Aug 6 and Aug 7, and Andrew got the job.** ✅ Everything from here
+to the end of this section is the **Aug 3 run-up plan, kept as a record.** The one judgement in it
+worth carrying forward: *unabsorbed documentation is worth nothing* — reading and drilling what
+exists beat producing more of it, and that stayed true.
 
 Two days almost certainly means two panels, so expect breadth. The asymmetry to manage: Ch1–6 is
 material he *ran with his own hands* and can speak to from experience, whereas **Ch7 is the only
@@ -713,12 +839,16 @@ secrets, plaintext) → private GitLab. NO git-crypt / NO encryption.
 
 ### Remotes
 - `origin` → GitHub (PUBLIC): `git@github.com:fiberoptix/home-lab-setup.git` (SSH). Curated;
-  secrets `.gitignore`'d so they NEVER reach it. Update with `git push origin main`.
+  secrets `.gitignore`'d so they NEVER reach it. Update with **`./push_github.sh`**.
 - `gitlab` → GitLab (PRIVATE): `http://root:<pw>@gitlab.gothamtechnologies.com/production/home-lab-setup.git`.
   HTTP "wallet" auth (pw baked into URL in `.git/config`, same as Capricorn/capricorn-docs).
-  Full plaintext mirror, pushed with `./gl-backup.sh "msg"`.
+  Full plaintext mirror, pushed with **`./push_gitlab.sh "msg"`**.
 
-### gl-backup.sh (repo root)
+> ⚠️ **Renamed Aug 12, 2026: `gl-backup.sh` → `push_gitlab.sh`**, and a new `push_github.sh` was
+> added. Push only via the scripts, never a raw `git push`. Everything below describing
+> "gl-backup.sh" is the same code under the new name.
+
+### push_gitlab.sh (repo root — formerly gl-backup.sh)
 - Snapshots the ENTIRE working tree (tracked + ignored, minus `.DS_Store`) onto `gitlab/main`
   via a temp index — does NOT touch the working tree, real index, or the GitHub-bound `main`.
 - Force-includes ignored files (PASSWORDS.md, github_credentials.md, proxmox/credentials,
@@ -726,7 +856,40 @@ secrets, plaintext) → private GitLab. NO git-crypt / NO encryption.
 - Handles nested git repos (working/openclaw-ansible) by moving their `.git` to an external
   holding dir during the add, so their WORKING FILES are captured (not empty gitlinks) and
   their `.git` internals are NOT. Always restored.
-- GitLab mirror = 98 files; GitHub = ~42 files.
+- GitLab mirror = 98 files; GitHub = ~42 files. (As of Aug 12, 2026 the GitLab snapshot is 208
+  files — the education program and its images account for most of the growth.)
+
+### push_github.sh (repo root — new Aug 12, 2026)
+- Pushes the curated tree to `origin/main`, and **fails closed**: nothing is pushed unless all four
+  gates pass. Gates: (1) `origin` really is GitHub and we are on `main`; (2) no TRACKED file has a
+  secret-looking name; (3) every known sensitive path that exists on disk is still gitignored;
+  (4) the outgoing diff contains no private-key blocks, no URL with an embedded password, and no AWS
+  keys. Then it lists the commits about to become public and demands a typed `yes`.
+- **Why it exists:** GitHub has no encryption, so `.gitignore` was the only guard and "verify before
+  pushing" was a convention a human or an agent could skip. This makes it enforced.
+- ⚠️ **`--yes` is required for non-interactive use; without a TTY it refuses rather than assuming.**
+- Content scanning deliberately uses only high-confidence patterns, so the *word* "password" in
+  documentation does not trip it. The credentialed-URL check is the one that would catch the GitLab
+  wallet (`http://root:<pw>@...`) being committed to a tracked file.
+- **Proven, not assumed:** staging a fake `_gatetest.key` made it block, name the file and exit 1
+  without pushing; repo state was byte-identical after cleanup.
+
+### What the GitLab mirror preserves — and the context leak we closed
+
+`gitlab/main` and `main` are **fully disjoint** (`git merge-base` finds nothing in common):
+**82 real commits on `main` against 22 snapshots on `gitlab/main`.** The mirror keeps every *file*
+perfectly and history only coarsely — though it is a genuine commit chain, so diffs between snapshots
+work fine.
+
+The leak was that a snapshot could not be tied back to the real history, and when the message
+argument was forgotten the snapshot was labelled only `Full snapshot 2026-08-03 17:44:28 EDT` — tree
+intact, reason gone. Two of the existing 22 look like that.
+
+✅ **Closed:** `push_gitlab.sh` now auto-stamps. Default is
+`Snapshot <ts> — main @ <sha>[+dirty]: <HEAD subject>`, and a message you pass gets
+`[main @ <sha>]` appended. **`+dirty` flags a snapshot containing work in no commit at all**, which
+is exactly when the SHA alone would mislead. Nothing is lost on the GitHub side — `push_github.sh`
+never authors a commit, so real commit messages are untouched.
 
 ### Security scrub (CRITICAL — was a real leak)
 - Found the master password (Proxmox/VMs/GitLab/NAS), the SonarQube admin password, an old

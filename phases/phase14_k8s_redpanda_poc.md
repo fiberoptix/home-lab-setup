@@ -1,6 +1,13 @@
 # Phase 14 — Kubernetes + Redpanda + OpenSearch POC
 
-**Status:** IN PROGRESS — Parts 1, 2, 3, 4 and **6 COMPLETE** (Jul 25 – Aug 3). **Redpanda is live: 3 brokers, healthy 3/3, topics `orders` / `executions` / `market-ticks` / `orders-v2` (6 partitions, RF 3), quorum and failure drills run and documented.** **Part 6 done Aug 3: our own producer + consumer (`education/app/`, Python 3.12 + confluent-kafka 2.6.1) built, containerised as `oms:dev`, side-loaded into k3s containerd and running — `order-gateway` Job + `position-keeper` Deployment in ns `market`, reconciling 10,000 events to exactly 800,000 shares with `seq_gaps=0`.** Education series: Chapters 1 (k3s, 846 lines), 2 (object model / rollouts / probes, 631 lines), 3 (Redpanda, 1216 lines), 4 (provisioning application state, 823 lines), 5 (consumer groups, 488 lines) and **6 (the application, 792 lines)** written; Chapters 2–6 double as replayable runbooks, with tested artefacts at `education/manifests/` and `education/app/`. **Numbering settled Aug 3: the app is 6, Schema Registry 7, OpenSearch 8, failure drills 9.** **Headline findings from Aug 3: (1) pod-Ready is not cluster-ready — a measured 9-second window where all 3 brokers were `2/2 Ready` and 11 of 18 partitions were leaderless; (2) SIGTERM vs SIGKILL on a consumer is the difference between a clean offset handover and 3 records processed twice; (3) a transactional state store + commit-after-write is effectively-once for free, and duplicates only hurt when the side effect escapes the transaction — measured 11 duplicate "executions" against an external gateway while the transactional ledger stayed exact; (4) `acks=0` lost 29 records while reporting `delivered=15000 failed=0`.** **Restore point: `qm rollback 186 s05-app-running`** (Aug 3 19:13, live via guest-agent fs-freeze — the app deployed and reconciling. `s04-topics-seeded` (18:34) is the pre-Part-6 fallback; rolling back that far removes `orders-v2`, the app and its PVC). **Still outstanding in Part 4: Redpanda Console (ClusterIP-only, needs a port-forward) and Schema Registry.** **Next: Chapter 7 (Schema Registry) — reuses Ch4's provisioning pattern and puts a contract in front of the hand-rolled JSON the app currently produces.**
+**Status:** ✅ **CLOSED Aug 12, 2026 — GOAL MET. Andrew interviewed Aug 6/7 and GOT THE JOB**
+(SRE/DevOps on an order management system). This phase existed to prepare for those two days, so it
+is closed rather than extended; follow-on study work lives in
+[`phase15_education_program.md`](phase15_education_program.md) and its per-track phase files.
+⚠️ **All `education/…` paths in this file moved to `education/k8s-k3s-redpanda/…` on Aug 12** (Phase
+15 restructured `education/` into one folder per study track); the references below were updated, but
+any command copied out of an older commit will need the same requalification.
+Parts 1, 2, 3, 4 and **6 COMPLETE** (Jul 25 – Aug 3). **Redpanda is live: 3 brokers, healthy 3/3, topics `orders` / `executions` / `market-ticks` / `orders-v2` (6 partitions, RF 3), quorum and failure drills run and documented.** **Part 6 done Aug 3: our own producer + consumer (`education/k8s-k3s-redpanda/app/`, Python 3.12 + confluent-kafka 2.6.1) built, containerised as `oms:dev`, side-loaded into k3s containerd and running — `order-gateway` Job + `position-keeper` Deployment in ns `market`, reconciling 10,000 events to exactly 800,000 shares with `seq_gaps=0`.** Education series: Chapters 1 (k3s, 846 lines), 2 (object model / rollouts / probes, 631 lines), 3 (Redpanda, 1216 lines), 4 (provisioning application state, 823 lines), 5 (consumer groups, 488 lines) and **6 (the application, 792 lines)** written; Chapters 2–6 double as replayable runbooks, with tested artefacts at `education/k8s-k3s-redpanda/manifests/` and `education/app/`. **Numbering settled Aug 3: the app is 6, Schema Registry 7, OpenSearch 8, failure drills 9.** **Headline findings from Aug 3: (1) pod-Ready is not cluster-ready — a measured 9-second window where all 3 brokers were `2/2 Ready` and 11 of 18 partitions were leaderless; (2) SIGTERM vs SIGKILL on a consumer is the difference between a clean offset handover and 3 records processed twice; (3) a transactional state store + commit-after-write is effectively-once for free, and duplicates only hurt when the side effect escapes the transaction — measured 11 duplicate "executions" against an external gateway while the transactional ledger stayed exact; (4) `acks=0` lost 29 records while reporting `delivered=15000 failed=0`.** **Restore point: `qm rollback 186 s05-app-running`** (Aug 3 19:13, live via guest-agent fs-freeze — the app deployed and reconciling. `s04-topics-seeded` (18:34) is the pre-Part-6 fallback; rolling back that far removes `orders-v2`, the app and its PVC). **Still outstanding in Part 4: Redpanda Console (ClusterIP-only, needs a port-forward) and Schema Registry.** **Next: Chapter 7 (Schema Registry) — reuses Ch4's provisioning pattern and puts a contract in front of the hand-rolled JSON the app currently produces.**
 **Created:** July 25, 2026
 **Owner:** Andrew
 **Deadline driver:** Hedge-fund interview, ~1 week out.
@@ -455,7 +462,7 @@ load balancing, §6 storage, §7 grace periods, §9a error messages) and summari
   at 31 s vs 2 s with a SIGTERM handler.
 
 **Chapter 2 was written from this session plus the 3:00 PM probe session** — deliberately not
-written in advance. See [`education/chapter02_object_model.md`](../education/chapter02_object_model.md).
+written in advance. See [`education/k8s-k3s-redpanda/chapter02_object_model.md`](../education/k8s-k3s-redpanda/chapter02_object_model.md).
 
 ### What to actually learn here (don't skip)
 
@@ -491,7 +498,7 @@ interchangeable pods with shared or ephemeral storage break a consensus protocol
 ### ✅ Steps as actually executed (Jul 27)
 
 > **The full runbook — including the failed first attempt, the `rpk` wiring, verified demos and the
-> failure drills — is [`education/chapter03_redpanda.md`](../education/chapter03_redpanda.md).**
+> failure drills — is [`education/k8s-k3s-redpanda/chapter03_redpanda.md`](../education/k8s-k3s-redpanda/chapter03_redpanda.md).**
 > Only the summary lives here.
 
 The `--set` outline below **did not work**: the chart ships **hard** pod anti-affinity, so on a
@@ -505,10 +512,10 @@ kubectl create namespace redpanda
 
 # verify the override actually renders BEFORE installing — this is the lesson
 helm template redpanda redpanda/redpanda -n redpanda \
-  -f education/manifests/redpanda-values.yaml | grep -c requiredDuringScheduling   # must be 0
+  -f education/k8s-k3s-redpanda/manifests/redpanda-values.yaml | grep -c requiredDuringScheduling   # must be 0
 
 helm install redpanda redpanda/redpanda -n redpanda \
-  -f education/manifests/redpanda-values.yaml --wait --timeout 10m
+  -f education/k8s-k3s-redpanda/manifests/redpanda-values.yaml --wait --timeout 10m
 ```
 
 Result: chart `redpanda-26.1.9` / app `v26.1.12`, 3 brokers `2/2 Running`, PVCs
@@ -761,7 +768,7 @@ Schema evolution / compatibility modes
 | Jul 27, ~14:3x | **Failure drills.** One broker killed → surgical, non-load-balanced failover, writes continued. Scaled to 1 → quorum lost, survivor stepped down, `Leaderless (8)` incl. the controller group, producer hung; `Under-replicated` read **0** | The best interview material of the whole phase |
 | Jul 27, 14:4x | Recovered to 3/3 and reconciled the log: `-o :end` count == Σ high-watermarks == 32 | **Zero data loss.** Degraded-but-acked writes survived; the write that hung never appeared |
 | Jul 27, 14:4x | Re-ran every documented command verbatim to verify the runbook, incl. the single-broker drill | Found initial leader assignment and sticky-partition choice **vary per run** — chapter now says so |
-| Jul 27, 14:5x | **Chapter 3 written** (1023 lines, 3 diagrams, 33 questions) as a replayable runbook; `education/manifests/redpanda-values.yaml` committed and verified against `helm get values` | **Part 4 COMPLETE** except Console + Schema Registry |
+| Jul 27, 14:5x | **Chapter 3 written** (1023 lines, 3 diagrams, 33 questions) as a replayable runbook; `education/k8s-k3s-redpanda/manifests/redpanda-values.yaml` committed and verified against `helm get values` | **Part 4 COMPLETE** except Console + Schema Registry |
 | Jul 27, 14:58 | Snapshot **`s03-redpanda-up`** taken **live** in 1.5 s via guest-agent fs-freeze | No downtime; verified 0 restarts + 33 records readable after |
 | Jul 27, 15:05–15:30 | **Chapter 2 hands-on** (`default` ns, nginx, 5 revisions / 4 ReplicaSets): ownership chain → template hash → maxSurge/maxUnavailable → **broken readiness** (rollout stalls, 4 pods/3 Ready, still `200`s) → **broken liveness** (rollout *succeeds*, then `CrashLoopBackOff`, `000`s) → rollback + revision renumbering + `last-applied-configuration` drift | Redpanda untouched throughout; `default` returned to clean |
-| Jul 27, 15:3x | **Chapter 2 written** (631 lines, 2 diagrams, 27 questions); `education/manifests/web-deployment.yaml` verified end-to-end and carries both failure drills as inline comments | Corrected Andrew's one real misconception: `maxUnavailable` is a **capacity** guarantee, not a quorum one |
+| Jul 27, 15:3x | **Chapter 2 written** (631 lines, 2 diagrams, 27 questions); `education/k8s-k3s-redpanda/manifests/web-deployment.yaml` verified end-to-end and carries both failure drills as inline comments | Corrected Andrew's one real misconception: `maxUnavailable` is a **capacity** guarantee, not a quorum one |
