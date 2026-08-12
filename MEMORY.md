@@ -70,6 +70,16 @@ editing `CURSOR_RULES`:
   said on Aug 12 he would describe the real stack. **Get that before scoping any new study track** —
   everything in `phases/phase15_education_program.md` §4 is a straw man until then.
 
+- **🔑 LAB ACCESS IS NOW FULLY SORTED (Aug 12, 2026) — read the two sections below before debugging
+  any connection problem:** `CREDENTIALS → SSH ACCESS MATRIX` and `REMOTE LAB MANAGEMENT`.
+  Headlines: **every VM logs in as `agamache`, never `andrew`** (a wrong username returns
+  `Permission denied (publickey,password)`, which looks exactly like a missing key and wasted real
+  time today); **the Proxmox host now accepts the workstation key** via `/root/.ssh/authorized_keys2`
+  (*not* `authorized_keys`, which is a PVE-managed symlink into `/etc/pve/priv/`); and **remote
+  access works two ways** — a laptop on the tailnet via the host's approved `192.168.1.0/24` subnet
+  route, or RDP into the Windows Z8 (`agamache-z8g4`) and drive the pve GUI from there, which keeps
+  all plaintext credentials on the LAN and survives `.150`'s `tailscaled` failing.
+
 - **🔵 ACTIVE — Phase 15: the education program** (`phases/phase15_education_program.md`).
   Restructured `education/` from one flat series into a multi-track shelf (see the education section
   below). Framework work only; the first new track gets its own phase file per the agreed model.
@@ -93,11 +103,21 @@ editing `CURSOR_RULES`:
   about it, what you do at 3am, which reflexes make an incident worse) over application design, and
   tie every concept back to a consequence for **order/trade processing** (e.g. unkeyed producers →
   a cancel processed before its order; a degraded cluster → don't rolling-restart it).
-  **Parts 1, 2, 3 and 4 all COMPLETE (July 25–27).** Restore points on VM 186:
-  `s01-base-clean` (pre-k3s) → `s02-k3s-up` (k3s only, **predates Redpanda**) →
-  **`s03-redpanda-up` (Jul 27 14:58) = the one to roll back to.** Live snapshot with guest-agent
-  fs-freeze, 1.5 s, VM never stopped; verified healthy with 0 restarts afterwards.
-  **Next: consumer groups + rebalancing, then Part 6 (the Python app).**
+  **Parts 1, 2, 3, 4 and 6 all COMPLETE (July 25 – Aug 3); chapters 1–7 written.** Restore points on
+  VM 186: `s01-base-clean` (pre-k3s) → `s02-k3s-up` (k3s only, **predates Redpanda**) →
+  `s03-redpanda-up` (Jul 27 14:58) → `s04-topics-seeded` (Aug 3 18:34) →
+  **`s05-app-running` (Aug 3 19:13) = the one to roll back to.** All taken live with guest-agent
+  fs-freeze (`s03` took 1.5 s), VM never stopped, 0 pod restarts afterwards.
+  ⚠️ **Do NOT roll back to `s03`** to "get a clean cluster" — it predates `orders-v2`, the OMS app and
+  its PVC, and would silently discard Parts 4–6.
+  **Remaining (optional, unblocked): chapters 8–10 — Schema Registry, OpenSearch + Fluent Bit,
+  failure drills.** ⚠️ **Re-seed topics first:** default `retention.ms` is 7 days and the events were
+  seeded Aug 3, so all four topics are now empty (offsets preserved, `LOG-START == LOG-END`).
+  ⚠️ **Redpanda's trial licence expires ~Aug 25, 2026** with `partition_auto_balancing_continuous`
+  and `core_balancing_continuous` in use from chart defaults — decide to disable or licence.
+  🔻 **VM 186 right-sized Aug 12: 32 GB → 16 GB, 16 → 8 vCPU** (it was provisioned for an OpenSearch
+  install that never happened; measured 3.0 GB / ~1% CPU in use). Verified healthy 3/3 with the Part 6
+  ledger still reconciling to exactly 800,000 shares. OpenSearch would still fit if chapter 9 happens.
   - **k3s v1.36.2+k3s1 on VM 186.** Installed with
     `curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="--write-kubeconfig-mode 644" sh -`.
     Node `Ready`, containerd 2.3.2 (NOT Docker), ~512 MB RSS, survives reboot. `kubectl` and
@@ -506,7 +526,13 @@ editing `CURSOR_RULES`:
     booted VM in **~30 seconds**. This replaces hand-building from an ISO; see the
     "CLOUD-INIT TEMPLATE" section below for the exact recipe.
   - **VM 186 `vm-k8-redpanda-1` @ .186** built from it: 16 vCPU / 32 GB / 300 GB on vm-ephemeral,
-    `host_setup.sh` applied. Snapshots: **`s01-base-clean`** (pre-k3s) and **`s02-k3s-up`**.
+    `host_setup.sh` applied — **right-sized to 8 vCPU / 16 GB on Aug 12, 2026** (see the RAM
+    allocation section below). Snapshots now run `s01-base-clean` → `s02-k3s-up` →
+    `s03-redpanda-up` → `s04-topics-seeded` → **`s05-app-running`** (the current restore point).
+  - **⚠️ Changing a VM's `cores`/`memory` requires a full stop, not a reboot.** QEMU consumes them
+    when the process launches, so `qm reboot` keeps the old topology. Worse, `qm set` on a *running*
+    VM **succeeds silently** and merely stages the change for next boot — easy to mistake for
+    success. Sequence is `qm shutdown <id> --timeout 240` → `qm set …` → `qm start <id>`.
   - **⚠️ Never use `/root/.ssh/authorized_keys` on the Proxmox host as a cloud-init key source** —
     it's a symlink to `/etc/pve/priv/authorized_keys` and holds only the PVE cluster RSA key, not
     Andrew's workstation key. Use **`/root/cloudinit-keys-all.pub`** (both keys) instead.
@@ -658,14 +684,14 @@ editing `CURSOR_RULES`:
 
 | Host | IP | Status |
 |------|-----|--------|
-| Proxmox | .150 | ✅ Running |
+| Proxmox | .150 | ✅ Running — `ssh root@192.168.1.150`, key auth ✅ (via `authorized_keys2`, Aug 12 2026) |
 | QA/K8s | .180 | ✅ Built (vm-kubernetes-1) |
 | GitLab | .181 | ✅ LIVE |
 | Runner | .182 | ✅ LIVE (gitlab-runner-1) |
 | SonarQube | .183 | ✅ LIVE (vm-sonarqube-1, v26.1.0) |
 | **WWW** | **.184** | **✅ LIVE (vm-www-1, Traefik, Capricorn PROD, Splash)** |
 | **OpenClaw** | **.185** | **⏸️ DORMANT (vm-openclaw-1) — retired, do not use** |
-| **K8s/Redpanda POC** | **.186** | **🔵 BUILT July 25, 2026 (vm-k8-redpanda-1, Phase 14 sandbox)** |
+| **K8s/Redpanda POC** | **.186** | **🔵 BUILT July 25, 2026 (vm-k8-redpanda-1, Phase 14 sandbox) — `ssh agamache@192.168.1.186`, key auth ✅** |
 
 ---
 
@@ -675,10 +701,183 @@ editing `CURSOR_RULES`:
 
 - Proxmox: root / [See PASSWORDS.md]
 - All VMs: agamache / [See PASSWORDS.md]
-- **SSH key auth:** ✅ ed25519 key deployed to ALL VMs (.180-.185) from dev workstation (Feb 27, 2026)
+- **SSH key auth:** ✅ ed25519 key deployed to ALL VMs (.180–.186) from dev workstation
+  (Feb 27, 2026; **.186 inherited it from the cloud-init template**, verified working Aug 12, 2026).
+  - ⚠️ **The login user on every VM is `agamache`, never `andrew`.** `ssh andrew@192.168.1.186`
+    fails with `Permission denied (publickey,password)`, which reads exactly like a missing key and
+    sends you off fixing a problem that does not exist. Verified working:
+    `ssh agamache@192.168.1.186` → `kubectl` and `rpk` are on `PATH` with `~/.kube/config` already
+    in place, and `sudo -n` needs no password.
+  - ✅ **Proxmox HOST key auth added Aug 12, 2026 — `ssh root@192.168.1.150` now works with the
+    workstation key**, so `qm` work no longer needs the password from PASSWORDS.md.
+    - **The key went in `/root/.ssh/authorized_keys2`, deliberately NOT `authorized_keys`.** The
+      latter is a **symlink to `/etc/pve/priv/authorized_keys`** — a PVE-managed file on the cluster
+      filesystem that holds only the cluster's own `root@pve` RSA key, and that PVE rewrites on
+      cluster operations. `sshd -T` on the host reports
+      `authorizedkeysfile .ssh/authorized_keys .ssh/authorized_keys2`, so the second file is read
+      natively: **no sshd config change and no service restart were needed.**
+    - Verified with password auth explicitly disabled
+      (`ssh -o PreferredAuthentications=publickey -o PasswordAuthentication=no root@192.168.1.150`),
+      which is the only way to prove the key is doing the work rather than a silent password
+      fallback. `sshd` was left untouched: `permitrootlogin yes`, `passwordauthentication yes`.
+    - ⚠️ Until Aug 12 this was the trap that made host work painful, and it is the *same* trap
+      documented in the cloud-init section: the workstation key lives in
+      `/root/cloudinit-keys-all.pub`, which **sshd never reads**. If host key auth ever stops
+      working, check `authorized_keys2` still exists before assuming anything else.
 - **GitLab Web: root / [See PASSWORDS.md]**
 - **SonarQube Web: admin / [See PASSWORDS.md]**
 - NAS (SMB): fiberoptix / [See PASSWORDS.md] @ 192.168.1.120
+
+### SSH ACCESS MATRIX — the intended policy, fully verified Aug 12, 2026
+
+**The policy Andrew wants, and which now holds:** key auth from the dev box to *everything* with
+password as fallback, and **password-only** access from any other machine (laptop while remote).
+
+| Target | User | Key auth from dev box (.195) | Password fallback | From remote tailnet |
+|---|---|---|---|---|
+| **.150 pve** | `root` | ✅ (`authorized_keys2`) | ✅ | ✅ direct, it *is* the tailnet node |
+| **.180 vm-kubernetes-1** | `agamache` | ✅ | ✅ | ✅ via subnet route |
+| **.181 vm-gitlab-1** | `agamache` | ✅ | ✅ | ✅ via subnet route |
+| **.182 vm-gitrun-1** | `agamache` | ✅ | ✅ | ✅ via subnet route |
+| **.183 vm-sonarqube-1** | `agamache` | ✅ | ✅ | ✅ via subnet route |
+| **.184 vm-www-1** | `agamache` | ✅ | ✅ | ✅ — see the firewall note below |
+| **.185 vm-openclaw-1** | `agamache` | ⏸️ powered off (`onboot=0`) — nothing to reach | — | — |
+| **.186 vm-k8-redpanda-1** | `agamache` | ✅ | ✅ | ✅ via subnet route |
+
+Every VM reports `passwordauthentication yes` with `agamache` holding a usable password
+(`passwd -S` → `P`), and the host the same for `root`. **Proven by test, not by reading config** —
+password-only logins were confirmed with `ssh -o PubkeyAuthentication=no
+-o PreferredAuthentications=password` against .150, .181, .184 and .186. Config that *says* yes and
+an account whose password is locked look identical until you try it.
+
+**How remote (laptop) access actually works — this is the part worth understanding:**
+
+1. **The pve host is a Tailscale subnet router.** It advertises **`192.168.1.0/24`**, and the route
+   is approved (it shows in `PrimaryRoutes`). So any device on the tailnet can address
+   `192.168.1.x` directly — there is no need to put Tailscale on each VM, and **.185 remains the
+   only VM that has it.**
+2. **Subnet routing SNATs by default** (`NoSNAT: false`). Traffic from a remote laptop therefore
+   arrives at the VMs **with a source IP of `192.168.1.150`**, not the laptop's `100.x` address.
+3. ⚠️ **That SNAT is what makes .184 reachable at all.** `184.fw` is `policy_in: DROP` and permits
+   port 22 from only three sources — `.182` (runner), `.195` (dev box) and **`.150` (the host)**.
+   Remote traffic passes *because* it is rewritten to `.150`. Verified by SSHing from the pve host to
+   all six live VMs, which is the same post-SNAT path.
+4. ⚠️ **The corollary: remote logins are indistinguishable from host logins in the VMs' auth logs** —
+   everything appears to come from `.150`. Do not build fail2ban rules, audit trails or source-IP
+   allow-lists on VM-side source IPs and expect them to identify a remote user.
+5. **The tailnet devices that matter:** `bullpup` (macOS laptop) and `fibermedia` (macOS).
+   ⚠️ **This dev box is NOT on the tailnet** — `agamache-z8g4` on the tailnet is the *Windows Z8
+   host*; the dev box is the VMware guest inside it. Remote work from the dev box goes via Windows.
+6. **No guest-level firewall is in the way:** `ufw` is `inactive` on all six live VMs. Only .184 and
+   .185 have PVE-level rules; `cluster.fw` is enabled but carries no rules of its own.
+
+---
+
+## REMOTE LAB MANAGEMENT (laptop, outside the house) — verified Aug 12, 2026
+
+**Answer to "can I manage the lab from my laptop over the tailnet?" — yes, completely.** Every link
+below was tested, not inferred. **There are two routes**, and they differ in one important way:
+**Route A puts plaintext credentials on the laptop, Route B does not.** Prefer B.
+
+### Route A — work from the laptop itself (requires cloning the credentials)
+
+1. **Tailscale up on the laptop.** The **pve host is the tailnet's subnet router**, advertising an
+   approved **`192.168.1.0/24`**, so every LAN address is directly reachable. No VM needs Tailscale.
+2. **DNS needs no setup.** `gitlab.gothamtechnologies.com` resolves to **`192.168.1.181` from public
+   DNS** (verified against `8.8.8.8`) — a private address published in public DNS. You do **not**
+   need an `/etc/hosts` entry on the laptop.
+3. **Clone the GitLab mirror to get the credentials** (see the warning below):
+   ```bash
+   git clone http://root:<pw>@gitlab.gothamtechnologies.com/production/home-lab-setup.git
+   ```
+   Verified from a post-SNAT source: the `git-upload-pack` endpoint returns **HTTP 200** with the
+   root credentials and **401** without, so auth genuinely works over the tailnet path.
+4. **Then manage everything** — SSH by password to `root@.150` and `agamache@<any VM>`, plus the
+   **Proxmox web UI on `.150:8006`** (open, verified) for console, snapshots and start/stop.
+
+⚠️ **Clone GitLab, NOT GitHub — GitHub has no credentials at all.** `PASSWORDS.md` is gitignored, so
+it is **absent from GitHub's `main`** along with every other secret. The **GitLab mirror is the
+plaintext snapshot** and is the only place that carries `PASSWORDS.md`, `github_credentials.md`,
+`proxmox/credentials`, `proxmox/nas_credentials` and `www/scripts/smb_credentials`. **No private keys
+are tracked in either remote** (verified) — that is deliberate and should stay true.
+
+### Route B — tailnet into the dev box, then drive the pve **GUI** (no credential clone needed)
+
+**This is the better route when the goal is "manage the lab", and it avoids putting `PASSWORDS.md`
+on the laptop at all.** The dev box already holds the SSH keys and this repo, so once you are on it
+you are in exactly the position you are in at home.
+
+⚠️ **Precisely: you cannot Tailscale *into the dev box itself* — it is not a tailnet node.**
+Tailscale is **not installed** on it (no binary, no `tailscaled`, no `tailscale0`), verified
+Aug 12, 2026. The tailnet's `agamache-z8g4` is the **Windows Z8 host** (`100.70.244.97`, LAN
+`192.168.1.115`); the dev box is the **VMware Workstation guest inside it** (`VM-UBUNTU-01`, `.195`).
+So the Windows host is the entry point and the dev box is one hop further in.
+
+```
+laptop ──tailnet──► agamache-z8g4 (Windows Z8, RDP :3389 verified OPEN)
+                        ├──► browser ──► https://192.168.1.150:8006     (pve GUI, quickest)
+                        └──► VMware Workstation console ──► VM-UBUNTU-01 (.195, the dev box)
+                                                              └──► pve GUI + SSH keys + this repo
+```
+
+**Why prefer landing on the dev box:** its SSH keys reach the host and every VM (see the access
+matrix), and the repo with `PASSWORDS.md` is already there — so **no plaintext credentials ever touch
+the laptop**, which removes the biggest risk in Route A.
+
+**Three ways to reach the Proxmox GUI at `https://192.168.1.150:8006`** (port verified open),
+cheapest first — pick by how much capability you need:
+
+1. **Laptop browser, straight there.** The subnet route makes `.150:8006` reachable with no clone and
+   no RDP. Log in `root` / PVE password. **Enough for start/stop, console, snapshots and `qm` work.**
+2. **RDP to the Windows Z8, use its browser.** Same GUI, full desktop, and it does not depend on
+   `.150`'s `tailscaled` (see gap 3).
+3. **RDP to the Windows Z8 → VMware console → dev box.** The full working environment: Cursor, this
+   repo, and key-based SSH to the host and every VM. Slowest to reach, most capable once there, and
+   the only one that can push to GitHub.
+
+> **Optional improvement, not done:** installing Tailscale **on the dev box** would make it a direct
+> tailnet node and remove the RDP hop entirely. Worth considering if remote work becomes routine —
+> it would make Route B as cheap as Route A while keeping the no-credentials-on-laptop benefit.
+
+### Three real gaps — know these before you rely on remote access
+
+1. ⚠️ **Route A cannot push to GitHub** (Route B can). `origin` is `git@github.com:...` over **SSH**,
+   and the private key is (correctly) not in the repo; `github_credentials.md` holds a password and
+   an SSH-key reference but **no personal access token**. **GitLab pushes work fine** from either
+   route (credentials are embedded in the remote URL), so laptop work can be committed and mirrored —
+   just not published to GitHub until you are home, on the dev box, or the laptop's key is registered.
+2. ⚠️ **Route A has a bootstrap circularity:** you need the **GitLab root password to obtain the file
+   that stores your passwords.** It is the standard lab password, so in practice fine — but it must
+   **also** live in a password manager, never only in this repo. Route B sidesteps this entirely.
+3. ⚠️ **No out-of-band console exists.** If you break the pve host's bridge or firewall while remote,
+   **nothing recovers it until you are physically home** — neither route helps, because both
+   ultimately need `.150` to be up and on the network. **Treat any network or firewall change on
+   `.150` as unsafe to attempt remotely.**
+   - ✅ **But remote *entry* is no longer single-path.** `.150`'s `tailscaled` is only required for
+     **Route A**; **Route B enters through `agamache-z8g4`**, which is its own independent tailnet
+     node with a direct connection. So if pve's `tailscaled` dies or the subnet route stops being
+     advertised, **Route B still reaches the lab over the LAN.** That makes the Windows Z8 the de
+     facto backup entry point — worth keeping powered on and RDP-reachable when travelling.
+   - Also in place for Route A: `tailscaled` on `.150` is `systemctl enabled` **and** the node's key
+     has **no expiry** (`KeyExpiry: None`), so neither a reboot nor months away locks you out.
+
+### Smaller notes
+
+- **macOS and Windows accept advertised subnet routes by default**; a **Linux** laptop needs
+  `tailscale up --accept-routes` or it will not see `192.168.1.0/24`.
+- Tailnet laptops on file: `bullpup` (macOS), `fibermedia` (macOS). ⚠️ `agamache-z8g4` is the
+  **Windows Z8 host**, not the dev box — the dev box (VMware guest) is *not* on the tailnet.
+- 🔒 **Laptop hygiene (Route A only):** that clone writes the GitLab root password into `.git/config`
+  and drops `PASSWORDS.md` in plaintext next to it. **A lost, unencrypted laptop is the whole lab.**
+  Full-disk encryption is load-bearing, and the clone should be deleted when the trip ends. **Route B
+  avoids all of this** — nothing sensitive is ever copied off the LAN.
+- ⚠️ **The repo itself lives on the NAS, not on the dev box or the Windows host.** `/mnt/DevShare` is
+  `//192.168.1.120/NeoCortex/DEV_Projects` over CIFS (per `/etc/fstab`). So Route B depends on **`.120`
+  being up** as well as `.150` — and it is the reason for the stale-cache hazard documented in the
+  workstation gotcha at the top of this file. (The Windows Z8's open `445` is ordinary Windows file
+  sharing and is *not* the source of this mount.)
+- Remote logins reach the VMs **source-NATted as `192.168.1.150`** — see the SSH ACCESS MATRIX above
+  for why that matters to `.184`'s firewall and to any log-based auditing.
 
 ---
 
@@ -790,7 +989,7 @@ wget http://192.168.1.195/scripts/host_setup.sh && chmod +x host_setup.sh && ./h
 | **183 - SonarQube** | 4 cores | 12 GB | 30 GB | vm-critical | ✅ Standard |
 | **184 - WWW** | 8 cores | 8 GB | 50 GB | vm-critical | ✅ Standard |
 | **185 - OpenClaw** | 8 cores | 16 GB | 50 GB | vm-critical | ✅ Standard |
-| **186 - K8s/Redpanda POC** | 16 cores | 32 GB | 300 GB | vm-ephemeral | ✅ Standard (from template 9000) |
+| **186 - K8s/Redpanda POC** | 8 cores | 16 GB | 300 GB | vm-ephemeral | ✅ Standard (from template 9000) — **right-sized down from 16c/32 GB Aug 12, 2026** |
 | **200 - Kubernetes** | 8 cores | 12 GB | 100 GB | vm-ephemeral | ✅ Standard |
 | **9000 - TEMPLATE** | 2 cores | 2 GB | 3.5 GB | vm-ephemeral | 📀 `tmpl-ubuntu-2404-cloudinit` |
 
@@ -801,10 +1000,19 @@ wget http://192.168.1.195/scripts/host_setup.sh && chmod +x host_setup.sh && ./h
 - **Kubernetes/QA:** 12 GB (upgraded from 8 GB)
 - **WWW:** 8 GB (Traefik + Capricorn PROD + splash)
 - **OpenClaw:** 16 GB (retired/dormant — VM 185 is not running, so this is reserved on paper only)
-- **K8s/Redpanda POC (186):** 32 GB (3 Redpanda brokers + OpenSearch are memory-hungry; Phase 14)
-- **Total Allocated:** 116 GB of 128 GB (91%) — **but 185 is powered off**, so ~100 GB (78%) is
-  actually committed. ⚠️ Headroom is now thin: do not add another large VM without either
-  destroying 185 or shrinking 186 when Phase 14 wraps.
+- **K8s/Redpanda POC (186):** **16 GB** — was 32 GB, sized for 3 Redpanda brokers **+ OpenSearch**.
+  OpenSearch (Phase 14 Part 5) was never installed, so **right-sized to 16 GB / 8 cores on
+  Aug 12, 2026** after nine days of measurement showed **3.0 GB and ~1% CPU actually in use**.
+  The floor is set by pod *requests* (7.7 GB / 3.25 cores), not consumption — 16 GB keeps requests
+  at 50% and still fits OpenSearch later if Part 5 is ever revived. Brokers were unaffected: each
+  Seastar arena is sized from its container limit (`2560Mi`), not host RAM. Verified healthy 3/3
+  with the Part 6 ledger reconciling to exactly 800,000 shares. See
+  `phases/phase14_k8s_redpanda_poc.md` → "Right-sized Aug 12, 2026".
+- **Total Allocated:** 100 GB of 128 GB (78%) on paper — **but 185 is powered off**, so **84 GB
+  (66%) is actually committed**, measured on the host Aug 12. The Aug 12 right-sizing of 186
+  returned **16 GB and 8 threads**, which is the headroom the Phase 15 study clusters
+  (Docker Swarm, MongoDB replica sets) will draw from. ⚠️ Still budget deliberately: destroying
+  dormant 185 would free another 16 GB on paper.
 
 ---
 

@@ -32,13 +32,13 @@ or with Docker. It is neither.
 | **k3s v1.36.2** | Kubernetes itself — API server, scheduler, controllers, kubelet.<br>**One** binary, one systemd service; see §4 for what it actually costs in RAM. |
 | **containerd 2.3.2** | The container runtime that actually starts containers.<br>**Not Docker** — Kubernetes dropped the Docker shim in v1.24. |
 | **Ubuntu 24.04 LTS** | Guest OS · kernel 6.8 · swap **off** (Kubernetes requires it).<br>Docker is also installed here, but only for *building* images. |
-| **Virtual hardware** | 16 vCPU · 32 GB RAM · 300 GB disk on ZFS pool `vm-ephemeral`.<br>Cloned from template 9000 in ~30 seconds. |
+| **Virtual hardware** | 8 vCPU · 16 GB RAM · 300 GB disk on ZFS pool `vm-ephemeral`.<br>Cloned from template 9000 in ~30 seconds.<br>*Built as 16 vCPU / 32 GB; right-sized in half once measured — see §4.* |
 
 Read that from the bottom up:
 
 Your **HP Z8** is the physical machine. **Proxmox** is the hypervisor — it carves the physical
-machine into virtual machines. **VM 186** is one of those virtual machines, with 16 virtual CPUs
-and 32 GB of RAM. Inside it runs **Ubuntu**, an ordinary Linux install. **k3s** runs on top of
+machine into virtual machines. **VM 186** is one of those virtual machines, with 8 virtual CPUs
+and 16 GB of RAM. Inside it runs **Ubuntu**, an ordinary Linux install. **k3s** runs on top of
 Ubuntu as a normal system service. And your eventual workloads — Redpanda, OpenSearch, your Python
 app — run as **containers**, managed by k3s.
 
@@ -399,6 +399,29 @@ add-ons**]{custom-style="Key"} — and it grows with the number of objects the A
 installed cluster is lighter than this one. The reason to be careful is that the comparison being
 drawn matters: k3s is still dramatically lighter than a conventional control plane with separate
 etcd, and that point survives the correction. Made-up numbers do not.
+
+#### The same lesson, applied to the VM itself (added Aug 12)
+
+That habit of measuring rather than guessing eventually cost this VM half its hardware. It was
+built with **16 vCPU and 32 GB**, sized on paper for an OpenSearch install that never happened.
+After nine days of running the full cluster — three brokers, the add-ons, and the application from
+chapter 6 — the node was using **3.0 GB of RAM and about 1% CPU**. It was cut to **8 vCPU / 16 GB**,
+and nothing noticed: brokers healthy 3/3, no leaderless partitions, the application's ledger still
+reconciling exactly.
+
+The subtlety worth carrying into an interview is **why it could not go smaller than that**. The
+pods on this node *request* 7.7 GB and 3.25 cores, mostly the three brokers reserving a whole core
+and 2,560 MiB each. The scheduler places pods by comparing **requests** against what the node
+advertises — it never looks at what pods are really using. So a node sized at 4 GB would have had
+plenty of free memory and still refused to schedule the cluster.
+
+[Requests are what you must provision for; usage is what you actually spend. Size the node for the
+first number, and you will look wasteful — right up until the scheduler proves you weren't.]{custom-style="Key"}
+
+> **The corollary, which is the more common failure:** requests that are set far *above* real usage
+> silently shrink how much you can pack onto a node, and requests set far *below* it get you pods
+> that are scheduled and then throttled or OOM-killed under load. Both are the same mistake —
+> guessing instead of measuring — and only the second one pages you at 3am.
 
 ### Part B — the add-ons, running as ordinary pods
 

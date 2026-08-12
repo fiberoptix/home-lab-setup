@@ -1,6 +1,6 @@
 # Current Phase
 
-**Updated:** August 12, 2026 - 4:26 PM EDT
+**Updated:** August 12, 2026 - 6:02 PM EDT
 
 ---
 
@@ -112,6 +112,116 @@ never a hand-typed `git push`. See the two script sections below for detail.
 - `CURSOR_RULES` now opens that section with "ALWAYS PUSH WITH THE SCRIPTS. NEVER run a raw
   `git push`", and rules 2–5 were rewritten around them.
 
+### 🔻 Also done this session — VM 186 right-sized (Aug 12, ~5:15 PM)
+
+Andrew's question was the right one: *did we over-commit Redpanda for R&D?* Yes, and by a lot.
+VM 186 held **32 GB / 16 vCPU** because the Phase 14 plan sized it for **OpenSearch**, which was
+never installed (Part 5 was cut for time). Nine days of running measured **3.0 GB and ~1% CPU**.
+
+**Now 16 GB / 8 vCPU**, which returns **16 GB and 8 threads** to the host for the Phase 15 study
+clusters — the exact headroom the Docker Swarm / MongoDB tracks will need on a single physical box.
+
+- **The floor is pod *requests*, not usage.** Kubernetes schedules on requests, and these pods
+  reserve **7.7 GB / 3.25 cores** (three brokers at `1` core + `2560Mi` each). 16 GB / 8 vCPU keeps
+  requests at **50% RAM / 41% CPU** and still leaves room to add OpenSearch later.
+- **Redpanda needed no re-tuning.** Each broker's Seastar arena is sized from its *container* limit,
+  not host RAM, so the brokers could not notice the change.
+- **A CPU/RAM change needs a full stop, not a reboot** — `qm shutdown` (35 s, graceful via guest
+  agent) → `qm set --cores 8 --memory 16384` → `qm start`. ⚠️ `qm set` on a *running* VM succeeds
+  silently and only stages the change, which looks like success.
+- **Verified:** 8 cores / 15 Gi in guest, node `Ready`, **all 12 pods Running**,
+  `rpk cluster health` **`Healthy: true`** with 0 leaderless and 0 under-replicated, all 4 topics
+  intact at RF 3, group `position-keeper` **Stable**, no OOM kills, and the Part 6 ledger on the PVC
+  still sums to **exactly 800,000 shares across 2000 orders**. Host assigned RAM 100 GB → **84 GB**.
+
+**Two pre-existing issues found while verifying** (both documented in the phase 14 file):
+1. **All topic data has aged out** — default `retention.ms` is 7 days and the events were seeded
+   Aug 3. Every partition now has `LOG-START == LOG-END`. **Re-seed before any chapter 8+ work.**
+   This also explains a scary-looking `TOTAL-LAG 1665` on `orders-v2` p5: its committed offset of 0
+   fell below the log start, so the consumer reset its *position* to the end but has nothing left to
+   process and therefore never commits. Not data loss — the ledger proves it.
+2. **The Redpanda trial licence expires ~Aug 25, 2026**, with `partition_auto_balancing_continuous`
+   and `core_balancing_continuous` in use from chart defaults. Decide to disable or licence.
+
+### 🔑 Also done this session — SSH access fixed properly (Aug 12, ~5:35 PM)
+
+The resize work was slowed by an access problem that turned out to be two different things:
+
+- **VM 186 never needed keys.** `ssh andrew@192.168.1.186` fails, `ssh agamache@192.168.1.186`
+  works and always has — cloud-init injected the workstation key on Jul 25. **Every VM in this lab
+  logs in as `agamache`.** `Permission denied (publickey,password)` from a wrong *username* is
+  indistinguishable from a missing key, which is what sent the earlier attempt down a dead end.
+  `kubectl`, `rpk`, `~/.kube/config` and passwordless `sudo` are all ready on that connection.
+- **The Proxmox host genuinely lacked the key**, so `qm` work needed the PASSWORDS.md password over
+  `sshpass`. **Fixed:** the workstation ED25519 key now lives in **`/root/.ssh/authorized_keys2`**.
+  - Deliberately *not* `authorized_keys` — that is a symlink to `/etc/pve/priv/authorized_keys`,
+    which PVE owns and rewrites, and which holds only the cluster's `root@pve` key.
+  - `sshd -T` already lists `.ssh/authorized_keys2`, so **no sshd edit and no restart** were needed,
+    and PVE will never clobber it.
+  - Proven with `-o PasswordAuthentication=no` so a silent password fallback could not fake success.
+    `sshd` left untouched (`permitrootlogin yes`, `passwordauthentication yes` still available).
+
+Both facts are now in `MEMORY.md` under CREDENTIALS, where the old text claimed keys covered
+".180-.185" and said nothing about the username or the host.
+
+**Then audited the whole fleet against Andrew's stated policy** — key auth from the dev box to
+everything with password fallback, and password-only from a remote laptop. **It already holds**;
+there was nothing left to build after the host key went in. Full matrix in `MEMORY.md` →
+CREDENTIALS → "SSH ACCESS MATRIX". Verified rather than read off config:
+
+- Key auth ✅ to all 7 live hosts (.150 + six VMs; .185 is powered off by design).
+- Password-only logins ✅ tested with `-o PubkeyAuthentication=no` on .150, .181, .184, .186. A
+  config that says `passwordauthentication yes` and an account with a locked password look identical
+  until you actually try one.
+- **Remote works because the pve host is a Tailscale subnet router** advertising an approved
+  `192.168.1.0/24` — no Tailscale needed on each VM.
+- ⚠️ **Subnet routing SNATs (`NoSNAT: false`), so remote traffic reaches the VMs as `192.168.1.150`.**
+  That is *why* hardened `.184` (policy_in DROP, SSH from only .182/.195/.150) is reachable remotely
+  at all. It also means **VM auth logs cannot distinguish a remote login from a host login** — don't
+  build fail2ban or audit rules on VM-side source IPs. Confirmed by SSHing pve → all six live VMs,
+  the same post-SNAT path.
+- ⚠️ **This dev box is not on the tailnet.** The tailnet's `agamache-z8g4` is the *Windows Z8 host*;
+  the dev box is the VMware guest inside it.
+
+**Written up as a runbook: `MEMORY.md` → "REMOTE LAB MANAGEMENT (laptop, outside the house)".**
+Andrew's question was whether he could manage the lab from a laptop while away by cloning the repo
+for the passwords file. **Yes — verified end to end**, with three things that matter:
+
+1. ⚠️ **Clone GitLab, not GitHub.** `PASSWORDS.md` is gitignored, so GitHub's `main` has **no**
+   credentials; the GitLab mirror is the only source. DNS needs no setup — public DNS resolves
+   `gitlab.gothamtechnologies.com` to `192.168.1.181`, reachable via the subnet route. The
+   `git-upload-pack` endpoint returned HTTP 200 with root credentials (401 without) from a post-SNAT
+   source, so the whole path is proven.
+2. ⚠️ **GitHub pushes will not work from the laptop** — `origin` is SSH and no private key is (or
+   should be) in the repo, and there is no PAT in `github_credentials.md`. GitLab pushes do work.
+3. ⚠️ **`.150` is a single point of failure with no out-of-band console.** One subnet router, no
+   backup path: a bridge or firewall mistake on the host while remote is unrecoverable until Andrew
+   is physically home. `tailscaled` is enabled at boot and the node key has no expiry, which covers
+   reboots and long absences but not self-inflicted network breakage.
+
+Also noted: the clone puts the GitLab root password in `.git/config` and `PASSWORDS.md` in plaintext
+on the laptop, so full-disk encryption is load-bearing and the clone should be deleted after a trip.
+
+**Andrew then added a second route, which is the better one and changes the risk picture.** Rather
+than cloning credentials to the laptop, tailnet *into the workstation* and drive the pve GUI from
+there — the dev box already has the keys and the repo, so **nothing sensitive leaves the LAN.**
+- ⚠️ **Precision matters here: the dev box is not a tailnet node.** Tailscale is **not installed** on
+  it (verified — no binary, no `tailscaled`, no `tailscale0`). The entry point is **`agamache-z8g4`,
+  the Windows Z8 host** (`100.70.244.97` / LAN `.115`), with **RDP :3389 verified open**; the dev box
+  is the VMware guest one hop further in.
+- ✅ **This retires the single-point-of-failure worry for remote *entry*.** The Windows Z8 is its own
+  independent tailnet node, so if `.150`'s `tailscaled` dies or stops advertising the subnet route,
+  Route B still reaches the lab over the LAN. Keep the Z8 powered on and RDP-reachable when away.
+  What it does *not* fix: breaking the pve host's own bridge or firewall remotely is still
+  unrecoverable, because there is no out-of-band console.
+- Corrected a wrong assumption while writing this up: `/mnt/DevShare` is **`//192.168.1.120`** (the
+  NAS), *not* the Windows host — so this route depends on `.120` being up too.
+
+⚠️ **Audit-regex correction for the CIFS check:** `git diff <file> | rg '^-[^-]'` **silently hides
+removed Markdown bullets**, because a deleted `- item` appears as `-- item`. Use plain
+`git diff | rg '^-' | rg -v '^--- '` instead. The earlier form under-reported this session's
+removals by two lines (both intentional, re-audited clean).
+
 ### ⏭️ Next
 
 1. **Get the real stack from Andrew** (blocking — see above).
@@ -120,9 +230,23 @@ never a hand-typed `git push`. See the two script sections below for detail.
    chapters. **Agreed model: one phase file per track**, with the track README staying a
    reader-facing index and the phase file holding the working record.
 4. Track 1's own chapters 8–10 (Schema Registry, OpenSearch + Fluent Bit, failure drills) remain
-   planned and unblocked — the cluster is still at snapshot `s05-app-running`.
-5. Cosmetic-only, low priority: the 4 figures at 9.4–9.9 pt. **Andrew confirmed print quality is
+   planned and unblocked — the cluster is still at snapshot `s05-app-running`, now on 16 GB / 8 vCPU.
+   ⚠️ **Re-seed the topics first** (7-day retention aged all events out on ~Aug 10), and note that
+   OpenSearch still fits in 16 GB if chapter 9 goes ahead.
+5. ⏳ **Time-boxed, not optional: the Redpanda trial licence expires ~Aug 25, 2026** (found Aug 12).
+   `partition_auto_balancing_continuous` + `core_balancing_continuous` are in use from chart defaults.
+   Decide to disable them or request a licence. Expiry on a rig this size should not be disruptive,
+   but it should not be a surprise either — and it would make a good chapter-10 failure drill.
+6. Cosmetic-only, low priority: the 4 figures at 9.4–9.9 pt. **Andrew confirmed print quality is
    fine**, so this is optional forever unless a reprint looks wrong.
+7. **Infra follow-ups raised and deliberately deferred on Aug 12** (offered, Andrew chose docs only):
+   - **GitHub pushes are impossible from the laptop** — `origin` is SSH and no PAT exists. Fix would
+     be registering the laptop's key or switching to HTTPS + token.
+   - **No out-of-band console for `.150`.** Route B (RDP to the Windows Z8) covers *entry* if the
+     host's `tailscaled` fails, but a broken bridge/firewall on `.150` is still unrecoverable remotely.
+   - **Tailscale on the dev box** would make it a direct tailnet node and drop the RDP hop.
+8. Measure RAM/CPU headroom on the other VMs (GitLab 24 GB, SonarQube 12 GB) the way 186 was measured
+   — 186 gave back 16 GB and 8 threads, and the Phase 15 study clusters will want more.
 
 ---
 
@@ -155,7 +279,8 @@ Andrew explicitly asked for these caveats to be kept in the docs.
   produced an unreachable VM. Use **`/root/cloudinit-keys-all.pub`** (workstation ED25519 +
   PVE RSA) as the cloud-init key source for all future clones.
 
-**Part 2 — VM 186 `vm-k8-redpanda-1` @ 192.168.1.186** (16 vCPU / 32 GB / 300 GB, vm-ephemeral)
+**Part 2 — VM 186 `vm-k8-redpanda-1` @ 192.168.1.186** (built 16 vCPU / 32 GB / 300 GB,
+vm-ephemeral — **right-sized to 8 vCPU / 16 GB on Aug 12**, see the right-sizing section above)
 - Full clone → booted → `cloud-init status: done` in **~30 seconds** (vs ~30 min of ISO clicking).
   Root fs auto-grew to 290 GB, unique machine-id, key-based SSH, guest agent responding.
 - `host_setup.sh` ran unattended: Docker 29.6.2 + Compose v5.3.1, NAS at `/mnt/DevShare`,

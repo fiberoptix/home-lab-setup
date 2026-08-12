@@ -7,6 +7,11 @@ is closed rather than extended; follow-on study work lives in
 ⚠️ **All `education/…` paths in this file moved to `education/k8s-k3s-redpanda/…` on Aug 12** (Phase
 15 restructured `education/` into one folder per study track); the references below were updated, but
 any command copied out of an older commit will need the same requalification.
+🔻 **VM 186 was right-sized on Aug 12, 2026 from 32 GB / 16 vCPU to 16 GB / 8 vCPU** — it was
+provisioned for an OpenSearch install that never happened. Cluster verified healthy 3/3 afterwards
+and the Part 6 ledger still reconciles to exactly 800,000 shares; see
+[Right-sized Aug 12](#-right-sized-aug-12-2026--32-gb--16-gb-16-vcpu--8-vcpu). Note that **all
+topic data has since aged out** under the default 7-day retention — re-seed before further work.
 Parts 1, 2, 3, 4 and **6 COMPLETE** (Jul 25 – Aug 3). **Redpanda is live: 3 brokers, healthy 3/3, topics `orders` / `executions` / `market-ticks` / `orders-v2` (6 partitions, RF 3), quorum and failure drills run and documented.** **Part 6 done Aug 3: our own producer + consumer (`education/k8s-k3s-redpanda/app/`, Python 3.12 + confluent-kafka 2.6.1) built, containerised as `oms:dev`, side-loaded into k3s containerd and running — `order-gateway` Job + `position-keeper` Deployment in ns `market`, reconciling 10,000 events to exactly 800,000 shares with `seq_gaps=0`.** Education series: Chapters 1 (k3s, 846 lines), 2 (object model / rollouts / probes, 631 lines), 3 (Redpanda, 1216 lines), 4 (provisioning application state, 823 lines), 5 (consumer groups, 488 lines) and **6 (the application, 792 lines)** written; Chapters 2–6 double as replayable runbooks, with tested artefacts at `education/k8s-k3s-redpanda/manifests/` and `education/app/`. **Numbering settled Aug 3: the app is 6, Schema Registry 7, OpenSearch 8, failure drills 9.** **Headline findings from Aug 3: (1) pod-Ready is not cluster-ready — a measured 9-second window where all 3 brokers were `2/2 Ready` and 11 of 18 partitions were leaderless; (2) SIGTERM vs SIGKILL on a consumer is the difference between a clean offset handover and 3 records processed twice; (3) a transactional state store + commit-after-write is effectively-once for free, and duplicates only hurt when the side effect escapes the transaction — measured 11 duplicate "executions" against an external gateway while the transactional ledger stayed exact; (4) `acks=0` lost 29 records while reporting `delivered=15000 failed=0`.** **Restore point: `qm rollback 186 s05-app-running`** (Aug 3 19:13, live via guest-agent fs-freeze — the app deployed and reconciling. `s04-topics-seeded` (18:34) is the pre-Part-6 fallback; rolling back that far removes `orders-v2`, the app and its PVC). **Still outstanding in Part 4: Redpanda Console (ClusterIP-only, needs a port-forward) and Schema Registry.** **Next: Chapter 7 (Schema Registry) — reuses Ch4's provisioning pattern and puts a contract in front of the hand-rolled JSON the app currently produces.**
 **Created:** July 25, 2026
 **Owner:** Andrew
@@ -72,7 +77,7 @@ Three Redpanda brokers run as three pods, giving real Raft quorum without needin
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
 │  VM 186  vm-k8-redpanda-1   192.168.1.186                               │
-│  Ubuntu 24.04 LTS Server · 16 vCPU · 32 GB RAM · 300 GB (vm-ephemeral)  │
+│  Ubuntu 24.04 LTS Server · 8 vCPU · 16 GB RAM · 300 GB (vm-ephemeral)   │
 │                                                                         │
 │  ┌───────────────────────── k3s (single node) ────────────────────────┐ │
 │  │                                                                    │ │
@@ -121,6 +126,11 @@ same pipeline shape, just smaller.
 | **Pool choice** | `vm-ephemeral` (not `vm-critical`) | Per the documented rule: disposable/rebuildable workloads go on the stripe. This VM is by definition disposable — that's the point. |
 | **Backups** | **None** | Consistent with the standing decision for rebuildable VMs. Protection here comes from **snapshots** (below), not vzdump. |
 
+> ⚠️ **The vCPU and RAM rows above are the original July 25 plan and are now superseded.** Both
+> were sized around OpenSearch, which was never installed. The VM was right-sized to **8 vCPU /
+> 16 GB on Aug 12, 2026** — see [Right-sized Aug 12](#-right-sized-aug-12-2026--32-gb--16-gb-16-vcpu--8-vcpu)
+> below for the measurements and the verification.
+
 **Host headroom note:** VM 185 (OpenClaw, 16 GB / 12 cores) is dormant with `onboot=0` and stays
 that way. If it were ever started alongside this VM, headroom gets tight — don't.
 
@@ -142,6 +152,93 @@ thread-per-core design that wants guaranteed headroom under load, but it means "
 And **there is far more room for OpenSearch than planned** — roughly 28 GB free. Resources are not
 the reason to cut Part 5 if time runs short; time is.
 
+### 🔻 Right-sized Aug 12, 2026 — 32 GB → 16 GB, 16 vCPU → 8 vCPU
+
+The resource plan above sized this VM for a workload that **never arrived**. OpenSearch (Part 5)
+was the single hungriest line item at ~6–8 GB and it was never installed; the phase closed with
+Redpanda + the OMS app only. Nine days of measurement made the over-provisioning unambiguous:
+
+| | Assigned before | Actually needed | Assigned now |
+|---|---|---|---|
+| RAM | 32 GB | **3.0 GB used**; 7.7 GB *requested* by pods | **16 GB** |
+| vCPU | 16 | **~1% node CPU**; 3.25 cores *requested* by pods | **8** |
+
+The distinction that matters is the one already made above: **pod requests are reservations, not
+consumption.** Kubernetes will only schedule pods whose *requests* fit the node, so the floor for
+this VM is set by the 7.7 GB / 3.25 cores the pods reserve — not by the 3 GB they actually touch.
+16 GB / 8 vCPU keeps requests at **50% of RAM and 41% of CPU**, which leaves genuine room to add
+OpenSearch later (Part 5 is still ~6–8 GB and would fit) while returning 16 GB and 8 threads to
+the host for the Phase 15 study clusters.
+
+**Redpanda was unaffected by design, and this was verified rather than assumed.** Each broker's
+Seastar arena is sized from its *container* limit (`1` core / `2560Mi`, both unchanged), not from
+host RAM. Read the broker's own command line:
+
+```bash
+kubectl exec -n redpanda redpanda-0 -c redpanda -- cat /proc/1/cmdline | tr '\0' ' '
+# /opt/redpanda/bin/redpanda --redpanda-cfg /etc/redpanda/redpanda.yaml \
+#   --default-log-level=info --memory=2048M --reserve-memory=205M --smp=1 --lock-memory=false
+kubectl exec -n redpanda redpanda-0 -c redpanda -- cat /sys/fs/cgroup/memory.max
+# 2684354560   == exactly 2560Mi, the container limit
+```
+
+`--memory=2048M` + `--reserve-memory=205M` is ~88% of that 2560Mi limit, and `--smp=1` comes from
+`resources.cpu.cores: 1`. **Neither flag can see the hypervisor's numbers**, which is why the resize
+was safe without re-tuning the Helm values — and why the brokers still measure 468–475 Mi each
+afterwards, in line with the 434 Mi recorded back in Part 4.
+
+```bash
+# On the Proxmox host. A CPU/RAM change needs a full stop — this is not a reboot.
+qm shutdown 186 --timeout 240      # graceful, via guest agent — completed in 35 s
+qm set 186 --cores 8 --memory 16384
+qm start 186
+```
+
+> **`qm reboot` would not have worked.** `cores`/`memory` are consumed when QEMU launches the
+> process, so a guest-visible reboot keeps the old topology. The VM must reach `stopped` and be
+> started again. (`qm set` on a *running* VM succeeds silently and stages the change for next
+> boot, which is a good way to fool yourself into thinking it applied.)
+
+**Verified after boot** (k3s came up in ~90 s; no snapshot was taken first because a CPU/RAM
+change touches no disk state and reverts with a single `qm set`):
+
+| Check | Result |
+|---|---|
+| `nproc` / `free -h` in guest | **8** / **15 Gi** total |
+| k3s node | `Ready`, `v1.36.2+k3s1` |
+| Pods | **all 12 Running** (`redpanda-0/1/2` at 2/2, `position-keeper` 1/1, Traefik, CoreDNS, metrics-server) |
+| `rpk cluster health` | **`Healthy: true`**, nodes `[0 1 2]`, **0 leaderless**, **0 under-replicated** |
+| Topics | `orders`, `executions`, `market-ticks`, `orders-v2` — all 6 partitions RF 3, intact |
+| Consumer group | `position-keeper` **Stable** |
+| Ledger (PVC `position-state`) | **`sum(qty) = 800000` across 2000 orders, 8000 fills** — the Part 6 invariant still reconciles exactly |
+| OOM kills | **none** (`dmesg` clean) |
+| Graceful stop | `signal 15 received, shutting down gracefully` → `FINAL … idempotent_total=800000 … seq_gaps=0` |
+
+Host RAM assigned to running VMs dropped from **100 GB to 84 GB of 125 GB**.
+
+#### Two unrelated findings surfaced during verification
+
+Both predate the resize and neither is caused by it — recorded because they will bite the next
+person who opens this rig:
+
+**1. All topic data has aged out.** `retention.ms` is the default **604800000 (7 days)** and the
+events were seeded Aug 3 — nine days earlier. Every partition now reports
+`LOG-START-OFFSET == LOG-END-OFFSET`, i.e. the log is empty but the offsets are preserved. **Any
+future chapter work against `orders-v2` must re-seed** (`education/k8s-k3s-redpanda/manifests/seed-topics-job.yaml`).
+
+This also explains a `TOTAL-LAG 1665` that looks alarming and is not: `orders-v2` partition 5 had
+a committed offset of `0`, which is now below the log start, so on restart librdkafka logged
+`offset reset … to cached BEGINNING offset 1665: Broker: Offset out of range` and moved the
+*position* to the end. The **committed** offset stays at 0 until the consumer processes a record
+and commits — and there are no records left to process. Lag will read 1665 until the topic is
+re-seeded. The ledger proves nothing was lost.
+
+**2. The Redpanda trial licence expires ~Aug 25, 2026** (13 days out at time of writing). The
+cluster reports two Enterprise features in use, both enabled by the chart's defaults rather than
+by us: `partition_auto_balancing_continuous` and `core_balancing_continuous`. Decide before then
+whether to disable them or request a licence; expiry on a rig this size is not expected to be
+disruptive, but it should not be a surprise.
+
 ---
 
 ## Snapshot checkpoints (your safety net — use them)
@@ -153,9 +250,13 @@ rollback is instant. Take a Proxmox snapshot at each green milestone:
 |---|---|
 | `s01-base-clean` | Fresh from template, personalized, before k3s — ✅ **TAKEN Jul 25 16:57** |
 | `s02-k3s-up` | k3s running, `kubectl get nodes` Ready — ✅ **TAKEN Jul 27 10:42** |
-| `s03-redpanda-up` | 3 brokers healthy, drills complete — ✅ **TAKEN Jul 27 14:58 ← current restore point** |
-| `s04-opensearch-up` | OpenSearch + Dashboards + Fluent Bit shipping logs — 🔲 |
-| `s05-apps-working` | Producer/consumer round-trip proven — 🔲 |
+| `s03-redpanda-up` | 3 brokers healthy, drills complete — ✅ **TAKEN Jul 27 14:58** |
+| `s04-topics-seeded` | Ch4+Ch5 state: topics seeded, consumer-group lab in place — ✅ **TAKEN Aug 3 18:34** |
+| `s05-app-running` | Part 6 proven: OMS app live, ledger reconciling — ✅ **TAKEN Aug 3 19:13 ← current restore point** |
+
+*(The planned `s04-opensearch-up` / `s05-apps-working` were never taken under those names —
+Part 5 was cut, so the two slots were used for the topic-seeding and application milestones
+instead. The names above are what `qm listsnapshot 186` actually reports.)*
 
 > **Take them hot — no shutdown needed.** VM 186 has `agent: enabled=1`, so `qm snapshot` issues a
 > guest **fs-freeze → snapshot → fs-thaw**. `s03-redpanda-up` took **1.5 seconds** with the Redpanda
@@ -290,6 +391,9 @@ The lab convention (followed by 181, 182, 184) is **VMID = last octet of the IP*
 qm clone 9000 186 --name vm-k8-redpanda-1 --full --storage vm-ephemeral
 
 # Size it for the workload
+# ⚠️ SUPERSEDED Aug 12, 2026 — right-sized to `--cores 8 --memory 16384` once it was clear
+#    OpenSearch was never coming. Kept verbatim as the as-built record; if you are rebuilding
+#    this rig from scratch, use the smaller numbers.
 qm set 186 --cores 16 --sockets 1 --memory 32768 --onboot 1
 qm resize 186 scsi0 300G
 
@@ -315,7 +419,7 @@ Verified on first boot without touching the console:
 | OS | Ubuntu 24.04.4 LTS |
 | cloud-init | `status: done` |
 | Root filesystem | 290 GB — **`growpart` auto-expanded it** to fill the resized disk |
-| CPU / RAM | 16 vCPU / 31 GB |
+| CPU / RAM | 16 vCPU / 31 GB *(as built Jul 25; now 8 vCPU / 15 GB — see Right-sized Aug 12)* |
 | machine-id | unique per clone (derived from the VM's own SMBIOS UUID) |
 | SSH from workstation | key-based, no password prompt |
 | `qm agent 186 ping` | responds |

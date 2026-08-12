@@ -508,11 +508,32 @@ What matters on a single-node cluster:
 | Setting | Chart default | Decision here | Why |
 |---|---|---|---|
 | `statefulset.replicas` | `3` | keep | a real quorum |
-| `resources.cpu.cores` | `1` | keep | 3 of 16 vCPU; Redpanda wants **whole** cores (thread-per-core) |
-| `resources.memory.container.max` | `2.5Gi` | keep | 7.5 GB of 29 GB free |
+| `resources.cpu.cores` | `1` | keep | 3 of the node's 8 vCPU; Redpanda wants **whole** cores (thread-per-core) |
+| `resources.memory.container.max` | `2.5Gi` | keep | 7.5 GB reserved of the node's 16 GB |
 | `storage.persistentVolume.size` | `20Gi` | keep, pin class | resolves to `local-path` |
 | `tls.enabled` | `true` | **`false`** | **sandbox shortcut** — production keeps TLS on |
 | pod anti-affinity | **hard** | **soft** | **see 6c — this one bit us** |
+
+Those first two rows are not just Kubernetes bookkeeping — the chart turns them into Seastar's
+startup flags, which you can read off the running broker:
+
+```bash
+kubectl exec -n redpanda redpanda-0 -c redpanda -- cat /proc/1/cmdline | tr '\0' ' '
+# /opt/redpanda/bin/redpanda --redpanda-cfg /etc/redpanda/redpanda.yaml \
+#   --default-log-level=info --memory=2048M --reserve-memory=205M --smp=1 --lock-memory=false
+```
+
+`--smp=1` is `resources.cpu.cores: 1` — one shard, one core, because of thread-per-core.
+`--memory=2048M` plus `--reserve-memory=205M` is roughly 88% of the 2,560 MiB container limit, the
+rest left to the OS and non-Seastar allocations. [Redpanda claims that memory **up front** and
+manages it itself; this is why the broker's real usage sits far below its limit and never drifts
+toward it the way a JVM heap does.]{custom-style="Key"}
+
+> **Worth noticing:** these flags are derived from the *container's* limits, not from how much RAM
+> the machine has. When this VM was later cut from 32 GB to 16 GB, the brokers started with byte-for-byte
+> identical flags and did not care. A process that sizes itself from the host instead would have
+> silently changed behaviour — which is exactly the class of surprise that makes "it works on my
+> node" bugs.
 
 ### 6c. The anti-affinity problem, and a chart trap
 
