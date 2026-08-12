@@ -947,5 +947,5 @@ selector works. That chapter turns section 5 from a diagram into something you h
 
 ---
 
-*Diagrams are generated from Graphviz sources in `education/diagrams/`. To change one, edit the*
+*Diagrams are generated from Graphviz sources in `education/k8s-k3s-redpanda/diagrams/`. To change one, edit the*
 *`.dot` file and re-run:* `dot -Tpng -Gdpi=150 <file>.dot -o ../images/<file>.png`

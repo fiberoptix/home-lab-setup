@@ -13,15 +13,18 @@ whose source is 14in wide gets squashed to 45% and its 9pt annotations land
 at 4pt. Two things fix that, and both are needed:
 
   1. The figures themselves were rewritten to be narrow (see
-     education/scratch/figcheck.py, which reports the on-page size of the
+     education/tools/figcheck.py, which reports the on-page size of the
      smallest type in every figure).
   2. Here, each image is given an explicit width -- the full 7in column --
      but capped so a tall figure still fits the 9in text height rather than
      overflowing onto the next page.
 
+This is shared across every study track, so the track comes first:
+
 Usage:
-    python3 build_docx.py            # build every chapter
-    python3 build_docx.py 3 6        # build chapters 3 and 6 only
+    python3 education/tools/build_docx.py <track>          # every chapter
+    python3 education/tools/build_docx.py <track> 3 6      # chapters 3 and 6
+    python3 education/tools/build_docx.py --list           # available tracks
 """
 
 import pathlib
@@ -33,8 +36,8 @@ import sys
 import tempfile
 import zipfile
 
-EDU = pathlib.Path(__file__).resolve().parent.parent
-OUT = EDU / "docx"
+EDUCATION = pathlib.Path(__file__).resolve().parent.parent
+CHAPTER_GLOB = "chapter[0-9][0-9]_*.md"
 
 # Letter page, 0.75in side margins, 1in top/bottom -> 7.0 x 9.0in of text.
 PAGE_W_TWIPS, PAGE_H_TWIPS = 12240, 15840
@@ -224,11 +227,11 @@ def build_reference(dest):
 
 # ----------------------------------------------------------------- chapters
 
-def size_images(md_text):
+def size_images(md_text, track):
     """Give every image an explicit width: the full column, height-capped."""
     def repl(m):
         alt, rel = m.group(1), m.group(2)
-        img = EDU / rel
+        img = track / rel
         if not img.exists():
             return m.group(0)
         w, h = png_size(img)
@@ -237,13 +240,14 @@ def size_images(md_text):
     return re.sub(r"!\[([^\]]*)\]\((images/[^)]+\.png)\)", repl, md_text)
 
 
-def build_chapter(md_path, reference):
-    OUT.mkdir(exist_ok=True)
-    text = size_images(md_path.read_text())
-    with tempfile.NamedTemporaryFile("w", suffix=".md", dir=EDU, delete=False) as t:
+def build_chapter(md_path, reference, track):
+    out_dir = track / "docx"
+    out_dir.mkdir(exist_ok=True)
+    text = size_images(md_path.read_text(), track)
+    with tempfile.NamedTemporaryFile("w", suffix=".md", dir=track, delete=False) as t:
         t.write(text)
         tmp = pathlib.Path(t.name)
-    out = OUT / (md_path.stem + ".docx")
+    out = out_dir / (md_path.stem + ".docx")
     try:
         subprocess.run(
             ["pandoc", str(tmp), "-o", str(out),
@@ -251,7 +255,7 @@ def build_chapter(md_path, reference):
              "--from", "markdown+pipe_tables+implicit_figures"
                        "+backtick_code_blocks+bracketed_spans",
              "--highlight-style=tango",
-             "--resource-path", str(EDU)],
+             "--resource-path", str(track)],
             check=True, capture_output=True, text=True)
     except subprocess.CalledProcessError as e:
         print(f"  FAILED {md_path.name}: {e.stderr.strip()[:300]}")
@@ -261,16 +265,48 @@ def build_chapter(md_path, reference):
     return out
 
 
+def tracks():
+    """A track is any education/ subdirectory holding numbered chapters."""
+    return sorted(d for d in EDUCATION.iterdir()
+                  if d.is_dir() and any(d.glob(CHAPTER_GLOB)))
+
+
+def resolve_track(name):
+    """Named explicitly, always. Defaulting here would silently build the
+    wrong track the moment a second one exists."""
+    track = EDUCATION / name
+    if not track.is_dir():
+        sys.exit(f"no such track: {name}\n"
+                 f"available: {', '.join(t.name for t in tracks()) or '(none)'}")
+    if not any(track.glob(CHAPTER_GLOB)):
+        sys.exit(f"{name} holds no {CHAPTER_GLOB} files")
+    return track
+
+
 def main():
-    wanted = [a for a in sys.argv[1:] if a.isdigit()]
-    reference = build_reference(EDU / "scratch" / "docx" / "reference.docx")
-    print(f"reference: {reference.relative_to(EDU)}  "
+    args = sys.argv[1:]
+    if not args or args[0] in ("-h", "--help"):
+        sys.exit(__doc__.strip().split("Usage:")[-1].strip())
+    if args[0] == "--list":
+        for t in tracks():
+            print(f"  {t.name:<24}{len(list(t.glob(CHAPTER_GLOB)))} chapters")
+        return
+
+    track = resolve_track(args[0])
+    wanted = [a.lstrip("0") for a in args[1:] if a.isdigit()]
+
+    ref_path = track / "scratch" / "docx" / "reference.docx"
+    ref_path.parent.mkdir(parents=True, exist_ok=True)
+    reference = build_reference(ref_path)
+    print(f"track: {track.name}\n"
+          f"reference: {reference.relative_to(track)}  "
           f"({COL_IN:.2f}in column, {BODY_FONT} 11pt single-spaced)\n")
-    for md in sorted(EDU.glob("chapter0*.md")):
-        n = re.search(r"chapter0(\d)", md.name).group(1)
+
+    for md in sorted(track.glob(CHAPTER_GLOB)):
+        n = re.search(r"chapter(\d+)", md.name).group(1).lstrip("0")
         if wanted and n not in wanted:
             continue
-        out = build_chapter(md, reference)
+        out = build_chapter(md, reference, track)
         if out:
             print(f"  {md.name:<36}-> docx/{out.name}  ({out.stat().st_size//1024} KB)")
 

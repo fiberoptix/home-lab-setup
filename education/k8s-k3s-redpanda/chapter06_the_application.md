@@ -263,7 +263,7 @@ network problem rather than a missing registry.
 
 > **Rebuilds need the import too.** Every code change is `build.sh` again. Forgetting the import
 > step means Kubernetes cheerfully runs the *previous* image and your fix appears not to work. The
-> `build.sh` in `education/app/` does both and verifies, for exactly this reason.
+> `build.sh` in `education/k8s-k3s-redpanda/app/` does both and verifies, for exactly this reason.
 
 ---
 
@@ -781,12 +781,12 @@ know that.]{custom-style="Key"}
 
 ## 15. Runbook — reproducing the demos in this chapter
 
-All commands run on `vm-k8-redpanda-1`. Source lives in `education/app/` in the repository; copy it
-to the node first, because `build.sh` needs a Docker daemon and `k3s ctr`, both of which are there
-and not on your laptop:
+All commands run on `vm-k8-redpanda-1`. Source lives in `education/k8s-k3s-redpanda/app/` in the
+repository; copy it to the node first, because `build.sh` needs a Docker daemon and `k3s ctr`, both
+of which are there and not on your laptop:
 
 ```bash
-scp -r education/app/* vm-k8-redpanda-1:~/oms/
+scp -r education/k8s-k3s-redpanda/app/* vm-k8-redpanda-1:~/oms/
 ```
 
 This runbook reproduces §3, §7, §8, §9 and §14. It does **not** reproduce §6 (the both-ledgers-

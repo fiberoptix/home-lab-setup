@@ -58,11 +58,12 @@ $RECYCLE.BIN/
 *.tmp
 
 # ------------------------------------------------------------------------------
-# EDUCATION SERIES
+# EDUCATION PROGRAM
 # ------------------------------------------------------------------------------
-# Throwaway variants used to capture reproducible output for the chapters.
-# The chapters quote the results; the scratch copies are not the artefact.
-education/scratch/
+# Every study track gets its own scratch/ — throwaway variants used to capture
+# reproducible output for the chapters, research dumps, and the highlight anchor
+# lists. The chapters quote the results; the scratch copies are not the artefact.
+education/*/scratch/
 
 # ------------------------------------------------------------------------------
 # PYTHON

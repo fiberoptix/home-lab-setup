@@ -14,7 +14,7 @@
 #                       -> the initContainer blocks on `Healthy: true`.
 #
 # The script lives in a ConfigMap so the topic spec is reviewable on its own,
-# and is the same file as education/manifests/seed-topics.sh.
+# and is the same file as education/k8s-k3s-redpanda/manifests/seed-topics.sh.
 #
 #   kubectl -n redpanda create configmap topic-spec \
 #     --from-file=seed-topics.sh=seed-topics.sh --dry-run=client -o yaml | kubectl apply -f -

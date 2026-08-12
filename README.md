@@ -177,6 +177,12 @@ home-lab-setup/
 │   ├── credentials              # (git-ignored)
 │   └── nas_credentials          # (git-ignored)
 │
+├── education/                   # Printable study tracks built on the lab (see below)
+│   ├── README.md                # Track index
+│   ├── CONVENTIONS.md           # How a track is written
+│   ├── tools/                   # Shared Word build, highlighter, figure checker
+│   └── k8s-k3s-redpanda/        # Track 1: k3s, Redpanda, an order management system
+│
 ├── vmware/                      # VMware ESXi reference (replaced by Proxmox)
 │   └── *.md                     # Design docs for comparison
 │
@@ -247,6 +253,25 @@ bash host_setup.sh
 **Phase Documentation:**
 - Each phase has detailed implementation notes in `/phases/`
 - Includes: objectives, commands used, issues encountered, solutions
+
+---
+
+## 📖 Education Tracks
+
+[`education/`](education/README.md) holds printable study material written on top of the lab — not
+tutorials, but chapters where **every command was executed on real infrastructure and every output
+quoted is real**. Each track is a self-contained series with its own Graphviz diagrams, tested
+config artefacts, and a Word build for printing.
+
+| Track | Subject | Status |
+|---|---|---|
+| [k8s-k3s-redpanda](education/k8s-k3s-redpanda/README.md) | Kubernetes (k3s), Redpanda, and an order management system built on both — including the failure drills | 7 chapters |
+
+Track 1 grew out of [Phase 14](phases/phase14_k8s_redpanda_poc.md): a 3-broker Redpanda cluster on
+k3s with a Python producer/consumer OMS, reconciling 10,000 events to exactly 800,000 shares across
+repeated hard kills. The chapters cover what broke and why, which is the useful part.
+
+Writing conventions for all tracks: [`education/CONVENTIONS.md`](education/CONVENTIONS.md).
 
 ---
 
