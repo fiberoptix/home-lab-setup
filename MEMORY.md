@@ -64,11 +64,13 @@ editing `CURSOR_RULES`:
   Phase 14 existed to prepare for those interviews, so **its goal is met and it is CLOSED.** Do not
   extend it. The education material is no longer interview prep; it is **onboarding prep for the job
   he now holds**, which changes the priority from breadth-before-a-panel to depth-on-the-real-stack.
-  ⚠️ **The employer's actual stack has not been captured yet.** Chapter 7's six areas (Cloudflare
-  edge, IAM + Symantec PAM, Vault, PKI/cert-manager, MongoDB, OTEL→Prometheus/Grafana/OpenSearch)
-  were derived from the **job description**, which is now the *oldest* information available. Andrew
-  said on Aug 12 he would describe the real stack. **Get that before scoping any new study track** —
-  everything in `phases/phase15_education_program.md` §4 is a straw man until then.
+  ✅ **The employer's stack is now partly captured (Aug 12).** Andrew's own description: **GitHub** for
+  source, **Jenkins** for CI, **Docker Swarm** for orchestration, and the role is **DevOps/SRE with
+  DevOps first**. Jenkins may need building in the lab eventually; for now the lab stays on GitLab.
+  ⚠️ **Chapter 7's six areas** (Cloudflare edge, IAM + Symantec PAM, Vault, PKI/cert-manager, MongoDB,
+  OTEL→Prometheus/Grafana/OpenSearch) still came from the **job description**, not from Andrew — so
+  `phases/phase15_education_program.md` §4 **remains a straw man** and needs reconciling against the
+  three tools above. Swarm is track 2; **Jenkins is the likely track 3.**
 
 - **🔑 LAB ACCESS IS NOW FULLY SORTED (Aug 12, 2026) — read the two sections below before debugging
   any connection problem:** `CREDENTIALS → SSH ACCESS MATRIX` and `REMOTE LAB MANAGEMENT`.
@@ -96,6 +98,32 @@ editing `CURSOR_RULES`:
   - **Startup checklist item 2f** — `education/CONVENTIONS.md` is a mandatory read when the session
     touches education content.
   - **New `=== EDUCATION PROGRAM (/education) ===` section**, 7 rules.
+
+- **📋 PLANNED — Phase 16: Docker Swarm** (`phases/phase16_docker_swarm.md`, ~590 lines, **nothing
+  built yet**). Three managers at `.191/.192/.193` cloned from template 9000, 2 vCPU / 4 GB each —
+  funded by **the 16 GB VM 186 gave back on Aug 12** — running **Capricorn from the existing registry
+  images**, deployed by a **manual job in THIS repo's** `.gitlab-ci.yml`, *not* Capricorn's.
+  👉 **Open that session by walking the file's `📌 READ THIS FIRST` pre-flight list.** It sorts every
+  caveat into four kinds so they cannot be mistaken for one another: **🅐 open items** (now down to
+  **two** one-minute decisions for Andrew — whether this repo gains a CI file at all, and where the
+  stack file plus deploy script live), **🅑 six hard rules**, **🅒 six deliberately planted traps that
+  must NOT be fixed in advance** (pre-empting them turns the phase into a tutorial where nothing
+  fails), and **🅓 inherited findings that are out of scope**.
+  ⚠️ **Three facts established Aug 12 that a later session should not waste time re-deriving:**
+  - **The GitLab runner is not a blocker.** Runner `id=2` is **`instance_type`** (instance-wide shared,
+    not project-scoped to Capricorn), active, `run_untagged=true`, and already available to
+    `production/home-lab-setup` (project id 6), which has `builds_enabled=true` and
+    `shared_runners_enabled=true`. So Part 4 needs no runner work — **but it also means dropping in a
+    `.gitlab-ci.yml` starts producing a pipeline on every `push_gitlab.sh` backup**, which is why the
+    `workflow: rules:` guard is part of the decision rather than polish.
+  - **Capricorn is stateful** — postgres + redis with named volumes `postgres_data_prod` /
+    `redis_data_prod` and a bind mount for DB init scripts. This is why Part 5 is a real exercise, and
+    why the centrepiece drill is **"a Swarm named volume is node-local, so a rescheduled postgres comes
+    up healthy against a brand-new empty database"** — silent data loss that looks like a clean deploy.
+  - **Config drift on `.184`, recorded but NOT ours to fix:** `/opt/capricorn/docker-compose.yml`
+    declares `postgres:15.5-alpine` while the **running container is the custom
+    `production/capricorn/postgres:latest`**. "Just redeploy from the compose file" would quietly change
+    PROD's database image. Application layer — raise it with whoever owns Capricorn.
 
 - **✅ CLOSED — Phase 14: Kubernetes + Redpanda POC (was interview prep).** Plan + learning material
   in `phases/phase14_k8s_redpanda_poc.md`. The role framing still governs how the material is

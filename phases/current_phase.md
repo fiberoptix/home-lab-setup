@@ -1,6 +1,6 @@
 # Current Phase
 
-**Updated:** August 12, 2026 - 6:02 PM EDT
+**Updated:** August 12, 2026 - 6:45 PM EDT
 
 ---
 
@@ -222,12 +222,77 @@ removed Markdown bullets**, because a deleted `- item` appears as `-- item`. Use
 `git diff | rg '^-' | rg -v '^--- '` instead. The earlier form under-reported this session's
 removals by two lines (both intentional, re-audited clean).
 
+### 🐳 Also done this session — the employer's stack is known, and Phase 16 is planned (Aug 12, ~6:30 PM)
+
+**The O1 blocker is closed.** Andrew's description of the new employer's platform:
+
+- Role is **DevOps/SRE, with DevOps first**. Job already accepted.
+- Their platform, as far as he knows it today: **GitHub** (source), **Jenkins** (CI),
+  **Docker Swarm** (orchestration). Jenkins may need building in the lab later; for now we stay on
+  GitLab.
+
+⚠️ **The uncomfortable implication, and why it changed the plan:** our lab is GitLab + GitLab CI, so
+the *pipeline glue* is the one part of a Swarm phase that would **not** transfer — it would be written
+in a syntax the employer does not use. Fix baked into the plan: **the deploy logic goes in a shell
+script (`deploy_swarm.sh`) and the CI file is a thin wrapper that calls it.** GitLab CI calls it now;
+a Jenkinsfile calls it later for roughly the same number of lines. Deploy logic is the durable part;
+CI products are interchangeable.
+
+**`phases/phase16_docker_swarm.md` written (508 lines) — plan only, nothing built.** Three managers at
+`.191/.192/.193` from template 9000, 2 vCPU / 4 GB each (**exactly the 16 GB VM 186 gave back this
+afternoon**), running Capricorn from the existing registry images.
+
+**Two of the five open questions were answered by going and looking rather than by asking Andrew:**
+
+- **O3 — is Capricorn stateful? Yes.** Inspected the live PROD stack on `.184`: four services
+  (frontend, backend, postgres, redis), named volumes `postgres_data_prod` / `redis_data_prod`, plus a
+  bind mount `./database/init` for schema init. This upgraded Part 5 from a paragraph to the best
+  exercise in the phase, because **a Swarm named volume is node-local**: reschedule postgres and it
+  comes up against a *new empty volume*, reports healthy, and has no data. Silent data loss that looks
+  like a clean deploy. Added as drill 6.
+- **O2 — where the deploy job lives.** Confirmed this repo is a GitLab project (`production/home-lab-setup`)
+  with **no `.gitlab-ci.yml` today**, so the lab can own its whole deploy path here and
+  **Capricorn's pipeline is never touched.** That keeps the standing rule intact: breaking the lab
+  cluster must not be able to break `deploy_qa` (fires on every `develop` push) or `deploy_prod_local`.
+
+⚠️ **Drift found in passing, worth remembering:** `/opt/capricorn/docker-compose.yml` on `.184`
+declares `postgres:15.5-alpine`, but the **running container is the custom
+`production/capricorn/postgres:latest`**. The file on disk does not describe what is deployed — so
+"just redeploy from the compose file" would quietly change the database image on PROD. Recorded in the
+phase plan; **not** fixed here, since Capricorn is application layer.
+
+⚠️ **Deferred into Part 4 rather than blocking the phase:** whether the `.182` runner is even visible
+to the `home-lab-setup` project, or is scoped to Capricorn. Also noted: adding a CI file to this repo
+means `push_gitlab.sh` backups would start spawning pipelines, so the job needs a `workflow: rules:`
+guard.
+
+Other decisions: 3 managers (not 2+1), track name `education/docker-swarm/`, **fresh empty database**
+in the lab with its own volume names — no PROD dump, no shared volumes. Jenkins is explicitly out of
+scope as a possible Phase 17.
+
+🚪 **AGREED OPENER FOR THE NEXT SESSION.** Andrew will say something close to *"Action @CURSOR_RULES,
+the phase16 plan is approved, let's start Part 1."* Interpret that as: run the startup checklist, read
+`phases/phase16_docker_swarm.md` **and `education/CONVENTIONS.md`** (chapter 1 gets drafted, so 2f
+applies), then **walk the pre-flight §🅐 items — A2 and A5 — before cloning any VM.** That phrasing
+also satisfies the MANDATORY PHASE PROCESS approval gate (step 3); do not ask for approval a second
+time. **`phases/phase15_education_program.md` is *not* required reading to start Phase 16** — Phase 16
+is self-contained, and phase15 §4's track list is the known-stale straw man.
+
+📌 **Andrew's ask, and a good one:** the caveats had been raised in chat and scattered through 500
+lines of plan, which is useless to a re-read weeks later. They are now consolidated into a
+**pre-flight list at the top of `phase16_docker_swarm.md`**, sorted into four kinds so they cannot be
+confused: **🅐 5 open items** needing a human decision, **🅑 6 hard rules**, **🅒 6 deliberately
+planted traps that must NOT be fixed in advance** (pre-empting them turns the phase into a tutorial),
+and **🅓 2 inherited findings** recorded but out of scope. **Walk §🅐 with Andrew at the start of the
+build session** — that is the agreed entry point for this phase.
+
 ### ⏭️ Next
 
-1. **Get the real stack from Andrew** (blocking — see above).
-2. Fix the track list in `phases/phase15_education_program.md` §4 against that stack.
-3. Write `phases/phase16_<track>.md` as a normal phase plan and get it approved before writing
-   chapters. **Agreed model: one phase file per track**, with the track README staying a
+1. ✅ **Done — the real stack is known** (GitHub + Jenkins + Docker Swarm; DevOps-first SRE role).
+2. Fix the track list in `phases/phase15_education_program.md` §4 against that stack — Swarm is now
+   confirmed track 2, and **Jenkins is a strong candidate for track 3**.
+3. ✅ **Done — `phases/phase16_docker_swarm.md` written and awaiting Andrew's go-ahead** before any VM
+   is cloned. **Agreed model: one phase file per track**, with the track README staying a
    reader-facing index and the phase file holding the working record.
 4. Track 1's own chapters 8–10 (Schema Registry, OpenSearch + Fluent Bit, failure drills) remain
    planned and unblocked — the cluster is still at snapshot `s05-app-running`, now on 16 GB / 8 vCPU.
