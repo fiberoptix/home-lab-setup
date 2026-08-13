@@ -84,6 +84,15 @@ study material, not a production app. Capricorn is not.
 - NEVER write outside project directory on this host
 - Connect using SSH to hosts we build with generic username/pass in .env file
 
+=== BACKUP DIRECTIVE (Andrew, Aug 13, 2026) ===
+- ALL vzdump backups for this project go to the NAS under /ProxmoxBackups/<vm-name>/
+- NEVER back up to NVMe storage (local, local-zfs, vm-critical, vm-ephemeral)
+- Per-VM folders need ONE CIFS storage per VM (--subdir /ProxmoxBackups/<vm-name>), because a
+  single PVE storage dumps everything into one shared dump/ directory
+- Full recipe, gotchas and verified findings: proxmox/Home_Lab_Proxmox_Storage.md -> Backup Strategy
+  (also summarised in MEMORY.md under the Phase 13 audit bullets)
+- Edit of THIS file authorised in writing by Andrew, Aug 13 2026, for this pointer only.
+
 === EDUCATION PROGRAM (/education) ===
 /education holds printable study material written on top of the lab. It is a SHELF, not a book:
 one self-contained folder per subject (education/<track>/), shared tooling in education/tools/,

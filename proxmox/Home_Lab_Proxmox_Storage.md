@@ -236,11 +236,20 @@ Resulting layout, with PVE creating `dump/` inside each:
 Currently defined: `nas-gitlab` (VM 181), `nas-docker-swarm-1/2/3` (VMs 191/192/193, added Aug 13 2026,
 `keep-last=3`).
 
-⚠️ **Gotcha that cost 20 minutes: `pvesm add` ignores a pre-placed `/etc/pve/priv/storage/<id>.pw`.**
-Its connection check authenticates with what was passed in the API call, so creating the password file
-first and omitting `--password` fails with `NT_STATUS_LOGON_FAILURE` **even when the file is correct** —
-verified by `smbclient -L` and a manual `mount -t cifs` succeeding with the very same file. The error
-names an auth failure, which sends you hunting for a wrong password instead of a missing argument.
+⚠️ **Gotcha that cost 20 minutes — and the real cause is the FILE FORMAT.**
+`/etc/pve/priv/storage/<id>.pw` is **not** a bare password. PVE writes a credentials-style body:
+
+```
+password=<the password>          # 9-char password -> 19 bytes on disk, including the newline
+```
+
+Pre-placing a file containing **only** the password is therefore malformed, and `pvesm add` fails with
+`NT_STATUS_LOGON_FAILURE` — an error that names authentication and sends you hunting for a wrong
+password instead of a wrong file format. **Always pass `--password` and let PVE write the file.**
+
+⚠️ **`pvesm set --password` needs `--username` in the SAME call**, even when the storage config already
+has `username`. Without it: `storage <id>: ignoring password parameter, no user set`, and it writes a
+body with an **empty** password. Verified here on `nas-gitlab`.
 
 ⚠️ **The `subdir` is part of the mount source, so it cannot be created through its own storage.** To
 add a new per-VM folder, mount the share root once (or reuse a storage scoped one level up), `mkdir`
@@ -250,25 +259,40 @@ the folder, then define the storage.
 archive is the **current disk state only**, so a restore yields a VM with no snapshot history. A
 `vzdump` is a recovery point; a snapshot chain is not, and neither substitutes for the other.
 
-### 🚨 Latent failure found Aug 13, 2026 — the GitLab NAS backup is one reboot from silence
+### ❌ RETRACTED — the "stale nas-gitlab credential" was a measurement error, not a finding
 
-While wiring the above: **the password stored in `/etc/pve/priv/storage/nas-gitlab.pw` (18 chars) is
-stale and no longer authenticates.** A fresh `smbclient` logon with it fails
-(`NT_STATUS_LOGON_FAILURE`); the working credential is the 9-character one in `PASSWORDS.md` →
-*NAS / SMB Share*, confirmed by copying it off a swarm node that mounted the share successfully the
-same day.
+**Aug 13, 2026. Recorded in full because the mistake is more instructive than the false alarm.**
 
-**Why nothing has broken yet:** `/mnt/pve/nas-gitlab` has been mounted since **Jun 18** and a live CIFS
-mount is not re-authenticated. The nightly 2 AM `vzdump` of VM 181 keeps writing into that mount and
-keeps succeeding — the most recent is ~16 GB and looks perfectly healthy.
+**The claim, briefly believed:** `/etc/pve/priv/storage/nas-gitlab.pw` held a stale password, so the
+mount only worked because it predated the change, and the next host reboot would silently end GitLab's
+offsite backup.
 
-⭐ **The consequence is the lesson: the next reboot of the Proxmox host silently ends GitLab's offsite
-backup.** The mount will fail to re-establish, and the failure will surface as a *backup* problem weeks
-later rather than as an *authentication* problem now. **A mount that works is not evidence that the
-credential works** — that only gets tested at mount time, which may be months apart from when the
-password changed. 🔲 **TODO: fix `nas-gitlab.pw` with the correct credential and prove it by
-unmounting and remounting.** Not done here — it touches the GitLab VM's backup path, which is outside
-what this session was authorised to change.
+**Why it looked true.** `wc -c` reported **19 bytes**, which was read as "an 18-character password" — a
+different length from the 9-character value in `PASSWORDS.md`. A `smbclient` test with it then failed
+`NT_STATUS_LOGON_FAILURE`, while the credential copied off a swarm node succeeded. Two independent
+signals agreeing, and both wrong for the same reason.
+
+🚨 **The actual cause: the `.pw` file is `password=<value>` + newline, not a bare password.** For a
+9-character password that is exactly 19 bytes. The test authfile was built as
+`password=$(cat nas-gitlab.pw)`, which produced **`password=password=Powerme!1`** — a malformed
+credential that of course fails to authenticate. **The stored password was correct the whole time**,
+and the identical mistake explains the `pvesm add` failure that started the whole detour.
+
+⭐ **The lesson worth keeping: a byte count is not a value, and two tests that share an assumption are
+not two independent confirmations.** `wc -c` was used as a proxy for "which password is this", and every
+later test inherited the same wrong parse of the file. **When a value's length is the evidence, verify
+the format before trusting the comparison** — one `od -c` at the start would have ended it.
+
+**Net effect on the lab:** none, and the storage is verifiably healthier for the round trip.
+`nas-gitlab.pw` now holds `password=Powerme!1` (written by `pvesm set --username --password`), and this
+is now **proven** rather than assumed: unmounted and remounted **twice**, PVE re-established the mount
+both times, all 7 VM 181 archives list, and a write test to `dump/` succeeded. The reboot path that was
+never actually broken has now at least been *tested*, which it had not been since June.
+
+⚠️ **The one genuinely true part, kept:** *a working CIFS mount is not evidence of a working
+credential*, because CIFS does not re-authenticate a live mount. That risk is real for any long-lived
+mount; it just was not being realised here. **Testing it costs one `umount` and is worth doing
+deliberately rather than discovering at 2 AM.**
 
 ---
 

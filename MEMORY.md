@@ -832,17 +832,24 @@ editing `CURSOR_RULES`:
     (`--subdir /ProxmoxBackups/<vm-name>`) because PVE dumps everything into a single `dump/` per
     storage. Defined: `nas-gitlab` (181), `nas-docker-swarm-1/2/3` (191/192/193, `keep-last=3`).
     Full recipe + gotchas in `proxmox/Home_Lab_Proxmox_Storage.md` → *Backup Strategy*.
-    - ⚠️ **`pvesm add` IGNORES a pre-placed `<id>.pw`** — you must pass `--password`, or the
-      connection check fails `NT_STATUS_LOGON_FAILURE` while the file is perfectly correct.
+    - 🚨 **`/etc/pve/priv/storage/<id>.pw` is `password=<value>` + newline, NOT a bare password.**
+      A 9-char password = 19 bytes on disk. Pre-placing a bare password is malformed and `pvesm add`
+      then fails `NT_STATUS_LOGON_FAILURE` — an auth-shaped error for a format problem. **Pass
+      `--password` and let PVE write it.**
+    - ⚠️ **`pvesm set --password` needs `--username` in the same call** even when the config already
+      has one, or it warns `no user set` and writes an EMPTY password.
     - ⚠️ **The `subdir` must exist on the NAS first**; PVE will not create it, and it cannot be
       created *through* its own storage (the subdir is part of the mount source).
     - ⚠️ **vzdump excludes snapshots** — the archive is current disk state only.
-  - 🚨 **LATENT: `nas-gitlab.pw` holds a STALE password (18 chars) that no longer authenticates.**
-    The correct one is the 9-char value in `PASSWORDS.md` → *NAS / SMB Share* (verified working).
-    Nothing is broken **only because the mount has been live since Jun 18** and CIFS does not
-    re-authenticate an existing mount — so the nightly 181 backup still succeeds. **The next PVE
-    host reboot silently ends GitLab's offsite backup.** 🔲 Fix the `.pw` and prove it with an
-    unmount/remount. A working mount is NOT evidence of a working credential.
+  - ❌ **RETRACTED same day — there was NO stale `nas-gitlab` credential and NO pending backup
+    outage.** The AI read `wc -c` = 19 as "an 18-char password", then built a test authfile as
+    `password=$(cat …pw)` → `password=password=Powerme!1`, which fails to authenticate. Two tests
+    agreed because **both inherited the same wrong parse of the file.** ⭐ *A byte count is not a
+    value, and two tests sharing an assumption are not two confirmations.* Full write-up in
+    `proxmox/Home_Lab_Proxmox_Storage.md`. ✅ **Net gain anyway:** `nas-gitlab` has now been
+    unmounted/remounted twice with a write test — its reboot path is *proven*, not assumed, for the
+    first time since Jun 18. The true part kept: **a live CIFS mount is not evidence of a working
+    credential**, since CIFS never re-authenticates an existing mount.
   - **Audit discoveries:** host runs Tailscale (100.108.209.77, `pve` on tailnet); idle Quadro
     P2000 GPU (nouveau, passthrough candidate); SNC enabled in BIOS → 2 NUMA nodes (64G each);
     only 4/6 memory channels populated; fallback kernel 6.17.2-1 no longer on ESPs.
