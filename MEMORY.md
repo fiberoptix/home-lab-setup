@@ -120,10 +120,19 @@ editing `CURSOR_RULES`:
     `redis_data_prod` and a bind mount for DB init scripts. This is why Part 5 is a real exercise, and
     why the centrepiece drill is **"a Swarm named volume is node-local, so a rescheduled postgres comes
     up healthy against a brand-new empty database"** — silent data loss that looks like a clean deploy.
-  - **Config drift on `.184`, recorded but NOT ours to fix:** `/opt/capricorn/docker-compose.yml`
-    declares `postgres:15.5-alpine` while the **running container is the custom
-    `production/capricorn/postgres:latest`**. "Just redeploy from the compose file" would quietly change
-    PROD's database image. Application layer — raise it with whoever owns Capricorn.
+  - **Two problems with `/opt/capricorn/docker-compose.yml` on `.184`, both recorded and NEITHER ours
+    to fix** (application layer — raise with whoever owns Capricorn):
+    - **Config drift.** It declares `postgres:15.5-alpine` while the **running container is the custom
+      `production/capricorn/postgres:latest`**. "Just redeploy from the compose file" would quietly
+      change PROD's database image.
+    - 🚨 **Plaintext credentials, and they are a copy-paste hazard for us.** There is **no `.env`** —
+      `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` and a password-bearing `DATABASE_URL` are
+      written **inline in the compose file**. Any lab work that starts from that file as a template
+      puts a **production database password into this repo, which has a public GitHub remote.**
+      ⚠️ **`push_github.sh` would probably catch the `DATABASE_URL`** (its URL-with-embedded-password
+      gate) **but would NOT catch a bare `POSTGRES_PASSWORD=` line** — the protection is partial and
+      accidental, so do not lean on it. Phase 16 hard rule B7 forbids the copy outright and uses
+      `docker secret` with invented lab-only credentials instead.
 
 - **✅ CLOSED — Phase 14: Kubernetes + Redpanda POC (was interview prep).** Plan + learning material
   in `phases/phase14_k8s_redpanda_poc.md`. The role framing still governs how the material is
@@ -1066,6 +1075,11 @@ qm start <VMID>
 re-specify. Hostname is taken from `--name`. Standard disk flags are inherited too.
 
 **Rules learned building it:**
+- ⚠️ **The template's disk is only 3584M (3.5 GB), so `qm resize` is mandatory, not optional** — and
+  it grows the *virtual* disk, while the *filesystem* only follows if cloud-init's `growpart` runs on
+  first boot. **Verify from inside the guest with `df -h /`**, not from `qm config`. If growpart
+  silently does not fire, the VM dies on its first large `docker pull` with an error about image
+  layers rather than about disk space, which is a genuinely confusing 20 minutes.
 - **Key source is `/root/cloudinit-keys-all.pub`** on the host (workstation ED25519 + PVE RSA).
   `/root/.ssh/authorized_keys` → `/etc/pve/priv/authorized_keys` has ONLY the cluster RSA key;
   using it produces a VM the workstation can't SSH into.
@@ -1306,8 +1320,11 @@ All pools feature-flag current (zpool upgrade Jul 9).
 | 6 | SonarQube | ✅ COMPLETE (test-app + Capricorn both integrated!) |
 | 7 | Local WWW Server | ✅ COMPLETE (vm-www-1 @ .184, cap + www live!) |
 | 8 | Monitoring Stack | 🔲 Planned (build it from template 9000) |
-| 14 | Kubernetes + Redpanda + OpenSearch POC (interview prep) | 🔵 IN PROGRESS — Parts 1-2 done Jul 25, 2026 (template 9000 + VM 186); Part 3 k3s next |
+| 14 | Kubernetes + Redpanda POC (was interview prep) | ✅ **CLOSED Aug 12, 2026 — goal met: the interviews happened Aug 6/7 and Andrew got the job.** Parts 1–6 done, 7 chapters written. VM 186 right-sized to 8 vCPU / 16 GB and left at snapshot `s05-app-running`. **Do not extend it**; Ch8–10 are track-1 education work, not phase 14. |
 | 11 | OpenClaw AI Agent | ✅ COMPLETE (vm-openclaw-1 @ .185, Feb 20, 2026) |
+| 15 | Education program — multi-track study repo | ✅ **Parts A–D COMPLETE Aug 12, 2026.** `education/` is now a shelf: one folder per track, shared `tools/`, `CONVENTIONS.md`. One item open — the `docker-swarm` row in `education/README.md`'s track table, held until the folder exists. |
+| 16 | Docker Swarm (education track 2) | 📋 **PLANNED Aug 12, 2026 — nothing built.** 3 managers at `.191/.192/.193`. **Open the session with the `📌 READ THIS FIRST` pre-flight list** in `phases/phase16_docker_swarm.md`; two decisions still need Andrew. |
+| 17 | Jenkins (education track 3) | 💭 **Provisional.** The employer uses Jenkins; phase 16 Part 3 deliberately keeps deploy logic in a shell script so this track is mostly "write a different wrapper". |
 
 **Phase docs:** `/phases/`
 
