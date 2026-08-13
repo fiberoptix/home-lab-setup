@@ -15,7 +15,7 @@ topic data has since aged out** under the default 7-day retention — re-seed be
 Parts 1, 2, 3, 4 and **6 COMPLETE** (Jul 25 – Aug 3). **Redpanda is live: 3 brokers, healthy 3/3, topics `orders` / `executions` / `market-ticks` / `orders-v2` (6 partitions, RF 3), quorum and failure drills run and documented.** **Part 6 done Aug 3: our own producer + consumer (`education/k8s-k3s-redpanda/app/`, Python 3.12 + confluent-kafka 2.6.1) built, containerised as `oms:dev`, side-loaded into k3s containerd and running — `order-gateway` Job + `position-keeper` Deployment in ns `market`, reconciling 10,000 events to exactly 800,000 shares with `seq_gaps=0`.** Education series: Chapters 1 (k3s, 846 lines), 2 (object model / rollouts / probes, 631 lines), 3 (Redpanda, 1216 lines), 4 (provisioning application state, 823 lines), 5 (consumer groups, 488 lines) and **6 (the application, 792 lines)** written; Chapters 2–6 double as replayable runbooks, with tested artefacts at `education/k8s-k3s-redpanda/manifests/` and `education/app/`. **Numbering settled Aug 3: the app is 6, Schema Registry 7, OpenSearch 8, failure drills 9.** **Headline findings from Aug 3: (1) pod-Ready is not cluster-ready — a measured 9-second window where all 3 brokers were `2/2 Ready` and 11 of 18 partitions were leaderless; (2) SIGTERM vs SIGKILL on a consumer is the difference between a clean offset handover and 3 records processed twice; (3) a transactional state store + commit-after-write is effectively-once for free, and duplicates only hurt when the side effect escapes the transaction — measured 11 duplicate "executions" against an external gateway while the transactional ledger stayed exact; (4) `acks=0` lost 29 records while reporting `delivered=15000 failed=0`.** **Restore point: `qm rollback 186 s05-app-running`** (Aug 3 19:13, live via guest-agent fs-freeze — the app deployed and reconciling. `s04-topics-seeded` (18:34) is the pre-Part-6 fallback; rolling back that far removes `orders-v2`, the app and its PVC). **Still outstanding in Part 4: Redpanda Console (ClusterIP-only, needs a port-forward) and Schema Registry.** **Next: Chapter 7 (Schema Registry) — reuses Ch4's provisioning pattern and puts a contract in front of the hand-rolled JSON the app currently produces.**
 **Created:** July 25, 2026
 **Owner:** Andrew
-**Deadline driver:** Hedge-fund interview, ~1 week out.
+**Deadline driver:** Financial institution interview, ~1 week out.
 
 ---
 
@@ -23,7 +23,7 @@ Parts 1, 2, 3, 4 and **6 COMPLETE** (Jul 25 – Aug 3). **Redpanda is live: 3 br
 
 This is **not** a production home-lab service. It is a **learning rig with a deadline**.
 
-Andrew is interviewing at a hedge fund that runs **Kubernetes + Redpanda** for incoming/outgoing
+Andrew is interviewing at a financial institution that runs **Kubernetes + Redpanda** for incoming/outgoing
 **market data and trades**, and **OpenSearch** for log search. The goal is to be able to *talk
 fluently* about that stack in an interview — not merely to have made it run.
 
@@ -787,7 +787,7 @@ unchanged to EKS, though I'd swap local-path storage for a CSI driver and use a 
 | Extras bundled | Schema Registry, HTTP proxy, Console | Usually separate (Confluent stack) |
 | Typical pitch | Lower tail latency, no GC pauses, simpler ops | Larger ecosystem, longer track record |
 
-**Why a hedge fund cares:** no JVM garbage collection means far more predictable **tail latency**.
+**Why a financial institution cares:** no JVM garbage collection means far more predictable **tail latency**.
 In market data, p99 latency is often the number that matters, not the average.
 
 ### Glossary to have cold

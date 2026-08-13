@@ -1,13 +1,13 @@
 # Current Phase
 
-**Updated:** August 12, 2026 - 9:45 PM EDT
+**Updated:** August 13, 2026 - 12:55 PM EDT
 
 ---
 
 ## 🎉 ANDREW GOT THE JOB (Aug 12, 2026)
 
 The interviews happened **Aug 6 and Aug 7** and the outcome was an offer: **SRE / DevOps on an order
-management system at a hedge fund.** Phase 14 was built to prepare for exactly those two days, so
+management system at a financial institution.** Phase 14 was built to prepare for exactly those two days, so
 **Phase 14 is CLOSED — goal met.** Nothing in it is half-finished; all 7 chapters were written,
 audited, highlighted, built to `.docx` and committed, and the highlighting was **visually confirmed
 good in Word by Andrew on Aug 12**, which closes the last open verification item.
@@ -16,16 +16,159 @@ good in Word by Andrew on Aug 12**, which closes the last open verification item
 onboarding prep for a job he now holds, which means **depth on the real stack** rather than breadth
 before a panel.
 
-⚠️ **Blocking unknown:** the employer's *actual* stack has not been written down yet. Chapter 7's six
-areas came from the **job description**, which is now the oldest information available. Andrew is
-going to describe the real stack. **Do not scope a study track before that lands** — §4 of the
-Phase 15 plan is explicitly a straw man.
+✅ **RESOLVED Aug 13 — the real stack has landed.** Andrew wrote it down in
+**`education/fin_tech_stack.txt`**, now the tracked source of truth for the study backlog. Focus is
+**DevOps as it applies to an OMS / platform including portfolio and risk management tools**, and the
+**Q3–4 2026 study list, in its stated priority order**, is: **Kubernetes; Redpanda + Redpanda Connect;
+Docker Swarm; Jenkins; OpenSearch + OpenSearch Dashboards (logging/alerting); Prometheus + Grafana
+(metrics/alerting); Redpanda Connect + Debezium CDC; MongoDB + Postgres; SAML/OIDC integration
+(authentik as a self-hosted OIDC provider); Ansible.**
+
+Three consequences:
+- **Track 1 and track 2 are both confirmed on the list** (Kubernetes/Redpanda, Docker Swarm), so
+  neither was wasted. **Jenkins is explicitly named**, which upgrades Phase 17 from provisional.
+- ⭐ **ROADMAP RULE (Andrew, Aug 13): new phases work through `fin_tech_stack.txt` STEP-BY-STEP, in
+  its stated order.** The list is the backlog — do not invent a curriculum or re-derive priorities.
+  After Swarm, that means **Jenkins**, then OpenSearch, Prometheus/Grafana, Redpanda Connect +
+  Debezium CDC, MongoDB/Postgres, SAML/OIDC (authentik), Ansible.
+- ✅ **Chapter 7 of track 1 was RIGHT — leave it exactly as it is (Andrew, Aug 13).** Its six areas
+  came from the job description and **are genuinely in the target stack**; they are simply **not what
+  was suggested as the first focus.** The four that do not appear on the study list — **Cloudflare
+  edge, Symantec PAM, Vault, PKI/cert-manager** — are **real and correctly documented, just lower
+  priority.** ⚠️ **Do NOT rework, retract or reconcile away chapter 7**, and do not treat
+  `phase15_education_program.md` §4 as having aimed at the wrong target. It was a straw man in the
+  sense that it was unconfirmed, not in the sense that it was wrong. **Sequencing now comes from the
+  study list; coverage from §4 and chapter 7 still stands.**
+
+### 🚨 De-identification — a standing rule, learned the hard way on Aug 13
+
+The first draft of that file named an **employer, a start date and who suggested the list**, and the
+first fix was to **gitignore it**. That fix was wrong twice over:
+
+1. **The facts had already been copied into `MEMORY.md` and `current_phase.md`** — both **tracked and
+   public** — specifically so a cold reload would not need the ignored file. Ignoring the file did
+   nothing about the copies. This was caught only because the GitHub dry-run output was read carefully;
+   **all four of `push_github.sh`'s gates passed, because they look for credentials.**
+2. **An ignored file makes a fresh clone miss the roadmap MEMORY points at**, which is the same trap as
+   telling a reader to run something out of a gitignored `scratch/`.
+
+**Andrew's fix, applied the same day and the one to copy in future:** de-identify the *content* rather
+than hide the file. Generic title, generic framing, a neutral filename, then **track it normally.**
+Also applied repo-wide the same day: the **industry term was genericised to "financial institution"**
+in 7 places across `MEMORY.md`, `current_phase.md`, `phase14`, and **track 1 chapter 1 — whose
+committed `.docx` was rebuilt**, since the Word builds are binaries and a text edit does not reach
+them. ("Order management system" was explicitly kept.) History was **not** rewritten for the
+already-public files; nothing carrying the employer name ever reached GitHub.
+
+🚨 **Never put an employer name, a start date or "my boss" into a tracked file. The push gates protect
+against secrets, not against private.**
 
 ---
 
-## 🔵 ACTIVE: Phase 15 — The Education Program (multi-track study repo)
+## 🔵 ACTIVE: Phase 16 — Docker Swarm (education track 2)
+
+**Full plan + implementation log: `phases/phase16_docker_swarm.md`.**
+
+### ✅ Part 1 COMPLETE (Aug 13, 2026, 12:12–12:26 PM EDT)
+
+Three nodes exist and are ready for `swarm init`:
+
+| VMID | Name | IP | Spec | State |
+|---|---|---|---|---|
+| 191 | `docker-swarm-1` | 192.168.1.191 | 2 vCPU / 4 GB / 40 GB `vm-ephemeral` | running, `onboot=1`, Swarm inactive |
+| 192 | `docker-swarm-2` | 192.168.1.192 | 2 vCPU / 4 GB / 40 GB `vm-ephemeral` | running, `onboot=1`, Swarm inactive |
+| 193 | `docker-swarm-3` | 192.168.1.193 | 2 vCPU / 4 GB / 40 GB `vm-ephemeral` | running, `onboot=1`, Swarm inactive |
+
+Docker **29.7.2** / Compose **v5.4.0**, Ubuntu 24.04 LTS from template 9000. All three snapshotted
+**`s01-base-clean`**, taken hot and together (~1.6 s each, guest-agent freeze/thaw, nothing stopped).
+
+**Built by two committed idempotent scripts**, not by typing commands three times —
+`education/docker-swarm/scripts/provision_nodes.sh` (runs on the pve host) and `post_setup.sh` (runs
+on each node). Three full clones took **38 seconds**; personalization ran on all three **in parallel**
+in ~3 minutes.
+
+**Pre-flight decisions taken:** **A5 closed** — the stack file and scripts live in
+`education/docker-swarm/{manifests,scripts}/`, keeping the track self-contained per `CONVENTIONS.md`
+and setting the pattern later tracks copy. **A2 deferred to Part 4** (whether this repo gains a
+`.gitlab-ci.yml`), because it is really one decision together with the `workflow: rules:` guard that
+stops every `push_gitlab.sh` backup from spawning a pipeline. **A3 stays deferred into Part 5** by
+design. **Nothing blocks Part 2.**
+
+**What was worth learning in an otherwise smooth build:**
+- ✅ **`growpart` ran** — the plan's loudest warning was a non-event. ⚠️ But **`df -h /` reads 38G, not
+  40G**: `sda15` (106M EFI) and `sda16` (913M `/boot`) come out of the 40 GB virtual disk. **38G is
+  correct — do not go hunting the missing 2 GB.**
+- ⚠️ **`host_setup.sh` really does install Chrome + Cursor on a headless node, and now we know why:**
+  it runs the desktop branch if it finds `gnome-shell` **or `gsettings`**, and the Ubuntu 24.04 cloud
+  image ships `gsettings`. The log even says "Desktop environment detected". Purging took each node
+  from **4.4 GB to 2.2 GB used** — the ~1.8 GB the plan predicted. Apply this to every future clone.
+- ✅ **`refresh.sh` needed no edit.** It targets an explicit allow-list (`.180`–`.184`), so new VMs are
+  excluded by construction. The guest half still mattered: `unattended-upgrades`, `apt-daily` and
+  `apt-daily-upgrade` are **masked** on all three (B4).
+- ✅ **Nothing obstructs Swarm's ports.** `/etc/pve/firewall/` holds only `184.fw`, `185.fw` and
+  `cluster.fw` — there is **no `19x.fw`**, so the guest firewall is off despite `firewall=1` on the
+  NIC, and `2377`/`7946`/`4789` are clear. ⚠️ Adding a `19x.fw` later without those three rules
+  **breaks the cluster silently.**
+- ✅ **The registry config came free from the standard script**, which was the whole argument for using
+  it: `insecure-registries` is in `/etc/docker/daemon.json` on all three, and `/v2/` answers **401**
+  from `.191` (up, requiring auth).
+- ✅ **No backup job sweeps them in** — `/etc/pve/jobs.cfg` has one job, scoped to `vmid 181`.
+  Consistent with "backups: none, snapshots instead" for rebuildable VMs.
+
+### ⬜ Next: Part 2 — form the cluster
+
+`docker swarm init --advertise-addr 192.168.1.191`, join `.192`/`.193` as managers, confirm one
+`Leader` + two `Reachable`, then `s02-swarm-up` on all three together (B3). After that, chapter 1
+can be drafted, since it covers Parts 1–2 and half of it has now actually been run.
+
+---
+
+## ✅ Phase 15 — The Education Program (multi-track study repo)
 
 **Full plan: `phases/phase15_education_program.md`.**
+
+✅ **Its last open item closed Aug 13:** the `docker-swarm` row is now in `education/README.md`'s track
+table, and `education/docker-swarm/README.md` exists, because the folder it was waiting on was created
+by Phase 16 Part 1. ⚠️ **`build_docx.py --list` still shows only `k8s-k3s-redpanda`, and that is
+correct** — a track only registers once it holds `chapterNN_*.md` files, and track 2 has none yet.
+
+### ⭐ NEW Aug 13 — the learning method is finally written down: `education/METHOD.md`
+
+Andrew's question was the right one: *are you following the same steps for every new subject, and did
+you write yourself instructions for it?* **The honest answer was no.** `CONVENTIONS.md` is the
+**writing** standard and `CURSOR_RULES` holds the **project** process (plan → approve → implement →
+document). The actual learning loop — build it, break it, write from the wreckage — **existed nowhere**
+and survived only as a *shape copied by imitation* from `phase14` into `phase16`. That is precisely how
+a method drifts, and it was already visible: **two genuine improvements were invented mid-Phase-16 and
+were not captured anywhere** — the **planted-traps table** (🅒, failures listed in advance and marked
+do-not-fix) and **sorting caveats into four kinds** (🅐🅑🅒🅓, because the first draft's five "open
+questions" read as five blockers when only two needed a human).
+
+**`education/METHOD.md` is now the sibling of `CONVENTIONS.md`:** *how to run a track* beside *how to
+write a track*. Five stages — **plan** (declare the traps up front), **build** (scripted, re-runnable,
+**verified from inside the guest**), **break** (drills chosen for what they mean at 3am), **investigate**
+(**the surprises ARE the deliverable** — almost nothing quotable in track 1 was planned), **document** —
+plus an anti-patterns table.
+
+⭐ **Andrew's explicit framing: a proven method, but a FLOOR NOT A CEILING.** Room to develop new or
+topic-specific ideas and run with them, exactly like the two Phase 16 improvements. So the amendment
+duty is the **first** rule in the file, not a footnote: **deviate deliberately, then fold what worked
+back in during the same session.** An improvement that is not written down is lost.
+
+### 🔓 `CURSOR_RULES` edited a SECOND time (Aug 13) — authorised in writing, still not precedent
+
+Andrew authorised this edit explicitly and in writing, to wire `METHOD.md` in. **225 → 239 lines,
+exactly one line removed** (old rule 2, deliberately rewritten). Changes: **checklist item 2g**
+(METHOD is mandatory before starting or running a track), **METHOD.md added to the education file
+list**, **new rule 1b**, **rule 2 widened** (conventions → `CONVENTIONS.md`, working practices →
+`METHOD.md`, neither ever forked into a track), and **new rule 8** (floor not ceiling + fold-back
+duty). The `RULES:` list now runs **1, 1b, 2–8** — `1b` deliberately avoids renumbering rules that
+other documents reference.
+
+⚠️ **Method note for the next time this file must change:** it was done as **one atomic Python pass
+that asserted every anchor matched exactly once and that Andrew's own lines survived**, then verified
+from the shell (`wc -l`, `md5sum`, `git diff | rg '^-'`). **Do it that way** — incremental edits to
+`CURSOR_RULES` on this CIFS mount corrupted it twice on Aug 12.
 
 `education/` was written flat for one subject on one deadline. With the job won and a whole stack to
 learn, it had to stop being *a book* and become *a shelf*. Phase 15 is that conversion — framework
@@ -358,7 +501,7 @@ should be re-asked once he is inside.
 ## ✅ CLOSED: Phase 14 — Kubernetes + Redpanda POC (was interview prep, ~1 week)
 
 **Full plan + learning material: `phases/phase14_k8s_redpanda_poc.md`.** This was a learning rig
-with a deadline (hedge-fund interview), not a production service. **It did its job — see above.**
+with a deadline (financial institution interview), not a production service. **It did its job — see above.**
 All `education/` paths below moved to `education/k8s-k3s-redpanda/` on Aug 12.
 
 ### 🎯 THE ROLE (confirmed July 27) — SRE / DevOps on an ORDER MANAGEMENT SYSTEM

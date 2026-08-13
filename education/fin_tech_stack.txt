@@ -1,0 +1,14 @@
+Current and future tech stack for modern FinTech DevOps/SRE
++ Primary focus on DevOps as it pertains to an Order Management System (OMS) / Platform including Portfolio and Risk Management tools
++ Course selection and objectives for Q3-4 2026
+
+Kubernetes
+RedPanda + RedPanda Connect
+Docker Swarm
+Jenkins
+OpenSearch + OpenSearch Dashboards (used for logging and alerting)
+Prometheus + Grafana (used for metrics and alerting)
+RedPanda Connect, Debezium w/ CDC (change data capture)
+MongoDB, Postgres
+General SAML/OIDC integration work (in my homelab I use authentik as an OIDC provider it's easy to work with and can be fully self hosted)
+Ansible

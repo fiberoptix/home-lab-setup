@@ -68,7 +68,7 @@ just destroyed one, and the loop faithfully repaired the damage.
 
 Everything in the rest of this document is machinery in service of that one idea.
 
-**Why a hedge fund cares:** market-data infrastructure cannot go down while someone SSHes in to
+**Why a financial institution cares:** market-data infrastructure cannot go down while someone SSHes in to
 restart a process. Self-healing and declarative deployment are the point.
 
 ---
