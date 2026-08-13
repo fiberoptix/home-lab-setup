@@ -302,6 +302,51 @@ filesystem-consistent freeze/thaw without stopping anything.
 > genuinely confusing thing to debug and is **not** the drill you meant to run. Script it:
 > `for v in 191 192 193; do qm snapshot $v s02-swarm-up; done`
 
+### 🚨 On ZFS, snapshots are a STACK, not a tree — learned the hard way, Aug 13, 2026
+
+The table above reads like a set of independent bookmarks you can jump between. **On this lab's storage
+that is false, and the plan above was written on the wrong mental model.** Taking `s03-stack-deployed`
+and then trying to go back to `s02-swarm-up` to re-run trap C2 failed on all three nodes:
+
+```
+qm rollback 191 s02-swarm-up
+  -> can't rollback, 's02-swarm-up' is not most recent snapshot on 'vm-ephemeral:vm-191-disk-0'
+```
+
+`vm-ephemeral` is a **`zfspool`** (`pvesm status`), so each disk is a zvol and each PVE snapshot is a
+ZFS snapshot:
+
+```
+vm-ephemeral/vm-191-disk-0@s01-base-clean       Thu Aug 13 12:25
+vm-ephemeral/vm-191-disk-0@s02-swarm-up         Thu Aug 13 13:53
+vm-ephemeral/vm-191-disk-0@s03-stack-deployed   Thu Aug 13 18:00
+```
+
+⭐ **`zfs rollback` can only return to the most recent snapshot.** Going further back requires
+`zfs rollback -r`, which **destroys every snapshot in between** — and PVE will not do that implicitly,
+because it would silently delete restore points you asked it to keep. So refusing is the *correct*
+behaviour, not a bug. **The practical rule: on ZFS you can only ever go BACK ONE STEP, and every new
+snapshot permanently forfeits the ability to return to any older one without deleting it.**
+
+⚠️ **This is storage-dependent, which is why it surprises people.** The identical `qm snapshot` /
+`qm rollback` workflow on **qcow2 file-based storage really does branch** — qcow2 keeps internal
+snapshots that can be restored in any order, and `qm listsnapshot` prints an indented *tree* on both
+backends. **The display implies branching that the ZFS backend does not provide.** The lab's own
+`listsnapshot` output looked exactly like a tree right up to the moment rollback refused.
+
+🏭 **Lab vs PROD.** *Lab:* snapshot at every milestone, roll back freely, assume they are cheap
+bookmarks. *Production:* snapshots are **not** a backup and not a branching history — they share the
+pool with live data, a rollback is one-way, and reaching an older restore point means **destroying
+everything after it**. *Consequence:* a team that plans DR around "we'll roll back to last Tuesday"
+discovers at the worst possible moment that doing so **deletes Wednesday through Friday**, and that a
+pool-level fault takes the snapshots with the data because they were never a separate copy. Real
+recovery points need `vzdump`/PBS or replication to different storage.
+
+**The planning rule this produces for the rest of this phase:** *decide which drills you still owe a
+snapshot BEFORE taking the next one.* Any trap that must run from `s02` has to run **before**
+`s03` exists. Milestone snapshots are checkpoints on a path, and taking one is a decision to stop
+being able to go back.
+
 ---
 
 ## Part 1 — Three VMs from template 9000, provisioned by script
@@ -902,6 +947,27 @@ a password prompt is not a habit to keep. **Fixed going forward: give `ssh` alon
 redundant join attempt — the first had succeeded. Docker refusing there is correct: joining another
 swarm means abandoning this one.)
 
+🚨 **IT HAPPENED AGAIN on Aug 13 at 6:20 PM, worse, and the AI caused it again.** The C2 handoff put
+`ssh 192.168.1.191` and `cd ~/DevShare/…/scripts` in one pasted block. The `ssh` had not connected
+before the rest was consumed, so **`./deploy_swarm.sh` ran on the workstation `VM-UBUNTU-01`.**
+
+⭐ **The new twist is the dangerous part: `cd` SUCCEEDED on the wrong host.** `~/DevShare` is the same
+CIFS mount from `192.168.1.120` on both machines, so the path exists identically in both places and
+**gave no error, no missing directory, nothing to notice.** The shell prompt was the only difference,
+and a pasted multi-line block scrolls it out of view. **A shared network mount removes the usual
+signal that you are on the wrong machine.**
+
+✅ **What saved it was the script's own pre-flight** — `docker node ls || die "not a swarm manager"` —
+which fired three times across two hosts. It was written as a cheap "am I in the right place" check
+and it turned out to be the thing standing between a mispaste and a confusing deploy. **A guard that
+names the *precondition* rather than the symptom pays for itself the first time somebody is somewhere
+they did not expect to be.** The same paste also ran `docker secret create` on the workstation, where
+it failed for the same reason — and *that* is why the `pg_password` guard (P1) still has not been
+tested: a different guard kept catching the run first.
+
+**Standing rule, now twice-earned: never hand over `ssh` and commands in one block.** Either `ssh`
+alone and wait for the prompt, or `ssh host "cmd"` as a single quoted invocation.
+
 #### Added to the drill list
 
 | # | Drill | Why here |
@@ -1028,6 +1094,137 @@ started fast and the backend never met a cold database. **A methodological findi
 `education/METHOD.md`: investigative commands mutate the environment, and a trap tested afterwards may
 be testing the investigation instead.** C2 needs a snapshot restore to run honestly.
 
+#### C2 re-run — predictions recorded BEFORE the drill (Aug 13, 2026, 6:05 PM)
+
+`s03-stack-deployed` was taken first (hot, all three, ~1.5 s each), then all three nodes were rolled
+back to `s02-swarm-up`. **That snapshot predates `docker login`, the `pg_password` secret, AND the
+diagnostic `docker pull` commands**, so the restore buys a genuinely cold cluster and lets one restore
+test four things instead of one.
+
+⭐ **Writing the prediction down first is the point.** A drill you can only interpret after the fact
+teaches you that Swarm is complicated. A drill with a prediction attached either confirms a model or
+falsifies it, and both are worth something. These are claims, not facts — **whichever way they land,
+the outcome gets recorded next to them.**
+
+| # | Prediction | Why | Outcome |
+|---|---|---|---|
+| P1 | `deploy_swarm.sh` **refuses before touching the cluster**, naming `pg_password`. | The secret died with the rollback and the pre-flight guard has never actually fired. | ⚠️ **STILL NOT TESTED** — the run landed on the workstation, so the *manager* guard fired first (see below). The secret guard remains unexercised. |
+| P2 | With `REG_TOKEN`/`REG_USER` the login branch runs and the deploy proceeds. | `config.json` is gone too, so this is the first real test of the path **CI will take**. | ✅ **CONFIRMED.** `logging in … → login ok`, and the `credentials are stored unencrypted` warning reappeared — fresh evidence for L9. |
+| P3 | 🎯 **The deploy does NOT converge, and `backend` is the service that fails** — not postgres. | `restart_policy` gives backend one start plus `max_attempts: 3` at `delay: 5s` ≈ **20 s of patience**, while a cold postgres must pull its image *and* run `initdb` on an empty volume. There is **no healthcheck** (deliberate, for C6) so nothing makes backend wait. | ❌ **FALSIFIED.** Converged in ~20 s, `EXIT=0`, and `docker service ps` shows **zero failed tasks** on either service. Reasoning below. |
+| P4 | The failure is **visible only on a cold cluster**. Re-running the same script immediately afterwards succeeds, unchanged. | Second run: images cached, postgres already initialised, volume populated. | ⚪ **MOOT** — there was no cold failure to contrast against. |
+
+**If P3 and P4 both hold, the lesson is much bigger than `depends_on`:** this stack has a deploy that
+passes on every warm cluster and fails on a fresh one, which is exactly the shape of the outage that
+hits during a **DR rebuild or a brand-new environment** — the two moments when nobody wants a surprise.
+The compose file looks identical in both cases.
+
+**Ways P3 could be wrong, all of them informative:** the backend may retry its database connection
+internally and never exit (then the app is the grown-up here and `depends_on` was never needed); or
+postgres may come up fast enough that 20 s is sufficient; or an exhausted `max_attempts` may cause
+Swarm to schedule a *replacement* task with a fresh attempt counter, in which case the service
+eventually converges anyway and **`max_attempts` does not mean what the stack file makes it look like.**
+That last one is worth the drill on its own.
+
+**What the restore actually cost — the plan did not survive contact.** Three things went differently
+than written, and all three are recorded because they are the kind of thing that only shows up when you
+try it:
+
+1. 🚨 **`qm rollback 191 s02-swarm-up` REFUSED on all three nodes** — ZFS only rolls back to the newest
+   snapshot, so reaching `s02` required **destroying `s03`**. Full analysis under
+   [Snapshot checkpoints](#-on-zfs-snapshots-are-a-stack-not-a-tree--learned-the-hard-way-aug-13-2026).
+   **You cannot keep a checkpoint and go back past it.**
+2. **So a real backup was taken first** — `vzdump 191 192 193 --storage local --mode stop --compress zstd`,
+   with the VMs already stopped, so no `fsfreeze` guesswork: **~1.2 GB per archive, ~36 s each, 91% of
+   each 40 GB disk was zero.** Verified with `zstd -t` (which proves the *stream* is intact, **not** that
+   the VMA restores — only a test restore to a spare VMID proves that, and that is still owed).
+   ⚠️ Deliberately **not** sent to `nas-gitlab`: despite appearing as a generic backup target in
+   `pvesm status --content backup`, it is scoped to `subdir /ProxmoxBackups/vm-gitlab-1` and holds a
+   nightly chain for **VM 181 only** — three foreign VMs in a per-VM folder would collide with whatever
+   retention prunes it. `local` is a different pool (`rpool1`) but the **same host**, which is honest
+   protection against this drill and against a `vm-ephemeral` fault, and none at all against losing the Z6.
+3. ✅ **`qm shutdown` was graceful all the way down.** The service logs caught postgres printing
+   `received fast shutdown request` → `aborting any active transactions`, so ACPI reached systemd
+   reached docker reached a real `SIGTERM`. **`qm stop` would have been a power cut**, and a torn Raft
+   log is not the drill we meant to run.
+
+#### 🎯 C2 RESULT — the trap did not fire, and WHY is the whole lesson
+
+**Timings, from `docker service logs --timestamps` (all 2026-08-13, UTC):**
+
+| Event | Time | Δ from postgres ready |
+|---|---|---|
+| postgres `initdb` running | 22:27:27.078 | −0.08 s |
+| **postgres `database system is ready to accept connections`** | **22:27:27.162** | — |
+| schema seeded (`001_schema.sql`, 12 categories) | 22:27:27.46 | +0.3 s |
+| `backend.2` (docker-swarm-3) application startup | 22:27:33.75 | **+6.6 s** |
+| `backend.1` (docker-swarm-1) application startup | 22:27:37.34 | **+10.2 s** |
+
+⭐ **The backend never met a cold database, because postgres finished pulling AND running `initdb`
+before the backend image finished pulling.** The backend started 6.6 s *after* the database was already
+accepting connections. `docker service ps --no-trunc` confirms it: **not one failed task, no restart,
+no `max_attempts` consumed.**
+
+⚠️ **So the trap is real and this environment simply cannot express it.** Two accidents, neither of
+them a design decision, are what made the deploy work:
+
+1. **The registry is on the LAN.** Every image pulled in seconds. `frontend` (3 replicas) and `redis`
+   were both up within ~5 s of a completely cold start.
+2. **The backend image is bigger than the postgres image.** A fat Python dependency tree took longer to
+   pull than postgres needed to pull *and* initialise. **The ordering that `depends_on` would have
+   enforced was delivered by image size instead.**
+
+🚨 **This is worse than a failure would have been, and that is the finding.** A dependency that is
+satisfied by a race the fast side happens to win is **indistinguishable from a dependency that is
+correctly declared** — until the day the race flips. It flips when postgres gets slower (a real data
+directory to recover, a WAL replay, slower storage) or when the backend gets faster (its layers already
+cached on the node while postgres's are not — **exactly what the C1 diagnostics accidentally arranged
+the first time**). **Nothing in the stack file changes on that day, and nothing warns you.**
+
+**The correct fix is not `depends_on`** — Swarm ignores it, which is what started this. It is either a
+real healthcheck plus `update_config` ordering, or connection retry in the application. **The lesson
+Andrew asked C2 to buy — "does the app retry or crash-loop?" — is still unanswered**, and it is
+unanswerable by observation here because the question never got put to the app.
+🔲 **To force it honestly later:** scale postgres to 0, deploy backend alone, then bring postgres up.
+That removes the race instead of hoping to lose it.
+
+#### ⭐ The unplanned finding, and it is better than the planned one: 8 processes racing to seed one DB
+
+`backend.2` logged this three times while starting:
+
+```
+Failed to import demo data, using minimal bootstrap: (sqlalchemy...IntegrityError)
+  <class 'asyncpg.exceptions.UniqueViolationError'>: duplicate key value violates
+  unique constraint "categories_pkey"
+```
+
+**`INFO: Waiting for application startup.` appears FOUR times per task** — because the command is
+`uvicorn --workers 4`. So `replicas: 2` × `4 workers` = **8 independent processes, each running the
+app's startup path, each trying to seed the same database at the same time.**
+
+⭐ **`replicas` is not the concurrency number.** The stack file says 2; the number of processes racing
+to initialise shared state is 8. **Anything an application does "once at startup" happens N×workers
+times, in parallel, against one database** — and only the first one succeeds.
+
+The app degrades gracefully rather than crashing (`using minimal bootstrap`), which sounds fine and is
+the trap: **the replicas are no longer identical.** One holds imported demo data, the other a minimal
+bootstrap, and **which is which is decided by a race** — so the answer to "is the app working?" now
+depends on which replica the routing mesh sends you to. ⚠️ **A per-request-nondeterministic dataset is
+much harder to diagnose than a crash**, and the deploy reported success.
+
+⚠️ **Not yet settled, and the logs cannot settle it:** whether the collision is worker-vs-worker or
+worker-vs-`001_schema.sql` (which seeds 12 categories of its own, 0.3 s earlier). Only `backend.2`
+logged the error; `backend.1`, starting 3.6 s later, logged none — consistent with *either* "the race
+was already over" or "it took a different code path". 🔲 **Discriminator for later:**
+`docker service scale capricorn_backend=1` with `--workers 1`, deploy against a fresh volume, and see
+whether the violation still appears. If it does, the app collides with the schema seed and **replica
+count was never the cause.**
+
+**Cold state verified before starting — the discipline that C2's contamination taught.** After boot:
+3 × `Ready`, `.191` still `Leader` with the same node ID (Raft restored consistently across all three),
+`docker service ls` empty, `docker secret ls` empty, **no `~/.docker/config.json`**, and
+`docker images` carrying **no Capricorn or redis layers**. ⭐ **The starting state is now a measured
+fact rather than an assumption, which is the entire difference between this run and the first one.**
+
 #### Security findings from the QA deployment — recorded as D4/D5, not fixed here
 
 Reading Capricorn's QA compose to model this stack surfaced committed live third-party credentials and
@@ -1067,6 +1264,7 @@ opinion until proven.** Do not let them wear the authority of the tested ones.
 | L11 | **The application is published over plain HTTP on `:5001`/`:5002`, with no reverse proxy and no TLS.** | Deliberately QA-shaped: the lab's job is to teach the routing mesh, and a proxy in front would hide it. | TLS terminated at an ingress proxy; the app's own ports never published to a network a user can reach. | Session cookies and every API payload cross the network in cleartext. ⚠️ **And the shape of the lab quietly justified it** — see the note under this table: the *frontend build* is what forced the HTTP path, so "no TLS" arrived as a consequence of an image, not as a decision anyone made. | ✅ deliberate |
 | L12 | **A single long-lived registry token (`swarm-lab-pull`, valid to Dec 31 2026) is used by a human at the CLI and embedded into every service spec.** | One operator, one cluster, a lab. | Short-lived, workload-scoped credentials — OIDC/federated identity for the CI job, no static token anywhere, and pull credentials issued per-deploy rather than stored. | One leaked token grants registry access for a year, **and revoking it silently breaks every future task reschedule** (see the latch finding below) rather than failing at deploy time where you would notice. | ⚠️ recited |
 | L13 | **No `healthcheck` on any service.** | 🎯 **Deliberate — trap C6 needs it absent** to show that `update_config`/`rollback_config` cannot detect a container that starts, stays up, and serves garbage. Healthchecks get added *after* C6 has been felt. | Every service has a real readiness/liveness check that exercises its dependencies, not a TCP-port ping. | 🚨 **Your rollback protection is decorative.** Swarm will happily call a broken deploy successful because the process did not exit — which is precisely what C6 is built to prove. | 🔲 will test (C6) |
+| L14 | **The `pg_password` value existed ONLY inside Swarm's Raft log** — created out of band, never written down. The `s02` rollback destroyed it, and it is now unrecoverable. | Nothing of value was lost: the postgres volume was destroyed by the same rollback, so the next deploy runs `initdb` fresh and any new password works. | The authoritative copy lives in a real secrets manager (Vault, SSM, Secrets Manager) that the orchestrator *reads from*. The orchestrator is a **delivery mechanism, never the system of record**. | 🚨 **`docker secret` is not a secrets manager, and this is the trap.** The API will not give a secret back — `docker secret inspect` returns metadata, not the value — so a cluster rebuild loses every credential you did not store elsewhere. ⚠️ **But the NODE will:** `docker exec <task> cat /run/secrets/<name>` prints it in cleartext, so **`docker` group membership on any node equals read access to every secret scheduled onto it**, invisibly to any audit trail. Unreadable to operators, readable to anyone on the box — the worst of both. ⚠️ **We only escaped because the data volume died too.** Had the volume survived the Raft loss, postgres would still be authenticating against the OLD password baked into its data directory while the new secret disagreed: **a database you cannot log into, holding data you cannot read, with no copy of the credential anywhere.** | 🚨 **hit it for real, Aug 13** |
 
 ⭐ **L9 is the best row in this table and it wrote itself.** Docker *volunteered* the warning
 (`WARNING! Your credentials are stored unencrypted…`) without being asked. The tool told us it had just

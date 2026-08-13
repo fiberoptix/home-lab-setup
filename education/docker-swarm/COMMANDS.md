@@ -45,6 +45,9 @@ control-plane problem and an application problem look identical from the outside
 | `docker service logs <svc> --since 10m` | Scope to the incident window. | ⚠️ |
 | `docker service inspect <svc> --pretty` | Human-readable spec — the settings actually in force, not what your file says. | ✅ |
 | `docker events --filter type=service` | Live stream of state changes. Useful *while* reproducing. | ⚠️ |
+| `docker service logs <svc> --timestamps` | ⭐ **The command that answered C2**, and `--tail`/`--since` cannot replace it. Ordering *between* services is the whole question in a dependency problem, and you cannot get it without absolute times. It showed postgres ready at `22:27:27.162` and the backend starting at `22:27:33.75` — **proving the backend never met a cold database**, so the trap never fired. | ✅ |
+| `docker service logs <svc> --timestamps \| grep -iE "ready to accept\|initdb"` | Pull a **readiness timestamp** out of a noisy startup log, so it can be compared against the dependent service's first log line. | ✅ |
+| `docker service ps <svc> --no-trunc` (as a **negative** test) | ⭐ **Absence of evidence is evidence here.** A clean history — no `Failed`, no `Shutdown` — proves the task never crash-looped and **`max_attempts` was never touched**. Convergence alone cannot distinguish "started cleanly" from "crashed twice and recovered inside its retry budget"; this can. | ✅ |
 
 **How to read the failure modes:**
 
@@ -112,7 +115,7 @@ chapter 5.
 | `docker secret ls` | Which secrets exist. | ✅ |
 | `docker secret inspect <name>` | Metadata only — **the value is never returned.** Used in `deploy_swarm.sh` as a pre-flight. | ✅ |
 | `printf '<value>' \| docker secret create <name> -` | Create one. **`printf`, never `echo`** — `echo` appends a newline that becomes part of the secret, producing auth failures that are invisible everywhere you would look. | ✅ |
-| `docker exec <container> cat /run/secrets/<name>` | Confirm delivery *inside* a task. Secrets arrive as **files** on an in-memory mount. | ⚠️ |
+| `docker exec $(docker ps -q -f name=<svc>) cat /run/secrets/<name>` | Confirm delivery *inside* a task — secrets arrive as **files** on an in-memory mount. ⭐ **Also the only way to audit a secret's VALUE**, and it caught our written-down `pg_password` being wrong. 🚨 **Which is the security lesson:** the API refuses to return a secret, the node hands it over freely, so **`docker` group membership on a node = read access to every secret scheduled there**, with nothing in any audit trail. | ✅ |
 | `docker login <registry> -u <user>` | Interactive, masked prompt. ⚠️ **Do not add `--password-stdin` interactively** — it silently waits on stdin instead of prompting, and looks like a hang. | ✅ |
 | `printf '%s' "$TOKEN" \| docker login <registry> -u <user> --password-stdin` | The **scripted** form. Never `-p`, which leaks the token into the process list and shell history. | ✅ |
 | `jq -r '.auths\|to_entries[0].value.auth' ~/.docker/config.json \| base64 -d` | 🚨 **Recovers the registry credential in plaintext.** Proves the stored blob is base64 — *an encoding, not encryption*. Docker warns about this on login and the warning is correct. | ✅ |
@@ -184,8 +187,17 @@ break *future task reschedules* — silently, weeks later, with every config fil
 |---|---|---|
 | `for v in 191 192 193; do qm snapshot $v <name>; done` | ⚠️ **All three together or none.** The Raft log is *distributed* state; rolling one node back to a point the others passed leaves an inconsistent cluster. | ✅ |
 | `qm listsnapshot <vmid>` | What rollback points exist. | ✅ |
-| `qm rollback <vmid> <name>` | Restore. Again: all three. | 🔲 |
+| `qm rollback <vmid> <name>` | Restore. Again: all three. 🚨 **On ZFS this only works for the NEWEST snapshot** — see the row below. | ✅ |
 | `qm resize <vmid> scsi0 40G` | ⚠️ **A resize is not an expansion** — the guest filesystem does not grow until something (cloud-init's `growpart`) grows it. Verify with `df -h`, not `qm config`. | ✅ |
+| `zfs list -t snapshot -o name,used,creation -s creation \| grep vm-<vmid>` | **Answers "why did `qm rollback` refuse?"** PVE prints an indented *tree*, but on a `zfspool` the snapshots are a **linear chain** — `zfs rollback` can only return to the newest, and reaching an older one requires destroying everything after it. **Storage-dependent: qcow2 file storage really does branch.** | ✅ |
+| `qm delsnapshot <vmid> <name>` | The price of going back more than one step on ZFS. **Take a `vzdump` first if the current state matters.** | ✅ |
+| `qm shutdown <vmid> --timeout 90` | ✅ **Graceful — use this, not `qm stop`.** Verified to propagate ACPI → systemd → docker → `SIGTERM`: postgres logged `received fast shutdown request`. `qm stop` is a power cut and risks a torn Raft log. | ✅ |
+| `vzdump <vmids> --storage <s> --mode stop --compress zstd --notes-template "why"` | A real recovery point, unlike a snapshot. **~1.2 GB and ~36 s per 40 GB disk** here (91% zeroes). ⚠️ **Excludes snapshots** — restores to a VM with no history. Always pass notes; a nameless archive is undiagnosable in six months. | ✅ |
+| `zstd -t <archive>` / `cmp -s <a> <b>` | Verify a dump. ⚠️ **`zstd -t` proves the compressed stream is intact, NOT that the VMA restores** — only a test restore to a spare VMID proves that. `cmp` is the honest check after copying an archive. | ✅ |
+| `pvesm status --content backup` / `pvesm list <storage>` | Which backup targets exist, and what is on them. ⚠️ **`active` only means the mountpoint responds** — see the credential trap below. | ✅ |
+| `pvesm add cifs <id> --server .. --share .. --subdir .. --username .. --password ..` | 🚨 **`--password` is MANDATORY.** Pre-placing `/etc/pve/priv/storage/<id>.pw` does not work: the connection check authenticates with what the API call carried, so it fails `NT_STATUS_LOGON_FAILURE` **with a perfectly correct file on disk**. Cost 20 minutes because the error names auth, not a missing argument. | ✅ |
+| `smbclient -L //<server> -A <authfile>` then `mount -t cifs …` | **The discriminator when a CIFS storage will not authenticate**: it separates "wrong credential" from "PVE is not using the credential". Both succeeded here while `pvesm add` failed — which is what proved the problem was the missing `--password`. | ✅ |
+| `wc -c < /etc/pve/priv/storage/<id>.pw` | 🚨 **Found a latent outage with this.** A stale password in a `.pw` file is invisible while the mount stays up, because **CIFS does not re-authenticate a live mount**. The nightly GitLab backup has been succeeding into a mount from June with a credential that no longer works. **A working mount is not evidence of a working credential** — that is only tested at mount time. | ✅ |
 
 ---
 

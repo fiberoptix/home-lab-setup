@@ -207,6 +207,69 @@ lsblk -o NAME,SIZE,MODEL,SERIAL
 | Runner | Reinstall Ubuntu, register runner |
 | QA Host | Reinstall Ubuntu, deploy from GitLab |
 
+### 📌 STANDING RULE — `vzdump` goes to the NAS, never the NVMe
+
+**Andrew's direction, Aug 13, 2026.** Every VM backup for this project lands on the NAS under
+`/ProxmoxBackups/<vm-name>/`. **The NVMe pools are not backup targets.** They are fast, expensive and
+— for `vm-ephemeral` — striped with no redundancy, so a "backup" there shares a failure domain with
+the thing it is backing up.
+
+**How it is wired.** PVE has no per-VM folder feature: a directory-style storage puts every archive in
+one `dump/`. Per-VM folders therefore need **one CIFS storage per VM**, each scoped with `subdir` —
+the same pattern the pre-existing `nas-gitlab` entry uses:
+
+```bash
+# One-time, per VM. NOTE: --password is REQUIRED (see the gotcha below).
+pvesm add cifs nas-<vm-name> \
+    --server 192.168.1.120 --share NeoCortex \
+    --subdir /ProxmoxBackups/<vm-name> \
+    --username fiberoptix --password '<see PASSWORDS.md>' \
+    --content backup --prune-backups keep-last=3
+
+# The subdir must ALREADY EXIST on the NAS or the mount fails — PVE does not create it.
+vzdump <vmid> --storage nas-<vm-name> --mode stop --compress zstd --notes-template "why"
+```
+
+Resulting layout, with PVE creating `dump/` inside each:
+`NeoCortex/ProxmoxBackups/<vm-name>/dump/vzdump-qemu-<vmid>-<date>.vma.zst`
+
+Currently defined: `nas-gitlab` (VM 181), `nas-docker-swarm-1/2/3` (VMs 191/192/193, added Aug 13 2026,
+`keep-last=3`).
+
+⚠️ **Gotcha that cost 20 minutes: `pvesm add` ignores a pre-placed `/etc/pve/priv/storage/<id>.pw`.**
+Its connection check authenticates with what was passed in the API call, so creating the password file
+first and omitting `--password` fails with `NT_STATUS_LOGON_FAILURE` **even when the file is correct** —
+verified by `smbclient -L` and a manual `mount -t cifs` succeeding with the very same file. The error
+names an auth failure, which sends you hunting for a wrong password instead of a missing argument.
+
+⚠️ **The `subdir` is part of the mount source, so it cannot be created through its own storage.** To
+add a new per-VM folder, mount the share root once (or reuse a storage scoped one level up), `mkdir`
+the folder, then define the storage.
+
+🚨 **`vzdump` does NOT include snapshots** — `INFO: snapshots found (not included into backup)`. The
+archive is the **current disk state only**, so a restore yields a VM with no snapshot history. A
+`vzdump` is a recovery point; a snapshot chain is not, and neither substitutes for the other.
+
+### 🚨 Latent failure found Aug 13, 2026 — the GitLab NAS backup is one reboot from silence
+
+While wiring the above: **the password stored in `/etc/pve/priv/storage/nas-gitlab.pw` (18 chars) is
+stale and no longer authenticates.** A fresh `smbclient` logon with it fails
+(`NT_STATUS_LOGON_FAILURE`); the working credential is the 9-character one in `PASSWORDS.md` →
+*NAS / SMB Share*, confirmed by copying it off a swarm node that mounted the share successfully the
+same day.
+
+**Why nothing has broken yet:** `/mnt/pve/nas-gitlab` has been mounted since **Jun 18** and a live CIFS
+mount is not re-authenticated. The nightly 2 AM `vzdump` of VM 181 keeps writing into that mount and
+keeps succeeding — the most recent is ~16 GB and looks perfectly healthy.
+
+⭐ **The consequence is the lesson: the next reboot of the Proxmox host silently ends GitLab's offsite
+backup.** The mount will fail to re-establish, and the failure will surface as a *backup* problem weeks
+later rather than as an *authentication* problem now. **A mount that works is not evidence that the
+credential works** — that only gets tested at mount time, which may be months apart from when the
+password changed. 🔲 **TODO: fix `nas-gitlab.pw` with the correct credential and prove it by
+unmounting and remounting.** Not done here — it touches the GitLab VM's backup path, which is outside
+what this session was authorised to change.
+
 ---
 
 ## Key Rules

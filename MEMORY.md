@@ -827,6 +827,22 @@ editing `CURSOR_RULES`:
   - **❎ WON'T-FIX by Andrew:** vzdump backups for 183 (Sonar, barely used) + 184 (WWW =
     vanity/demo box) — both easily rebuilt. Only GitLab (181) holds irreplaceable data.
     **VM 185 (OpenClaw) stays dormant as-is** (not destroyed).
+  - 📌 **STANDING RULE (Andrew, Aug 13, 2026) — ALL vzdump backups go to the NAS under
+    `/ProxmoxBackups/<vm-name>/`, NEVER to NVMe.** Per-VM folders require **one CIFS storage per VM**
+    (`--subdir /ProxmoxBackups/<vm-name>`) because PVE dumps everything into a single `dump/` per
+    storage. Defined: `nas-gitlab` (181), `nas-docker-swarm-1/2/3` (191/192/193, `keep-last=3`).
+    Full recipe + gotchas in `proxmox/Home_Lab_Proxmox_Storage.md` → *Backup Strategy*.
+    - ⚠️ **`pvesm add` IGNORES a pre-placed `<id>.pw`** — you must pass `--password`, or the
+      connection check fails `NT_STATUS_LOGON_FAILURE` while the file is perfectly correct.
+    - ⚠️ **The `subdir` must exist on the NAS first**; PVE will not create it, and it cannot be
+      created *through* its own storage (the subdir is part of the mount source).
+    - ⚠️ **vzdump excludes snapshots** — the archive is current disk state only.
+  - 🚨 **LATENT: `nas-gitlab.pw` holds a STALE password (18 chars) that no longer authenticates.**
+    The correct one is the 9-char value in `PASSWORDS.md` → *NAS / SMB Share* (verified working).
+    Nothing is broken **only because the mount has been live since Jun 18** and CIFS does not
+    re-authenticate an existing mount — so the nightly 181 backup still succeeds. **The next PVE
+    host reboot silently ends GitLab's offsite backup.** 🔲 Fix the `.pw` and prove it with an
+    unmount/remount. A working mount is NOT evidence of a working credential.
   - **Audit discoveries:** host runs Tailscale (100.108.209.77, `pve` on tailnet); idle Quadro
     P2000 GPU (nouveau, passthrough candidate); SNC enabled in BIOS → 2 NUMA nodes (64G each);
     only 4/6 memory channels populated; fallback kernel 6.17.2-1 no longer on ESPs.
