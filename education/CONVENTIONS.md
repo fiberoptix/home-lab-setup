@@ -72,14 +72,14 @@ before the title.
 restarts in every track, so `Chapter 1` alone is ambiguous across the shelf — there will eventually be
 four of them.
 
-The build parses this line: **`build_docx.py` splits the H1 on the em dash and puts the left-hand side
-in the page footer**, so the topic and chapter appear on *every* printed page, not just the first. Get
-the format wrong and the footer label degrades rather than breaking — which is why it is worth getting
-right rather than relying on the build to complain.
+**The title line is the only place the topic appears in the printed document.** The footer is a bare
+page number by choice (see "The Word build"), so nothing else recovers this information — which is
+what makes the H1 format load-bearing rather than cosmetic.
 
-⚠️ **Track 1 predates this convention** and its chapters still read `# Chapter N — …`. They yield a
-footer of `Chapter N`, which still beats a bare page number. Retitling them is a **backlog item, not a
-churn-now item** — same treatment as the Lab-vs-PROD retrofit.
+⚠️ **Track 1 predates this convention** and its chapters still read `# Chapter N — …`. Retitling them is
+a 🔲 **backlog item, deliberately NOT a churn-now item** (Andrew, Aug 13) — same treatment as the
+Lab-vs-PROD retrofit. Apply the new format to any track-1 chapter you are already editing for another
+reason; do not open seven files just for this.
 
 ### The rest of the shape
 
@@ -241,9 +241,14 @@ figure does not overflow the page).
 
 ### ⭐ Page numbers in the footer
 
-**Every page carries `<Topic> · Chapter <N>  ·  Page X of Y`, centred in the bottom margin, 9pt grey.**
-Added Aug 13, 2026 at Andrew's request — he had been inserting page numbers by hand in Word before
-every print.
+**Every page carries a bare page number — just the digit — centred in the bottom margin, 9pt grey.**
+Added Aug 13, 2026 at Andrew's request; he had been inserting them by hand in Word before every print.
+
+⭐ **Bare number by explicit choice** (Andrew, Aug 13): **no "Page", no "of N", no running title.** The
+first draft put `<Topic> · Chapter N · Page X of Y` down there and it was rejected as clutter — these
+pages are dense technical prose and the footer should be furniture you never notice. The H1 already
+names the track. **A useful consequence: the footer no longer varies per chapter, so one reference
+document is built per track rather than one per chapter.**
 
 **Pandoc has no page-number option**, because page numbers are not a Markdown concept. It does carry
 headers and footers over from the reference document, so the footer is built as a **real footer part
@@ -252,7 +257,7 @@ the file corrupt:
 
 | Piece | Where |
 |---|---|
-| `word/footer99.xml` — the footer body, with `PAGE` and `NUMPAGES` fields | written by `add_footer()` |
+| `word/footer99.xml` — the footer body, holding a single `PAGE` field | written by `add_footer()` |
 | A relationship pointing at that part | `word/_rels/document.xml.rels` |
 | A content-type override declaring it | `[Content_Types].xml` |
 | `<w:footerReference>` inside `<w:sectPr>` | `patch_sectpr()` |
@@ -264,18 +269,20 @@ Two traps worth knowing before editing this:
 - **The part is named `footer99.xml`, not `footer1.xml`**, because pandoc's default reference document
   may already ship footer parts and silently clobbering one would be a miserable bug to track down.
 
-The label comes from the chapter's H1 (see "The H1 must name the track"), so **a reference document is
-built per chapter** rather than once per track.
-
 ⚠️ **There is deliberately no table of contents.** Pandoc's `--toc` writes a field that only Word
 itself can populate, so an unopened document renders a literal "No table of contents entries found"
 banner on page 1. All TOC handling was removed rather than patched.
 
-⭐ **Page numbers are safe where a TOC is not, and the distinction is the reason both decisions are
-correct.** `PAGE` and `NUMPAGES` are resolved during **layout** — the renderer must know the page count
-to lay out pages at all — so they populate on open and on print. A TOC field needs a *document-wide
-scan* that only Word performs on demand, which is why it renders as an error banner until someone
-presses F9. Same mechanism, different evaluation time.
+⭐ **A `PAGE` field is safe where a TOC field is not, and that distinction is why both decisions are
+correct.** `PAGE` is resolved during **layout** — the renderer is already numbering pages in order to
+lay them out — so it populates on open and on print. A TOC field needs a *document-wide scan* that only
+Word performs on demand, which is why it renders as an error banner until someone presses F9. Same
+field mechanism, different evaluation time.
+
+> **Aside worth knowing if the footer ever grows:** `NUMPAGES` ("of 24") is a *weaker* field than
+> `PAGE`. It needs the final page count, which is not known until layout completes, so some renderers
+> show a stale value until the document is repaginated. Another small reason the bare number is the
+> right call.
 
 ⚠️ **Verified structurally, not visually.** The footer part, relationship, content-type override and
 `footerReference` were all confirmed present in the built `.docx`, and the field syntax is correct. **No
