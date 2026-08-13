@@ -141,10 +141,20 @@ editing `CURSOR_RULES`:
   - **New `=== EDUCATION PROGRAM (/education) ===` section**, 7 rules (now 8 + `1b` after Aug 13).
 
 - **🔵 IN PROGRESS — Phase 16: Docker Swarm** (`phases/phase16_docker_swarm.md`).
-  **PART 1 IS COMPLETE (Aug 13, 2026): `docker-swarm-1/2/3` exist at `.191/.192/.193`**, cloned from
-  template 9000, 2 vCPU / 4 GB / 40 GB each — funded by the 16 GB VM 186 gave back on Aug 12 —
-  personalized, **Docker 29.7.2 / Compose v5.4.0**, Swarm still `inactive`, all three snapshotted
-  **`s01-base-clean`** (hot, ~1.6 s each). **Next session: Part 2, form the cluster.** The end goal is
+  **PARTS 1 & 2 ARE COMPLETE (Aug 13, 2026): `docker-swarm-1/2/3` exist at `.191/.192/.193`**, cloned
+  from template 9000, 2 vCPU / 4 GB / 40 GB each — funded by the 16 GB VM 186 gave back on Aug 12 —
+  personalized, **Docker 29.7.2 / Compose v5.4.0**, snapshotted **`s01-base-clean`** (hot, ~1.6 s each).
+  **Part 2 formed a THREE-MANAGER cluster** — `.191` Leader, `.192`/`.193` Reachable,
+  `ClusterID n6waq5uhc7o6yxzt5tyzrbol9`, **quorum 2 of 3**, ingress overlay `10.0.0.0/24`, no services
+  yet, all three snapshotted **`s02-swarm-up`**. 🙋 **Andrew drove Part 2 by hand** (init + the `.192`
+  join); the AI joined `.193` under the repetition rule. **Next session: Part 3 — stack file,
+  `docker secret`, first deploy, and trap C1.** 🚨 **Three Swarm facts that will cost time later:**
+  (a) `swarm init` prints the **WORKER** token — pasting it yields a healthy-looking 1-manager cluster
+  with no quorum lesson left; use `docker swarm join-token manager`; (b) **`Autolock Managers: false`**,
+  so the Raft key is on disk in the clear and **the VM snapshots will contain `docker secret` values**
+  once Part 3 runs; (c) **swarm CA certs expire 3 months out** — restoring an older snapshot gives a
+  cluster whose certs expired while frozen, which presents as a network fault and is not one. The end
+  goal is
   unchanged: **Capricorn from the existing registry images**, deployed by a **manual job in THIS
   repo's** `.gitlab-ci.yml`, *not* Capricorn's.
   👉 **Open the next session by re-walking the file's `📌 READ THIS FIRST` pre-flight list.** It sorts
@@ -331,6 +341,28 @@ editing `CURSOR_RULES`:
       INSIDE the guest), **break** (drills chosen for what they mean at 3am), **investigate** (the
       surprises ARE the deliverable — almost nothing quotable in track 1 was planned), **document**.
       Plus an anti-patterns table.
+      🚨 **`METHOD.md` → "Who does the work" is the section to read before ANY build session.**
+      **THIS IS HANDS-ON TRAINING: ANDREW RUNS THE COMMANDS, the AI explains, checks and writes.**
+      The reason is not ceremony — **"only document what Andrew actually ran" is worthless if the AI
+      ran it**, and degrades into "only document what was executed". Added Aug 13 after Andrew caught
+      that **Phase 16 Part 1 had been driven entirely by the AI**. ⚠️ The practice had existed since
+      track 1 (`phase14`'s log: "the **guided** Part 3", "hands-on, **Andrew driving**") but only as a
+      diary entry, never a rule — the same decay as the planted-traps table. The split:
+      - **Andrew drives anything NEW** (the technology being studied and its failure modes).
+        **The AI may drive routine lab plumbing already proven here** — template-9000 clones,
+        `host_setup.sh`, `qm` resize/snapshot. **The test is "is this what we are here to learn",
+        not "is this hard".** Track 1 drew the same line (AI built the VM + k3s; Andrew drove Part 3+).
+      - **Loop:** AI says what and why → **ONE** command → Andrew runs it, pastes output → AI checks
+        and explains what it really means. Not a wall of commands.
+      - 🚨 **When something breaks, Andrew diagnoses FIRST and the AI stays quiet** until asked or
+        until he is burning real time. Critical for the planted traps: narrating the answer when one
+        fires is the same mistake as pre-empting it.
+      - **Repetition:** Andrew does the first node by hand, the AI does the rest — unless the
+        repetition IS the lesson (e.g. writing the re-runnable script), which makes it his.
+      **Chapter scope (also Aug 13, in `CONVENTIONS.md` → "What belongs in a chapter"):** routine lab
+      plumbing is **assumed, not re-taught**; the infrastructure *as it pertains to this build* and the
+      **what and why** are what belong in the chapter (why 3 nodes, why all managers, why
+      `vm-ephemeral`, why the 3.5 GB template disk had to grow).
       ⭐ **It is a FLOOR, NOT A CEILING — Andrew's explicit instruction Aug 13.** Deviate for a
       specific topic whenever it helps, **then fold what worked back into `METHOD.md` in the same
       session.** The file names two practices invented mid-Phase-16 that would otherwise have been
@@ -1407,7 +1439,7 @@ All pools feature-flag current (zpool upgrade Jul 9).
 | 14 | Kubernetes + Redpanda POC (was interview prep) | ✅ **CLOSED Aug 12, 2026 — goal met: the interviews happened Aug 6/7 and Andrew got the job.** Parts 1–6 done, 7 chapters written. VM 186 right-sized to 8 vCPU / 16 GB and left at snapshot `s05-app-running`. **Do not extend it**; Ch8–10 are track-1 education work, not phase 14. |
 | 11 | OpenClaw AI Agent | ✅ COMPLETE (vm-openclaw-1 @ .185, Feb 20, 2026) |
 | 15 | Education program — multi-track study repo | ✅ **Parts A–D COMPLETE Aug 12, 2026.** `education/` is now a shelf: one folder per track, shared `tools/`, `CONVENTIONS.md`. One item open — the `docker-swarm` row in `education/README.md`'s track table, held until the folder exists. |
-| 16 | Docker Swarm (education track 2) | 🔵 **IN PROGRESS — Part 1 COMPLETE Aug 13, 2026.** VMs 191/192/193 built from template 9000, Docker running, Swarm inactive, snapshot `s01-base-clean` on all three. **Next: Part 2, form the cluster.** Re-walk the `📌 READ THIS FIRST` pre-flight list in `phases/phase16_docker_swarm.md` each session — nothing blocks Part 2. |
+| 16 | Docker Swarm (education track 2) | 🔵 **IN PROGRESS — Parts 1 & 2 COMPLETE Aug 13, 2026.** VMs 191/192/193 built from template 9000; **three-manager swarm formed, quorum 2 of 3**, snapshots `s01-base-clean` → `s02-swarm-up` on all three. **Next: Part 3 — stack file, `docker secret`, first deploy, trap C1.** 🙋 Andrew drives from here (`education/METHOD.md` → "Who does the work"). Re-walk the `📌 READ THIS FIRST` pre-flight list in `phases/phase16_docker_swarm.md` each session. |
 | 17 | Jenkins (education track 3) | 📋 **CONFIRMED NEXT after Phase 16** — Jenkins is named explicitly on the study list (`education/fin_tech_stack.txt`), so this is no longer provisional. Phase 16 Part 3 deliberately keeps deploy logic in a shell script, so this track is largely "write a different wrapper". |
 | 18+ | Remaining study list | 💭 **Backlog, worked STEP-BY-STEP in its stated order** after Jenkins: OpenSearch + Dashboards → Prometheus + Grafana → Redpanda Connect + Debezium CDC → MongoDB + Postgres → SAML/OIDC (authentik) → Ansible. Source of truth is `education/fin_tech_stack.txt`; do not re-derive priorities. |
 

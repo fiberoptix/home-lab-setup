@@ -30,6 +30,59 @@ Both are now stages below. If you invent a third, add it.
 
 ---
 
+## Who does the work — this is hands-on training
+
+**⭐ Andrew runs the commands. The AI explains, checks, and writes.** This governs all five stages
+below and is the single easiest thing to get wrong, because it is always faster for the AI to just do
+it. Faster, and worthless: **"only document what you actually ran" is only worth something if *Andrew*
+ran it.** If the AI drives, that rule quietly degrades into "only document what was executed", and the
+material stops being something he can stand behind in an incident or a conversation.
+
+⚠️ **This was the practice from the start and it went unwritten for two tracks.** Track 1's log records
+"ready for the **guided** Part 3" and "Part 3 **hands-on, Andrew driving**", followed by "everything
+documented came from something he ran" — but as a diary entry, never as a rule. **Phase 16 Part 1 was
+then driven entirely by the AI**, which is exactly how an unwritten practice decays.
+
+### The split: who drives what
+
+| Work | Driver |
+|---|---|
+| **Anything NEW** — the technology being studied, its failure modes, its tooling | 🙋 **Andrew** |
+| **Routine lab plumbing already proven here** — cloning from template 9000, `host_setup.sh`, `qm` resize/snapshot, VM sizing | 🤖 AI may drive |
+| **Writing** — chapters, phase files, MEMORY, diagrams, and the scripts as committed artefacts | 🤖 AI |
+
+Track 1 drew this same line: the AI built the VM and installed k3s (Parts 1–2), Andrew drove the
+Kubernetes object model onward (Part 3+). **The test is not "is it hard", it is "is this the thing we
+are here to learn".** Cloning a VM for the tenth time is not.
+
+### The loop, when Andrew is driving
+
+**One step at a time.** Not a wall of commands.
+
+1. **AI says what we are about to do and why** — the reasoning first, so the command is not a
+   magic incantation.
+2. **AI gives the command.** One step, or a tight group that only makes sense together.
+3. **Andrew runs it and pastes the output.**
+4. **AI checks the output and explains what it actually means** — including when it means something
+   different from what it appears to mean.
+5. Repeat. Snapshot at the milestone.
+
+### When something breaks
+
+🚨 **Let Andrew diagnose it first. The AI stays quiet until asked, or until he is heading somewhere
+that will cost real time.** Debugging while confused *is* the job skill; being handed the answer
+teaches the fact and skips the skill. This applies doubly to the planted traps, which exist precisely
+to be struggled with — the anti-pattern table already forbids pre-empting them, and narrating the
+answer the moment they fire is the same mistake one step later.
+
+### Repetition
+
+**Andrew does the first node by hand; the AI does the remaining ones.** He learns it once; the session
+is not spent typing the same join command three times. If the repetition is itself the lesson — as
+with writing a re-runnable provisioning script — then it is "anything new" and he drives it.
+
+---
+
 ## The five stages
 
 ### 1. Plan — decide what success is, and where you intend to fail
@@ -102,6 +155,11 @@ compute it. None of that is in any tutorial, and all of it came from following a
 
 - The **phase file is the working record** (decisions, blockers, what was actually run, what
   surprised you). The **chapter is reader-facing**. Do not merge them.
+- ⭐ **Scope the chapter to the subject, not to the keystrokes.** Routine lab plumbing already proven
+  here — cloning from template 9000, `host_setup.sh`, `qm` snapshots — is **assumed, not re-taught**.
+  But the infrastructure **as it pertains to this build**, and above all the **what and why**, belongs
+  in the chapter: why three nodes and not two, why all managers, why `vm-ephemeral`, why the 3.5 GB
+  template disk had to grow. See `CONVENTIONS.md` → "What belongs in a chapter".
 - Write the chapter **after** the work, following `CONVENTIONS.md`. Only document what was actually
   run; a research-only chapter is allowed but must declare itself in its opening paragraph.
 - **Record what a later session must not re-derive**, and what it must not "fix". Both matter.
@@ -115,6 +173,9 @@ compute it. None of that is in any tutorial, and all of it came from following a
 | Don't | Because |
 |---|---|
 | Pre-empt a planted trap | It turns the phase into a tutorial where nothing fails, which is the failure mode this whole method exists to avoid. |
+| **Drive the build yourself when the point was for Andrew to learn it** | Always faster, and it hollows out the material: "only document what you actually ran" means nothing if the AI ran it. Phase 16 Part 1 was lost this way. |
+| **Narrate the answer the moment a trap fires** | Same mistake as pre-empting it, one step later. Let him diagnose; debugging while confused is the skill. |
+| Re-teach routine lab plumbing in a chapter | It buries the subject. Assume what the lab has proven before; explain what and why *this* build needed. |
 | Document something you did not run | The material's entire authority is that every command was executed and every output is real. |
 | "Fix" a known-and-accepted issue unprompted | Track 1's four sub-10pt figures were **accepted after Andrew printed them**. Re-fixing accepted debt is churn, and it overrides a human decision. |
 | Skip a snapshot because the drill "looks safe" | The value of drills comes from rollback being instant. The one you skip is the one you need. |

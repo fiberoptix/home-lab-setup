@@ -73,6 +73,23 @@ The same shape every time, so a chapter works as a reference after the first rea
 Weight the writing toward **operational reasoning**: failure modes, what you do at 3am, and which
 instincts make an incident worse. Tie each concept to a consequence for the system being studied.
 
+### What belongs in a chapter
+
+**The subject, not the keystrokes.** The lab has a lot of settled plumbing, and re-explaining it in
+every track buries the thing the track is actually about.
+
+**Assume it** — routine work the lab has done many times and documented elsewhere: cloning from
+template 9000, running `host_setup.sh`, `qm` resize and snapshot mechanics, standard VM sizing. A
+sentence and a pointer is enough.
+
+**Explain it** — the infrastructure *as it pertains to this build*, and above all the **what and the
+why**: why three nodes rather than two, why every node is a manager, why `vm-ephemeral` rather than
+`vm-critical`, why the template's 3.5 GB disk had to grow before Docker images would fit. The
+reasoning is the part that transfers to a different lab; the commands are not.
+
+The test: **would this sentence still be worth reading by someone who already runs the lab?** If it
+only tells them how to do something they do weekly, cut it.
+
 ---
 
 ## Diagrams

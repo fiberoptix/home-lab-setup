@@ -1,6 +1,55 @@
 # Current Phase
 
-**Updated:** August 13, 2026 - 12:55 PM EDT
+**Updated:** August 13, 2026 - 1:55 PM EDT
+
+---
+
+## ✅ PHASE 16 PART 2 COMPLETE — three-manager swarm (Aug 13, 1:33–1:53 PM EDT)
+
+🙋 **The first hands-on part.** Andrew ran `swarm init` on `.191` and joined `.192` himself; the AI
+joined `.193` under the repetition rule and took the snapshots. Twenty minutes, nothing failed.
+
+**End state:** 3 managers / 3 nodes — `.191` **Leader**, `.192`/`.193` **Reachable** —
+`ClusterID n6waq5uhc7o6yxzt5tyzrbol9`, **quorum 2 of 3**, ingress overlay `10.0.0.0/24`, no services
+deployed. Snapshot **`s02-swarm-up`** on all three, hot and together, with a description recording
+the state and the CA expiry date.
+
+**The find of the session was the join token.** Format `SWMTKN-1-<head>-<tail>`. Andrew spotted that
+the head is shared between the worker and manager tokens and the tail differs, and guessed swarm ID +
+joiner ID. **The tail is per-ROLE, not per-node** — proved by rotating the worker token and watching
+the manager token sit unchanged. ⚠️ **Operational consequence: there is no per-node revocation**; a
+leak can only be answered by rotating an entire role. **The head is NOT the swarm ID** — `ClusterID`
+turned out to be `n6waq5uh…`, which appears nowhere in the token, and the length is wrong besides
+(IDs are 25 base36 chars, the head is 50). It is the root CA hash, and the two halves are mutual
+authentication pointing opposite ways: **the head proves the cluster to the joiner, the tail proves
+the joiner to the cluster.** ⚠️ Honest caveat: the rotation test did *not* prove the CA-hash claim —
+both hypotheses predicted "unchanged". `docker swarm ca --rotate` is the test that separates them, and
+it is now **added to the chapter 5 drill list**, deliberately deferred from the 1-node stage where it
+would have been trivial.
+
+🚨 **Three things that will cost time later, all recorded in the phase file:**
+- **`swarm init` prints the WORKER token** and only mentions the manager one in prose. Pasting what it
+  gives you produces a perfectly healthy-looking **1-manager / 2-worker** cluster and silently deletes
+  every quorum lesson in the phase. A wrong token is not an error, it is a subtly wrong cluster.
+- **`Autolock Managers: false`** — the Raft encryption key is on disk in the clear on every manager.
+  Part 3 puts Capricorn's DB password into `docker secret`, so **the VM snapshots will then contain
+  recoverable secrets.**
+- **CA certs expire 3 months out.** Restoring a snapshot older than that yields a cluster whose certs
+  expired while frozen — it presents as a networking fault and is not one.
+
+**Also worth keeping:** two managers is *strictly worse* than one (quorum `floor(N/2)+1` means N=2
+tolerates zero failures) — the state people reach by "adding a second manager for redundancy".
+`STATUS` and `MANAGER STATUS` answer different questions, engine vs Raft. `docker node ls` fails on a
+worker, making it a free role check after a join. `Default Address Pool` is **not printed** by
+`docker info` unless set, but is real — `ingress` came up `10.0.0.0/24` out of the invisible
+`10.0.0.0/8`, a live collision risk on corporate `10.x` networks.
+
+⚠️ **Process fix, applied immediately:** the AI handed over a block with `ssh` on line 1 and commands
+beneath it. The later lines land in the terminal input buffer while `ssh` starts, and a password
+prompt ate the join-token line. Harmless here, but **from now on: `ssh` alone and wait, or
+`ssh host "command"` explicitly.**
+
+**Next: Part 3 — stack file, `docker secret`, first deploy. Trap C1 fires here. Andrew driving.**
 
 ---
 
@@ -154,6 +203,54 @@ plus an anti-patterns table.
 topic-specific ideas and run with them, exactly like the two Phase 16 improvements. So the amendment
 duty is the **first** rule in the file, not a footnote: **deviate deliberately, then fold what worked
 back in during the same session.** An improvement that is not written down is lost.
+
+### 🚨 THIS IS HANDS-ON TRAINING — ANDREW RUNS THE COMMANDS (added Aug 13, same session)
+
+Andrew caught the omission immediately: *"before, you told me what to do and then I did it by hand so
+I could learn and you would check — is that verbiage in the METHOD file?"* **It was not.** And the
+proof of why that matters was sitting right there: **Phase 16 Part 1 had just been driven entirely by
+the AI. Andrew typed nothing.**
+
+⚠️ The practice was never invented — it was always how track 1 worked. `phase14`'s log says
+"ready for the **guided** Part 3", then "Part 3 **hands-on, Andrew driving**", then "everything
+documented came from something he ran". **But it lived only as a diary entry, never as a rule** — the
+identical decay that nearly lost the planted-traps table. Written up now as
+`education/METHOD.md` → **"Who does the work"**, a section that governs all five stages.
+
+**Why it is not ceremony:** *"only document what Andrew actually ran" is worthless if the AI ran it.*
+It silently becomes "only document what was executed", and the material stops being something he can
+stand behind in an incident or an interview.
+
+**The split** — the test is *"is this what we are here to learn"*, not *"is this hard"*:
+
+| Work | Driver |
+|---|---|
+| Anything **NEW** — the technology being studied and its failure modes | 🙋 **Andrew** |
+| Routine plumbing the lab has proven — template-9000 clones, `host_setup.sh`, `qm` resize/snapshot | 🤖 AI may drive |
+| Writing — chapters, phase files, MEMORY, diagrams, committed scripts | 🤖 AI |
+
+Track 1 drew this exact line, which is why **Part 1 being AI-driven was defensible** (cloning a VM for
+the tenth time) — but **Part 2 is where it must switch, and it will.**
+
+**The loop:** AI says what and why → **ONE** command → Andrew runs it and pastes output → AI checks it
+and explains what it actually means → repeat → snapshot at the milestone. Not a wall of commands.
+
+🚨 **When something breaks, Andrew diagnoses FIRST and the AI stays quiet** until asked, or until he is
+burning real time. Debugging while confused *is* the job skill. This matters most for the **seven
+planted traps** — narrating the answer the moment one fires is the same mistake as pre-empting it, one
+step later.
+
+**Repetition:** Andrew does the first node by hand, the AI does the other two — unless the repetition
+*is* the lesson (writing the re-runnable script), which makes it his.
+
+**Chapter scope, settled at the same time** (`CONVENTIONS.md` → "What belongs in a chapter"): routine
+lab plumbing is **assumed, not re-taught**; what belongs is the infrastructure *as it pertains to this
+build* plus the **what and why** — why three nodes, why all managers, why `vm-ephemeral`, why the
+3.5 GB template disk had to grow. The test: *would this still be worth reading by someone who already
+runs the lab?*
+
+✅ **No `CURSOR_RULES` change was needed** — rule 1b already says to read and follow `METHOD.md`, so
+the protocol is covered transitively.
 
 ### 🔓 `CURSOR_RULES` edited a SECOND time (Aug 13) — authorised in writing, still not precedent
 

@@ -1,8 +1,12 @@
 # Phase 16 — Docker Swarm: build it, wire a pipeline to it, then break it
 
-**Status:** 🔵 **IN PROGRESS — Part 1 COMPLETE (Aug 13, 2026).** Three nodes built, personalized and
-snapshotted `s01-base-clean`; see the [implementation log](#implementation-log) at the bottom.
-**Next up: Part 2 — form the cluster.**
+**Status:** 🔵 **IN PROGRESS — Parts 1 & 2 COMPLETE (Aug 13, 2026).** Three nodes built and
+personalized (`s01-base-clean`), then formed into a **three-manager cluster, quorum 2 of 3**
+(`s02-swarm-up`); see the [implementation log](#implementation-log) at the bottom.
+**Next up: Part 3 — stack file, `docker secret`, first deploy, and trap C1.**
+🙋 **Part 2 onward is HANDS-ON: Andrew runs the commands** — see
+[`education/METHOD.md`](../education/METHOD.md) → "Who does the work". Part 1 was AI-driven and is the
+last part that will be.
 👉 The [pre-flight list](#-read-this-first--the-pre-flight-list) below was walked with Andrew on
 Aug 13. **A5 is settled and A2 is deferred to Part 4**, so nothing is blocking. The seven hard rules
 and the seven traps still apply for the rest of the phase — re-read them before each session.
@@ -783,4 +787,96 @@ qm snapshot 193 s01-base-clean   # 1.599s
 | 192 | `docker-swarm-2` | 192.168.1.192 | 2 | 4 GB | 40 GB (`vm-ephemeral`) | running, `onboot=1` | inactive |
 | 193 | `docker-swarm-3` | 192.168.1.193 | 2 | 4 GB | 40 GB (`vm-ephemeral`) | running, `onboot=1` | inactive |
 
-**Next: Part 2 — `docker swarm init` on `.191`, join `.192`/`.193` as managers, then `s02-swarm-up`.**
+#### ⚠️ Process note — Part 1 was AI-driven; Part 2 onward is NOT
+
+**Andrew typed nothing during Part 1.** That was *consistent* with track 1, where the AI built the VM
+and installed k3s (Parts 1–2) and Andrew drove from the Kubernetes object model onward — Part 1 here
+was cloning from template 9000 and running `host_setup.sh`, both routine lab plumbing. But the
+protocol had **never been written down**, which is why it needed re-deriving mid-phase.
+
+🚨 **It is written down now: `education/METHOD.md` → "Who does the work".** From **Part 2 onward,
+Andrew drives.** The loop is: AI says what and why → AI gives **one** command → Andrew runs it and
+pastes the output → AI checks it and explains what it actually means. **When something breaks, Andrew
+diagnoses first and the AI stays quiet** — which matters most for the seven planted traps, since
+narrating the answer the moment one fires is the same mistake as pre-empting it. **Repetition:** Andrew
+does the first node by hand, the AI does the other two.
+
+---
+
+### Part 2 — three-manager cluster ✅ COMPLETE (August 13, 2026, 1:33–1:53 PM EDT)
+
+**Andrew drove this part.** He ran `swarm init` on `.191` and joined `.192` by hand; the AI joined
+`.193` under the repetition rule and took the snapshots. Twenty minutes, no failures.
+
+#### What was run
+
+| Step | Where | Result |
+|---|---|---|
+| `docker swarm init --advertise-addr 192.168.1.191` | `.191` | node `pmpvb2i3…` is manager + **Leader** |
+| `docker swarm join --token <manager> 192.168.1.191:2377` | `.192` | `fjk3zysr…` **Reachable** |
+| same | `.193` | `g9lrfdrr…` **Reachable** |
+| `qm snapshot 19{1,2,3} s02-swarm-up` | host `.150` | hot, all three together, ~3 s each |
+
+**End state:** 3 managers / 3 nodes, `ClusterID n6waq5uhc7o6yxzt5tyzrbol9`, quorum **2 of 3**, ingress
+overlay `10.0.0.0/24`, no services deployed.
+
+#### Findings worth keeping
+
+- ⭐ **The join token's two halves are mutual authentication pointing in opposite directions.** Format
+  is `SWMTKN-1-<head>-<tail>`. **The tail is per-ROLE, not per-node** — proved by
+  `docker swarm join-token --rotate worker`, which changed the worker tail
+  (`38pe0btm…` → `8ln2dxbr…`) and left the manager tail `cr5jpjsv…` untouched. **Operational
+  consequence: there is no per-node revocation.** A leak can only be answered by rotating the whole
+  role, and already-joined nodes are unaffected because they stop using the token once they hold a
+  certificate.
+- ⭐ **The head is NOT the swarm ID.** Andrew's hypothesis, and a reasonable one — killed by evidence
+  that arrived sideways: `ClusterID` is `n6waq5uhc7o6yxzt5tyzrbol9`, which appears **nowhere in the
+  token**. Length is corroborating: cluster and node IDs are 25 base36 chars, the token head is 50 —
+  right for a 256-bit hash, wrong for another ID. It is the root CA cert hash, and it is how the
+  *joiner* verifies the *cluster*. ⚠️ **Note honestly that the rotation test did NOT prove this** —
+  both hypotheses predicted "unchanged". `docker swarm ca --rotate` is the test that separates them;
+  deferred to a chapter 5 drill (see below).
+- ⚠️ **The printed join command is the WORKER token.** `swarm init` prints it unprompted and only
+  *mentions* `docker swarm join-token manager` in prose. Pasting what it hands you produces a
+  **1-manager / 2-worker cluster that looks perfectly healthy** and quietly removes every quorum
+  lesson in the phase. A wrong token here is not an error, it is a subtly wrong cluster.
+- **Two managers is strictly worse than one.** Quorum is `floor(N/2)+1`: N=1→1, **N=2→2**, N=3→2,
+  N=4→3. The two-manager state tolerates *zero* failures. Worth naming in the chapter because
+  "add a second manager for redundancy" is exactly how people land there.
+- **`MANAGER STATUS` and `STATUS` are different questions.** `Ready` is the engine's ability to run
+  tasks; `Leader`/`Reachable`/`Unavailable` is Raft. A node can be `Ready` and `Unavailable`
+  simultaneously — knowing which column went bad is most of the diagnosis.
+- **Every manager is a full API endpoint.** `docker node ls` from `.192` returned the whole cluster;
+  the command *fails* on a worker (`This node is not a swarm manager`), which makes it a free
+  role check after a join.
+- **`Node Address` was auto-detected correctly** (`192.168.1.192`) because these VMs are single-NIC.
+  That is the case where omitting `--advertise-addr` is safe; the risk is multi-homed hosts.
+- ⚠️ **`Default Address Pool` is not printed by `docker info`** unless explicitly configured — but it
+  is real. `docker network inspect ingress` returns **`10.0.0.0/24`**, the first `/24` out of the
+  invisible `10.0.0.0/8` default. **A silent collision risk on any corporate `10.x` network.**
+- ⚠️ **`Autolock Managers: false`** — the Raft log encryption key sits on disk in the clear on every
+  manager. Fine for a lab, but Part 3 puts Capricorn's DB password into `docker secret`, so
+  **these VM snapshots will contain recoverable secrets.**
+- 🚨 **`CA Configuration: Expiry Duration: 3 months`, and this lab takes snapshots.** Certificates
+  rotate automatically *while the cluster runs*. **Restore a snapshot older than three months and the
+  certs expired while frozen** — it will present as a networking fault and will not be one. Recorded
+  in the `s02-swarm-up` snapshot description so a future restore sees it.
+
+#### Process finding — do not paste `ssh` and commands as one block
+
+The AI handed over a block with `ssh …` on line 1 and commands beneath. Those later lines go into the
+terminal's **input buffer** while `ssh` is still starting, and whatever reads stdin next consumes
+them — here, a password prompt ate the join token line. Harmless this time; feeding a manager token to
+a password prompt is not a habit to keep. **Fixed going forward: give `ssh` alone and wait, or write
+`ssh host "command"` explicitly.** (The visible `already part of a swarm` error was a *second*,
+redundant join attempt — the first had succeeded. Docker refusing there is correct: joining another
+swarm means abandoning this one.)
+
+#### Added to the drill list
+
+| # | Drill | Why here |
+|---|---|---|
+| **New** | `docker swarm ca --rotate` on the live three-manager cluster. | Settles the token-head question by evidence — if it is a CA hash, **both** tokens' heads must change. Doubles as a real certificate-rotation exercise across three managers, which is the SRE-relevant version. Deliberately **not** run at 1 node, where it was trivial and taught nothing. |
+
+**Next: Part 3 — the stack file, `docker secret`, and the first deploy. Trap C1
+(`--with-registry-auth` omitted on purpose) fires here. Andrew driving.**
