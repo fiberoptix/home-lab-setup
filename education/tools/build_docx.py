@@ -193,8 +193,63 @@ def patch_styles(xml):
     return xml
 
 
-def patch_sectpr(xml):
-    sect = (f'<w:sectPr><w:pgSz w:w="{PAGE_W_TWIPS}" w:h="{PAGE_H_TWIPS}"/>'
+# ------------------------------------------------------------------ footer
+#
+# Page numbers in the bottom margin, so a printed chapter can be reassembled
+# after it is dropped. Added Aug 13, 2026 at Andrew's request -- he had been
+# inserting them by hand in Word before every print.
+#
+# This is a real footer PART in the reference .docx, not a pandoc option;
+# pandoc has no page-number switch and carries headers/footers over from the
+# reference document. Four things have to agree or Word reports the file as
+# corrupt: the part itself, a relationship pointing at it, a content-type
+# override declaring it, and a footerReference inside sectPr.
+#
+# footer99.xml rather than footer1.xml: pandoc's default reference document
+# may already ship footer parts, and silently clobbering one would be a very
+# annoying bug to find.
+FOOTER_PART = "footer99.xml"
+FOOTER_RID = "rIdEduFooter"
+FOOTER_CT = ("application/vnd.openxmlformats-officedocument"
+             ".wordprocessingml.footer+xml")
+REL_NS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+
+
+def field(instr, placeholder):
+    """A Word field: {instr}, with placeholder text for viewers that do not
+    compute fields. Unlike a TOC field -- which only Word can populate, and
+    which is why this build has no table of contents -- PAGE and NUMPAGES are
+    evaluated during layout, so they render on open and on print."""
+    return ('<w:r><w:fldChar w:fldCharType="begin"/></w:r>'
+            f'<w:r><w:instrText xml:space="preserve"> {instr} </w:instrText></w:r>'
+            '<w:r><w:fldChar w:fldCharType="separate"/></w:r>'
+            f'<w:r><w:t>{placeholder}</w:t></w:r>'
+            '<w:r><w:fldChar w:fldCharType="end"/></w:r>')
+
+
+def footer_xml(label):
+    rpr = (f'<w:rPr><w:rFonts w:ascii="{HEAD_FONT}" w:hAnsi="{HEAD_FONT}"/>'
+           '<w:sz w:val="18"/><w:szCs w:val="18"/>'
+           '<w:color w:val="595959"/></w:rPr>')
+    text = f'<w:r>{rpr}<w:t xml:space="preserve">{label}  \u00b7  Page </w:t></w:r>'
+    return ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            f'<w:ftr xmlns:w="{W}" xmlns:r="{REL_NS}">'
+            '<w:p><w:pPr><w:jc w:val="center"/>'
+            '<w:spacing w:before="0" w:after="0"/>'
+            f'{rpr}</w:pPr>'
+            f'{text}{field("PAGE", "1")}'
+            f'<w:r>{rpr}<w:t xml:space="preserve"> of </w:t></w:r>'
+            f'{field("NUMPAGES", "1")}'
+            '</w:p></w:ftr>')
+
+
+def patch_sectpr(xml, footer=False):
+    # Order inside sectPr is schema-enforced: header/footer references come
+    # FIRST. Putting pgSz before them produces a file Word refuses to open.
+    ref = (f'<w:footerReference w:type="default" r:id="{FOOTER_RID}"/>'
+           if footer else "")
+    sect = (f'<w:sectPr>{ref}'
+            f'<w:pgSz w:w="{PAGE_W_TWIPS}" w:h="{PAGE_H_TWIPS}"/>'
             f'<w:pgMar w:top="{MARGIN_Y}" w:right="{MARGIN_X}" '
             f'w:bottom="{MARGIN_Y}" w:left="{MARGIN_X}" '
             'w:header="720" w:footer="720" w:gutter="0"/>'
@@ -205,7 +260,28 @@ def patch_sectpr(xml):
     return xml.replace("</w:body>", sect + "</w:body>")
 
 
-def build_reference(dest):
+def add_footer(work, label):
+    (work / "word" / FOOTER_PART).write_text(footer_xml(label), encoding="utf-8")
+
+    rels = work / "word" / "_rels" / "document.xml.rels"
+    xml = rels.read_text()
+    if FOOTER_RID not in xml:
+        xml = xml.replace(
+            "</Relationships>",
+            f'<Relationship Id="{FOOTER_RID}" Type="{REL_NS}/footer" '
+            f'Target="{FOOTER_PART}"/></Relationships>')
+        rels.write_text(xml, encoding="utf-8")
+
+    ct = work / "[Content_Types].xml"
+    xml = ct.read_text()
+    if FOOTER_PART not in xml:
+        ct.write_text(xml.replace(
+            "</Types>",
+            f'<Override PartName="/word/{FOOTER_PART}" '
+            f'ContentType="{FOOTER_CT}"/></Types>'), encoding="utf-8")
+
+
+def build_reference(dest, footer_label=None):
     with tempfile.TemporaryDirectory() as td:
         src = pathlib.Path(td) / "ref.docx"
         src.write_bytes(subprocess.run(
@@ -216,13 +292,32 @@ def build_reference(dest):
             z.extractall(work)
         sp = work / "word" / "styles.xml"
         sp.write_text(patch_styles(sp.read_text()), encoding="utf-8")
+        if footer_label:
+            add_footer(work, footer_label)
         dp = work / "word" / "document.xml"
-        dp.write_text(patch_sectpr(dp.read_text()), encoding="utf-8")
+        dp.write_text(patch_sectpr(dp.read_text(), footer=bool(footer_label)),
+                      encoding="utf-8")
         with zipfile.ZipFile(dest, "w", zipfile.ZIP_DEFLATED) as z:
             for f in sorted(work.rglob("*")):
                 if f.is_file():
                     z.write(f, f.relative_to(work))
     return dest
+
+
+def footer_label(md_path):
+    """Reuse the chapter's H1, which by convention leads with the topic:
+    "# Docker Swarm - Chapter 1 - Building the Cluster" -> "Docker Swarm - Chapter 1".
+
+    Splitting on the em dash keeps the running label short. Chapters written
+    before the topic-prefix convention (track 1) simply yield "Chapter N",
+    which still beats a bare page number."""
+    for line in md_path.read_text().splitlines():
+        if line.startswith("# "):
+            head = line[2:].strip()
+            # strip any markdown emphasis, then take the part before the title
+            head = re.sub(r"[*_`]", "", head)
+            return head.split("\u2014")[0].strip(" -\u00b7")
+    return md_path.stem
 
 
 # ----------------------------------------------------------------- chapters
@@ -295,20 +390,25 @@ def main():
     track = resolve_track(args[0])
     wanted = [a.lstrip("0") for a in args[1:] if a.isdigit()]
 
-    ref_path = track / "scratch" / "docx" / "reference.docx"
-    ref_path.parent.mkdir(parents=True, exist_ok=True)
-    reference = build_reference(ref_path)
+    ref_dir = track / "scratch" / "docx"
+    ref_dir.mkdir(parents=True, exist_ok=True)
     print(f"track: {track.name}\n"
-          f"reference: {reference.relative_to(track)}  "
-          f"({COL_IN:.2f}in column, {BODY_FONT} 11pt single-spaced)\n")
+          f"reference: scratch/docx/  "
+          f"({COL_IN:.2f}in column, {BODY_FONT} 11pt single-spaced, "
+          f"page numbers in the footer)\n")
 
     for md in sorted(track.glob(CHAPTER_GLOB)):
         n = re.search(r"chapter(\d+)", md.name).group(1).lstrip("0")
         if wanted and n not in wanted:
             continue
+        # One reference per chapter: the footer carries that chapter's own
+        # running label, so it cannot be shared across the track.
+        label = footer_label(md)
+        reference = build_reference(ref_dir / f"reference_{md.stem}.docx", label)
         out = build_chapter(md, reference, track)
         if out:
-            print(f"  {md.name:<36}-> docx/{out.name}  ({out.stat().st_size//1024} KB)")
+            print(f"  {md.name:<36}-> docx/{out.name}  "
+                  f"({out.stat().st_size//1024} KB)   footer: {label} · Page N of M")
 
 
 if __name__ == "__main__":

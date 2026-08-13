@@ -58,7 +58,32 @@ tells the reader to run.
 
 ## How each chapter is structured
 
-The same shape every time, so a chapter works as a reference after the first read:
+### 🚨 The H1 must name the TRACK, not just the chapter number
+
+```
+# Docker Swarm · Chapter 1 — Building the Cluster
+```
+
+**Format: `# <Topic> · Chapter <N> — <Chapter Title>`.** Middle dot before the chapter number, em dash
+before the title.
+
+⭐ **Why** (Andrew, Aug 13, 2026): chapters are **printed and read on paper**, where a page opening
+`Chapter 1 — Building the Cluster` gives no clue which technology it is about. Chapter numbering also
+restarts in every track, so `Chapter 1` alone is ambiguous across the shelf — there will eventually be
+four of them.
+
+The build parses this line: **`build_docx.py` splits the H1 on the em dash and puts the left-hand side
+in the page footer**, so the topic and chapter appear on *every* printed page, not just the first. Get
+the format wrong and the footer label degrades rather than breaking — which is why it is worth getting
+right rather than relying on the build to complain.
+
+⚠️ **Track 1 predates this convention** and its chapters still read `# Chapter N — …`. They yield a
+footer of `Chapter N`, which still beats a bare page number. Retitling them is a **backlog item, not a
+churn-now item** — same treatment as the Lab-vs-PROD retrofit.
+
+### The rest of the shape
+
+The same every time, so a chapter works as a reference after the first read:
 
 1. **Verified facts header** — versions and addresses as they actually were, *with a date*. Software
    moves; the header tells the reader when the chapter was true.
@@ -214,9 +239,48 @@ The build is opinionated on purpose, so it reads like a textbook and prints legi
 column, Cambria 11pt, single-spaced, every image the full column width** (height-capped so a tall
 figure does not overflow the page).
 
+### ⭐ Page numbers in the footer
+
+**Every page carries `<Topic> · Chapter <N>  ·  Page X of Y`, centred in the bottom margin, 9pt grey.**
+Added Aug 13, 2026 at Andrew's request — he had been inserting page numbers by hand in Word before
+every print.
+
+**Pandoc has no page-number option**, because page numbers are not a Markdown concept. It does carry
+headers and footers over from the reference document, so the footer is built as a **real footer part
+inside the reference `.docx`** that `build_docx.py` assembles. Four things must agree or Word declares
+the file corrupt:
+
+| Piece | Where |
+|---|---|
+| `word/footer99.xml` — the footer body, with `PAGE` and `NUMPAGES` fields | written by `add_footer()` |
+| A relationship pointing at that part | `word/_rels/document.xml.rels` |
+| A content-type override declaring it | `[Content_Types].xml` |
+| `<w:footerReference>` inside `<w:sectPr>` | `patch_sectpr()` |
+
+Two traps worth knowing before editing this:
+
+- 🚨 **Order inside `<w:sectPr>` is schema-enforced.** Header and footer references come **first**;
+  putting `<w:pgSz>` ahead of them yields a file Word refuses to open.
+- **The part is named `footer99.xml`, not `footer1.xml`**, because pandoc's default reference document
+  may already ship footer parts and silently clobbering one would be a miserable bug to track down.
+
+The label comes from the chapter's H1 (see "The H1 must name the track"), so **a reference document is
+built per chapter** rather than once per track.
+
 ⚠️ **There is deliberately no table of contents.** Pandoc's `--toc` writes a field that only Word
 itself can populate, so an unopened document renders a literal "No table of contents entries found"
 banner on page 1. All TOC handling was removed rather than patched.
+
+⭐ **Page numbers are safe where a TOC is not, and the distinction is the reason both decisions are
+correct.** `PAGE` and `NUMPAGES` are resolved during **layout** — the renderer must know the page count
+to lay out pages at all — so they populate on open and on print. A TOC field needs a *document-wide
+scan* that only Word performs on demand, which is why it renders as an error banner until someone
+presses F9. Same mechanism, different evaluation time.
+
+⚠️ **Verified structurally, not visually.** The footer part, relationship, content-type override and
+`footerReference` were all confirmed present in the built `.docx`, and the field syntax is correct. **No
+renderer was available on this machine to confirm the numbers appear on the page** — LibreOffice is not
+installed. Confirm in Word once, then this note can be upgraded.
 
 ---
 

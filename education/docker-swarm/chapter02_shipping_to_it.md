@@ -1,4 +1,4 @@
-# Chapter 2 — Shipping to It
+# Docker Swarm · Chapter 2 — Shipping to It
 
 > **Series:** Home-Lab Education · Phase 16 (Docker Swarm)
 > **Built and verified:** August 13, 2026 on the three-manager cluster from Chapter 1

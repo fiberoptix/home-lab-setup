@@ -1,4 +1,4 @@
-# Chapter 1 — Building the Cluster
+# Docker Swarm · Chapter 1 — Building the Cluster
 
 > **Series:** Home-Lab Education · Phase 16 (Docker Swarm)
 > **Built and verified:** August 13, 2026 on VMs 191/192/193 (`192.168.1.191–193`)
