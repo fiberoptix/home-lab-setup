@@ -167,6 +167,20 @@ editing `CURSOR_RULES`:
   run with an unchanged file recreated **nothing**. ⚠️ **Debt: trap C2 is CONTAMINATED** (pre-warmed
   postgres means the backend never met a cold DB) — **it needs a restore to `s02-swarm-up` to run
   honestly.** **Next: Part 4 — a CI runner that calls `deploy_swarm.sh` unchanged.**
+  🎯 **NEW DELIVERABLE, scoped Aug 13 and deferred to the END of the track:** a **read-only
+  `docker-admin.sh`** Andrew can take to work — *"takes inputs, helps me investigate outages, outputs
+  issues and suggestions about how to investigate further or fix them."* **He will ask for a dedicated
+  long design session; do NOT build it incrementally.** ⚠️ **This is an inference engine, not a command
+  wrapper, and that changes what we collect NOW:** every failure must be recorded as a decision rule
+  with five fields — **signal / interpretation / discriminator / next command / fix + blast radius** —
+  because the *discriminator* (what separates this cause from others producing the same signal) is only
+  knowable while the failure is in front of us. **Traps C2–C7 are six rule-generating opportunities;
+  capture them as they fire or reconstruct them later from guesses.** Spec + growing ledger live in
+  **`education/docker-swarm/COMMANDS.md`** (§11), which indexes every command by *the question it
+  answers* rather than by chapter. 🚨 **Design against confidently-wrong advice:** show the evidence that
+  matched, rank by confidence, and separate "I observed this" from "commonly caused by" — our own C1
+  experience is the case study, since the obvious explanation was wrong and a tool asserting it would
+  have been believed.
   **PARTS 1 & 2 ARE COMPLETE (Aug 13, 2026): `docker-swarm-1/2/3` exist at `.191/.192/.193`**, cloned
   from template 9000, 2 vCPU / 4 GB / 40 GB each — funded by the 16 GB VM 186 gave back on Aug 12 —
   personalized, **Docker 29.7.2 / Compose v5.4.0**, snapshotted **`s01-base-clean`** (hot, ~1.6 s each).

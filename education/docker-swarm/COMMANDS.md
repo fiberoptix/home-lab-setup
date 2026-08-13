@@ -194,6 +194,43 @@ break *future task reschedules* — silently, weeks later, with every config fil
 Andrew's idea, Aug 13, 2026: a single portable script to take to work while learning to investigate
 Swarm issues. **Worth building, and the design constraints matter more than the command list.**
 
+### 🎯 The requirement, as Andrew scoped it (Aug 13, 2026)
+
+> *"A command-line tool that will **take inputs** and help me **investigate outages**, and **output
+> issues and suggestions** about how to investigate further or fix them. It will be a **read-only**
+> tool."*
+>
+> **Timing: build it at the END of the track**, after the chapter 5 failure drills, with a deliberate
+> long design session. Not incrementally, not now.
+
+⭐ **This is a bigger ask than a command wrapper, and it changes what we must collect between now and
+then.** A wrapper runs commands and shows you output. **A tool that outputs *issues and suggestions* has
+to interpret that output** — which means it needs, for every failure we ever see:
+
+| What to capture | Why the tool needs it |
+|---|---|
+| **The signal** — the exact string, state, or count that is observable | This is what the tool pattern-matches on. Prose like "it was rejected" is useless; `Rejected` + `access forbidden` is a rule |
+| **The interpretation** — what that signal actually means mechanically | The "issue" the tool reports |
+| **The discriminator** — what distinguishes this cause from the other causes that produce the same signal | 🚨 **The hard part.** Without it the tool guesses confidently |
+| **The next command** — what to run to confirm or rule it out | The "investigate further" output |
+| **The fix, and its blast radius** | The "suggestion" output — and the read-only rule means it *prints* the fix, never applies it |
+
+🚨 **So the failure-mode tables in §2 are not documentation of past events — they are the tool's
+knowledge base, and they need to be written as decision rules from now on.** A finding recorded only as
+narrative prose in a chapter cannot be turned into a rule later without re-deriving it.
+
+⚠️ **The central risk, to design against explicitly: confidently wrong advice during an outage is worse
+than no advice.** A tool that says "your registry credential expired" when the real problem is a full
+disk will send someone down the wrong path at the worst possible moment. Three mitigations to build in:
+
+1. **Show the evidence that matched.** Never state a conclusion without printing the observed signal it
+   was derived from, so the human can reject it in one glance.
+2. **Rank by confidence and say so.** "Certain" (the signal is unambiguous), "likely", "possible —
+   check this next". Our own C1 experience is the case study: the obvious explanation was wrong, and a
+   tool asserting it would have been believed.
+3. **Distinguish "I observed this" from "this is commonly caused by".** Same honesty rule as the ✅/⚠️
+   markers in this file.
+
 ### Non-negotiables
 
 1. 🚨 **Read-only by default.** An investigation tool must be incapable of changing state. Nobody wants
@@ -231,6 +268,17 @@ thing in five minutes. **Build it to be reviewed, not just to be run.**
 
 ### Status
 
-🔲 **Not built.** Deliberately deferred until the track's failure drills are done — chapter 5 will
-produce the diagnostic sequences that are worth automating, and automating them before feeling them
-would package guesses. **This file is the growing spec; add to it every session.**
+🔲 **Not built. Deferred to the END of the track by Andrew's decision (Aug 13, 2026)**, to be preceded
+by a dedicated long design session. Chapter 5's failure drills produce the diagnostic sequences worth
+automating, and automating them before feeling them would package guesses.
+
+**What to do in the meantime — this is the actionable part:**
+
+1. **Every failure we hit gets recorded as a decision rule**, with all five fields from the table above
+   — signal, interpretation, discriminator, next command, fix + blast radius. Prose in a chapter is not
+   enough; the discriminator in particular is only knowable while the failure is in front of us.
+2. **Log the diagnostic sequence, in order, including the dead ends.** The dead ends are what teach the
+   tool to rank causes, and they are the first thing forgotten.
+3. ⚠️ **Every trap in chapters 3–5 is a rule-generating opportunity** — C2 through C7 each produce a
+   distinct signal. That is six rules if we capture them as they fire, or six reconstructions if we
+   don't.
