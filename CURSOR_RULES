@@ -48,6 +48,9 @@ study material, not a production app. Capricorn is not.
    e. (Optional) phases/phaseX_*.md - Read relevant phase files for detailed context on completed work
    f. education/CONVENTIONS.md - MANDATORY before writing or editing ANY study material in
       /education. Not optional if the session touches education content.
+   g. education/METHOD.md - MANDATORY before STARTING or RUNNING a track. It is the learning
+      method: plan, build, break, investigate, document. CONVENTIONS governs the ARTEFACT,
+      METHOD governs the WORK that produces it - a build session needs BOTH.
 3. ✅ Git Status Check:
    a. Run `git fetch --all` to update remote tracking branches (GitHub/GitLab)
    b. Run `git status` to check:
@@ -89,6 +92,8 @@ and chapter numbering that RESTARTS inside each track.
   education/README.md         the hub - track table. Keep this path; its GitHub URL was shared
                               externally with an employer.
   education/CONVENTIONS.md    HOW to write. Read before touching study material.
+  education/METHOD.md         HOW to run a track - plan, build, break, investigate,
+                              document. Read before starting or running one.
   education/tools/            shared build pipeline. Track is the FIRST ARGUMENT:
                               build_docx.py <track> [chapter numbers]   (--list to enumerate)
                               figcheck.py <track>
@@ -99,7 +104,13 @@ RULES:
 1. READ education/CONVENTIONS.md BEFORE writing or editing any educational material, and follow it.
    It is the authority on chapter structure, diagrams, figure legibility, the Word build and the
    highlight pass. Do NOT invent a new format per track.
-2. If a convention must change, change it in CONVENTIONS.md - NEVER fork it into a track README.
+1b. READ education/METHOD.md BEFORE starting or running a track, and follow it. It is the
+   authority on HOW the work is done: plan (declare the traps up front), build (scripted and
+   re-runnable, verified from INSIDE the guest), break (drills chosen for what they mean at
+   3am), investigate (the surprises ARE the deliverable), document. Reading CONVENTIONS alone
+   tells you what a chapter should look like, not how to earn the material in it.
+2. If a convention must change, change it in CONVENTIONS.md; if a working practice must change,
+   change it in METHOD.md - NEVER fork either into a track README.
 3. ONLY DOCUMENT WHAT ANDREW ACTUALLY RAN. This is what makes the material worth anything.
    A research-only chapter is allowed but MUST declare that in its opening paragraph (worked
    example: track 1, chapter 7). Where real output varies between runs, say so in the text.
@@ -112,6 +123,9 @@ RULES:
    (decisions, blockers, what was actually run).
 7. Weight material toward OPERATIONAL reasoning - failure modes, what you do at 3am, which instincts
    make an incident worse - and tie each concept to a consequence for the system being studied.
+8. METHOD.md is a FLOOR, NOT A CEILING. Deviating for a specific topic is allowed and expected.
+   But if the deviation WORKS, fold it back into METHOD.md IN THE SAME SESSION - an improvement
+   that is not written down is lost, and the next track silently reverts to the old way.
 
 === GitHub Account Info ===
 available in github_credentials.md in project root

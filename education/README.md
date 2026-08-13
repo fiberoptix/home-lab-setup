@@ -7,7 +7,8 @@ Each **track** is a self-contained series of chapters on one subject, with its o
 tested artefacts, and a Word build for printing. Every track follows the same conventions and is
 produced by the same tooling.
 
-- **How to write a track:** [`CONVENTIONS.md`](CONVENTIONS.md)
+- **How to run a track:** [`METHOD.md`](METHOD.md) — plan, build, break, investigate, document
+- **How to write a track:** [`CONVENTIONS.md`](CONVENTIONS.md) — chapter shape, diagrams, the builds
 - **Shared tooling:** [`tools/`](tools/) — the Word build, the highlighter, the figure checker
 
 ---
@@ -17,6 +18,7 @@ produced by the same tooling.
 | Track | Subject | Chapters | Built in the lab? | Status |
 |---|---|---|---|---|
 | [**k8s-k3s-redpanda**](k8s-k3s-redpanda/README.md) | Kubernetes (k3s), Redpanda, and an order management system built on both | 7 written | **Yes** — everything in Ch1–6 was run on a real cluster | ✅ Ch1–7 complete · Ch8–10 planned |
+| [**docker-swarm**](docker-swarm/README.md) | Docker Swarm: building a three-manager cluster, shipping to it from a pipeline, and breaking it | 5 planned | **Yes** — a real three-node cluster running a real application | 🔵 In progress — cluster being built |
 
 Further tracks are being scoped against the stack Andrew works on now. The roadmap lives in
 [`phases/phase15_education_program.md`](../phases/phase15_education_program.md); each track gets its

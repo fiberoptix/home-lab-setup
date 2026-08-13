@@ -4,6 +4,10 @@ These conventions apply to **every** study track in `education/`. They were work
 the [k3s + Redpanda track](k8s-k3s-redpanda/README.md) and most of them exist because something went
 wrong first. A new track should start by reading this rather than by rediscovering them.
 
+> This file governs the **artefact**. Its sibling [`METHOD.md`](METHOD.md) governs the **work that
+> produces the material** — plan, build, break, investigate, document. Read that one when starting or
+> running a track; read this one when writing or editing chapters.
+
 ---
 
 ## The one rule that matters most
