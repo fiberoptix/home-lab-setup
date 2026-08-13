@@ -1,0 +1,36 @@
+// Chapter 2, Figure 1 - how a registry credential reaches a node, and where it does NOT.
+// Point of the figure: the node's daemon never reads the CLI's config.json.
+digraph auth {
+    rankdir=TB;
+    bgcolor="white";
+    node [fontname="Helvetica" fontsize=11 shape=box style="filled,rounded" fillcolor="#f5f5f5" color="#888888"];
+    // Edge labels at 11, not 10: this figure renders slightly wider than the 7in print column, so
+    // everything is scaled down a few percent and 10pt source type lands under the 10pt floor.
+    edge [fontname="Helvetica" fontsize=11 color="#666666"];
+    graph [fontname="Helvetica" fontsize=11];
+
+    cli [label=<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="4"><TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>docker CLI</B> on the manager<BR/>reads ~/.docker/config.json<BR/>(base64 — an encoding, not encryption)</TD></TR></TABLE>>
+         fillcolor="#e8eef7" color="#4a6fa5"];
+
+    spec [label=<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="4"><TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>Service spec in the Raft log</B><BR/>credential embedded ONLY IF<BR/><B>--with-registry-auth</B> was passed<BR/><I>frozen at deploy time — a latch, not a lookup</I></TD></TR></TABLE>>
+          fillcolor="#e8f7ee" color="#3a8a5a"];
+
+    a1 [label=<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="3"><TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>agent</B><BR/>swarm-1<BR/><I>(manager too — no<BR/>extra privilege)</I></TD></TR></TABLE>>];
+    a2 [label=<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="3"><TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>agent</B><BR/>swarm-2</TD></TR></TABLE>>];
+    a3 [label=<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="3"><TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>agent</B><BR/>swarm-3</TD></TR></TABLE>>];
+
+    reg [label=<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="4"><TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>Private registry</B><BR/>gitlab…:5050</TD></TR></TABLE>>
+         fillcolor="#f7f0e8" color="#a5794a"];
+
+    cli -> spec [label="  docker stack deploy"];
+    spec -> a1;
+    spec -> a2;
+    spec -> a3;
+    a1 -> reg [label="  pull"];
+    a2 -> reg;
+    a3 -> reg;
+
+    cli -> a1 [label="  NEVER — the daemon does not\l  read the client's config.json\l" style=dashed color="#b03030" fontcolor="#b03030" constraint=false];
+
+    {rank=same; a1; a2; a3;}
+}

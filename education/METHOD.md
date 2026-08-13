@@ -115,9 +115,27 @@ learn. Its job is to make the phase *fail on purpose in useful places*.
   success is not the layer that will fail.
 - **Prove by test, not by reading config.** A config that says `passwordauthentication yes` and an
   account whose password is locked look identical until you try it.
+- ⭐ **Test the ZERO-TO-SIXTY path, not just the incremental one** (Andrew, Aug 13 — "I would normally
+  try that 0-60 approach"). A deploy onto a system that already holds state is a *different test* from
+  a deploy onto nothing, and the incremental one hides failures the from-scratch one exposes. Phase 16
+  hit this twice in ten minutes: manual `docker pull`s during investigation left two of three images
+  cached, so trap C1 half-succeeded instead of failing cleanly; and postgres surviving that partial
+  deploy meant trap C2's start-order race **could not fire at all**. ⚠️ **The commands you run while
+  investigating change the state of the thing you later test.** When a trap depends on a cold start,
+  tear the stack down and deploy from nothing — and note in the phase file which findings came from a
+  contaminated run.
 - **Snapshot at each milestone**, named so they sort. For distributed state, snapshot **all nodes
   together or not at all** — rolling one node back to where the others have moved on is a debugging
   session you did not sign up for.
+- ⭐ **Keep a "Lab vs PROD" ledger in the phase file, and write to it AT THE MOMENT you take the
+  shortcut.** Every lab makes compromises an enterprise platform would not accept — plaintext
+  registries, secrets readable on disk, managers that also run workloads, patching switched off.
+  **Record what you did, why it is acceptable here, what production does instead, and what breaks if
+  the habit follows you.** Do it in the moment: the honest reason is freshest then, and reconstructing
+  it at write-up time is how a real compromise turns into invented best practice. The chapter callout
+  is drawn from this ledger — format and threshold live in `CONVENTIONS.md` → "Lab vs PROD callouts".
+  ⚠️ **Mark which prescriptions were verified and which are recited.** Added Aug 13 after Phase 16
+  Part 2 banked eight of these before anyone had written one down.
 
 ### 3. Break — drills chosen for consequence, not for drama
 
@@ -176,6 +194,8 @@ compute it. None of that is in any tutorial, and all of it came from following a
 | **Drive the build yourself when the point was for Andrew to learn it** | Always faster, and it hollows out the material: "only document what you actually ran" means nothing if the AI ran it. Phase 16 Part 1 was lost this way. |
 | **Narrate the answer the moment a trap fires** | Same mistake as pre-empting it, one step later. Let him diagnose; debugging while confused is the skill. |
 | Re-teach routine lab plumbing in a chapter | It buries the subject. Assume what the lab has proven before; explain what and why *this* build needed. |
+| **Let a lab shortcut go unrecorded** | The reader is doing this on an enterprise platform. An unnamed shortcut is one they will carry into production believing it is the normal way. |
+| **State "in production you would…" without saying whether you verified it** | It is the one way the Lab-vs-PROD callout can actively mislead: a plausible recitation wearing the authority of something tested. |
 | Document something you did not run | The material's entire authority is that every command was executed and every output is real. |
 | "Fix" a known-and-accepted issue unprompted | Track 1's four sub-10pt figures were **accepted after Andrew printed them**. Re-fixing accepted debt is churn, and it overrides a human decision. |
 | Skip a snapshot because the drill "looks safe" | The value of drills comes from rollback being instant. The one you skip is the one you need. |

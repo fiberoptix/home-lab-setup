@@ -90,6 +90,61 @@ reasoning is the part that transfers to a different lab; the commands are not.
 The test: **would this sentence still be worth reading by someone who already runs the lab?** If it
 only tells them how to do something they do weekly, cut it.
 
+⭐ **Include the specifics and the caveats — that is the material** (Andrew, Aug 13). Every command
+that was run, every file that was written, and the mechanism behind anything that surprised us: how
+registry auth actually reaches a node, why a flag restarted one service and not another, why a port
+number was not a free choice. **Precision is the point; a chapter that omits the caveat is a tutorial.**
+
+🚨 **But findings about the deployed APPLICATION belong in a chapter ONLY when they carry a general
+lesson — and then name the LESSON, not the application's private details** (Andrew, Aug 13):
+
+| App-specific finding | In the chapter? |
+|---|---|
+| Credentials baked into an image layer, so anyone who can pull the image holds them | ✅ **Yes** — general, transferable, and cannot be fixed by editing a file |
+| A compose file on disk that does not describe what is actually running | ✅ **Yes** — config drift; "just redeploy from the file" is dangerous |
+| Build-time env vars (`VITE_*`) baked into a bundle, so setting them at runtime does nothing | ✅ **Yes** — general, and it constrained our port mapping |
+| A non-production environment pointed at **production** third-party credentials | ✅ **Yes, as a PATTERN** — never the provider, the keys, or the values |
+| A gap in the app's migration numbering | ❌ No — trivia about one codebase |
+| The actual secret values, project names, or customer-facing identifiers | 🚨 **Never** |
+
+The phase file keeps the full detail as the working record. The chapter carries only what a reader who
+has never seen this application would still learn something from.
+
+### ⭐ "Lab vs PROD" callouts
+
+The material is written in a home lab and read by someone working on an enterprise platform. **The
+danger is not forgetting a command — it is carrying a lab shortcut into production without ever
+having been told it was a shortcut.** Name them where they happen.
+
+**Format: a blockquote with a bold lead label.** No new machinery — chapters already use blockquotes
+throughout and `build_docx.py` styles them as pull-outs, so these render in Word with no pipeline
+work.
+
+> **Lab vs PROD — plaintext registry.** *In the lab:* `/etc/docker/daemon.json` lists the registry
+> under `insecure-registries`, so pulls and `docker login` cross the LAN over HTTP. *Why it's
+> acceptable here:* isolated home network, and the credentials are lab-only by rule. *In production:*
+> the registry gets a real TLS certificate and `insecure-registries` is never set. *If you carry the
+> habit:* you have put a registry credential on the wire in cleartext — and `insecure-registries` is
+> precisely the knob people reach for to make a TLS error "go away", silencing a warning that was
+> correct.
+
+**Four fields, in that order.** *In the lab* → *Why it's acceptable here* → *In production* → ***If
+you carry the habit*.** ⭐ **The fourth field is the one that matters**; without it the callout is a
+disclaimer rather than operational reasoning. "Why it's acceptable here" must give the actual reason,
+never "it's just a lab".
+
+🚨 **Threshold — or they become wallpaper.** A callout earns its place when the lab choice would be
+**WRONG** in production (security, durability, availability, compliance), **not merely SMALLER**.
+"Three nodes here, thirty in prod" is scale and does **not** qualify. "Registry credentials cross the
+wire in cleartext" does. If every page has one, the important ones drown.
+
+⚠️ **Mark unverified prescriptions as such.** "In production you would…" is sometimes reported from
+something we tested and sometimes recited from training data. Say which. Presenting a plausible
+opinion as an established practice is the one way this convention can actively mislead.
+
+**Retrofit status:** introduced with the `docker-swarm` track (Aug 13, 2026). Track 1 predates it and
+is **not** to be churned for this; see the backlog note in `README.md`.
+
 ---
 
 ## Diagrams

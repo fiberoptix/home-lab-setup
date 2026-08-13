@@ -22,8 +22,8 @@ plan, the decisions, the traps that are deliberately left in place, and what was
 
 | # | Chapter | Covers | Status |
 |---|---|---|---|
-| 01 | Building the cluster | Provisioning nodes from a template as a re-runnable script; manager vs worker; Raft quorum; what `Reachable` means | 🔲 Planned |
-| 02 | Shipping to it | The stack file, `docker secret`, compose-vs-stack, `--with-registry-auth`, the routing mesh, digests vs tags | 🔲 Planned |
+| 01 | [Building the cluster](chapter01_building_the_cluster.md) | Quorum arithmetic and why 2 managers are worse than 1; the manager-vs-worker token trap; idempotent provisioning; the address pool and CA expiry `swarm init` creates without telling you; `Ready` vs `Active` vs `Reachable` | ✅ Written |
+| 02 | [Shipping to it](chapter02_shipping_to_it.md) | Stack vs compose and what Swarm silently ignores; secrets as files; **how registry auth really reaches a node**; why `deploy` exiting 0 means nothing; why replica counts mislead; digests vs tags; the routing mesh | ✅ Written |
 | 03 | A pipeline that deploys | Portable deploy logic, deploy tokens, and why an HA control plane is not an HA delivery path | 🔲 Planned |
 | 04 | State, where Swarm hurts | No PersistentVolumeClaim equivalent; node-local volumes; the choices and what each costs | 🔲 Planned |
 | 05 | Failure drills | Quorum loss, drain, broken rollouts, silent empty-volume data loss, secret rotation | 🔲 Planned |

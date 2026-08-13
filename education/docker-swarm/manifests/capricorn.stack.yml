@@ -1,0 +1,199 @@
+# Capricorn on Docker Swarm — lab stack
+#
+# Phase 16, Part 3. Deployed with:
+#   docker stack deploy -c capricorn.stack.yml --with-registry-auth capricorn
+#
+# This file lives in home-lab-setup, NOT in the Capricorn repo. Capricorn is never modified.
+# It is modelled on Capricorn's QA deployment (docker/docker-compose.qa.deploy.yml), because
+# QA is the variant that serves over plain HTTP with no Traefik in front — same as this lab.
+#
+# ---------------------------------------------------------------------------------------------
+# WHY THE PORTS ARE 5001/5002 AND NOT 8080
+# ---------------------------------------------------------------------------------------------
+# frontend/src/config/api.ts resolves the API base at RUNTIME in the browser:
+#   1. build-time VITE_API_URL, if one was baked in          -> not set in frontend:latest
+#   2. page served over HTTPS  -> same origin (Traefik routes /api)   <- how PROD-local works
+#   3. page served over HTTP   -> http://<window.location.hostname>:5002
+# frontend:latest is built from Dockerfile.frontend.qa, which sets only VITE_BUILD_NUMBER.
+# We serve plain HTTP, so branch 3 applies and :5002 is COMPILED INTO THE BUNDLE.
+# Publishing the backend anywhere else silently breaks every API call in the UI.
+# Setting VITE_API_URL here would do nothing — Vite substitutes at build time, not run time.
+#
+# ---------------------------------------------------------------------------------------------
+# DELIBERATE OMISSIONS — DO NOT "FIX" THESE
+# ---------------------------------------------------------------------------------------------
+#  * No healthcheck: blocks are absent on purpose so trap C6 can show that update_config /
+#    rollback_config cannot detect a container that starts, stays up, and serves garbage.
+#    Healthchecks get ADDED after C6 has been felt, not before.
+#  * No Traefik / no TLS: this stack is deliberately QA-shaped. See the Lab vs PROD ledger.
+#  * redis is NOT pinned: trap C3 needs it free to reschedule onto empty storage.
+#  * Capricorn's third-party credentials (Plaid, market data, the Fernet export key) are
+#    deliberately NOT carried over — hard rule B7. Features depending on them will degrade;
+#    that is expected and is itself worth observing.
+
+version: "3.8"
+
+services:
+
+  frontend:
+    image: gitlab.gothamtechnologies.com:5050/production/capricorn/frontend:latest
+    ports:
+      # mode: ingress = the routing mesh. Any node answers on 5001, whether or not it runs a task.
+      - target: 80
+        published: 5001
+        protocol: tcp
+        mode: ingress
+    networks:
+      - capricorn
+    deploy:
+      # 3 replicas = one per node, which is what makes trap C1 legible: without
+      # --with-registry-auth only the manager you logged in on can pull.
+      replicas: 3
+      update_config:
+        parallelism: 1
+        delay: 10s
+        order: start-first
+        failure_action: rollback
+      rollback_config:
+        parallelism: 1
+        delay: 5s
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 64M
+
+  backend:
+    image: gitlab.gothamtechnologies.com:5050/production/capricorn/backend:latest
+    # The image has NO entrypoint, only a Cmd, so `command:` replaces it outright.
+    #
+    # The app wants DATABASE_URL — one string with the password inside it. Swarm delivers
+    # secrets as FILES. This shell bridges the two, and both details matter:
+    #   $$  escapes compose-format interpolation so $(cat ...) survives to the container.
+    #       A single $ is evaluated on the manager at deploy time and yields an empty
+    #       password, producing an auth error that points at postgres instead of at this file.
+    #   exec  replaces the shell with uvicorn so uvicorn is PID 1 and receives SIGTERM.
+    #       Without it, sh holds PID 1, never forwards the signal, and EVERY rolling update
+    #       is ungraceful until the grace period expires and the task is SIGKILLed.
+    command:
+      - sh
+      - -c
+      - 'export DATABASE_URL="postgresql://capricorn:$$(cat /run/secrets/pg_password)@postgres:5432/capricorn_lab"; exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4'
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      PYTHONUNBUFFERED: "1"
+      DEBUG: "false"
+    secrets:
+      - pg_password
+    ports:
+      # 5002 is not a choice — see the header. The bundle calls this port by name.
+      - target: 8000
+        published: 5002
+        protocol: tcp
+        mode: ingress
+    networks:
+      - capricorn
+    deploy:
+      replicas: 2
+      update_config:
+        parallelism: 1
+        delay: 10s
+        order: start-first
+        failure_action: rollback
+      rollback_config:
+        parallelism: 1
+        delay: 5s
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 256M
+
+  postgres:
+    image: gitlab.gothamtechnologies.com:5050/production/capricorn/postgres:latest
+    environment:
+      # The image BAKES ENV POSTGRES_USER/POSTGRES_PASSWORD/POSTGRES_DB (see Dockerfile.postgres),
+      # which is why QA supplies none. We override two of the three:
+      #
+      # POSTGRES_PASSWORD: "" neutralises the baked-in value. The official entrypoint's
+      #   file_env() aborts with "both are set (but are exclusive)" if POSTGRES_PASSWORD and
+      #   POSTGRES_PASSWORD_FILE are BOTH non-empty — an empty string is falsy, so this is
+      #   what makes the secret usable at all.
+      POSTGRES_PASSWORD: ""
+      POSTGRES_PASSWORD_FILE: /run/secrets/pg_password
+      # Renamed so nothing can be confused with capricorn_prod. Safe: the init SQL only
+      # mentions capricorn_db inside comments.
+      POSTGRES_DB: capricorn_lab
+      #
+      # POSTGRES_USER is deliberately NOT overridden. 001_schema.sql line 174 runs
+      # "GRANT ALL PRIVILEGES ... TO capricorn" unconditionally, so any other username makes
+      # initialisation abort half-built with 'role "capricorn" does not exist'.
+    secrets:
+      - pg_password
+    volumes:
+      # Own volume name per hard rule B2 — never postgres_data_prod, never .184's data.
+      - postgres_data_swarm:/var/lib/postgresql/data
+    networks:
+      - capricorn
+    deploy:
+      replicas: 1
+      placement:
+        # A3: pinned. In production this would not be a container at all — it would be real
+        # PG hosts with replication and PITR. The pin keeps the lab's data still, and it
+        # trades availability for durability: postgres dies with docker-swarm-1.
+        constraints:
+          - node.hostname == docker-swarm-1
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 256M
+
+  redis:
+    image: redis:7.2.4-alpine
+    # --appendonly yes copied from QA. Without persistence enabled there would be nothing
+    # for trap C3 to lose, and the drill would prove nothing.
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data_swarm:/data
+    networks:
+      - capricorn
+    deploy:
+      replicas: 1
+      # NOT pinned, on purpose. C3 forces this onto another node to show a stateful task
+      # coming up healthy against empty storage.
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 64M
+
+secrets:
+  pg_password:
+    # Created out of band so no credential is ever written into this file:
+    #   printf '<lab-only-password>' | docker secret create pg_password -
+    external: true
+
+networks:
+  capricorn:
+    # overlay, not bridge. Capricorn's compose uses bridge, which is node-local and cannot
+    # carry cross-node service discovery.
+    driver: overlay
+
+volumes:
+  postgres_data_swarm:
+  redis_data_swarm:

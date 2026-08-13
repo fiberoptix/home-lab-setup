@@ -1,6 +1,161 @@
 # Current Phase
 
-**Updated:** August 13, 2026 - 1:55 PM EDT
+**Updated:** August 13, 2026 - 4:25 PM EDT
+
+---
+
+## ✅ PHASE 16 PART 3 COMPLETE — Capricorn running on the swarm (Aug 13, 2:20–4:12 PM EDT)
+
+**State:** `backend` 2/2, `frontend` 3/3, `postgres` 1/1 (pinned to `docker-swarm-1`), `redis` 1/1.
+UI at `http://192.168.1.191:5001`, API on `:5002` answering from **all three** nodes. Capricorn's own
+repository was never modified. Chapters 1 and 2 are **written**; docx built; figures pass `figcheck`.
+
+**Written this session:**
+
+| File | What |
+|---|---|
+| `education/docker-swarm/manifests/capricorn.stack.yml` | The stack — modelled on the app's QA variant (plain HTTP, no proxy) because that is what this lab resembles |
+| `education/docker-swarm/scripts/deploy_swarm.sh` | login → deploy → **wait for convergence** → print digests. Part 4 adds no deploy logic, only a runner that calls this |
+| `education/docker-swarm/chapter01_building_the_cluster.md` | Quorum arithmetic, the token trap, idempotence, `Ready`/`Active`/`Reachable`, 5 Lab-vs-PROD callouts |
+| `education/docker-swarm/chapter02_shipping_to_it.md` | Stack vs compose, secrets-as-files, **the registry-auth finding**, false-green convergence, digests vs tags, routing mesh |
+| `education/docker-swarm/diagrams/*.dot` + `images/*.png` | 3 figures, all ≥10pt on page |
+
+### 🚨 The finding of the session — and our first explanation was WRONG
+
+Trap C1 (deploy without `--with-registry-auth`) fired as designed, but the obvious diagnosis —
+*"the manager has credentials, the workers don't"* — is **false**. `docker stack ps` showed the frontend
+**Rejected on all three nodes including the manager**, the node whose `~/.docker/config.json` holds a
+working credential and where `docker pull` succeeds by hand.
+
+⭐ **A node's daemon never reads the CLI's `config.json` when running a task.** Only the client does.
+The agent authenticates *solely* with the credential frozen into the service spec by
+`--with-registry-auth`. **A manager has no more pull privilege than a worker**, and being able to pull
+by hand on a host proves nothing about whether a task can.
+
+⭐ **Worse, our own debugging created the confusing symptom.** `postgres` and `backend` only *appeared*
+to work on `.191` because our diagnostic `docker pull`s had already put those images in that node's
+local cache — a task whose image is local never contacts the registry. The frontend was the one service
+we had never pulled by hand, so it was the only one failing honestly, and therefore looked like the
+odd one out. **This is now a standing methodological note in `METHOD.md`.**
+
+Also visible: **exactly three `Rejected` rows per slot** = `restart_policy.max_attempts: 3` exhausted,
+after which **Swarm stops retrying permanently.** That is why the false green was stable, not transient.
+
+### 🚨 Two false-green mechanisms, both now handled in the script
+
+1. `docker stack deploy` **exits 0 when the manager ACCEPTS desired state**, not when anything runs.
+2. **Replica count is not convergence.** `order: start-first` holds `3/3` through a full rolling
+   replacement, and — worse — `failure_action: rollback` restores the old version *at full replicas*,
+   so a count-only check calls a **rejected deploy a success**. The script now treats
+   `UpdateStatus.State` of `rollback_*` as a hard failure.
+
+⚠️ **Two claims recorded as UNVERIFIED, to be falsified during C6 — do not teach as fact:** (a) the
+embedded registry credential is a latch, so token expiry will break *future task reschedules* silently
+rather than failing at deploy time; (b) `UpdateStatus` persists until the next update begins, which
+would let a stale `rollback_completed` fail a healthy cluster.
+
+### Other mechanisms worth remembering
+
+- **Blast radius is selective.** Adding `--with-registry-auth` recreated the three services on the
+  private registry and left `redis:7.2.4-alpine` (Docker Hub) **completely untouched** — postgres got
+  bounced despite working, purely for sharing a registry. A third run with an unchanged file recreated
+  **nothing**. A service is recreated when its *spec* changes, and "spec" includes things you never
+  wrote in the file.
+- **Digests, not tags.** Swarm resolves each tag to a digest at accept time and stores that, so
+  services do not track a moving tag. Even the pinned `redis:7.2.4-alpine` recorded one. Sets up C7.
+- **A frontend build dictated our network topology.** The bundle resolves the API base at runtime and,
+  over HTTP, hardcodes `<hostname>:5002` — so the backend's published port was **not a free choice**.
+  General lesson: `VITE_*` is substituted at **build** time; setting it in a stack file does nothing.
+- **Secret-as-file vs config-as-string.** Wrapped the backend in `sh -c` to build `DATABASE_URL` from
+  `/run/secrets/…`; `$$` because Compose interpolates `$`, and **`exec` so the app is PID 1 and gets
+  `SIGTERM`** (without it every rolling update becomes a 10s stall then `SIGKILL`).
+
+### ⚠️ Debt carried forward
+
+- **Trap C2 is contaminated** — the diagnostic pulls pre-warmed postgres, so the backend never met a
+  cold database. Needs a restore to `s02-swarm-up` to run honestly.
+- New ledger rows **L11** (plain HTTP, no TLS — note it *arrived as a consequence of an image*, not a
+  decision), **L12** (one long-lived token), **L13** (no healthchecks — deliberate, C6 needs it).
+- `CONVENTIONS.md` gained Andrew's documentation filter: full specifics and caveats are the material,
+  but **application** findings only earn a chapter place when they carry a transferable lesson, and
+  then name the **lesson**, never the app's private details.
+
+---
+
+## ⭐ TWO ADDITIONS DECIDED MID-PHASE (Aug 13, ~2 PM) — build paused to talk them through
+
+### 1. "Lab vs PROD" callouts — a new convention
+
+**Andrew's framing:** we build on a single-host lab; an enterprise production environment would do
+several of these things differently. **The risk is not forgetting a command — it is carrying a lab
+shortcut into production having never been told it was one.** Also the sentence that reads as judgment
+rather than recall at work: *"we did X, in production you'd do Y, because Z."*
+
+⚠️ **This was already happening ad hoc** — track 1's "three brokers in one VM is not real HA", and
+this phase's D2. Formalizing an existing instinct, which is the `METHOD.md` amendment pattern working
+as designed.
+
+**Split applied per our own rule:** `CONVENTIONS.md` gets the **form** (artefact), `METHOD.md`'s build
+stage gets the **duty** (work), and the phase file carries a running **ledger** written *at the moment
+the shortcut is taken* — the honest reason is freshest then, and reconstructing it later is how a real
+compromise turns into invented best practice.
+
+**Four fields, in order:** *In the lab* → *Why it's acceptable here* → *In production* → ***If you
+carry the habit***. ⭐ **The fourth is the one that matters** — without it the callout is a disclaimer.
+"Why it's acceptable here" must give the real reason, never "it's just a lab".
+
+🚨 **Threshold, so they do not become wallpaper: a callout earns its place only when the lab choice
+would be WRONG in production — security, durability, availability, compliance — NOT merely SMALLER.**
+"Three nodes here, thirty in prod" is scale and does not qualify. If every page has one, the important
+ones drown.
+
+⚠️ **Verified vs recited must be marked.** When the AI says "in production you would…", that is
+sometimes reported from something tested and sometimes recited from training data. **A plausible
+recitation wearing the authority of a tested fact is the one way this convention actively misleads** —
+same discipline as the CA-hash caveat earlier today.
+
+✅ **No new machinery needed:** a blockquote with a bold lead label. Chapters already use blockquotes
+heavily (25–80 each) and `build_docx.py` explicitly styles them as pull-outs, so they render in Word
+today.
+
+**Label: "Lab vs PROD"** (Andrew's pick). **8 rows already banked as L1–L8** in
+`phases/phase16_docker_swarm.md` from Parts 1–2 alone: plaintext registry, `Autolock: false`, managers
+also running workloads, three VMs on one host, patching masked, snapshots-not-backups, password SSH,
+`:latest` tags. 📌 **Track 1 is NOT being retrofitted** — Andrew's call, it is finished and printed;
+revisit as a separate deliberate task (backlog note in `education/README.md`).
+
+### 2. Deployment: three wrappers, one script — not three alternatives
+
+Andrew asked to compare manual scripts vs GitLab CI vs Jenkins. ✅ **His recollection is right and was
+already recorded: the employer runs GitHub for source and Jenkins for CI** (confirmed Aug 12), while
+the lab runs GitLab. **Jenkins is explicitly on the study list**, hence Phase 17.
+
+⭐ **The reframe: these are not alternatives. They are three wrappers around the same
+`deploy_swarm.sh`** — which is what the phase plan already assumed, so Andrew's instinct matched the
+design. **Manual** (Part 3) proves a *working* deploy exists before CI touches it, so a Part 4 failure
+is unambiguously a wiring problem; its production disqualifier is **not ergonomics but access
+control** — it requires humans to hold SSH into production managers. **GitLab CI** (Part 4) buys audit
+trail, approval gate, masked secrets and no human SSH, on a runner that already exists. **Jenkins**
+(Phase 17) matches the employer but is heavier, and Groovy is expressive enough that teams put deploy
+logic *inside* the Jenkinsfile — the exact anti-pattern this design avoids.
+
+**The boundary:** script owns registry login, `docker stack deploy`, convergence polling, rollback.
+Wrapper owns triggers, authorization, secret source, **host targeting**, notifications. ⚠️ Host
+targeting living in the wrapper **is where trap C4 lives**.
+
+⭐ **Falsifiable claim recorded for Phase 17 to test: if Jenkins forces a change to a single line of
+`deploy_swarm.sh`, the boundary was drawn wrong.** A real test of the abstraction, not an assertion.
+
+**Two things not in Andrew's list:** (a) **pull-based GitOps** — cluster-side reconciliation so no CI
+system holds prod credentials — exists in Kubernetes (Argo CD, Flux) and **has no real Swarm
+equivalent**; ⭐ strong Part 7 comparison material because it is architectural, not a feature
+checklist. (b) **Phase 17 must choose GitLab or GitHub as source** — GitHub matches the employer and
+`push_github.sh` already publishes there, but it is **public**, so webhooks inbound to the home lab
+need exposure or polling. Deferred to Phase 17, recorded so it is not rediscovered.
+
+**Bearing on A2:** the GitLab CI file still earns its place — it proves the wrapper boundary once,
+cheaply, on existing infrastructure — **but it needs the `workflow: rules:` guard** or every backup
+push fires a pipeline.
 
 ---
 

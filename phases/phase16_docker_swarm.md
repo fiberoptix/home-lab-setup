@@ -41,7 +41,7 @@ the original list read as five things blocking the phase, which was misleading.
 |---|---|---|---|
 | A1 | Will the `.182` runner pick up jobs for `home-lab-setup`? | *verified, no human needed* | ✅ **CLOSED Aug 12 — yes, no runner change needed.** |
 | A2 | Should this repo gain a `.gitlab-ci.yml` at all? | 🙋 **Andrew** | ⏸️ **DEFERRED to Part 4 (Aug 13)** — decide it with the `workflow: rules:` guard, since they are one decision |
-| A3 | postgres storage: pin to a node, or NAS volume? | Andrew, **while doing Part 5** | 🔒 **DEFERRED BY DESIGN** — do not pre-decide |
+| A3 | postgres storage: pin to a node, or NAS volume? | 🙋 **Andrew** | ✅ **RESOLVED Aug 13 (early, by argument) — PIN to a node, plus a time-boxed ~30 min NAS-volume demonstration.** See "A3 resolved" below. |
 | A4 | Which published port, and does it collide? | *resolved, default chosen* | ✅ **CLOSED — publish `8080`.** |
 | A5 | Is `education/docker-swarm/{scripts,manifests}/` the right home for the stack file and deploy script? | 🙋 **Andrew** | ✅ **CLOSED Aug 13 — yes, keep it in the track.** A track is self-contained per `CONVENTIONS.md`. Later tracks copy this. |
 
@@ -69,6 +69,34 @@ Three things fall out of that, all favourable:
 on this project, adding the file is sufficient to start producing pipelines on every backup push. The
 `workflow: rules:` guard is therefore not optional polish — it is part of the same decision.
 
+**A3 — resolved early, and by argument rather than by trying both (Aug 13).** ⭐ **Andrew's position:**
+*in production the OMS database is not a container at all — it is real PG hosts.* Containerized
+system-of-record is the wrong shape: you want streaming replication, PITR, a tested restore path and an
+upgrade story that does not involve a scheduler. Capricorn self-bootstraps demo data, so **losing the
+lab's database costs nothing**, and the phase's real subject is **deploying and operating a
+multi-container application on Swarm.**
+
+**Accepted, with one trim and one consequence.**
+
+⚠️ **The trim:** "no database runs in a container" is right for the **system of record** and too strong
+as a general rule — Redis is in this very stack, and OpenSearch, MongoDB and Redpanda are all on the
+study list and are all routinely run **on** the orchestrator, including in finance. The defensible
+claim is the narrow one.
+
+⭐ **The consequence — and the reason C3 survives:** the drill's value was never our data, it is the
+**failure signature**, and that signature does not disappear when postgres becomes external, it
+**relocates** — to Redis, to a service writing uploads or reports to a volume, to a Prometheus TSDB, to
+an OpenSearch data node. **Andrew's argument IS the drill's conclusion**, so skipping the drill would
+mean asserting the conclusion without earning it, which `METHOD.md` forbids outright. Hence C3
+re-scoped to Redis (see traps table).
+
+**So: postgres gets a `placement.constraints` pin to one node**, data is always demo data, and the
+chapter says plainly that the production answer is an external cluster. **Plus a ~30 minute time-boxed
+demonstration of a NAS-backed volume via `driver_opts`** — not as the architecture, but because it is
+a real Swarm skill and how people solve this when they have no choice. ⭐ **The point of the timebox is
+to be able to say "I have done it and here is why I would not reach for it"**, which carries more
+weight in a conversation than either building it properly or skipping it.
+
 **A4 — closed.** The nodes are fresh VMs on their own IPs, so a published port cannot collide with
 anything existing in the lab; the only real constraints are avoiding Swarm's own `2377`/`7946`/`4789`.
 **Publish `8080`** and move on. (Recorded rather than dropped, because "why 8080" is the sort of
@@ -95,7 +123,7 @@ pre-empting them removes the lesson and leaves you with a tutorial.
 |---|---|---|
 | C1 | Run `docker stack deploy` **without** `--with-registry-auth` once, on purpose. | Tasks wedge in `Preparing`/`Rejected` with `No such image`, but *only* on nodes that are not the manager you logged in on — while the same image pulls fine by hand. Auth is per-task, not per-deploy. |
 | C2 | Let the backend start before postgres is ready. Swarm **ignores `depends_on`**, which Capricorn's compose file uses. | You find out whether the app retries its DB connection or crash-loops — a property of the app you cannot learn from the compose file. |
-| C3 | Force postgres onto a different node and watch it come up **healthy with an empty database**. | Silent data loss that looks like a clean deploy. The most valuable thing in this phase. |
+| C3 | ♻️ **RE-SCOPED Aug 13 — run on REDIS, not postgres.** Write a key, force a save, force the task onto another node, and watch it come up **healthy with empty storage**. | Silent state loss that looks like a clean deploy. ⚠️ **The lesson is the failure SIGNATURE, not the database:** *a task carrying node-local state can be silently rescheduled onto empty storage, and the orchestrator reports success.* Redis is the honest vehicle because **Redis really does run in containers in production** — lost sessions, a cache stampede against a cold backend, lost work if anything treats it as a queue. Postgres is excluded because it is **pinned** (A3) and because in production it would not be a container at all. |
 | C4 | Point the deploy job at one manager by IP, then kill that manager while the cluster stays healthy. | HA control plane ≠ HA delivery path. The best CI lesson here. |
 | C5 | Take quorum down to 1 of 3 and try to change something. | Containers keep serving; the control plane refuses all changes. Degraded ≠ down, and the reflex to "just bounce it" turns a serving cluster into a real outage. |
 | C6 | Roll out a deliberately broken image tag. | Whether `update_config` / `rollback_config` actually saves you, and why a real healthcheck is not optional. |
@@ -107,6 +135,8 @@ pre-empting them removes the lesson and leaves you with a tutorial.
 |---|---|---|
 | D1 | `/opt/capricorn/docker-compose.yml` on `.184` declares `postgres:15.5-alpine`, but the **running container is the custom `production/capricorn/postgres:latest`**. The file does not describe what is deployed, so "just redeploy from the compose file" would quietly change PROD's database image. | ⚠️ **Application layer — out of this repo's ownership.** Recorded because our stack file must reference the image that really runs, and because it is a perfect example of config drift. Raise with whoever owns Capricorn. |
 | D2 | Three VMs on one physical host simulates **node** failure, not **host** failure. | Honest caveat to state in the chapter, same as Phase 14's three-brokers-in-one-VM note. Every drill is a real Raft event; losing the Z6 still loses all three. |
+| D4 | 🚨 **`docker/docker-compose.qa.deploy.yml` is COMMITTED to the Capricorn repo with live third-party credentials inline** — a `DATABASE_URL` with the password, `MARKET_DATA_API_KEY`, `PLAID_CLIENT_ID`, `PLAID_SECRET`, and `EXPORT_ENCRYPTION_KEY` (the Fernet key that decrypts Plaid access tokens in `/data/export` files). ⚠️ **`PLAID_ENV=production`** — the QA environment is pointed at Plaid **production**, so these are not sandbox credentials. | ⚠️ **Application layer — raise with whoever owns Capricorn; NOT fixed here.** Materially worse than D3: D3 is a database password on one host, this is a **committed** set of live third-party financial-API credentials plus the key that decrypts exported access tokens. Editing the file does not help — it is in git history. Rotation at the provider is the only real remedy. **Values were deliberately NOT copied into this repo** (rule B7); the finding is recorded, the secrets are not. |
+| D5 | ⚠️ **`Dockerfile.postgres` bakes `ENV POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` into the image**, which is why QA's compose supplies no postgres environment at all. The same password also appears **in a comment on line 3 of `001_schema.sql`**, likewise baked into a layer. | ⚠️ **Application layer.** Consequence worth stating: **anyone who can pull the image has the database password** — including this phase's own `swarm-lab-pull` deploy token, which was granted `read_registry` for image pulls and got a credential as a side effect. **This is why our stack overrides `POSTGRES_PASSWORD` to `""` and supplies a lab-only value through `docker secret`** instead of inheriting the baked one. A credential in an image layer cannot be removed by editing a file. |
 | D3 | **Capricorn's compose on `.184` holds its secrets in plaintext, inline** — `POSTGRES_PASSWORD`, `POSTGRES_USER`, `POSTGRES_DB`, and a `DATABASE_URL` containing the password. There is **no `.env` file**; the values are committed into the compose file itself. | ⚠️ **Application layer — not ours to fix**, but it is the reason for hard rule B7. Note that `push_github.sh` would likely catch a leaked `DATABASE_URL` (its URL-with-password gate) but **would not catch a bare `POSTGRES_PASSWORD=` line** — so the protection against copy-paste is partial and accidental, not something to rely on. Raise the plaintext-secrets issue with whoever owns Capricorn. |
 
 ---
@@ -877,6 +907,227 @@ swarm means abandoning this one.)
 | # | Drill | Why here |
 |---|---|---|
 | **New** | `docker swarm ca --rotate` on the live three-manager cluster. | Settles the token-head question by evidence — if it is a CA hash, **both** tokens' heads must change. Doubles as a real certificate-rotation exercise across three managers, which is the SRE-relevant version. Deliberately **not** run at 1 node, where it was trivial and taught nothing. |
+
+---
+
+### Part 3 — Capricorn deployed across three nodes ✅ COMPLETE (August 13, 2026, 2:20–4:12 PM EDT)
+
+**Result:** `backend` 2/2, `frontend` 3/3, `postgres` 1/1, `redis` 1/1. UI renders at
+`http://192.168.1.191:5001`; the API answers on `:5002` from **all three** nodes, including nodes
+running no backend task. Capricorn's own repository was never modified (hard rule B7 held).
+
+**Artefacts written — both live in `home-lab-setup`, not in Capricorn:**
+
+| File | Role |
+|---|---|
+| `education/docker-swarm/manifests/capricorn.stack.yml` | The stack. Modelled on Capricorn's **QA** deployment, the variant that serves plain HTTP with no proxy — the closest analogue to this lab. |
+| `education/docker-swarm/scripts/deploy_swarm.sh` | Login → deploy → **wait for convergence** → report digests. Part 4 adds no deploy logic; it only arranges for a runner to call this file. |
+
+#### The command sequence that actually worked
+
+```bash
+# 1. the secret must exist first - the stack declares it external, so deploy fails without it
+printf '<lab-only-password>' | docker secret create pg_password -
+
+# 2. registry credential, on the manager you deploy from
+docker login gitlab.gothamtechnologies.com:5050 -u swarm-lab-pull      # interactive, masked
+
+# 3. deploy - the flag is NOT optional against a private registry
+docker stack deploy -c capricorn.stack.yml --with-registry-auth capricorn
+```
+
+#### 🚨 Trap C1 fired — and our first explanation of it was WRONG
+
+Deploying without `--with-registry-auth` produced `access forbidden` and services stuck at 0
+replicas. The intuitive reading — *"the manager has credentials, the workers don't"* — is **false**,
+and `docker stack ps` disproved it:
+
+- **`frontend` was Rejected on all three nodes, `docker-swarm-1` included** — the very node whose
+  `~/.docker/config.json` holds a working credential, and where `docker pull` succeeds by hand.
+- ⭐ **A node's daemon does not read the CLI's `config.json` when it runs a task.** Only the *client*
+  does. The agent authenticates **solely** with the credential frozen into the service spec, which is
+  what `--with-registry-auth` puts there. **A manager is no more privileged than a worker at pull
+  time.** Being able to pull an image by hand on a host tells you nothing about whether a task can.
+- ⭐ **`postgres` and `backend` only *appeared* to work on `.191` because those images were already in
+  that node's local image cache**, from `docker pull` commands we ran while investigating. **A task
+  whose image is already local never contacts the registry, so it cannot be refused.** `frontend` had
+  never been pulled by hand, so it failed honestly — and looked like the *only* broken service.
+  🚨 **Our own debugging manufactured the asymmetry that made the failure hard to read.**
+- ⭐ **Exactly three `Rejected` rows per task slot** = `restart_policy.max_attempts: 3` being consumed.
+  After the third refusal **Swarm stops trying, permanently.** That is why the false green was stable
+  rather than transient: `deploy` had already exited 0, the retries quietly exhausted themselves, and
+  the service sat at zero replicas indefinitely with no error surfaced anywhere you would look.
+
+⚠️ **Delayed-failure mode, recorded as a claim to test:** the credential is stored **in the service
+spec in the Raft log**, so it is a *latch*, not a live lookup. When the token expires (Dec 31 2026),
+tasks rescheduled **after** that date should fail to pull while nothing has changed and every config
+file still reads correctly. Redeploying refreshes it. **Not yet verified — do not teach as fact.**
+
+#### The blast radius of a deploy is not "everything" — and not "nothing"
+
+Re-deploying with the flag added recreated `backend`, `frontend` and `postgres` but **left `redis`
+untouched** (its task ran 30 minutes across two later deploys, with no shutdown row at all).
+
+⭐ `--with-registry-auth` attaches a credential **only for images whose registry needs one**, so it
+changed the spec of the three services on the private registry and did nothing to
+`redis:7.2.4-alpine` from Docker Hub. **`postgres` was working correctly and got bounced anyway,
+purely because it shares a registry with the services that were broken.** Nothing in the command you
+type tells you which services are in scope. A third run with an unchanged file recreated **nothing**,
+which is the declarative behaviour working as intended.
+
+#### Convergence — the part a naive deploy job omits
+
+- `docker stack deploy` exits **0 as soon as the manager ACCEPTS the desired state**, not when
+  anything runs — and possibly forever before, if the image cannot be pulled. This is the entire
+  reason `deploy_swarm.sh` polls.
+- 🚨 **Replica count alone is not a sufficient test, and the first version of our script got this
+  wrong.** Three services use `order: start-first`, which starts the replacement before retiring the
+  old task, so running/desired can read `3/3` *continuously* through a full rolling replacement.
+- 🚨 **Worse: `failure_action: rollback` restores the previous version and the service settles back at
+  full replicas.** A count-only check calls that a **success**. It is the opposite — the new code was
+  rejected. **The most misleading green a deploy job can produce**, and every one of the three
+  services is configured to do it. The script now treats `UpdateStatus.State` of `rollback_started` or
+  `rollback_completed` as a hard failure. (The field is empty on a never-updated service, so empty is
+  healthy.) ⚠️ **Untested claim, in the script as a `UNVERIFIED` comment:** `UpdateStatus` looks like a
+  latch that persists until the next update begins, so a stale `rollback_completed` could fail a
+  healthy cluster. **To be falsified during C6.**
+- **Digests, not tags.** Swarm resolves each tag to a digest when it accepts the spec and stores
+  *that*, so services do not follow a moving tag the way `docker compose pull` does. Even the pinned
+  `redis:7.2.4-alpine` recorded `sha256:c8bb255c…`. **The digest is the only honest answer to "what is
+  running"** — and the setup for trap C7.
+
+#### Configuration findings that shaped the stack file
+
+- ⭐ **A published port was not a free choice.** `frontend/src/config/api.ts` resolves the API base **in
+  the browser at runtime**: HTTPS → same origin; **HTTP → `http://<hostname>:5002`**. The image sets
+  only `VITE_BUILD_NUMBER`, so no `VITE_API_URL` was baked in and the HTTP branch applies. Publishing
+  the backend anywhere but `5002` silently breaks every API call **in the UI only** — `curl` against
+  the backend keeps working, so the failure would look like a frontend bug.
+  🚨 **General lesson: `VITE_*` variables are substituted at BUILD time.** Setting one in a compose
+  file, a `.env`, or a service spec does nothing whatsoever — the value is already inside the bundle.
+  **The image dictated our network topology, not the reverse.**
+- ⭐ **`docker secret` delivers a FILE; the application wanted a URL.** Secrets appear as
+  `/run/secrets/<name>`, but the backend reads a single `DATABASE_URL` with the password embedded.
+  Resolved by composing it at container start:
+  `sh -c 'export DATABASE_URL="postgresql://…:$$(cat /run/secrets/pg_password)@postgres:5432/…"; exec uvicorn …'`
+  — `$$` because Compose interpolates `$`, and **`exec` so uvicorn becomes PID 1** and receives
+  `SIGTERM` on update. Without `exec`, the shell holds PID 1, swallows the signal, and every rolling
+  update degrades into a 10-second timeout followed by `SIGKILL`.
+  **This gap between "secret as file" and "config as string" is generic** — it recurs with every
+  secrets manager and is where teams give up and use a plain environment variable.
+- **Postgres:** the custom image uses the official entrypoint, so `POSTGRES_PASSWORD_FILE` works — but
+  it is **mutually exclusive** with `POSTGRES_PASSWORD`, which is baked into the image (finding D5).
+  Setting `POSTGRES_PASSWORD: ""` explicitly is what makes the `_FILE` path win.
+- **`depends_on` is silently ignored by Swarm.** Kept out of the stack file rather than left in to rot.
+  Trap C2 covers what the app does about it.
+
+#### ⚠️ Trap C2 was contaminated before it ran
+
+The manual `docker pull` commands used to diagnose C1 also pre-warmed the postgres image, so postgres
+started fast and the backend never met a cold database. **A methodological finding, now recorded in
+`education/METHOD.md`: investigative commands mutate the environment, and a trap tested afterwards may
+be testing the investigation instead.** C2 needs a snapshot restore to run honestly.
+
+#### Security findings from the QA deployment — recorded as D4/D5, not fixed here
+
+Reading Capricorn's QA compose to model this stack surfaced committed live third-party credentials and
+a database password baked into an image layer. **The temporary clone was deleted; no values were
+copied into this repo (rule B7).** Per Andrew's Aug 13 direction, the chapter carries only the two
+generalisable lessons — *credentials in an image layer cannot be removed by editing a file*, and *a
+non-production environment pointed at production third-party credentials* — and **none** of the
+specifics. Detail stays in D4/D5 above as the working record.
+
+---
+
+## 🏭 Lab vs PROD ledger
+
+⭐ **Started Aug 13, 2026, at Andrew's request.** Every lab makes compromises an enterprise platform
+would not accept. **The risk is not forgetting a command — it is carrying a shortcut into production
+having never been told it was one.** Written here *as we take them*; chapter callouts are drawn from
+this table. Format and threshold: `education/CONVENTIONS.md` → "Lab vs PROD callouts".
+
+🚨 **Threshold:** a row earns its place when the lab choice would be **WRONG** in production, **not
+merely SMALLER**. Scale differences do not qualify.
+
+**Verified?** = did we *test* the production prescription, or is it recited? ⚠️ **Recited rows are
+opinion until proven.** Do not let them wear the authority of the tested ones.
+
+| # | In the lab | Why acceptable here | In production | If you carry the habit | Verified? |
+|---|---|---|---|---|---|
+| L1 | **Registry over plaintext HTTP** — `insecure-registries` in `/etc/docker/daemon.json` on all three nodes. | Isolated home network; lab-only credentials by rule B7. | Registry gets a real TLS cert; `insecure-registries` is never set. | A registry credential goes across the wire in cleartext. ⚠️ Worse, `insecure-registries` is the exact knob people reach for to make a TLS error "go away" — **it silences a warning that was correct**. | ⚠️ recited |
+| L2 | **`Autolock Managers: false`** — Raft log encryption key sits on disk in the clear on every manager. | Default; lab has no real secrets **until Part 3**. | `docker swarm init --autolock`, key held in a secrets manager. Cost is real: **managers need manual unlock after restart**, which is an availability trade-off, not free. | Anyone with a manager's disk — **or one of our VM snapshots** — reads every `docker secret` in the cluster. | ⚠️ recited |
+| L3 | **All three nodes are managers AND run workloads.** | Three nodes is the minimum for quorum; dedicating three more to be workers doubles the lab for no lesson. | Managers are drained (`--availability drain`) so the control plane never competes with application load. | A runaway container can starve Raft and cost you the control plane during the incident that spawned it — **exactly when you need to make changes**. | ⚠️ recited |
+| L4 | **Three VMs on one physical host.** | Only host available; the Raft events are genuine. | Managers spread across failure domains — racks, hypervisors, AZs. | You will believe you have tested HA. **This simulates NODE failure, never HOST failure** — losing the Z6 loses all three at once. | ✅ inherent |
+| L5 | **`unattended-upgrades` and `apt-daily` masked.** | Deliberate: package churn mid-study manufactures failures that teach nothing and make real ones ambiguous. | Staged patching with maintenance windows and a rollback path. | 🚨 **Unpatched CVEs.** This one is not merely suboptimal in production, it is negligent — and it is the row most likely to be copied without thinking, because it *feels* like tidiness. | ✅ deliberate |
+| L6 | **No backups — snapshots only.** | Nodes are rebuildable from template 9000 in minutes; nothing here is authoritative. | Back up the Raft state and every named volume; snapshots are not backups. | **A snapshot is a rollback, not a recovery.** Lose the host and you lose every snapshot on it. | ✅ policy |
+| L7 | **Password SSH auth still enabled** (observed during the `.192` join). | Template default; LAN-only. | Keys only, `PasswordAuthentication no`, ideally certificate-based with a bastion. | Cluster managers exposed to credential-stuffing, and no per-human audit trail. | ✅ observed |
+| L8 | **Images published and deployed as `:latest`.** | It is what Capricorn actually does — inherited, not chosen. | Immutable tags or digests; `:latest` never referenced by a deployed service. | "I pushed a fix and prod is still running the old code." **Trap C7 exists to make this happen on purpose.** | 🔲 will test (C7) |
+| L9 | **`docker login` writes the registry credential to `~/.docker/config.json` as base64** — an encoding, not encryption, reversible with no key. | Lab-only deploy token, `read_registry` scope, ~30-day expiry. | A **credential helper** backed by the OS keystore (`docker-credential-secretservice`, `pass`, or the cloud provider's helper), so the token never sits on disk in recoverable form. | Any process running as that user, any backup, **and every one of our VM snapshots** contains a working registry credential. ⚠️ In a CI context it also means a leaked build artefact or a debug `cat` in a pipeline log hands the token over. | ✅ **VERIFIED** — Docker printed the warning itself, and we decoded the blob back to `swarm-lab-pull` in one line |
+| L10 | **The system-of-record database runs as a container task on a node-local volume**, pinned to one node so it cannot move. | Capricorn self-bootstraps demo data, so the lab's data is worth nothing and losing it costs nothing. The pin is what keeps it from silently moving. | 🚨 **Not a container at all.** Real PG hosts or a managed cluster: streaming replication, PITR, a *tested* restore path, and an upgrade story that does not involve a scheduler. | **You have made your database's availability a function of your orchestrator's scheduling decisions** — and given it a single point of failure with no replica, no backup and no restore rehearsal. ⚠️ Note the pin is *also* a lab compromise: it trades availability for durability, which is the wrong trade to make deliberately in production. | ✅ **Andrew's call, Aug 13** — and the narrow claim only: Redis, OpenSearch, MongoDB and Redpanda *are* routinely run on orchestrators in production |
+| L11 | **The application is published over plain HTTP on `:5001`/`:5002`, with no reverse proxy and no TLS.** | Deliberately QA-shaped: the lab's job is to teach the routing mesh, and a proxy in front would hide it. | TLS terminated at an ingress proxy; the app's own ports never published to a network a user can reach. | Session cookies and every API payload cross the network in cleartext. ⚠️ **And the shape of the lab quietly justified it** — see the note under this table: the *frontend build* is what forced the HTTP path, so "no TLS" arrived as a consequence of an image, not as a decision anyone made. | ✅ deliberate |
+| L12 | **A single long-lived registry token (`swarm-lab-pull`, valid to Dec 31 2026) is used by a human at the CLI and embedded into every service spec.** | One operator, one cluster, a lab. | Short-lived, workload-scoped credentials — OIDC/federated identity for the CI job, no static token anywhere, and pull credentials issued per-deploy rather than stored. | One leaked token grants registry access for a year, **and revoking it silently breaks every future task reschedule** (see the latch finding below) rather than failing at deploy time where you would notice. | ⚠️ recited |
+| L13 | **No `healthcheck` on any service.** | 🎯 **Deliberate — trap C6 needs it absent** to show that `update_config`/`rollback_config` cannot detect a container that starts, stays up, and serves garbage. Healthchecks get added *after* C6 has been felt. | Every service has a real readiness/liveness check that exercises its dependencies, not a TCP-port ping. | 🚨 **Your rollback protection is decorative.** Swarm will happily call a broken deploy successful because the process did not exit — which is precisely what C6 is built to prove. | 🔲 will test (C6) |
+
+⭐ **L9 is the best row in this table and it wrote itself.** Docker *volunteered* the warning
+(`WARNING! Your credentials are stored unencrypted…`) without being asked. The tool told us it had just
+done something substandard, and **the near-universal response is to scroll past it.** That is the
+lesson: the warning is not noise, and "it looks like an opaque blob" is why people assume otherwise.
+
+### Baseline for trap C7 — record before anything is deployed
+
+`docker pull …/production/capricorn/backend:latest` on `.191` (Aug 13, 2:33 PM) resolved to:
+
+```
+Digest: sha256:fac031dd827c3f1c78d6732d925ae6888ee65b821c08218dd4b1ea7ae8f237a1
+```
+
+⚠️ **Write this down now, because trap C7 depends on comparing against it later.** `:latest` is a
+moving pointer; that digest is what it pointed at today. When C7 pushes a new image under the same tag,
+this is the number that proves whether the running service followed the tag or stayed pinned.
+
+**Also confirmed here:** `read_registry` **alone** was sufficient to pull — `read_repository` was
+deliberately not granted and was not needed. Worth recording because the instinct when a pull fails is
+to widen the scope, and we now have evidence the narrow one was enough.
+
+---
+
+## 🔀 Deployment: three wrappers, one script
+
+Discussed Aug 13. **Confirmed: the employer runs GitHub for source and Jenkins for CI**, while the lab
+runs GitLab and GitLab CI. The three deployment approaches are **not alternatives to choose between —
+they are three wrappers around the same `deploy_swarm.sh`:**
+
+| Approach | Who invokes | What it buys | What disqualifies it |
+|---|---|---|---|
+| **Manual** (Part 3) | a human over SSH | Proves a *working* deploy exists before CI touches it, so a Part 4 failure is unambiguously a wiring problem. Survives as break-glass. | Requires humans to hold **SSH access to production managers** — precisely the access you want to eliminate. Not ergonomics; access control. |
+| **GitLab CI** (Part 4) | runner on `.182` | Audit trail, manual approval gate, masked secrets, **no human SSH to the cluster**. Runner already exists and needs no setup (A1). | YAML in a dialect the employer does not use. |
+| **Jenkins** (Phase 17) | Jenkins agent | Matches the employer exactly. | Heavier — JVM plus a plugin ecosystem whose CVE churn becomes your operational problem. Groovy is expressive enough that teams put **deploy logic inside the Jenkinsfile**, which is the anti-pattern this whole design avoids. |
+
+**The boundary:** the **script** owns registry login, `docker stack deploy`, convergence polling and
+the rollback decision. The **wrapper** owns when it runs, who may run it, where the secret comes from,
+**which host it targets**, and who gets notified. ⚠️ Note that host targeting sits in the wrapper —
+**that is where trap C4 lives**, since pointing it at one manager by IP gives an HA control plane
+behind a single-point-of-failure delivery path.
+
+⭐ **Falsifiable claim, recorded now so Phase 17 can test it: if Jenkins requires changing a single
+line of `deploy_swarm.sh`, the boundary was drawn in the wrong place.** That is a real test of the
+abstraction rather than an assertion about it.
+
+**A fourth model exists and Swarm does not have it.** Pull-based GitOps — something *inside* the
+cluster watching a repo and reconciling toward it, so no CI system ever holds credentials into
+production. Kubernetes has Argo CD and Flux; **Swarm has no real equivalent.** ⭐ **This is strong
+Part 7 comparison material** because it is an architectural difference, not a feature-checklist one.
+
+**Phase 17 will have to choose its source: GitLab or GitHub.** GitHub matches the employer and
+`push_github.sh` already publishes there — but it is a **public** repo, and webhooks from public
+GitHub into the home lab need inbound exposure or polling. GitLab is entirely internal and simpler.
+**Deferred to Phase 17**; recorded so it is not rediscovered.
+
+**Bearing on A2:** knowing Jenkins is coming, the GitLab CI file still earns its place — it proves the
+wrapper boundary once, cheaply, on infrastructure that already exists. But it needs the
+`workflow: rules:` guard, or every backup push starts firing pipelines.
+
+---
 
 **Next: Part 3 — the stack file, `docker secret`, and the first deploy. Trap C1
 (`--with-registry-auth` omitted on purpose) fires here. Andrew driving.**

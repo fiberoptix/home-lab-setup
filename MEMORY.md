@@ -141,14 +141,40 @@ editing `CURSOR_RULES`:
   - **New `=== EDUCATION PROGRAM (/education) ===` section**, 7 rules (now 8 + `1b` after Aug 13).
 
 - **🔵 IN PROGRESS — Phase 16: Docker Swarm** (`phases/phase16_docker_swarm.md`).
+  🎯 **PART 3 IS ALSO COMPLETE (Aug 13, 2026, 2:20–4:12 PM) — Capricorn runs on the swarm:** `backend`
+  2/2, `frontend` 3/3, `postgres` 1/1 (pinned `docker-swarm-1`), `redis` 1/1; UI on `:5001`, API on
+  `:5002` answering from **all three nodes**; Capricorn's repo untouched (rule B7 held).
+  **`education/docker-swarm/manifests/capricorn.stack.yml`** + **`scripts/deploy_swarm.sh`** are
+  committed, and **chapters 1 and 2 are WRITTEN** (3 figures, docx built, `figcheck` passes).
+  🚨 **The finding that matters, because our first explanation was WRONG: a node's daemon NEVER reads
+  the CLI's `~/.docker/config.json` when running a task** — only the client does; the agent
+  authenticates *solely* with the credential `--with-registry-auth` freezes into the service spec. So
+  **a manager has no more pull privilege than a worker**, and `docker pull` succeeding by hand on a host
+  proves nothing about whether a task can pull there. Trap C1's frontend was `Rejected` on **all three**
+  nodes including the manager. ⚠️ **And our own diagnostic `docker pull`s manufactured the confusing
+  symptom** — they warmed the local image cache so postgres/backend *looked* fine on `.191`, leaving the
+  never-pulled frontend as the only honest failure. **`METHOD.md` now carries this as a standing note.**
+  🚨 **Two false greens to design against forever:** (a) `docker stack deploy` **exits 0 when the
+  manager ACCEPTS desired state**, not when anything runs; (b) **replica count is not convergence** —
+  `order: start-first` holds `3/3` through a full replacement, and `failure_action: rollback` restores
+  the old version *at full replicas*, so a count-only check reports a **rejected deploy as a success**.
+  Check `UpdateStatus.State` and treat `rollback_*` as failure. ⚠️ **Two claims logged as UNVERIFIED
+  until trap C6 — do not teach as fact:** the registry credential is a *latch* (token expiry breaks
+  future task *reschedules* silently, not the deploy), and `UpdateStatus` may persist such that a stale
+  `rollback_completed` fails a healthy cluster. **Also: blast radius is selective** — adding
+  `--with-registry-auth` recreated the three private-registry services and left Docker Hub's
+  `redis:7.2.4-alpine` untouched, bouncing a working postgres purely for sharing a registry; a third
+  run with an unchanged file recreated **nothing**. ⚠️ **Debt: trap C2 is CONTAMINATED** (pre-warmed
+  postgres means the backend never met a cold DB) — **it needs a restore to `s02-swarm-up` to run
+  honestly.** **Next: Part 4 — a CI runner that calls `deploy_swarm.sh` unchanged.**
   **PARTS 1 & 2 ARE COMPLETE (Aug 13, 2026): `docker-swarm-1/2/3` exist at `.191/.192/.193`**, cloned
   from template 9000, 2 vCPU / 4 GB / 40 GB each — funded by the 16 GB VM 186 gave back on Aug 12 —
   personalized, **Docker 29.7.2 / Compose v5.4.0**, snapshotted **`s01-base-clean`** (hot, ~1.6 s each).
   **Part 2 formed a THREE-MANAGER cluster** — `.191` Leader, `.192`/`.193` Reachable,
   `ClusterID n6waq5uhc7o6yxzt5tyzrbol9`, **quorum 2 of 3**, ingress overlay `10.0.0.0/24`, no services
   yet, all three snapshotted **`s02-swarm-up`**. 🙋 **Andrew drove Part 2 by hand** (init + the `.192`
-  join); the AI joined `.193` under the repetition rule. **Next session: Part 3 — stack file,
-  `docker secret`, first deploy, and trap C1.** 🚨 **Three Swarm facts that will cost time later:**
+  join); the AI joined `.193` under the repetition rule. 🚨 **Three Swarm facts that will cost time
+  later:**
   (a) `swarm init` prints the **WORKER** token — pasting it yields a healthy-looking 1-manager cluster
   with no quorum lesson left; use `docker swarm join-token manager`; (b) **`Autolock Managers: false`**,
   so the Raft key is on disk in the clear and **the VM snapshots will contain `docker secret` values**
@@ -363,6 +389,21 @@ editing `CURSOR_RULES`:
       plumbing is **assumed, not re-taught**; the infrastructure *as it pertains to this build* and the
       **what and why** are what belong in the chapter (why 3 nodes, why all managers, why
       `vm-ephemeral`, why the 3.5 GB template disk had to grow).
+      ⭐ **"Lab vs PROD" callouts (Andrew, Aug 13) — `CONVENTIONS.md` for the FORM, `METHOD.md` build
+      stage for the DUTY, and a running ledger in the phase file.** Rationale: Andrew learns in a home
+      lab and works on an enterprise platform, so **the risk is not forgetting a command — it is
+      carrying a lab shortcut into production having never been told it was one.** Four fields, in
+      order: *In the lab* → *Why it's acceptable here* → *In production* → ***If you carry the
+      habit***. **The fourth is the one that matters**; without it the callout is a disclaimer, not
+      operational reasoning. 🚨 **Threshold: a callout earns its place only when the lab choice would
+      be WRONG in production (security/durability/availability/compliance), NOT merely SMALLER** —
+      "3 nodes here, 30 in prod" does not qualify; if every page has one the important ones drown.
+      ⚠️ **Mark whether each "in production you would…" was VERIFIED or is RECITED** — a plausible
+      recitation wearing the authority of a tested fact is the one way this convention misleads.
+      **Format needed no new machinery:** a blockquote with a bold lead label; chapters already use
+      blockquotes heavily and `build_docx.py` styles them as pull-outs. **Phase 16 banked 8 rows (L1–L8)
+      from Parts 1–2 alone.** 📌 **Track 1 is NOT retrofitted — Andrew's call: it is finished and
+      printed, so revisit as a separate deliberate task** (backlog note in `education/README.md`).
       ⭐ **It is a FLOOR, NOT A CEILING — Andrew's explicit instruction Aug 13.** Deviate for a
       specific topic whenever it helps, **then fold what worked back into `METHOD.md` in the same
       session.** The file names two practices invented mid-Phase-16 that would otherwise have been

@@ -1,0 +1,32 @@
+// Chapter 1, Figure 1 - the three-manager Swarm as actually built.
+// Point of the figure: every node carries BOTH roles, and all three sit in one failure domain.
+digraph cluster {
+    rankdir=TB;
+    bgcolor="white";
+    node [fontname="Helvetica" fontsize=11 shape=box style="filled,rounded" fillcolor="#f5f5f5" color="#888888"];
+    edge [fontname="Helvetica" fontsize=10 color="#666666"];
+    graph [fontname="Helvetica" fontsize=11];
+
+    raft [label=<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="4"><TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>Raft consensus — the control plane</B><BR/>Quorum = floor(3/2)+1 = <B>2 of 3</B><BR/>Holds: desired state, secrets, registry credentials</TD></TR></TABLE>>
+          shape=box fillcolor="#e8eef7" color="#4a6fa5"];
+
+    subgraph cluster_host {
+        label="Proxmox host (HP Z6) — ONE physical failure domain";
+        style="dashed";
+        color="#b03030";
+        fontcolor="#b03030";
+        margin=14;
+
+        n1 [label=<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="3"><TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>docker-swarm-1</B><BR/>192.168.1.191<BR/><BR/>Manager (leader)<BR/>+ runs tasks</TD></TR></TABLE>>];
+        n2 [label=<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="3"><TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>docker-swarm-2</B><BR/>192.168.1.192<BR/><BR/>Manager (reachable)<BR/>+ runs tasks</TD></TR></TABLE>>];
+        n3 [label=<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="3"><TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>docker-swarm-3</B><BR/>192.168.1.193<BR/><BR/>Manager (reachable)<BR/>+ runs tasks</TD></TR></TABLE>>];
+
+        // Must live INSIDE the cluster: a rankset declared at top level evicts these nodes
+        // from the subgraph and graphviz silently drops the box ("removing empty cluster").
+        {rank=same; n1; n2; n3;}
+    }
+
+    raft -> n1 [dir=both];
+    raft -> n2 [dir=both];
+    raft -> n3 [dir=both];
+}

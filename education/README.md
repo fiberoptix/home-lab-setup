@@ -24,6 +24,14 @@ Further tracks are being scoped against the stack Andrew works on now. The roadm
 [`phases/phase15_education_program.md`](../phases/phase15_education_program.md); each track gets its
 own phase file when it starts.
 
+📌 **Backlog — retrofit "Lab vs PROD" callouts into track 1.** The convention was introduced with
+`docker-swarm` (Aug 13, 2026): where the lab does something that would be *wrong* in an enterprise
+production environment, the chapter says so, says what production does instead, and says what breaks
+if the habit follows you (see [`CONVENTIONS.md`](CONVENTIONS.md)). Track 1's seven chapters predate it
+and have the same gaps — single-node k3s presented as a cluster, `insecure-registries`, three brokers
+in one VM, patching disabled. ⚠️ **Andrew's call (Aug 13): do NOT churn track 1 now** — it is finished
+and printed. Revisit as a **separate, deliberate task**, not as drive-by edits.
+
 ---
 
 ## Why it is organised this way
