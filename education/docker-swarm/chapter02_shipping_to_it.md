@@ -366,18 +366,45 @@ docker stack ps <stack>                  # TASK history - includes failed attemp
 docker stack ps <stack> --no-trunc       # the useful half of an error is past the truncation
 docker stack rm <stack>
 
+# why is this ONE service unhappy - the most useful command in Swarm
+docker service ps <svc>                  # per-task state WITH history
+docker service ps <svc> --no-trunc       # the full error string
+
 # the questions that actually tell you if a deploy worked
 docker service inspect <svc> --format '{{.UpdateStatus.State}}'
 docker service inspect <svc> --format '{{.Spec.TaskTemplate.ContainerSpec.Image}}'   # the digest
+docker service inspect <svc> --pretty    # the spec in force, not what your file says
 docker service logs <svc> --tail 50
+
+# registry auth
+docker login <registry> -u <user>                          # interactive, masked
+printf '%s' "$TOKEN" | docker login <registry> -u <user> --password-stdin   # scripted
+docker secret inspect <name>                               # metadata only - never the value
 
 # proving the routing mesh
 curl -s http://<any-node>:5002/health
 ```
 
-`docker stack ps` is the one to reach for first. **`docker service ls` shows only current state;
-`stack ps` shows task *history*, including the rejected attempts** — which is where the actual error
-message lives, and the only reason we could disprove the "managers have credentials" theory.
+`docker service ps` and `docker stack ps` are the two to reach for first. **`docker service ls` shows
+only current state; the `ps` commands show task *history*, including the rejected attempts** — which is
+where the actual error message lives, and the only reason we could disprove the "managers have
+credentials" theory.
+
+⚠️ **Two traps in the auth commands.** Never `docker login -p <token>`: it puts the token in the process
+list and your shell history. And **do not add `--password-stdin` to an interactive login** — it silently
+waits on stdin rather than prompting, which looks exactly like a hang.
+
+You can also demonstrate §3's point about base64 in one line, which is worth doing once so the warning
+stops being abstract:
+
+```bash
+jq -r '.auths|to_entries[0].value.auth' ~/.docker/config.json | base64 -d
+```
+
+> 📖 **Every command this track has used, organised by the question it answers rather than the chapter
+> it appeared in, is collected in [`COMMANDS.md`](COMMANDS.md)** — along with a table for *reading*
+> failure states (`Rejected` vs `Pending` vs `Preparing` vs crash-looping). That file is also the
+> growing specification for a portable read-only `docker-admin.sh`.
 
 ---
 

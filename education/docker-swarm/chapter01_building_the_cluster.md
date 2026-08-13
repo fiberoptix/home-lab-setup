@@ -312,6 +312,11 @@ docker node promote <node>
 docker node demote  <node>                # demoting the last manager is refused
 ```
 
+> 📖 **Every command this track has used, organised by the question it answers rather than the chapter
+> it appeared in, is collected in [`COMMANDS.md`](COMMANDS.md)** — including the order to ask them in
+> during an incident. That file is also the growing specification for a portable read-only
+> `docker-admin.sh`.
+
 `--advertise-addr` was passed explicitly even though these single-NIC VMs auto-detect correctly.
 Omitting it is safe **only** when there is exactly one plausible address; on a multi-homed host Swarm
 can advertise an interface the other nodes cannot reach, and the resulting cluster fails in a way that

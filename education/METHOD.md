@@ -169,6 +169,23 @@ compute it. None of that is in any tutorial, and all of it came from following a
   producer picks, the initial leader assignment. A runbook that promises output it cannot deliver
   trains you to distrust it.
 
+⭐ **Log every diagnostic command AS YOU RUN IT, in a track-level `COMMANDS.md`, indexed by the QUESTION
+it answers** (Andrew's idea, Aug 13, 2026 — introduced on the `docker-swarm` track). Three reasons this
+cannot wait until the Document stage:
+
+1. **Chapters teach in the order things were learned. An incident does not cooperate with that order.**
+   The transferable skill is *which question to ask second*, and that ordering is invisible once the
+   commands are scattered across five chapters in narrative sequence.
+2. **Reconstructing it later is archaeology.** By the last chapter there are a hundred commands and no
+   memory of which mattered. ⚠️ **This was already proven the hard way:** chapters 1 and 2 of the swarm
+   track were written without it, and `docker service ps` — *the* command that disproved our wrong
+   theory about registry auth — did not appear in either chapter's command list.
+3. **It becomes the specification for tooling.** A read-only investigation script is only worth building
+   from sequences you have actually felt. Build it before that and you package guesses.
+
+Mark each entry **✅ ran it here** or **⚠️ standard, not run here**. The same honesty rule as Lab-vs-PROD
+callouts: a command nobody executed must not wear the authority of one that was.
+
 ### 5. Document — write it after, from what happened
 
 - The **phase file is the working record** (decisions, blockers, what was actually run, what

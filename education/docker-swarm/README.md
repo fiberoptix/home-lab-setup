@@ -51,6 +51,9 @@ all three nodes at once, and nothing here proves otherwise.
 
 ## Contents
 
+- [`COMMANDS.md`](COMMANDS.md) — ⭐ **every command used, indexed by the question it answers** rather
+  than by chapter, plus how to *read* each failure state. Written as the track runs. Doubles as the
+  specification for a portable read-only `docker-admin.sh` (not yet built — see its §11)
 - `scripts/` — the provisioning and deploy scripts, as actually run
 - `manifests/` — the Swarm stack file
 - `diagrams/` — Graphviz sources; `images/` holds the rendered PNGs
