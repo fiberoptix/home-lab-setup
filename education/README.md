@@ -24,22 +24,38 @@ Further tracks are being scoped against the stack Andrew works on now. The roadm
 [`phases/phase15_education_program.md`](../phases/phase15_education_program.md); each track gets its
 own phase file when it starts.
 
-## 📌 Backlog — two deferred track 1 retrofits
+## ✅ Track 1 retrofits — both COMPLETE (Aug 13, 2026)
 
-Both come from conventions introduced with `docker-swarm` on **Aug 13, 2026**, after track 1 was
-finished and printed. ⚠️ **Andrew's call, both items: do NOT churn track 1 now.** Revisit each as a
-**separate, deliberate task** — never as drive-by edits. **Exception for B2 only:** apply the new title
-format to any track-1 chapter already being edited for another reason, since it is a one-line change.
+Both came from conventions introduced with `docker-swarm`, after track 1 was already finished and
+printed. Deferred at first, then executed the same day at Andrew's direction.
 
-| # | Retrofit | Scope | Why deferred |
-|---|---|---|---|
-| **B1** | **"Lab vs PROD" callouts** — where the lab does something that would be **wrong** in an enterprise production environment, say so, say what production does instead, and say what breaks if the habit follows you (see [`CONVENTIONS.md`](CONVENTIONS.md) → *Lab vs PROD callouts*) | All 7 chapters. Known gaps: single-node k3s presented as a cluster, `insecure-registries`, three brokers in one VM, patching disabled | Substantial rewrite — each callout needs four fields and a judgement about whether the choice was *wrong* or merely *smaller*. Real work, not formatting |
-| **B2** | **Retitle H1s to lead with the topic** — `# Chapter 1 — …` becomes `# Kubernetes + Redpanda · Chapter 1 — …` (see [`CONVENTIONS.md`](CONVENTIONS.md) → *The H1 must name the track*) | 7 one-line edits, then rebuild the docx | Cheap, but pointless in isolation — it would rewrite seven `.docx` binaries for a cosmetic gain. Fold it into B1, or into any other edit |
+| # | Retrofit | Outcome |
+|---|---|---|
+| **B1** | **"Lab vs PROD" callouts** ([`CONVENTIONS.md`](CONVENTIONS.md) → *Lab vs PROD callouts*) | ✅ **9 callouts across chapters 1–6** (3·2·1·1·1·1). Chapter 7 deliberately gets none — it is the research-only chapter, so there is no lab practice to contrast; it states that explicitly instead |
+| **B2** | **H1s lead with the topic** ([`CONVENTIONS.md`](CONVENTIONS.md) → *The H1 must name the track*) | ✅ All 7 retitled to `# Kubernetes + Redpanda · Chapter N — …`, docx rebuilt |
 
-⭐ **Why B2 matters at all, given it looks cosmetic:** the printed footer is a bare page number by
-design, so **the title line is the only place a printed chapter names its own subject** — and chapter
-numbering restarts in every track, so `Chapter 1` alone is ambiguous across a shelf that will hold four
-of them.
+⭐ **What the retrofit actually turned out to be, which was not what was expected.** Every chapter
+already had a *"Where this sandbox differs from production"* table, so the material was largely present.
+**What was missing was the fourth field — what breaks if you carry the habit — and honest marking of
+which production prescriptions were never tested.** The work was therefore mostly *triage*: most rows in
+those tables are differences of **scale or tooling** (one node, twelve keys, shell jobs instead of
+Deployments) and correctly stay as table rows. **Only the rows that would still be wrong on a fifty-node
+cluster were promoted to callouts:**
+
+| Chapter | Promoted to a callout | Why it qualified |
+|---|---|---|
+| 1 | World-readable `system:masters` kubeconfig · `curl \| sh` install · replication that is real while durability is not | Security, supply chain, and a false durability guarantee |
+| 2 | A probe that does not test the application · no PodDisruptionBudget on a quorum workload | Health checking that cannot fail; `drain` can destroy quorum even when rollouts are safe |
+| 3 | A data store with no TLS, no auth and no ACLs on a NodePort | ⭐ **Not a consequence of having one node** — it was convenience, not constraint |
+| 4 | Unauthenticated Admin API and topics with no owning principal | *ACLs applied later are ACLs applied never* |
+| 5 | Auto-commit, which chooses at-most-once delivery for you | The only row that decides whether data can be **lost** |
+| 6 | One mutable image tag for every build | Makes `rollout undo` a lie — and would be wrong at any scale |
+
+⚠️ **Deliberately NOT promoted:** single-node k3s, SQLite instead of etcd, three brokers sharing a
+failure domain, twelve keys instead of millions, pre-cached images. Those are honest limitations already
+stated in the tables, and **three of track 1's most-repeated caveats are the same fact wearing three
+hats — there is one piece of hardware.** Promoting them would have produced exactly the wallpaper the
+convention's threshold exists to prevent.
 
 ---
 

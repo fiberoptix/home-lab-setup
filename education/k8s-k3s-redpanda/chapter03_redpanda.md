@@ -1,4 +1,4 @@
-# Chapter 3 — Redpanda: A Replicated Log You Can Break and Heal
+# Kubernetes + Redpanda · Chapter 3 — Redpanda: A Replicated Log You Can Break and Heal
 
 > **Who this chapter is written for.** Andrew is interviewing for an **SRE / DevOps** role on an
 > **order management system**. That shapes everything here: the emphasis is on *operational*
@@ -1374,6 +1374,32 @@ paging on them. That distinction matters in an interview: the gap here is not in
 the absence of Prometheus, a retention window, alert rules and a route to a human. Every drill in
 §9 was verified by a person typing `rpk cluster health` and reading it, which is precisely the
 practice §9e argues against.
+
+### ⭐ Lab vs PROD — the row that is a security defect, not a sandbox setting
+
+*Added Aug 13, 2026, retrofitting a convention introduced with the Docker Swarm track. The table above
+already names its consequences, which is why only one row needs expanding — and it is the one whose
+consequence is not about this lab at all.*
+
+> **Lab vs PROD — a data store with no encryption, no authentication and no authorisation, published on a
+> node port.** *In the lab:* `tls.enabled: false`, no SASL, no ACLs, and §5a exposes the Kafka API through
+> a **NodePort with nothing in front of it.** *Why it's acceptable here:* an isolated LAN, no real data,
+> and — the substantive reason — TLS and SASL would put a credential and certificate problem between you
+> and every single command in this chapter, which is not the subject being taught. *In production:* TLS
+> for client and inter-broker traffic, SASL or mTLS for authentication, and ACLs so a compromised producer
+> cannot read every topic. *If you carry the habit:* 🚨 **anyone who can reach the port owns the log** —
+> reads every order, writes forged ones, and deletes topics. There is no second gate. ⚠️ **And note the
+> specific trap this lab sets: `tls.enabled: false` is a single Helm value, so "we'll turn it on later"
+> looks like a one-line change.** It is not — enabling it means a CA, certificate lifecycle, rotation
+> without downtime, and every client's trust store, which is why Chapter 7 §4 needs a whole section for
+> it and why it never gets done later. ⚠️ *Unverified prescription:* nothing in the TLS/SASL/ACL path was
+> tested here; §2e of Chapter 7 writes the ACLs as a design and never applies them.
+
+⭐ **A note on what this section can and cannot claim.** Three of the seven rows above — the single node,
+the shared disk, the soft anti-affinity — are the *same* limitation wearing three hats: **there is one
+piece of hardware.** They are honest to state and impossible to fix here. The TLS row is different in
+kind, because nothing about having one node prevented us from turning encryption on. **It was a
+convenience, not a constraint**, and that distinction is the one worth carrying.
 
 ---
 

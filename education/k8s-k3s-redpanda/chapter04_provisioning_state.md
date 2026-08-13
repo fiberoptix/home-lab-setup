@@ -1,4 +1,4 @@
-# Chapter 4 — Provisioning Application State: What Kubernetes Doesn't Know
+# Kubernetes + Redpanda · Chapter 4 — Provisioning Application State: What Kubernetes Doesn't Know
 
 > **Who this chapter is written for.** Andrew is interviewing for an **SRE / DevOps** role on an
 > **order management system**. The question behind this chapter is a pipeline question: *you have a
@@ -754,6 +754,32 @@ immediately rather than waiting out the loser's timeout.
 The single biggest gap is the fourth row. [Everything in this chapter runs **at deploy time**, so
 between deploys the cluster can drift and nothing notices.]{custom-style="Key"} That is the structural argument for the
 operator in §8, and it is the honest answer to "why would you ever run a controller for this?"
+
+### ⭐ Lab vs PROD — the row that hands out unlimited authority
+
+*Added Aug 13, 2026, retrofitting a convention introduced with the Docker Swarm track. Most of the table
+above is about **maturity of tooling** — a bash array instead of an operator — and none of it would be
+wrong at small scale. Two rows are different, and they compound each other.*
+
+> **Lab vs PROD — an unauthenticated Admin API and topics with no owner.** *In the lab:* the seeding Job
+> talks to `admin.hosts` over **plaintext**, with no credential, and creates topics with **no ACLs and no
+> owning principal.** *Why it's acceptable here:* the cluster has TLS off entirely (Ch3), so adding auth
+> to this one caller would secure nothing, and the chapter's subject is the *provisioning gap* between
+> Kubernetes and application state. *In production:* mTLS to the Admin API with credentials from a Secret,
+> and every topic created with an owning principal plus ACLs **in the same step that creates it.** *If you
+> carry the habit:* 🚨 **any pod that can reach the Admin API can delete any topic**, and a topic created
+> without an owner is a topic nobody can be prevented from reading. ⭐ **The sequencing detail is the part
+> worth stealing: ACLs applied later are ACLs applied never**, because by then something is already
+> connecting without them and tightening the rule means breaking a working consumer. The only moment it is
+> cheap is the moment of creation. ⚠️ *Unverified prescription:* neither mTLS nor ACLs were configured here;
+> Chapter 7 §2e writes the ACL manifests as a design and never applies them.
+
+⭐ **Why the drift row is a lab limitation and not a production sin.** The fourth row deserves the emphasis
+it already has, but note what kind of gap it is: **deploy-time-only reconciliation is a perfectly
+defensible production choice** for a small, slow-changing set of topics — plenty of real systems do exactly
+this. It becomes wrong when the number of topics or the rate of change outgrows the release cadence, which
+is a *scale* threshold rather than a correctness one. **That is why it gets a table row and not a callout**;
+the ACL row gets a callout because no amount of smallness makes an unowned topic acceptable.
 
 ---
 

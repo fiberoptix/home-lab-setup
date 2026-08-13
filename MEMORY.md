@@ -369,7 +369,28 @@ editing `CURSOR_RULES`:
       every future track inherits them instead of copying them. **Edit conventions HERE, never fork
       them into a track README.** Andrew's Aug 12 instruction: this is the authority on format, so do
       not invent a new one per track. **This is now wired into `CURSOR_RULES`** — startup checklist
-      item 2f makes it a mandatory read, and there is a full `=== EDUCATION PROGRAM (/education) ===`
+      ⭐ **NEW Aug 13 (5:20 PM) — three doc-infrastructure facts worth reloading cold:**
+  **(a) `education/docker-swarm/COMMANDS.md`** is a command ledger **indexed by the QUESTION each command
+  answers, not by chapter**, with a table for *reading* failure states and a ✅ran-here / ⚠️untested marker
+  on every entry. It exists because chapters teach in learning order, which is the wrong order for an
+  incident — and because an audit found **`docker service ps` missing from both swarm chapters** despite
+  being the command that disproved our registry-auth theory. **`METHOD.md` makes maintaining it a duty of
+  the Investigate stage.** It is also the spec for the deferred `docker-admin.sh`.
+  **(b) Chapter H1s must read `# <Topic> · Chapter <N> — <Title>`** (`CONVENTIONS.md`). Chapters are
+  **printed**, numbering restarts per track, and the **footer is a bare page number by Andrew's choice** —
+  so **the H1 is the ONLY place a printed chapter names its subject.** Do not "tidy" the prefix away.
+  **(c) `build_docx.py` now injects a real footer part** (`word/footer99.xml` + relationship +
+  content-type override + `<w:footerReference>`). 🚨 **Footer refs must precede `pgSz` inside `sectPr` or
+  Word rejects the file.** A `PAGE` field is safe where a TOC field is not, because `PAGE` resolves during
+  layout while a TOC needs a Word-only document scan. ⚠️ **Verified structurally, never rendered** — no
+  LibreOffice on this box; Andrew must confirm in Word.
+  ✅ **Both track 1 retrofits are DONE (Aug 13):** all 7 chapters retitled, and **9 Lab-vs-PROD callouts
+  added to ch1–6** (ch7 gets none — research-only, no lab practice to contrast). ⭐ **The reusable lesson:
+  every chapter already had a "differs from production" table, so what was missing was the FOURTH FIELD —
+  the consequence.** `CONVENTIONS.md` now says: **write the fourth field first; if you cannot write a real
+  consequence, it is a table row, not a callout.** ⚠️ Pre-existing and deliberately unfixed: `figcheck.py`
+  flags 4 track-1 figures under 10pt.
+  item 2f makes it a mandatory read, and there is a full `=== EDUCATION PROGRAM (/education) ===`
       section with 7 rules (Aug 12; 8 + `1b` after Aug 13).
     - ⭐ **`education/METHOD.md` — READ THIS BEFORE STARTING OR RUNNING A TRACK (added Aug 13, 2026).**
       The **sibling** of `CONVENTIONS.md` and the answer to "how do we learn a subject", which nothing

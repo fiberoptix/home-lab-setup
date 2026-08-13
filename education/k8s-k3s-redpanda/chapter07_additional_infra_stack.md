@@ -1,4 +1,4 @@
-# Chapter 7 — The Rest of the Platform: Edge, Identity, Secrets, Certificates, Documents and Telemetry
+# Kubernetes + Redpanda · Chapter 7 — The Rest of the Platform: Edge, Identity, Secrets, Certificates, Documents and Telemetry
 
 > **Series:** Home-Lab Education · Phase 14 (Kubernetes + Redpanda)
 > **Written:** August 2026
@@ -13,6 +13,8 @@ Chapters 1 through 6 each open with a verified-facts header, because every comma
 That changes how you should read it. Where the earlier chapters tell you what *did* happen, this one tells you what the industry does, why, and where it would attach to the system we built. Version numbers, product states and regulatory dates were checked in July–August 2026 and are cited so you can re-verify them — several are moving targets, and two of them moved in the last twelve months in ways that change the right answer.
 
 The purpose is to give you the shape of each area and the vocabulary to go deeper, not to make you an expert in six domains at once. Each section ends with the handful of things actually worth carrying into an interview or an incident.
+
+> ⭐ **Why this chapter has no "Lab vs PROD" callouts, added Aug 13, 2026.** Chapters 1 through 6 were retrofitted with them: short pull-outs naming a place where the lab did something that would be *wrong* in production, and what breaks if the habit follows you. **This chapter gets none, and the reason is the point of the paragraph above** — a callout contrasts *our lab practice* against production, and there is no lab practice here to contrast. Everything in this chapter already *is* the production side of that comparison. ⚠️ **Read the whole chapter as unverified by definition.** The earlier chapters mark individual prescriptions as recited rather than tested; here that marking would apply to every sentence, so the declaration is made once, up front, instead of decorating every paragraph. **The gaps this chapter closes are listed in §0 — that table is the honest inventory of what Chapters 1–6 left undone.**
 
 ---
 

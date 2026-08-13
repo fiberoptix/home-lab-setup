@@ -167,8 +167,17 @@ wire in cleartext" does. If every page has one, the important ones drown.
 something we tested and sometimes recited from training data. Say which. Presenting a plausible
 opinion as an established practice is the one way this convention can actively mislead.
 
-**Retrofit status:** introduced with the `docker-swarm` track (Aug 13, 2026). Track 1 predates it and is
-**not** to be churned for this — 🔲 **backlog item B1 in [`README.md`](README.md)**.
+**Retrofit status:** introduced with the `docker-swarm` track (Aug 13, 2026) and ✅ **retrofitted into
+track 1 the same day** — 9 callouts across chapters 1–6; see [`README.md`](README.md) for what was
+promoted and, more instructively, **what was deliberately left as a table row**.
+
+⭐ **The lesson from doing that retrofit, worth applying to every future track.** Track 1 already had a
+*"Where this sandbox differs from production"* table in every chapter, so the shortcuts were all
+documented. **What was missing was the consequence** — the fourth field — and that turned out to be the
+part that changes behaviour. A table row saying `TLS off | TLS + SASL` is a fact you skim. A callout ending
+*"anyone who can reach the port owns the log, and there is no second gate"* is one you remember. **Write
+the fourth field first if you are ever unsure whether a callout is warranted; if you cannot write a real
+consequence, it is a table row.**
 
 ---
 

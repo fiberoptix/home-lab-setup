@@ -1,4 +1,4 @@
-# Chapter 6 — The Application: Producing, Consuming, and Surviving a Crash
+# Kubernetes + Redpanda · Chapter 6 — The Application: Producing, Consuming, and Surviving a Crash
 
 > **Who this chapter is written for.** Andrew is interviewing for an **SRE / DevOps** role on an
 > **order management system**. Chapters 3–5 covered the platform: brokers, topic provisioning,
@@ -677,6 +677,36 @@ So the two mechanisms cover different failures, and a good answer names both:
 
 That third row is the §7 case, and it is the one people forget in interviews. [No health check of
 any kind catches "working, but 8× too slow". That is a monitoring problem, not a probe problem.]{custom-style="Key"}
+
+### ⭐ Lab vs PROD — the row that destroys your ability to roll back
+
+*Added Aug 13, 2026, retrofitting a convention introduced with the Docker Swarm track. The rows above are
+mostly honest scale and tooling gaps, and the probe rows are already expanded at length. **One row is a
+defect that would survive any amount of scaling up**, and it is the one that looks most like housekeeping.*
+
+> **Lab vs PROD — one mutable tag for every build.** *In the lab:* every image is built as `oms:dev` and
+> side-loaded with `docker save | k3s ctr import`, so the same tag names a different image after every
+> build. *Why it's acceptable here:* there is no registry in this lab at all, and §4 is explicit that
+> side-loading is the workaround for that — with one operator building one thing, the tag is never
+> ambiguous in practice. *In production:* immutable tags, and ideally deploy by **digest**, so a given
+> reference can only ever mean one image. *If you carry the habit:* 🚨 **`kubectl rollout undo` becomes a
+> lie.** Chapter 2 §8 showed the old ReplicaSet is a complete snapshot of the pod template — but the
+> template records `oms:dev`, *not* the image that tag pointed at when it was deployed. **Rolling back
+> re-pulls whatever `oms:dev` means now, which is the broken build you are trying to escape.** You get a
+> successful-looking rollback that changes nothing, at the worst possible moment, and nothing in the output
+> tells you it happened.
+
+⭐ **Why that one and not the others.** The `No TLS, no SASL` row is a genuine security defect, but it is a
+property of the *cluster* rather than of this application — it is called out in Chapter 3 §11, where the
+Helm value that disables it lives, and repeating it here would make it wallpaper. The SQLite-on-`local-path`
+row is the same single-failure-domain limitation described in Chapter 1 §8. **The image tag is the only one
+that originates in this chapter, and the only one that would still be wrong on a fifty-node cluster.**
+
+> 📌 **Forward note, added Aug 13, 2026:** the Docker Swarm track reaches the same conclusion from the
+> opposite direction. Swarm resolves a tag to a **digest** when it accepts a service spec and stores the
+> digest, so a service does *not* follow a moving tag — which fixes this failure mode by default and
+> introduces its own confusion instead: *"I pushed a fix and production is still running the old code."*
+> **Two orchestrators, one underlying truth — a tag is a mutable pointer and only a digest is an image.**
 
 ---
 

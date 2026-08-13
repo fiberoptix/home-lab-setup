@@ -1,6 +1,88 @@
 # Current Phase
 
-**Updated:** August 13, 2026 - 4:25 PM EDT
+**Updated:** August 13, 2026 - 5:20 PM EDT
+
+---
+
+## ✅ DOC INFRASTRUCTURE + TRACK 1 RETROFITS (Aug 13, 2026, 4:30–5:20 PM EDT)
+
+Andrew reviewed the new chapters and drove four changes. All committed and pushed to both remotes.
+
+### 1. `COMMANDS.md` — a command ledger indexed by QUESTION, not by chapter
+
+`education/docker-swarm/COMMANDS.md`. Andrew asked whether the docs captured *all* commands including
+the investigative ones. **Audit answer: install/configure/deploy yes, investigation NO** — 🚨
+**`docker service ps`, the command that disproved our wrong registry-auth theory, was missing from both
+chapters' command lists**, as were the base64 credential decode, `docker node ps`, `service inspect
+--pretty`, and `docker secret inspect`.
+
+⭐ **The deeper problem was ORDER, not coverage:** chapters teach in the sequence things were learned,
+which is the wrong sequence for an incident. The ledger reindexes by question — *is the cluster healthy
+or the app? why isn't this service running? what is ACTUALLY live?* — and adds a table for **reading**
+failure states. Each entry marked ✅ ran-it-here or ⚠️ standard-but-untested.
+**`METHOD.md` now makes keeping it a duty of the Investigate stage**, citing the `service ps` omission
+as the evidence that reconstructing later does not work.
+
+### 2. 🎯 `docker-admin.sh` — scoped, and DEFERRED TO THE END OF THE TRACK
+
+Andrew's words: *"takes inputs, helps me investigate outages, outputs issues and suggestions about how
+to investigate further or fix them"*, **read-only**, built in **one dedicated long design session at the
+end** — explicitly NOT incrementally. ⚠️ **It is an inference engine, not a command wrapper, which
+changes what we must collect NOW:** every failure needs five fields — **signal / interpretation /
+discriminator / next command / fix + blast radius.** The **discriminator** (what separates this cause
+from others producing the same signal) is only knowable while the failure is in front of us. **Traps
+C2–C7 are six rule-generating opportunities.** Spec lives in `COMMANDS.md` §11. 🚨 **Design against
+confidently-wrong advice** — show the evidence that matched, rank by confidence, separate observed from
+commonly-caused-by. Our C1 misdiagnosis is the case study.
+
+### 3. Chapter titles now name the track; page numbers in the footer
+
+- **H1 format is now `# <Topic> · Chapter <N> — <Title>`.** Reason: chapters are **printed**, numbering
+  restarts per track, and `Chapter 1` alone is ambiguous across a shelf that will hold four of them.
+- **Footer = a bare centred page number**, 9pt grey. Andrew rejected the first version
+  (`<Topic> · Chapter N · Page X of Y`) as clutter. ⭐ **Consequence: the H1 is now the ONLY place a
+  printed chapter names its subject** — recorded so nobody "tidies" the prefix away later.
+- **Pandoc has no page-number option.** It carries footers from the reference doc, so `build_docx.py`
+  now assembles a real footer part: `word/footer99.xml` + relationship + content-type override +
+  `<w:footerReference>` in `sectPr`. 🚨 **Order in `sectPr` is schema-enforced — footer refs BEFORE
+  `pgSz`, or Word rejects the file.** Named `footer99.xml` to avoid clobbering pandoc's own footer parts.
+- ⭐ **A `PAGE` field is safe where a TOC field is not:** `PAGE` resolves during **layout**, so it
+  populates on open and print; a TOC needs a document-wide scan only Word does on demand (which is why
+  this build has no TOC). `NUMPAGES` is weaker than `PAGE` — another reason the bare number won.
+- ⚠️ **VERIFIED STRUCTURALLY, NOT VISUALLY** — no renderer on this box (no LibreOffice). **Andrew still
+  needs to confirm the number appears in Word**, then upgrade the note in `CONVENTIONS.md`.
+
+### 4. ✅ Both track 1 backlog items EXECUTED (reversing the earlier defer)
+
+| | Outcome |
+|---|---|
+| **B2** | All 7 H1s → `# Kubernetes + Redpanda · Chapter N — …`, docx rebuilt |
+| **B1** | **9 Lab-vs-PROD callouts across ch1–6.** Ch7 gets **none** and says so — it is the research-only chapter, so there is no lab practice to contrast |
+
+⭐ **The retrofit was not what was expected, and this is the reusable lesson:** every chapter *already*
+had a "Where this sandbox differs from production" table, so the shortcuts were all documented. **What
+was missing was the fourth field — the consequence.** So the work was mostly **triage**: most rows are
+differences of *scale or tooling* and correctly stay rows; only rows that would still be wrong on a
+fifty-node cluster were promoted. Promoted: world-readable `system:masters` kubeconfig · `curl | sh` ·
+false durability from local-path · a probe that tests nothing · no PDB on quorum workloads · **Redpanda
+with no TLS/auth/ACLs on a NodePort** · unauthenticated Admin API + unowned topics · **auto-commit
+choosing at-most-once** · **one mutable image tag making `rollout undo` a lie.**
+**Deliberately NOT promoted:** single node, SQLite-vs-etcd, shared failure domain, 12 keys, pre-cached
+images — ⚠️ **three of track 1's most-repeated caveats are one fact wearing three hats: there is one
+piece of hardware.** `CONVENTIONS.md` now says: **write the fourth field first; if you cannot write a
+real consequence, it is a table row.**
+
+⚠️ **Pre-existing, NOT introduced by this work and NOT fixed:** `figcheck.py` reports 4 track-1 figures
+under 10pt on the page (`ch02_fig1_ownership`, `ch03_fig1_partitions`, `ch05_fig1_assignment`,
+`ch05_fig2_skew`). Left alone deliberately — no churn without a decision.
+
+### ⏭️ Still open
+
+- 🔲 **`s03-stack-deployed` snapshot NOT TAKEN** — the working stack is unprotected. On the PVE host:
+  `for v in 191 192 193; do qm snapshot $v s03-stack-deployed --description "…"; done`
+- 🔲 **Trap C2 is contaminated** — needs a restore to `s02-swarm-up` to run honestly.
+- 🔲 **Part 4** — CI runner that calls `deploy_swarm.sh` unchanged.
+- 🔲 Confirm the docx page numbers render in Word.
 
 ---
 

@@ -1,4 +1,4 @@
-# Chapter 5 — Consumer Groups, Rebalancing and Delivery Semantics
+# Kubernetes + Redpanda · Chapter 5 — Consumer Groups, Rebalancing and Delivery Semantics
 
 > **Who this chapter is written for.** Andrew is interviewing for an **SRE / DevOps** role on an
 > **order management system**. Chapters 3 and 4 got data *into* Redpanda and got topics provisioned.
@@ -477,6 +477,27 @@ The biggest gap is the second row. Everything here auto-commits on a timer, whic
 can commit a record it has not finished processing. [Committing **after** the side effect succeeds
 converts a possible *lost* record into a possible *duplicate* record]{custom-style="Key"} — and with an idempotent handler,
 duplicates are harmless while losses are not.
+
+### ⭐ Lab vs PROD — the one row that silently loses orders
+
+*Added Aug 13, 2026, retrofitting a convention introduced with the Docker Swarm track. Almost every row
+above is a difference of **tooling or tuning** — shell jobs instead of Deployments, twelve keys instead of
+millions — and none of them would be a defect at this size. **The commit row is different: it changes
+whether the system can lose data**, which is why it earns a callout rather than a table row.*
+
+> **Lab vs PROD — auto-commit, which decides your delivery semantics for you.** *In the lab:* every
+> consumer is `rpk topic consume`, which commits offsets on a timer, so an offset can be committed for a
+> record whose processing never finished. *Why it's acceptable here:* the chapter's subject is group
+> mechanics — assignment, rebalancing, lag, skew — and `rpk` makes all of those directly observable
+> without writing a client. *In production:* commit **after** the side effect has succeeded, and add a
+> rebalance listener so `onPartitionsRevoked` commits before a partition is taken away. *If you carry the
+> habit:* 🚨 **you have chosen at-most-once delivery without deciding to.** A crash between the timer
+> firing and the work completing means the record is gone — not retried, not logged, gone — and for order
+> flow that is a lost order with no trace. ⭐ **The asymmetry is the whole point: committing late risks a
+> duplicate, committing early risks a loss, and a duplicate is recoverable while a loss is not.** Chapter 6
+> §5–§7 tests both halves of this with a real client and shows exactly where the duplicate window opens.
+> ⚠️ *Unverified prescription:* the commit-after-success pattern and `onPartitionsRevoked` are described
+> here but never exercised in this chapter, because `rpk` gives no control over either.
 
 ---
 

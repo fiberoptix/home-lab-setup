@@ -1,4 +1,4 @@
-# Chapter 1 — Kubernetes, and the k3s Cluster We Just Built
+# Kubernetes + Redpanda · Chapter 1 — Kubernetes, and the k3s Cluster We Just Built
 
 > **Series:** Home-Lab Education · Phase 14 (Kubernetes + Redpanda)
 > **Built and verified:** July 27, 2026 on VM 186 `vm-k8-redpanda-1` (192.168.1.186)
@@ -784,6 +784,40 @@ Expect to be asked. This is the table to have cold.
 **The answer to give:** [*"k3s is conformant Kubernetes packaged as a single binary for edge and
 single-node use. I chose it to learn the concepts quickly. The manifests I wrote would deploy to EKS
 unchanged — I'd swap local-path for a CSI storage class and use a real ingress controller."*]{custom-style="Key"}
+
+### ⭐ Lab vs PROD — the three that are WRONG, not merely smaller
+
+*Added Aug 13, 2026, retrofitting a convention introduced with the Docker Swarm track. Everything in the
+table above is a difference of **scale or packaging** — one node instead of many, SQLite instead of etcd
+— and none of it would be a mistake in production, only a different size. **The three below are
+different in kind: each would be an actual defect if it followed you to work.***
+
+> **Lab vs PROD — a world-readable cluster-admin credential.** *In the lab:* k3s writes
+> `/etc/rancher/k3s/k3s.yaml` mode **`644`**, and §3c leaves it that way so `kubectl` works without
+> `sudo`. *Why it's acceptable here:* one operator, one throwaway VM, on a LAN. *In production:* leave it
+> `600` and copy it out with `sudo`, or better, never use it — issue per-human credentials through OIDC
+> so access can be revoked and audited per person. *If you carry the habit:* 🚨 **that file is a
+> permanent, irrevocable `system:masters` credential.** It bypasses RBAC entirely, cannot be scoped, and
+> **cannot be revoked without rotating the cluster CA.** Any local user, any backup, and any VM snapshot
+> containing it holds full cluster admin forever.
+
+> **Lab vs PROD — installing by piping a URL into a shell.** *In the lab:* `curl -sfL … | sh -`, which is
+> the documented k3s install path. *Why it's acceptable here:* a rebuildable sandbox, and §3a already
+> names the risk. *In production:* a pinned, checksum-verified artifact from an internal mirror, applied
+> by configuration management. *If you carry the habit:* you have made every build a live dependency on
+> someone else's web server and TLS chain, with **no record of what you actually executed** — so a
+> compromised upstream, or simply a changed script, is both undetectable and unreproducible.
+
+> **Lab vs PROD — replication that is real while the durability is not.** *In the lab:* Chapter 3's three
+> Redpanda brokers use `local-path` volumes that are three directories on **the same ext4 filesystem, the
+> same virtual disk, the same host.** *Why it's acceptable here:* the Raft mechanics are genuine, and the
+> failure drills in Chapter 3 §9 really do exercise quorum — which is the thing being taught. *In
+> production:* a CSI driver with one real device per node, plus hard `podAntiAffinity` so replicas cannot
+> be co-scheduled. *If you carry the habit:* 🚨 **you will believe replication factor 3 has bought you
+> durability when it has bought you none.** One disk failure loses all three copies simultaneously, and
+> every dashboard will have shown three healthy replicas right up to the moment they all vanished. ⚠️
+> *Unverified prescription:* the CSI and anti-affinity fix is described, not tested — this lab has one
+> node and cannot demonstrate it.
 
 ---
 

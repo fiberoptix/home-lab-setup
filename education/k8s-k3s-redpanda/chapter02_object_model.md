@@ -1,4 +1,4 @@
-# Chapter 2 — The Object Model: Deployments, Rollouts, and the Two Probes
+# Kubernetes + Redpanda · Chapter 2 — The Object Model: Deployments, Rollouts, and the Two Probes
 
 > **Who this chapter is written for.** Andrew is interviewing for an **SRE / DevOps** role on an
 > **order management system**. So this chapter is not "how to write a Deployment." It is about what
@@ -676,6 +676,35 @@ a week of production flow.
 | Probes hit `/` | real probes hit a purpose-built endpoint that checks internal state |
 | No `startupProbe` | needed for anything slow to boot |
 | `CHANGE-CAUSE` empty | populated via `kubectl.kubernetes.io/change-cause`, so history is readable during an incident |
+
+### ⭐ Lab vs PROD — the two rows above that are defects, not shortcuts
+
+*Added Aug 13, 2026, retrofitting a convention introduced with the Docker Swarm track. Most of that table
+is scale: pre-cached images and one node change **timings**, not correctness. **These two change what the
+system actually guarantees.***
+
+> **Lab vs PROD — a probe that does not test the application.** *In the lab:* readiness and liveness both
+> hit `/` on an nginx container, which answers as long as the web server process is alive. *Why it's
+> acceptable here:* the subject being taught is the *mechanism* — how the endpoint is removed from an
+> EndpointSlice, and how §7's liveness misconfiguration causes a restart loop — and a trivial endpoint
+> makes that mechanism visible. *In production:* a purpose-built endpoint that verifies the things the
+> request path actually needs — a database round-trip, a broker connection, a warm cache. *If you carry
+> the habit:* 🚨 **you get the illusion of health checking with none of the protection.** A process that
+> is up but cannot reach its database passes `/` forever, so Kubernetes keeps routing traffic to it and
+> keeps reporting `Ready`. This is precisely the failure Chapter 6 §13 hits from the other direction —
+> **Kubernetes cannot tell a working consumer from a hung one** — and the reason is the same: nothing was
+> asked that the broken state would fail.
+
+> **Lab vs PROD — no PodDisruptionBudget on a quorum workload.** *In the lab:* no PDBs anywhere, including
+> in front of Chapter 3's three-broker Redpanda cluster. *Why it's acceptable here:* with one node there is
+> nowhere to drain *to*, so a PDB would have nothing to protect and could not be exercised honestly. *In
+> production:* a PDB on anything quorum-based, sized so a voluntary disruption can never take out more
+> than one member. *If you carry the habit:* 🚨 **`kubectl drain` will cheerfully destroy your quorum.**
+> The critical detail is that §9 of this chapter is not enough on its own — a *Deployment* rolling update
+> respects `maxUnavailable`, but a **node drain is a different code path** and only a PDB constrains it.
+> So a cluster that survives every deploy can still be lost to a routine node patch, which is the version
+> of this that actually happens. ⚠️ *Unverified prescription:* PDB behaviour under drain was never tested
+> here, for the reason given above.
 
 ---
 
