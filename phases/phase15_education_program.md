@@ -1,7 +1,14 @@
 # Phase 15 — The Education Program: multi-track study repo
 
-**Status:** ✅ **Parts A–D COMPLETE (Aug 12, 2026).** Part E is **blocked on O1** — the real stack.
-Nothing is committed yet; Andrew has not been asked about push targets.
+**Status:** ✅ **Parts A–D COMPLETE (Aug 12, 2026)**, committed in `104a1e0` and mirrored to GitLab;
+the later doc reconciliation went in with `0503ac1`.
+🔸 **Part E is all but done:** **O1 (the real stack) closed** the same evening, so §4 is now reconciled
+against it rather than derived from the job description, and its deliverable
+`phases/phase16_docker_swarm.md` is written and awaiting the build session. **One item remains** — the
+track table in `education/README.md` still lists only track 1. That is deliberate: adding a
+`docker-swarm` row before the folder exists would publish a dead link, so it lands with Phase 16 Part 1.
+⚠️ **This file is now a RECORD, not a plan.** Everything in §3 has been executed; §1 describes the
+tree as it was *before* the move. Do not re-run it.
 **Created:** August 12, 2026
 **Owner:** Andrew
 **Supersedes as active phase:** Phase 14 (K8s + Redpanda POC) — the interviews happened Aug 6/7 and
@@ -24,7 +31,11 @@ doc reconciliation. Writing the next track is Phase 16 onward.
 
 ---
 
-## 1. Where things stand today
+## 1. Where things stood BEFORE the move (historical — kept as the "why")
+
+> 📎 This section is a snapshot of `education/` **as it was on the morning of Aug 12, 2026**, before
+> Part A ran. It is retained because it records the survey work that made the move safe, not because
+> it describes the tree today. For the current layout see `education/README.md`.
 
 ### The tree
 
@@ -127,69 +138,85 @@ education/
 
 ### Part A — the move (mechanical, ~20 min)
 
-- [ ] `git mv` the seven chapters + `app/ diagrams/ images/ manifests/ docx/` into
+- [x] `git mv` the seven chapters + `app/ diagrams/ images/ manifests/ docx/` into
       `education/k8s-k3s-redpanda/`, and `git mv education/README.md` there too.
-- [ ] `mv education/scratch education/k8s-k3s-redpanda/scratch` (untracked, plain `mv`).
-- [ ] `.gitignore`: `education/scratch/` → `education/*/scratch/` (and confirm
+- [x] `mv education/scratch education/k8s-k3s-redpanda/scratch` (untracked, plain `mv`).
+- [x] `.gitignore`: `education/scratch/` → `education/*/scratch/` (and confirm
       `git check-ignore education/k8s-k3s-redpanda/scratch/anchors_ch01.py` still fires).
-- [ ] `git mv education/k8s-k3s-redpanda/tools education/tools` — tools go **up**, not across.
-- [ ] `git mv education/k8s-k3s-redpanda/scratch/figcheck.py education/tools/figcheck.py`
+- [~] `git mv education/k8s-k3s-redpanda/tools education/tools` — **NOT NEEDED.** `tools/` was
+      already at `education/tools/`, its target. The plan had it travelling down and back up again.
+- [x] `git mv education/k8s-k3s-redpanda/scratch/figcheck.py education/tools/figcheck.py`
       (this promotes a currently-untracked file into the repo — intentional, see Q4).
-- [ ] Fix the one cross-boundary link (`../phases/` → `../../phases/`).
+- [x] Fix the one cross-boundary link (`../phases/` → `../../phases/`).
 
 ### Part B — the shared pipeline (~45 min)
 
-- [ ] `build_docx.py`: take a track directory as `argv[1]`; derive `EDU` from it instead of
+- [x] `build_docx.py`: take a track directory as `argv[1]`; derive `EDU` from it instead of
       `__file__.parent.parent`; keep the digit filter as `argv[2:]`. Widen the chapter glob to
       `chapter[0-9][0-9]_*.md`. Reference-doc temp path moves to `<track>/scratch/docx/`.
-- [ ] `figcheck.py`: same — track directory as an argument, default to erroring rather than
+- [x] `figcheck.py`: same — track directory as an argument, default to erroring rather than
       silently checking the wrong folder.
-- [ ] `highlight.py`: no change needed (already argv-driven), but confirm.
-- [ ] **Validation:** rebuild all 7 chapters of track 1 and diff byte sizes against the committed
+- [x] `highlight.py`: no change needed (already argv-driven), but confirm.
+- [x] **Validation:** rebuild all 7 chapters of track 1 and diff byte sizes against the committed
       `docx/`. A pipeline refactor that changes output is a regression, not a refactor.
 
 ### Part C — the shelf documents (~1 hr)
 
-- [ ] New `education/README.md` — the hub. Track table: name, subject, why it is being studied,
+- [x] New `education/README.md` — the hub. Track table: name, subject, why it is being studied,
       chapter count, status, link. Plus a short "how to start a new track" section.
-- [ ] New `education/CONVENTIONS.md` — lift the conventions out of the old README verbatim
+- [x] New `education/CONVENTIONS.md` — lift the conventions out of the old README verbatim
       (chapter shape, Graphviz gotchas, the ≤1155×1386px figure rule, the docx spec, the highlight
       pass and its two traps, "only document what you actually ran").
-- [ ] `education/k8s-k3s-redpanda/README.md` — keep the track-specific parts: chapter table
+- [x] `education/k8s-k3s-redpanda/README.md` — keep the track-specific parts: chapter table
       (**corrected**: Ch7 is *additional infra stack*, Schema Registry moves to Ch8), the layout
       block, the manifests table, the app note.
-- [ ] Root `README.md` — add an `education/` section. This is the public GitHub face of the repo.
-- [ ] `education/docx/README.md` — the link-preserving stub [D3]. One short paragraph explaining the
+- [x] Root `README.md` — add an `education/` section. This is the public GitHub face of the repo.
+- [x] `education/docx/README.md` — the link-preserving stub [D3]. One short paragraph explaining the
       restructure and linking to `../k8s-k3s-redpanda/docx/`.
 
 ### Part D — doc reconciliation (~1 hr)
 
-- [ ] **MEMORY.md** — 11 path references, plus the two facts that are missing entirely:
+- [x] **MEMORY.md** — 11 path references, plus the two facts that are missing entirely:
       **Andrew took the interviews Aug 6/7 and got the job**, and the education series is now a
       multi-track program rather than one series.
-- [ ] **`phases/current_phase.md`** — mark **Phase 14 COMPLETE** (goal met: the interviews happened
+- [x] **`phases/current_phase.md`** — mark **Phase 14 COMPLETE** (goal met: the interviews happened
       and the outcome was a hire), retire its "Next" list, and make **Phase 15 the active phase**.
       7 path references.
-- [ ] **`phases/phase14_k8s_redpanda_poc.md`** — status header → COMPLETE with the outcome recorded;
+- [x] **`phases/phase14_k8s_redpanda_poc.md`** — status header → COMPLETE with the outcome recorded;
       8 path references.
-- [ ] `chapter01` (1), `chapter06` (3), `manifests/seed-topics-job.yaml` (1),
+- [x] `chapter01` (1), `chapter06` (3), `manifests/seed-topics-job.yaml` (1),
       `tools/build_docx.py` (1 comment) — path text only.
-- [ ] Sweep: `rg -n "education/(chapter|app|manifests|diagrams|images|docx|scratch)"` must return
+- [x] Sweep: `rg -n "education/(chapter|app|manifests|diagrams|images|docx|scratch)"` must return
       zero hits that are not already track-qualified.
 
 ### Part E — the study backlog (planning only, no content)
 
-- [ ] **Blocked on O1** — get the real stack from Andrew, then fix the track list and order (§4).
-- [ ] Record the agreed roadmap in `education/README.md` as the track table with statuses.
-- [ ] Write `phases/phase16_<first-track>.md` as a normal phase plan [D2] and present it for
+- [x] **Blocked on O1** — get the real stack from Andrew, then fix the track list and order (§4).
+- [ ] **STILL OPEN** — record the roadmap in `education/README.md`'s track table. Held until Phase 16
+      Part 1 creates `education/docker-swarm/`, so the table never links to a folder that is not there.
+- [x] Write `phases/phase16_<first-track>.md` as a normal phase plan [D2] and present it for
       approval. Do **not** start writing chapters before that plan is agreed.
 
 ---
 
-## 4. The candidate tracks — PROVISIONAL, pending O1
+## 4. The candidate tracks — RECONCILED against the real stack (Aug 12, evening)
 
-> ⚠️ **This whole section is a straw man derived from the job description, not from the job.**
-> Andrew is describing the real stack next; expect this table to change before any track is started.
+> ✅ **O1 closed.** Andrew named the platform he is joining: **GitHub** for source, **Jenkins** for CI,
+> **Docker Swarm** for orchestration, on a **DevOps/SRE role weighted to DevOps**.
+>
+> ⚠️ **The important thing about that answer is what it did *not* contradict.** Every track in the
+> table below is a **platform service** (a database, observability, secrets, identity, the edge), and
+> every tool Andrew named is **delivery and orchestration tooling**. The two lists are *orthogonal,
+> not competing* — his answer did not invalidate the table, it revealed a whole axis the table never
+> had. He also described it as "what I know about their platform", i.e. partial knowledge, so treat
+> the six rows below as still-plausible-but-unconfirmed rather than as refuted.
+>
+> 🚨 **What this section got wrong was the ordering, not the contents.** The old recommendation was
+> *observability → mongodb → the rest*, chosen when nothing was known about the toolchain. The three
+> tools Andrew actually named appear **nowhere** in the table, and one of them is now Phase 16.
+> **Revised order: `docker-swarm` (Phase 16, planned) → `jenkins` (likely Phase 17) → then the
+> platform-service tracks below, observability first.** Delivery tooling wins because it is the part
+> of the job he is certain about *and* the part he will touch on day one.
 
 The employer's stack is already enumerated — Chapter 7 was commissioned straight off the job
 description, and its six sections *are* the syllabus. **And the raw research already exists**:
@@ -207,9 +234,21 @@ sitting on disk already.
 | `iam-pam` | identity lifecycle, SSO, Symantec PAM, recertification | `research_iam.md` 74 KB | **No** — reading track |
 | `edge-traffic` | Cloudflare, WAF, rate limiting, the gRPC/HTTP2 single-backend trap | Ch7 §1 (hand-written) | **Partly** — Traefik yes, CDN no |
 
-**Recommended order:** finish track 1 (Ch8–10, the cluster is still up and the muscle memory is
-warm) → `observability` (highest leverage: it is the on-call skill, and it retro-fits onto the OMS
-we already have) → `mongodb` (the deepest single technology on the list) → the rest as reading.
+**Two tracks the table above never had, added when O1 closed:**
+
+| Track | Subject | Seed material | Hands-on possible in the lab? |
+|---|---|---|---|
+| `docker-swarm` | multi-node Swarm, shipping Capricorn to it from a pipeline, failure drills | none — written from scratch | **Yes** — `phases/phase16_docker_swarm.md`, 3 VMs at `.191–.193` |
+| `jenkins` *(provisional)* | Jenkinsfile vs GitLab CI, agents, credentials, deploying to Swarm | none | **Yes** — a VM, deploying to the Phase 16 cluster |
+
+**Revised order (supersedes the original recommendation):** `docker-swarm` → `jenkins` →
+`observability` → `mongodb` → the rest as reading. Track 1's Ch8–10 slot in opportunistically, since
+the cluster is still up at `s05-app-running` and the muscle memory is warm, but it is **no longer
+first** — Andrew now has the job, so certainty about the toolchain beats finishing something tidy.
+
+⚠️ **Do not start the Jenkins track by building Jenkins.** Phase 16 Part 3 deliberately puts the deploy
+logic in a shell script with the CI file as a thin wrapper, precisely so that a Jenkins track is
+mostly "write a different wrapper" rather than a second full build. Read that decision first.
 
 A track that cannot be built in the lab should say so **in its README's first paragraph**, the way
 Chapter 7 does. That honesty is the thing that made Ch7 usable.
@@ -244,10 +283,13 @@ scratch.
 
 ## 5b. Still open
 
-**O1 — The actual employer stack.** Andrew is going to describe the real stack before the track
-list in §4 is fixed. Chapter 7's six areas came from the *job description*; the interviews and the
-offer are newer information. **Nothing in §4 should be treated as agreed until this lands** — it is
-the highest-value input to the whole program, and picking six technologies wrong costs weeks.
+**O1 — ✅ CLOSED Aug 12 (evening), partially.** Andrew named **GitHub + Jenkins + Docker Swarm** and a
+**DevOps-first SRE role**. §4 has been reconciled: the six job-description tracks were not refuted,
+but they were all *platform services* and missed the *delivery tooling* axis entirely, which is now
+first in the order. ⚠️ **Still partial** — he described it as "what I know about their platform", so
+the rest of the stack (whether MongoDB, Vault, the observability suite and the Cloudflare edge are
+really there) is **still unconfirmed** and worth asking about again once he is inside and can see it.
+Chapter 7's six areas remain job-description-derived until then.
 
 **O2 — ✅ CLOSED Aug 12.** The `.docx` highlighting was only ever verified by inspecting OOXML
 (318 `Key` runs, `FFF3B0` fill, no leaked markup), never seen rendered. **Andrew confirmed the
@@ -323,7 +365,7 @@ the two files that discuss the move itself.
 | Scratch still ignored | `git check-ignore -v education/k8s-k3s-redpanda/scratch/anchors_ch01.py` |
 | No secrets staged for GitHub | `git ls-files \| grep -iE 'password\|cred\|\.env\|\.key'` empty |
 | Word build unchanged | rebuild all 7 → sizes match committed `docx/` |
-| Figures still legible | `python3 education/tools/figcheck.py k8s-k3s-redpanda` exits 0 |
+| Figures still legible | `python3 education/tools/figcheck.py k8s-k3s-redpanda` — ⚠️ **exits 1, and that is the accepted state.** Four pre-existing figures sit at 9.4–10.0 pt (see §5c); Andrew printed all seven chapters and confirmed they read fine. **Do not treat a non-zero exit here as a regression** — compare the named figures instead, and only investigate if the list grows. |
 | No dead relative links | `rg -n '\]\(\.\./' education/` reviewed by hand |
 | No stale path prose | `rg -n 'education/(chapter\|app\|manifests\|diagrams\|images\|docx\|scratch)'` |
 

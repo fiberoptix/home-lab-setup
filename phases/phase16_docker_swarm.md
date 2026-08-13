@@ -3,8 +3,8 @@
 **Status:** 📋 **PLAN — ready to start. The five original open questions were settled Aug 12, 2026
 (see "Decisions" at the bottom). Nothing built yet.**
 👉 **Start the build session by walking the [pre-flight list](#-read-this-first--the-pre-flight-list)
-below with Andrew** — two items still need a decision from him, six are hard rules, and six are traps
-that must *not* be fixed in advance.
+below with Andrew** — two items still need a decision from him, seven are hard rules, and seven are
+traps that must *not* be fixed in advance.
 📖 **`education/CONVENTIONS.md` is a MANDATORY read for this phase, not an optional one.** Session 1
 drafts chapter 1, which makes this education content under `CURSOR_RULES` startup checklist item 2f.
 Do not skip it on the grounds that Parts 1–2 look like pure infrastructure work.
@@ -79,6 +79,7 @@ question that comes back six months later.)
 | B4 | ⚠️ **Exclude all three from `refresh.sh`**, disable `unattended-upgrades` + `apt-daily`. Package churn during a study phase manufactures failures that teach nothing and make real ones ambiguous. | Resource plan |
 | B5 | ⚠️ **Purge Chrome + Cursor after `host_setup.sh`.** It is a workstation script; these are headless nodes (~1.8 GB wasted otherwise). | Part 1 |
 | B6 | 🔑 **Use a deploy token scoped to `read_registry`**, masked, in CI variables — not the `root` password that already sits in this repo's remote URL. | Part 4 |
+| B7 | 🚨 **NEVER copy `.184`'s credentials into this repo.** Capricorn's compose file carries **inline plaintext** `POSTGRES_PASSWORD`, `POSTGRES_USER` and a `DATABASE_URL` with an embedded password (there is no `.env`). Copying it as a starting point puts a **production database password into a repo with a public GitHub remote**. Invent lab-only credentials and deliver them as **Docker secrets**. | Part 3 |
 
 ### 🅒 Deliberately planted traps — do NOT fix these in advance
 
@@ -93,6 +94,7 @@ pre-empting them removes the lesson and leaves you with a tutorial.
 | C4 | Point the deploy job at one manager by IP, then kill that manager while the cluster stays healthy. | HA control plane ≠ HA delivery path. The best CI lesson here. |
 | C5 | Take quorum down to 1 of 3 and try to change something. | Containers keep serving; the control plane refuses all changes. Degraded ≠ down, and the reflex to "just bounce it" turns a serving cluster into a real outage. |
 | C6 | Roll out a deliberately broken image tag. | Whether `update_config` / `rollback_config` actually saves you, and why a real healthcheck is not optional. |
+| C7 | Push a **new image under the same `:latest` tag**, redeploy, and see whether anything actually changes. | Swarm resolves a tag to a **digest** and stores that, so services do not track a moving tag the way a `docker compose pull` does. Teaches `--resolve-image`, and why "I pushed a fix and prod is still running the old code" is a Swarm classic. |
 
 ### 🅓 Findings inherited from elsewhere — recorded, not fixed here
 
@@ -100,6 +102,7 @@ pre-empting them removes the lesson and leaves you with a tutorial.
 |---|---|---|
 | D1 | `/opt/capricorn/docker-compose.yml` on `.184` declares `postgres:15.5-alpine`, but the **running container is the custom `production/capricorn/postgres:latest`**. The file does not describe what is deployed, so "just redeploy from the compose file" would quietly change PROD's database image. | ⚠️ **Application layer — out of this repo's ownership.** Recorded because our stack file must reference the image that really runs, and because it is a perfect example of config drift. Raise with whoever owns Capricorn. |
 | D2 | Three VMs on one physical host simulates **node** failure, not **host** failure. | Honest caveat to state in the chapter, same as Phase 14's three-brokers-in-one-VM note. Every drill is a real Raft event; losing the Z6 still loses all three. |
+| D3 | **Capricorn's compose on `.184` holds its secrets in plaintext, inline** — `POSTGRES_PASSWORD`, `POSTGRES_USER`, `POSTGRES_DB`, and a `DATABASE_URL` containing the password. There is **no `.env` file**; the values are committed into the compose file itself. | ⚠️ **Application layer — not ours to fix**, but it is the reason for hard rule B7. Note that `push_github.sh` would likely catch a leaked `DATABASE_URL` (its URL-with-password gate) but **would not catch a bare `POSTGRES_PASSWORD=` line** — so the protection against copy-paste is partial and accidental, not something to rely on. Raise the plaintext-secrets issue with whoever owns Capricorn. |
 
 ---
 
@@ -158,6 +161,10 @@ By the end you should be able to explain, without notes:
 - Overlay networking and what the `ingress` and `docker_gwbridge` networks are actually for.
 - `update_config` / `rollback_config` — rolling updates, and automatic rollback on failure.
 - Why Swarm has **no PersistentVolumeClaim equivalent**, and what you do instead.
+- **`docker secret` and `docker config`** — how they differ from environment variables, why a secret
+  is immutable, and how that constrains credential rotation.
+- **Image resolution:** a service stores a **digest**, not a tag, so `:latest` does not float the way
+  it does under `docker compose`. What `--resolve-image` does and when it bites.
 
 **Shipping to a cluster (the DevOps half — most of the weight)**
 - Why `docker stack deploy` needs **`--with-registry-auth`**, and the confusing failure without it.
@@ -305,8 +312,17 @@ auth).
 Chrome + Cursor (~1.8 GB) — it is a workstation script and these are headless nodes:
 `apt-get purge -y google-chrome-stable cursor && apt-get autoremove --purge -y`
 
+⚠️ **`qm resize` is not optional here, and the guest side of it is the bit that bites.** Template 9000's
+disk is **3584M — 3.5 GB** (verified Aug 12), so every clone starts far too small for a Docker host and
+the grow to 40 GB is load-bearing rather than cosmetic. Growing is safe (`qm resize` only refuses to
+*shrink*), but the resize enlarges the **virtual disk**, and the guest filesystem only follows if
+cloud-init's `growpart` runs on first boot. **If it silently does not, you get a 3.5 GB root that fills
+the first time you pull the Capricorn images**, and the error you see will be about image layers, not
+about disk sizing. So confirm it from inside the guest, not from `qm config`.
+
 **Verify per node:** hostname, `cloud-init status: done`, unique machine-id, `docker --version`,
-`docker info | grep -i swarm` → `inactive`, and `cat /etc/docker/daemon.json`.
+`docker info | grep -i swarm` → `inactive`, `cat /etc/docker/daemon.json`, and
+**`df -h /` showing ~40 GB rather than 3.5 GB**.
 **Then `s01-base-clean` on all three.**
 
 ---
@@ -357,6 +373,54 @@ That third line matters more than it looks: `docker stack deploy` **returns succ
 accepted the desired state**, not when the tasks are actually running. A deploy job that does not
 poll for convergence will report green while the app is crash-looping. Make the script wait, and make
 it exit non-zero when it does not converge.
+
+⚠️ **`:latest` does not mean what compose taught you it means.** Swarm resolves an image tag to a
+**digest** when the service is created and stores the digest in the service spec, so a service does
+not follow a moving tag. `docker stack deploy` re-resolves by default (`--resolve-image always`), but
+the moment that default changes, or the manager cannot reach the registry, you get a deploy that
+reports success and silently keeps running the old code. Since Capricorn publishes to `:latest`, this
+is squarely in the path of this phase. **Look at the resolved digest** with
+`docker service inspect --format '{{.Spec.TaskTemplate.ContainerSpec.Image}}' capricorn_backend` —
+it will show `…@sha256:…`, not the tag you typed. Trap C7 exists to make you meet this on purpose.
+
+### Configuration and secrets — the part that will stop you on day one
+
+🚨 **Read hard rule B7 before writing a single line of the stack file.** Capricorn's compose on `.184`
+carries its configuration **inline and in plaintext** — `POSTGRES_USER`, `POSTGRES_PASSWORD`,
+`POSTGRES_DB`, `VITE_API_URL`, and a `DATABASE_URL` with the password embedded in it. There is **no
+`.env` file**; the literal values live in the compose file. Copying that file as a starting point is
+the obvious move and it would put **a production database password into this repo, which has a public
+GitHub remote.** Do not do it. Invent lab-only credentials; the database is empty and new anyway
+(Part 5), so they can be anything.
+
+**Swarm's own answer to this is `docker secret`, and using it is the right call twice over** — it
+keeps credentials out of the stack file, and it is one of the few places Swarm is genuinely *nicer*
+than the alternatives, so it belongs in the curriculum rather than being worked around:
+
+```bash
+printf 'some-lab-only-password' | docker secret create pg_password -
+# then in capricorn.stack.yml:
+#   secrets: [pg_password]
+#   environment:
+#     POSTGRES_PASSWORD_FILE: /run/secrets/pg_password
+```
+
+Three things to understand while doing it, because they are exam-grade:
+- A secret is **stored in the Raft log, encrypted at rest, and mounted into the task as a tmpfs file**
+  — it never lands on a node's disk and never appears in `docker inspect` output the way an
+  environment variable does.
+- Secrets are **immutable**. You cannot update one in place; you create a new secret and update the
+  service to reference it. That constraint shapes how credential rotation works, and it is worth
+  saying out loud in the chapter because it surprises people.
+- `docker config` is the same mechanism for **non**-sensitive files, and is the honest analogue of a
+  Kubernetes ConfigMap.
+
+⚠️ **Postgres needs `POSTGRES_PASSWORD_FILE`, not `POSTGRES_PASSWORD`,** to read from a secret — the
+official image supports the `_FILE` convention. Whether Capricorn's **custom** postgres image and its
+**backend** honour the same convention is unknown, and that is a real thing to find out rather than
+assume. If the backend can only take a `DATABASE_URL` string, say so in the chapter and describe the
+workaround; that gap between "how the platform wants to pass secrets" and "how the app is willing to
+receive them" is exactly the friction a DevOps engineer spends real time on.
 
 ### Our own stack file — Capricorn's repo stays untouched
 
@@ -426,8 +490,21 @@ deploy_swarm:
   when: manual
   script:
     - scp manifests/capricorn.stack.yml scripts/deploy_swarm.sh $SWARM_USER@$SWARM_HOST:~/
-    - ssh $SWARM_USER@$SWARM_HOST "REGISTRY=... REG_USER=... REG_TOKEN=... bash deploy_swarm.sh"
+    # token goes over STDIN, never on the command line
+    - echo "$REG_TOKEN" | ssh $SWARM_USER@$SWARM_HOST "REGISTRY=$REGISTRY REG_USER=$REG_USER bash deploy_swarm.sh"
 ```
+
+⚠️ **Why the token is piped rather than assigned inline.** An obvious first draft writes
+`ssh host "REG_TOKEN=$REG_TOKEN bash deploy_swarm.sh"`, which puts the token in the **remote process's
+command line**, where any user on that node can read it out of `ps` for as long as the deploy runs.
+Passing it on stdin keeps it out of the process table. GitLab masking hides it in *job logs* and does
+nothing about this.
+
+⚠️ **And be honest in the chapter about what is still exposed:** the lab registry is **plain HTTP**
+(that is why `insecure-registries` is set), so `docker login` sends the token across the LAN in the
+clear regardless of how carefully it was handled on either end. Least privilege is exactly why B6
+scopes it to `read_registry` — the control you *do* have is limiting what a captured token is worth,
+not preventing its capture.
 
 **A Jenkinsfile later is the same two lines in Groovy.** That is the whole point of Part 3 writing the
 script first.
@@ -476,6 +553,14 @@ traps are waiting, and both are worth triggering on purpose:
    present on `.184` because that is where someone cloned it. On a three-node Swarm, the two nodes
    that lack the directory will either fail or silently mount an empty one, depending on the driver.
 
+   📋 **First task in Part 5: find out whether we even need that bind mount.** The running postgres is
+   the **custom** `production/capricorn/postgres:latest`, not stock — so the init scripts may already
+   be baked into the image, which would make the bind mount redundant for us and the stack file
+   simpler. Check with
+   `docker run --rm --entrypoint ls production/capricorn/postgres:latest /docker-entrypoint-initdb.d`.
+   If they are in the image, say so and drop the mount; if they are not, the `docker config` mechanism
+   from Part 3 is the Swarm-native way to deliver them to every node without a shared filesystem.
+
 So you get a real choice, and both options cost you something:
 
 | Option | What it costs |
@@ -511,6 +596,8 @@ read.
 | 6 | **Force postgres onto another node** (unpin it, drain its node) | A *new empty volume* appears; the app comes up with no data and reports healthy. | Silent data loss. The Part 5 trap, demonstrated rather than described. |
 | 7 | Recover from drill 2 with `docker swarm init --force-new-cluster` | A single surviving manager rebuilds a working cluster. | The disaster-recovery procedure. Do it once so it is not novel when it matters. |
 | 8 | Back up and restore `/var/lib/docker/swarm` | What is actually in the Raft store; restoring onto a rebuilt node. | The only real backup Swarm has. |
+| 9 | Push a changed image to the **same `:latest` tag**, then redeploy | Whether the service picks it up; compare `docker service inspect`'s stored `…@sha256:…` before and after. | Services hold a **digest**, not a tag. Explains "I deployed the fix and it is still broken", and why immutable tags beat `:latest` in a real pipeline. |
+| 10 | Rotate a `docker secret` | Secrets are immutable — you create a new one and update the service to point at it. | Credential rotation is a *deployment*, not an edit. Ties Part 3's secrets work to something operational. |
 
 ⚠️ **The honest caveat, to be stated in the chapter** (same as the 3-brokers-in-one-VM caveat in
 Phase 14): three VMs on one physical host simulates **node** failure, not **host** failure. Killing a
@@ -528,6 +615,11 @@ Written last, from experience rather than from docs. At minimum:
 - **No PVC equivalent** (Part 5), no namespaces in the k8s sense, no CRDs, no operators.
 - Raft in the manager set ↔ etcd in the control plane; quorum arithmetic is identical.
 - `depends_on` ignored ↔ init containers / readiness gates.
+- **`docker secret` ↔ Secret, `docker config` ↔ ConfigMap** — and the difference that matters: a Swarm
+  secret is **immutable**, so rotation means creating a new object and updating the service, where a
+  Kubernetes Secret can be edited in place and re-mounted. Say which you prefer and why.
+- **Image handling:** Swarm pins a **digest** into the service spec at deploy time; Kubernetes keeps
+  the tag in the manifest and leaves resolution to the kubelet's pull policy.
 - Where Swarm's simplicity is a genuine advantage, and where it is a ceiling.
 - One honest paragraph: which would you pick for Capricorn, and why.
 
@@ -543,7 +635,7 @@ Reweighted DevOps-first: the build-and-ship half gets three sessions, the drills
 | 2 | Part 3: stack file, `deploy_swarm.sh` by hand, routing mesh, the registry-auth gotcha. Chapter 2. |
 | 3 | Part 4: runner check, `workflow: rules:`, deploy token, the manual job. Chapter 3. |
 | 4 | Part 5 + drills 1–3. Chapter 4. |
-| 5 | Drills 4–8 (including the empty-volume demo), Part 7 crib sheet. Chapter 5. |
+| 5 | Drills 4–10 (the empty-volume demo, the `:latest` digest surprise, secret rotation), Part 7 crib sheet. Chapter 5. |
 
 ---
 

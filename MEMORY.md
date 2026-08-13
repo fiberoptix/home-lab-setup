@@ -106,7 +106,7 @@ editing `CURSOR_RULES`:
   👉 **Open that session by walking the file's `📌 READ THIS FIRST` pre-flight list.** It sorts every
   caveat into four kinds so they cannot be mistaken for one another: **🅐 open items** (now down to
   **two** one-minute decisions for Andrew — whether this repo gains a CI file at all, and where the
-  stack file plus deploy script live), **🅑 six hard rules**, **🅒 six deliberately planted traps that
+  stack file plus deploy script live), **🅑 seven hard rules**, **🅒 seven deliberately planted traps that
   must NOT be fixed in advance** (pre-empting them turns the phase into a tutorial where nothing
   fails), and **🅓 inherited findings that are out of scope**.
   ⚠️ **Three facts established Aug 12 that a later session should not waste time re-deriving:**

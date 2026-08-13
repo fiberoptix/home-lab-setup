@@ -1,6 +1,6 @@
 # Current Phase
 
-**Updated:** August 12, 2026 - 6:45 PM EDT
+**Updated:** August 12, 2026 - 9:45 PM EDT
 
 ---
 
@@ -281,10 +281,50 @@ is self-contained, and phase15 §4's track list is the known-stale straw man.
 📌 **Andrew's ask, and a good one:** the caveats had been raised in chat and scattered through 500
 lines of plan, which is useless to a re-read weeks later. They are now consolidated into a
 **pre-flight list at the top of `phase16_docker_swarm.md`**, sorted into four kinds so they cannot be
-confused: **🅐 5 open items** needing a human decision, **🅑 6 hard rules**, **🅒 6 deliberately
+confused: **🅐 open items** (only **two** now need Andrew), **🅑 7 hard rules**, **🅒 7 deliberately
 planted traps that must NOT be fixed in advance** (pre-empting them turns the phase into a tutorial),
-and **🅓 2 inherited findings** recorded but out of scope. **Walk §🅐 with Andrew at the start of the
+and **🅓 3 inherited findings** recorded but out of scope. **Walk §🅐 with Andrew at the start of the
 build session** — that is the agreed entry point for this phase.
+
+### 🔍 Review pass over phase15 + phase16 (Aug 12, ~9:15–9:45 PM) — found a credential leak path
+
+Andrew asked for a critical review of both phase docs. Seven real gaps in phase16, six staleness
+problems in phase15. The one that mattered:
+
+🚨 **Phase 16 as written could have put a PROD database password into a repo with a public GitHub
+remote.** Capricorn's compose on `.184` has **no `.env`** — `POSTGRES_USER`, `POSTGRES_PASSWORD`,
+`POSTGRES_DB` and a password-bearing `DATABASE_URL` are **inline, in plaintext, in the file**. The plan
+said "write our own stack file referencing the same images" and never said where configuration comes
+from, and the obvious implementation is to start from `.184`'s compose. ⚠️ **`push_github.sh` would
+probably catch the `DATABASE_URL`** (its URL-with-embedded-password gate) **but would NOT catch a bare
+`POSTGRES_PASSWORD=` line** — so the existing protection is partial and accidental. Now hard rule B7,
+finding D3, and a Part 3 section that does it properly with **`docker secret`**.
+
+Also added, all previously absent: **Docker secrets/configs** (zero mentions in a 600-line Swarm plan
+— both the fix above and a curriculum gap, since they are the direct analogue of k8s Secrets and
+ConfigMaps); **image resolution** (a Swarm service stores a **digest**, not a tag, so `:latest` does
+not float the way compose taught you — now trap C7 and drill 9); **the deploy token was being passed
+as an inline env assignment on the `ssh` command line**, visible in `ps` on the manager, now piped over
+stdin, with an honest note that the HTTP registry sends it in clear anyway; and **`df -h /` added to
+Part 1's verification** — template 9000's disk is only **3584M**, so if cloud-init's `growpart` does
+not fire you get a 3.5 GB root that dies on the first image pull, with an error about layers rather
+than about disk.
+
+**Phase 15 was stale rather than wrong.** Its header still claimed "nothing is committed yet" (it went
+in with `104a1e0`); all 23 task checkboxes were unticked despite §5c narrating the work as done; §1 was
+titled "where things stand today" while describing the pre-move tree; and the validation table listed
+`figcheck.py … exits 0` when §5c records it exiting **1** on four accepted sub-10pt figures — a future
+reader would have read that as a regression. All corrected, with the `tools/` row marked `[~]` because
+that move turned out to be unnecessary rather than done.
+
+⚠️ **The substantive phase15 fix is §4.** The six job-description tracks are **not refuted** by
+Andrew's answer — they are all *platform services* (MongoDB, observability, Vault, IAM, edge) while
+GitHub/Jenkins/Swarm are *delivery tooling*. **Orthogonal, not competing.** What was wrong was the
+**ordering**: it recommended observability → mongodb, and none of the three tools Andrew actually named
+appeared anywhere. Revised order is **`docker-swarm` → `jenkins` → `observability` → `mongodb` → the
+rest as reading**, and `jenkins` is now a provisional track row. O1 is marked **closed but partial** —
+he said "what I know about their platform", so the platform-service half is still unconfirmed and
+should be re-asked once he is inside.
 
 ### ⏭️ Next
 
