@@ -293,10 +293,11 @@ field mechanism, different evaluation time.
 > show a stale value until the document is repaginated. Another small reason the bare number is the
 > right call.
 
-⚠️ **Verified structurally, not visually.** The footer part, relationship, content-type override and
-`footerReference` were all confirmed present in the built `.docx`, and the field syntax is correct. **No
-renderer was available on this machine to confirm the numbers appear on the page** — LibreOffice is not
-installed. Confirm in Word once, then this note can be upgraded.
+✅ **VERIFIED IN WORD** — Andrew confirmed, Aug 13, 2026, 5:58 PM EDT. The numbers render and paginate.
+(Structural checks were done here first — footer part, relationship, content-type override and
+`footerReference` all present in the built `.docx` — but **no renderer exists on the build machine**, so
+the visual confirmation had to come from Word itself. Worth remembering if this ever regresses: a
+structurally perfect footer that Word silently ignores would look identical from this side.)
 
 ---
 
