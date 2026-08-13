@@ -77,9 +77,9 @@ page number by choice (see "The Word build"), so nothing else recovers this info
 what makes the H1 format load-bearing rather than cosmetic.
 
 ⚠️ **Track 1 predates this convention** and its chapters still read `# Chapter N — …`. Retitling them is
-a 🔲 **backlog item, deliberately NOT a churn-now item** (Andrew, Aug 13) — same treatment as the
-Lab-vs-PROD retrofit. Apply the new format to any track-1 chapter you are already editing for another
-reason; do not open seven files just for this.
+🔲 **backlog item B2 in [`README.md`](README.md)** — deliberately NOT a churn-now item (Andrew, Aug 13).
+Apply the new format to any track-1 chapter you are already editing for another reason; do not open
+seven files just for this.
 
 ### The rest of the shape
 
@@ -167,8 +167,8 @@ wire in cleartext" does. If every page has one, the important ones drown.
 something we tested and sometimes recited from training data. Say which. Presenting a plausible
 opinion as an established practice is the one way this convention can actively mislead.
 
-**Retrofit status:** introduced with the `docker-swarm` track (Aug 13, 2026). Track 1 predates it and
-is **not** to be churned for this; see the backlog note in `README.md`.
+**Retrofit status:** introduced with the `docker-swarm` track (Aug 13, 2026). Track 1 predates it and is
+**not** to be churned for this — 🔲 **backlog item B1 in [`README.md`](README.md)**.
 
 ---
 

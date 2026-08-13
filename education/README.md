@@ -24,13 +24,22 @@ Further tracks are being scoped against the stack Andrew works on now. The roadm
 [`phases/phase15_education_program.md`](../phases/phase15_education_program.md); each track gets its
 own phase file when it starts.
 
-📌 **Backlog — retrofit "Lab vs PROD" callouts into track 1.** The convention was introduced with
-`docker-swarm` (Aug 13, 2026): where the lab does something that would be *wrong* in an enterprise
-production environment, the chapter says so, says what production does instead, and says what breaks
-if the habit follows you (see [`CONVENTIONS.md`](CONVENTIONS.md)). Track 1's seven chapters predate it
-and have the same gaps — single-node k3s presented as a cluster, `insecure-registries`, three brokers
-in one VM, patching disabled. ⚠️ **Andrew's call (Aug 13): do NOT churn track 1 now** — it is finished
-and printed. Revisit as a **separate, deliberate task**, not as drive-by edits.
+## 📌 Backlog — two deferred track 1 retrofits
+
+Both come from conventions introduced with `docker-swarm` on **Aug 13, 2026**, after track 1 was
+finished and printed. ⚠️ **Andrew's call, both items: do NOT churn track 1 now.** Revisit each as a
+**separate, deliberate task** — never as drive-by edits. **Exception for B2 only:** apply the new title
+format to any track-1 chapter already being edited for another reason, since it is a one-line change.
+
+| # | Retrofit | Scope | Why deferred |
+|---|---|---|---|
+| **B1** | **"Lab vs PROD" callouts** — where the lab does something that would be **wrong** in an enterprise production environment, say so, say what production does instead, and say what breaks if the habit follows you (see [`CONVENTIONS.md`](CONVENTIONS.md) → *Lab vs PROD callouts*) | All 7 chapters. Known gaps: single-node k3s presented as a cluster, `insecure-registries`, three brokers in one VM, patching disabled | Substantial rewrite — each callout needs four fields and a judgement about whether the choice was *wrong* or merely *smaller*. Real work, not formatting |
+| **B2** | **Retitle H1s to lead with the topic** — `# Chapter 1 — …` becomes `# Kubernetes + Redpanda · Chapter 1 — …` (see [`CONVENTIONS.md`](CONVENTIONS.md) → *The H1 must name the track*) | 7 one-line edits, then rebuild the docx | Cheap, but pointless in isolation — it would rewrite seven `.docx` binaries for a cosmetic gain. Fold it into B1, or into any other edit |
+
+⭐ **Why B2 matters at all, given it looks cosmetic:** the printed footer is a bare page number by
+design, so **the title line is the only place a printed chapter names its own subject** — and chapter
+numbering restarts in every track, so `Chapter 1` alone is ambiguous across a shelf that will hold four
+of them.
 
 ---
 
