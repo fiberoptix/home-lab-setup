@@ -1,6 +1,66 @@
 # Current Phase
 
-**Updated:** August 13, 2026 - 5:20 PM EDT
+**Updated:** August 13, 2026 - 7:05 PM EDT
+
+---
+
+## 🛑 STOPPED FOR THE NIGHT (Aug 13, 2026, 7:05 PM EDT) — read this first
+
+**Everything is committed and pushed to both remotes** (`46a01db` on GitHub, snapshot `cb116f28d862`
+on GitLab). **The cluster is up, healthy, and snapshotted.** Nothing is half-finished.
+
+**State of the lab right now:**
+
+| Thing | State |
+|---|---|
+| Swarm | 3 managers Ready, `.191` Leader, quorum 2/3 |
+| Stack | `capricorn` deployed: backend 2/2, frontend 3/3, postgres 1/1 (pinned `swarm-1`), redis 1/1 |
+| Verified reachable | frontend `:5001` → 200 from all three nodes; backend `/health` `:5002` → 200 **via `.192`, which runs no backend task** (real routing-mesh proof) |
+| Snapshot chain | `s01-base-clean` → `s02-swarm-up` → **`s03-stack-deployed` (6:50 PM)** → current |
+| VM backups | **NAS** `/ProxmoxBackups/docker-swarm-{1,2,3}/dump/`, ~1.2 GB each, `cmp`-verified. NVMe `dump/` is empty. |
+| `pg_password` | **13 chars, recorded in `PASSWORDS.md` and verified against the live secret.** Not the value the AI generated — that was wrong for ten minutes. |
+
+⚠️ **The one thing to know before touching snapshots:** on ZFS you can only roll back to the **newest**
+snapshot. Reaching `s02` from here means **destroying `s03`**. Decide what you still owe a snapshot
+*before* taking the next one.
+
+### What Aug 13 evening actually produced (6:00–7:05 PM)
+
+1. **Trap C2 re-ran cold from an `s02` restore — and the prediction was FALSIFIED.** The deploy
+   converged in ~20 s with **zero failed tasks**. Postgres was accepting connections at `22:27:27.162`;
+   the backend started **6.6 s later**. ⭐ **The backend never met a cold database, because postgres
+   finished pulling *and* `initdb` before the backend's fatter Python image finished pulling. The
+   ordering `depends_on` would have enforced was supplied by image size.** A dependency satisfied by a
+   race the fast side happens to win is indistinguishable from a declared one — until it flips.
+2. **A better, unplanned finding: `uvicorn --workers 4` × `replicas: 2` = 8 processes racing to seed
+   one database.** One lost with `UniqueViolationError on categories_pkey → using minimal bootstrap`,
+   so **the two replicas now hold different data**, decided by a race, and the deploy reported success.
+   **`replicas` is not the concurrency number.**
+3. **Backups moved to the NAS** per Andrew's standing directive, with a pointer added to `CURSOR_RULES`
+   under his explicit written authorisation.
+4. ❌ **One finding RETRACTED the same evening.** The AI claimed a stale `nas-gitlab` credential meant
+   GitLab's offsite backup would die at the next reboot. **False.** The `.pw` file is
+   `password=<value>`+newline, so 19 bytes *is* the 9-char password; reading the byte count as an
+   18-char password produced a test authfile of `password=password=Powerme!1`. ⭐ *A byte count is not
+   a value, and two tests sharing an assumption are one test.* **Net gain anyway:** `nas-gitlab` has now
+   been unmounted/remounted twice with a write test — its reboot path is proven for the first time
+   since June.
+5. **Security finding:** `docker secret inspect` refuses to return a value, but
+   `docker exec <task> cat /run/secrets/<name>` hands it over — so **`docker` group membership on a node
+   equals read access to every secret scheduled there**, with nothing in any audit trail.
+6. 🚨 **The `ssh`-plus-commands mispaste happened AGAIN** and the AI caused it. Because `~/DevShare` is
+   the same CIFS mount on the workstation and the nodes, **`cd` succeeded on the wrong host with no
+   error.** Only `deploy_swarm.sh`'s own `docker node ls` pre-flight caught it. **Never hand over `ssh`
+   and commands in one block.**
+
+### 🔜 Pick up here — four open items, in the order they probably want doing
+
+| # | Next | Note |
+|---|---|---|
+| 1 | **Force C2 honestly**: `docker service scale capricorn_postgres=0`, deploy backend alone, then bring postgres up. | The question Andrew asked C2 to answer — *does the app retry or crash-loop?* — **is still unanswered**, because the race was never lost. This removes the race instead of hoping to lose it. |
+| 2 | **Discriminate the seeding race**: 1 replica, `--workers 1`, fresh volume. | Settles whether the collision is worker-vs-worker or worker-vs-`001_schema.sql`. If it still fires, **replica count was never the cause.** |
+| 3 | **Test P1 — the `pg_password` pre-flight guard, which has still never fired.** | Needs no rollback: `docker stack rm capricorn && docker secret rm pg_password && ./deploy_swarm.sh`. It was skipped twice because the *manager* guard kept catching the run first. |
+| 4 | **Part 4 — the GitLab CI job that calls `deploy_swarm.sh` unchanged.** | Plus chapter 3 whenever the writing mood strikes. Use deploy token `swarm-lab-pull` as a **masked** CI variable (rule B6), never the root credential. |
 
 ---
 
