@@ -1,10 +1,11 @@
 # Phase 16 — Docker Swarm: build it, wire a pipeline to it, then break it
 
-**Status:** 📋 **PLAN — ready to start. The five original open questions were settled Aug 12, 2026
-(see "Decisions" at the bottom). Nothing built yet.**
-👉 **Start the build session by walking the [pre-flight list](#-read-this-first--the-pre-flight-list)
-below with Andrew** — two items still need a decision from him, seven are hard rules, and seven are
-traps that must *not* be fixed in advance.
+**Status:** 🔵 **IN PROGRESS — Part 1 COMPLETE (Aug 13, 2026).** Three nodes built, personalized and
+snapshotted `s01-base-clean`; see the [implementation log](#implementation-log) at the bottom.
+**Next up: Part 2 — form the cluster.**
+👉 The [pre-flight list](#-read-this-first--the-pre-flight-list) below was walked with Andrew on
+Aug 13. **A5 is settled and A2 is deferred to Part 4**, so nothing is blocking. The seven hard rules
+and the seven traps still apply for the rest of the phase — re-read them before each session.
 📖 **`education/CONVENTIONS.md` is a MANDATORY read for this phase, not an optional one.** Session 1
 drafts chapter 1, which makes this education content under `CURSOR_RULES` startup checklist item 2f.
 Do not skip it on the grounds that Parts 1–2 look like pure infrastructure work.
@@ -35,10 +36,10 @@ the original list read as five things blocking the phase, which was misleading.
 | # | Item | Owner | State |
 |---|---|---|---|
 | A1 | Will the `.182` runner pick up jobs for `home-lab-setup`? | *verified, no human needed* | ✅ **CLOSED Aug 12 — yes, no runner change needed.** |
-| A2 | Should this repo gain a `.gitlab-ci.yml` at all? | 🙋 **Andrew** | ⬜ **OPEN** — one-minute decision |
+| A2 | Should this repo gain a `.gitlab-ci.yml` at all? | 🙋 **Andrew** | ⏸️ **DEFERRED to Part 4 (Aug 13)** — decide it with the `workflow: rules:` guard, since they are one decision |
 | A3 | postgres storage: pin to a node, or NAS volume? | Andrew, **while doing Part 5** | 🔒 **DEFERRED BY DESIGN** — do not pre-decide |
 | A4 | Which published port, and does it collide? | *resolved, default chosen* | ✅ **CLOSED — publish `8080`.** |
-| A5 | Is `education/docker-swarm/{scripts,manifests}/` the right home for the stack file and deploy script? | 🙋 **Andrew** | ⬜ **OPEN** — one-minute decision, but it sets the pattern every later track copies |
+| A5 | Is `education/docker-swarm/{scripts,manifests}/` the right home for the stack file and deploy script? | 🙋 **Andrew** | ✅ **CLOSED Aug 13 — yes, keep it in the track.** A track is self-contained per `CONVENTIONS.md`. Later tracks copy this. |
 
 **A1 — closed, with evidence.** Queried GitLab's own database on `.181` (Aug 12, ~6:55 PM):
 
@@ -689,5 +690,97 @@ the deliverable. A1 and A4 were closed by verification rather than by asking.
 
 ## Implementation log
 
-*(Nothing yet — this is a plan. Record what was actually run here, per the "only document what you
-actually ran" rule in `education/CONVENTIONS.md`.)*
+### Part 1 — three VMs from template 9000 ✅ COMPLETE (August 13, 2026, 12:12–12:26 PM EDT)
+
+**Result: `docker-swarm-1/2/3` at `.191/.192/.193` are up, personalized, Docker 29.7.2 running,
+Swarm `inactive`, snapshotted `s01-base-clean`. Nothing was surprising, and the one thing the plan
+warned loudest about (`growpart`) worked.**
+
+**Pre-flight decisions taken at the start of the session:**
+
+| Item | Decision |
+|---|---|
+| A2 — does this repo gain a `.gitlab-ci.yml`? | ⏸️ **DEFERRED to Part 4 (session 3).** Not needed to build, and the `workflow: rules:` guard question rides along with it. |
+| A5 — where do the stack file and deploy script live? | ✅ **`education/docker-swarm/{manifests,scripts}/`**, as planned. A track stays self-contained per `education/CONVENTIONS.md`. This sets the pattern later tracks copy. |
+
+⚠️ **Unrelated finding, handled before any build work: `education/fin_tech_stack.txt` was untracked,
+not covered by any `.gitignore` rule, and — in its first draft — identifying.** It named an employer,
+a start date and who suggested the study list. It carries no credential, so **`push_github.sh`'s gates
+would not have stopped it** reaching the public remote. The first fix was to gitignore it; the fix
+that stuck was to **de-identify the content and track it normally**, since the facts had already been
+copied into `MEMORY.md` and `current_phase.md`, which are tracked and public.
+**Generalisable lesson: the push gates protect against *secrets*, not against *private* — and
+ignoring a file does nothing about text you already copied out of it.**
+
+#### What was actually run
+
+Both scripts are idempotent and live in `education/docker-swarm/scripts/`.
+
+| Script | Runs on | Does |
+|---|---|---|
+| `provision_nodes.sh` | Proxmox host `.150` as root | clone → set cores/memory/onboot/IP → resize → start |
+| `post_setup.sh` | each node as `agamache` | purge Chrome + Cursor (B5), mask update timers (B4) |
+
+**Verified free before cloning:** VMIDs 191/192/193 had no `/etc/pve/qemu-server/<id>.conf`, and
+`192.168.1.191/192/193` returned no ping. Template 9000's disk read **3584M**, confirming the plan.
+
+**Clone + start:** 38 seconds for all three full clones (3.5 GiB each, `vm-ephemeral`). Host had
+51 GB RAM free and the pool 1.39 TB available, so the 12 GB / 6 vCPU / 120 GB cost landed without
+pressure.
+
+**Personalization:** `host_setup.sh` + `smb_credentials` fetched from `http://192.168.1.195/scripts/`,
+run on all three **in parallel** — 3 minutes wall clock for all three rather than ~9 sequentially.
+
+#### Findings worth keeping
+
+- ✅ **`growpart` ran.** This was the plan's loudest Part 1 warning and it turned out fine:
+  `df -h /` reads **38G used 2.2G** on all three, not 3.5 GB. ⚠️ **Note it reads 38G, not 40G** — the
+  40 GB virtual disk also carries `sda15` (106M EFI) and `sda16` (913M `/boot`). **38G is the correct
+  and expected number; do not go looking for the missing 2 GB.**
+- ⚠️ **B5 was necessary, and for a reason the plan did not state.** `host_setup.sh` only runs
+  `setup_desktop.sh` if it detects `gnome-shell` **or `gsettings`** — and the Ubuntu 24.04 cloud image
+  ships `gsettings`. So the desktop branch fires on a headless node, and the log says
+  "Desktop environment detected". Chrome 151 + Cursor 3.15.19 were installed on all three.
+  **Purging them took each node from 4.4 GB used to 2.2 GB — exactly the ~1.8 GB the plan predicted.**
+- ✅ **B4 needed no edit to `refresh.sh`.** That script targets an **explicit allow-list**
+  (`.180`–`.184`), not "all VMs", so the swarm nodes are excluded by construction — same as VM 186.
+  The guest half was still required: `unattended-upgrades.service`, `apt-daily.timer` and
+  `apt-daily-upgrade.timer` are **masked** (not merely disabled) on all three.
+- ✅ **No backup job sweeps them in.** `/etc/pve/jobs.cfg` holds one job, `gitlab-nightly`, scoped to
+  `vmid 181`. Consistent with the "backups: none, snapshots instead" rule for rebuildable VMs.
+- ✅ **The registry config came for free from the standard script**, which was the entire argument for
+  using it. `/etc/docker/daemon.json` on all three reads
+  `{"insecure-registries": ["gitlab.gothamtechnologies.com:5050"]}`, and
+  `curl http://gitlab.gothamtechnologies.com:5050/v2/` from `.191` returns **401** — up, requiring
+  auth, reachable from a node.
+- ✅ **Nothing blocks the Swarm ports.** `/etc/pve/firewall/` holds only `184.fw`, `185.fw` and
+  `cluster.fw`; there is **no `191.fw`/`192.fw`/`193.fw`**, so the guest firewall is off on all three
+  despite `firewall=1` on the NIC. `2377`/`7946`/`4789` are unobstructed. Peers ping each other.
+  ⚠️ **This is the state the "record the ports" note in Target Architecture was protecting** — if a
+  `19x.fw` is ever added without those three rules, the cluster breaks silently.
+- Versions as built: **Docker 29.7.2** (build a7dcaa6), **Docker Compose v5.4.0**, Ubuntu 24.04 LTS.
+- Machine-ids are unique across the three (`69200ced…`, `6d47a820…`, `207eb761…`), so the template's
+  `/etc/machine-id` truncation is still doing its job.
+- `/mnt/DevShare` (NAS CIFS) is mounted on all three. Not needed yet; it becomes relevant if Part 5's
+  A3 decision goes the NAS-volume way.
+
+#### Snapshots
+
+`s01-base-clean` taken on all three **together** (B3), **hot** — guest agent responded on all three,
+`freeze guest filesystem` → snapshot → `thaw`, **~1.6 s each**, no VM stopped.
+
+```
+qm snapshot 191 s01-base-clean   # 1.635s
+qm snapshot 192 s01-base-clean   # 1.566s
+qm snapshot 193 s01-base-clean   # 1.599s
+```
+
+#### State at end of Part 1
+
+| VMID | Name | IP | vCPU | RAM | Disk | Status | Swarm |
+|---|---|---|---|---|---|---|---|
+| 191 | `docker-swarm-1` | 192.168.1.191 | 2 | 4 GB | 40 GB (`vm-ephemeral`) | running, `onboot=1` | inactive |
+| 192 | `docker-swarm-2` | 192.168.1.192 | 2 | 4 GB | 40 GB (`vm-ephemeral`) | running, `onboot=1` | inactive |
+| 193 | `docker-swarm-3` | 192.168.1.193 | 2 | 4 GB | 40 GB (`vm-ephemeral`) | running, `onboot=1` | inactive |
+
+**Next: Part 2 — `docker swarm init` on `.191`, join `.192`/`.193` as managers, then `s02-swarm-up`.**
