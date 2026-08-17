@@ -1171,6 +1171,50 @@ sudo chmod 644 /etc/apt/keyrings/runner_gitlab-runner-archive-keyring.gpg
 sudo apt-get update   # should be clean: no EXPKEYSIG
 ```
 
+### 🚨 containerd image store is DISABLED here on purpose (Aug 17, 2026) — do not "clean this up"
+
+`/etc/docker/daemon.json` on .182 (backup: `daemon.json.bak-20260817`):
+
+```json
+{
+  "insecure-registries": ["gitlab.gothamtechnologies.com:5050"],
+  "features": { "containerd-snapshotter": false }
+}
+```
+
+Verify with `docker info | grep -i 'storage driver'` → must say **`overlay2`**. If it ever says
+`overlayfs` with `driver-type: io.containerd.snapshotter.v1`, the flag was lost and CI pushes will
+start failing again.
+
+**Why.** Docker 29.7.2 defaults to the containerd image store, which makes `docker build` emit **OCI
+image indexes**. Its push path can send the **parent index before the child manifest** it references,
+and the GitLab registry (v4.40.2) correctly rejects that:
+
+```
+PUT .../manifests/sha256:cdd1b210…  → 400  MANIFEST_BLOB_UNKNOWN (detail: sha256:ebc0db88…)
+PUT .../manifests/sha256:ebc0db88…  → 201  ← the child, 5ms later
+```
+
+Symptom in CI is `error from registry: blob unknown to registry` on the push job while all builds
+pass. **It is not a registry problem** — the blob is on disk and .181 had 440 GB free. It is also a
+**race, not a certainty**, so it hides: it only bites when several images have genuinely new content
+in one pipeline, and a job that changes one image will pass and look like proof the daemon is fine.
+
+**How we got there — the actual lesson.** A **manual** `apt-get upgrade` on **Aug 10 17:18** (by
+`agamache`, reboot 17:20) took docker-ce 29.6.2→29.7.2, containerd.io 2.2.6→2.3.3, buildx
+0.35→0.36.1, gitlab-runner 19.2.0→19.2.1. **CI then stayed green for a week** and broke on Aug 17,
+so nothing connected the failure to the upgrade. unattended-upgrades is enabled on all four VMs but
+its `Allowed-Origins` is Ubuntu/ESM only and can never touch `download.docker.com` — **package holds
+would not have helped.** The exposure is hand-run `apt upgrade` on the runner. Treat a Docker major
+bump on .182 as a change that needs a deliberate CI test, not a routine patch.
+
+**⚠️ After toggling this flag, images in the old store are invisible to the new driver** (`docker
+images` reads empty). Retrying just the push job cannot work — there is nothing to push. **Run a new
+pipeline**; the first one is a genuine full rebuild.
+
+Application-side detail (Capricorn pipelines #159 fail → #160 green) is recorded in the Capricorn
+project: `project/phases/phase25_all_states_tax_brackets.md`, "CI incident".
+
 ---
 
 ## SCRIPT SERVER

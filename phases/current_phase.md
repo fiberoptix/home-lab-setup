@@ -1,6 +1,35 @@
 # Current Phase
 
-**Updated:** August 13, 2026 - 7:05 PM EDT
+**Updated:** August 17, 2026 - 11:32 AM EDT
+
+---
+
+## 🔧 UNPLANNED INTERRUPT — runner Docker fix (Aug 17, 2026, ~11:05–11:30 AM EDT)
+
+**Not phase-16 work.** A Capricorn CI pipeline failed and the cause was infrastructure, so it was
+fixed here. Phase 16 state below is unchanged and still accurate.
+
+**What happened:** `vm-gitrun-1` (.182) had been running **Docker 29.7.2 with the containerd image
+store** since a **manual** `apt-get upgrade` + reboot on **Aug 10 17:18**. That store emits OCI image
+indexes and its push path can send the parent index before the child manifest, which the GitLab
+registry correctly rejects — CI showed `error from registry: blob unknown to registry` on the push
+job while every build passed. Nothing was broken on the registry side (.181 had 440 GB free and the
+blob was on disk).
+
+**Fix:** added `"features": {"containerd-snapshotter": false}` to `/etc/docker/daemon.json` on .182
+(backup `daemon.json.bak-20260817`), restarted Docker, store back to `overlay2`. Capricorn pipeline
+#160 then passed 6/6. **Full write-up and the "don't clean this up" warning are in `MEMORY.md` →
+GITLAB RUNNER.**
+
+**Two things worth carrying forward:**
+1. The upgrade was manual, and **CI stayed green for a week afterwards** — the failure was
+   time-shifted from its cause, which is why it looked like a code problem. unattended-upgrades
+   cannot bump Docker (Allowed-Origins is Ubuntu/ESM only), so holds would not have helped. A Docker
+   major bump on the runner deserves a deliberate CI test.
+2. Nothing was snapshotted before or after this change; it is a single config file with a backup
+   beside it.
+
+**No blockers. Nothing half-finished.**
 
 ---
 
