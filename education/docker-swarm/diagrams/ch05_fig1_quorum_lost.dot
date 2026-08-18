@@ -1,0 +1,42 @@
+// Chapter 5, Figure 1 - quorum loss separates the control plane from the data plane.
+// Point of the figure: management refuses even READS, while the application keeps serving.
+digraph quorum {
+    // TB, not LR: at LR this figure renders 1367px wide and blows the 1155px print-column budget,
+    // which scales every label below the 10pt legibility floor.
+    rankdir=TB;
+    bgcolor="white";
+    node [fontname="Helvetica" fontsize=11 shape=box style="filled,rounded" fillcolor="#f5f5f5" color="#888888"];
+    edge [fontname="Helvetica" fontsize=11 color="#666666"];
+    graph [fontname="Helvetica" fontsize=11];
+
+    subgraph cluster_control {
+        label="CONTROL PLANE — needs 2 of 3 to commit";
+        fontname="Helvetica"; fontsize=11; color="#b03030"; style=rounded;
+
+        m1 [label=<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="4"><TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>swarm-1</B> follower, alive<BR/><I>cannot elect itself</I></TD></TR></TABLE>>
+             fillcolor="#e8eef7" color="#4a6fa5"];
+        m2 [label=<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="4"><TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>swarm-2</B> was LEADER<BR/><I>daemon stopped</I></TD></TR></TABLE>>
+             fillcolor="#f7e8e8" color="#b03030"];
+        m3 [label=<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="4"><TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>swarm-3</B><BR/><I>daemon stopped</I></TD></TR></TABLE>>
+             fillcolor="#f7e8e8" color="#b03030"];
+
+        // Deliberately NOT {rank=same}: three peers on one row pushed the figure to 1240px and the
+        // labels below 10pt on paper. Stacked, they still read as peers because of the cluster box.
+        m1 -> m2 [style=invis];
+        m2 -> m3 [style=invis];
+    }
+
+    refused [label=<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="4"><TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>REFUSED — writes AND reads</B><BR/>service scale &#183; service update<BR/><B>service ls &#8594; DeadlineExceeded</B><BR/>node ls &#8594; no leader<BR/><I>info says managers=0, nodes=0,</I><BR/><I>ControlAvailable=true</I></TD></TR></TABLE>>
+              fillcolor="#f7e8e8" color="#b03030"];
+
+    serving [label=<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="4"><TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>DATA PLANE — untouched</B><BR/>3 containers Up on swarm-1<BR/><B>:5001 &#8594; 200 &#183; :5002 &#8594; 200</B><BR/><I>docker ps still works: the only</I><BR/><I>inventory left, and it is per-node</I></TD></TR></TABLE>>
+              fillcolor="#e8f7ee" color="#3a8a5a"];
+
+    // constraint=false on the real edges, and invisible edges to set the ranking: otherwise the
+    // outcome boxes land on the same ranks as the stacked managers and sit BESIDE them, which is
+    // what pushed this figure to 1385px.
+    m1 -> refused [label="  every management call" color="#b03030" fontcolor="#b03030" constraint=false];
+    m1 -> serving [label="  local daemon, local tasks" constraint=false];
+    m3 -> refused [style=invis];
+    refused -> serving [style=invis];
+}

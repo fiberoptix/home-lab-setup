@@ -1,6 +1,90 @@
 # Current Phase
 
-**Updated:** August 18, 2026 - 6:30 PM EDT
+**Updated:** August 18, 2026 - 8:20 PM EDT
+
+---
+
+## 🎯 SESSION HANDOFF (Aug 18, 2026, ~7:00–8:20 PM EDT) — drills finished, three chapters written
+
+🙋 **Andrew asked the AI to drive the remaining drills** so the chapters could be written while the
+context was fresh, and will review after. **This deviates from `METHOD.md`'s standing rule that he drives
+anything new** — recorded because the material's authority depends on knowing whose hands were on the
+keyboard. Everything below was run against the live cluster.
+
+### The lab's exact resting state — HEALTHY, and reproducible from the manifest
+
+| Thing | State |
+|---|---|
+| Stack | `capricorn`: backend 2/2, frontend 3/3, postgres 1/1, redis 1/1 — **verified at full strength after the quorum drill** |
+| Smoke gate | ✅ passing: `/api/v1/banking/categories` → 200 body-matched, `/api/v1/data/summary` → **682 rows** |
+| Raft | 3 managers, ✅ quorum. **Leader is now `docker-swarm-1`** (it moved during recovery — second observation that leadership is not sticky) |
+| Redis | Back on `docker-swarm-2` with its original data; **all C3 placement constraints removed** (`Constraints: []`) |
+| Secrets | Only `pg_password` remains — the drill's `pg_password_v2` was deleted |
+| Temp files left on swarm-1 | `/tmp/capricorn.c6.yml`, `.c6b.yml`, `.d.yml` — harmless, but **`STACK_FILE` must be unset** for a normal deploy |
+| Snapshot chain | `s01-base-clean` → `s02-swarm-up` → `s03-stack-deployed` → `s04-drills-complete` |
+| 🔲 **Decision for Andrew** | **No `s05` was taken.** The resting state has changed a lot since `s04`, and `s04` still carries the **broken `on-failure` policy**. Taking `s05` is recommended, and the AI deliberately did not run an invasive Proxmox operation unattended. |
+
+### Predictions P20–P31 scored: 10 confirmed, 2 refuted
+
+**The two refutations are the most valuable results.**
+
+1. ❌ **P24 — no retry storm.** Removing `max_attempts` did **not** cause unbounded retries on an
+   *update*, because `failure_action: rollback` ends them after one failure. ⚠️ **Still open on the
+   CREATE path**, where there is no rollback target — which is exactly where chapter 2's "exactly three
+   Rejected tasks" came from. **Chapter 2 is stale on this point and the README now says so.**
+2. ❌ **P29 — reads need the leader too.** `docker service ls` returns `DeadlineExceeded` with no quorum.
+   Swarm serves no stale reads. **So you lose all cluster visibility while the workload is untouched**,
+   and `docker ps` per node is the only inventory left.
+
+### The five findings worth reading first
+
+1. 🎯 **C6b is the worst result in the track.** Pointing the frontend at `nginx:alpine` — an image that
+   starts and answers 200 — produced `UpdateStatus: completed`, `EXIT=0`, `3/3`, **and our smoke gate
+   printed `200, body matched` + `682 rows`** while users saw *Welcome to nginx!*. Swarm's rollback reacts
+   to task failure, not correctness, and **our gate only defends the endpoint it calls (the backend).**
+   ⭐ **Verification does not compose.** 🔲 Open work: a frontend healthcheck, and a gate assertion per
+   published port.
+2. ⭐ **C3 — state is stranded, not lost.** Moving Redis to a node without its volume made Docker
+   **silently create a second empty volume with the same name**. `DBSIZE 0`, every signal green. Moving
+   it back returned both keys exactly. 🚨 **The data was fsynced on `SIGTERM` at the instant it became
+   unreachable — durability and availability are independent.** ✅ **Correction:** the AI first claimed
+   *neither* stateful service was pinned. **False** — `postgres` is pinned to `docker-swarm-1` (with the
+   trade-off written in the manifest: *"postgres dies with docker-swarm-1"*), and Redis is unpinned
+   **deliberately** so this trap could run. **The pin is why C3 could not touch the database.**
+3. ✅ **Drill D — a wrong secret walks past every guard.** Pre-flight passed, all four services
+   converged, then the smoke gate alone failed with HTTP 500. `POSTGRES_PASSWORD_FILE` is read **only at
+   `initdb`**, so rotating the secret rotates the client and never the server. **Correct order: `ALTER
+   USER` first, then the secret.**
+4. 🚨 **New security finding: `pg_hba.conf` has `host all all 127.0.0.1/32 trust`.** A garbage password
+   returns `1` from inside the container. Combined with `docker exec` reading `/run/secrets`, **`docker`
+   group membership on that node is unauthenticated database access**, and rotation does not touch it.
+5. ⭐ **The `restart_policy: any` fix was validated by accident.** The quorum drill stopped daemons,
+   which `SIGTERM`s containers to a clean exit — **the identical mechanism that silently ate three
+   replicas this afternoon under `on-failure`.** Nothing was lost this time. Same input, opposite
+   outcome, one variable.
+
+### Written this session
+
+| Artefact | State |
+|---|---|
+| `education/docker-swarm/chapter04_state.md` | ✅ New — stranded state, secrets-as-state, startup races |
+| `education/docker-swarm/chapter05_breaking_it.md` | ✅ New — ten drills, predictions first, plus §5 on running a drill that means something |
+| `education/docker-swarm/chapter06_false_greens.md` | ✅ New — **the unplanned capstone**; 8-row taxonomy, the ladder of questions, and our gate's own blind spot |
+| 3 Graphviz figures + renders | ✅ All six track figures pass `figcheck.py` at ≥10pt |
+| `docx/` builds | ✅ Rebuilt for the whole track |
+| `COMMANDS.md` | ✅ +4 sections (stranded volumes, wrong secrets, quorum loss, harvested `docker-admin.sh` rules) |
+| `phase16_docker_swarm.md` | ✅ P20–P31 predictions and outcomes, findings, Lab vs PROD L16–L18 |
+
+### 🔲 What is NOT done
+
+1. **Chapter 3 is still blocked** — it needs Part 4 (CI reaches Swarm), and **p4a is a design decision
+   for Andrew**, not something to guess.
+2. **Chapter 2 repair** — the `max_attempts` explanation (see refutation 1 above).
+3. **Frontend healthcheck + per-port smoke assertions** — the C6b gap, in our own tooling.
+4. **Two items for the application's own repo** — see `working/capricorn-app-findings-2026-08-18.md`
+   (gitignored, private mirror only).
+5. **GitHub push held.** Only GitLab was pushed. The new chapters were written to be public-safe (lessons,
+   not app internals), but **Andrew reviews before GitHub** per the process used earlier today.
 
 ---
 

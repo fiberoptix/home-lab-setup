@@ -132,6 +132,31 @@ on.** A precondition that fails quietly does not give you a failed run, it gives
 run that answers a different question — the same false-green shape as [§4b](#4b-is-it-ready-for-business-as-distinct-from-running),
 but built into the instrumentation instead of the app.
 
+### 🚨 The dataset is empty but nothing failed — is the state LOST, or STRANDED on another node?
+
+Measured Aug 18, 2026 (drill C3). Redis was moved to a node that had never held its volume: Swarm said
+`converged`, `1/1`, `UpdateStatus: completed` — and `DBSIZE` was `0`. **The data was intact the whole
+time, on the node it came from.** This sequence separates the two in about a minute.
+
+| Command | Question | Verified? |
+|---|---|---|
+| `docker service ps <svc> --filter desired-state=running --format '{{.Node}}'` | ⭐ **Which node am I talking to, and is it the one I was talking to yesterday?** The first question, before anything about the data. | ✅ |
+| `docker volume inspect <vol> --format '{{.CreatedAt}}'` | 🎯 **The single most diagnostic field.** A creation time of *seconds ago* means the daemon **created a new empty volume with the same name** because the task landed on a node that lacked it. | ✅ |
+| `docker volume ls --filter name=<stem>` — **on every node in turn** | Which nodes hold this name? There is no cluster-wide view; two nodes holding the same name with different contents is normal and invisible. | ✅ |
+| `sudo ls -la /var/lib/docker/volumes/<vol>/_data/` | **Is the old data still there?** Run it on the *previous* node. File timestamps show when the departing container last flushed. | ✅ |
+| `docker service inspect <svc> --format '{{.Spec.TaskTemplate.Placement.Constraints}}'` | ⭐ **Is anything pinning this service to its data?** `[]` on a stateful service means only scheduling luck has kept them together. | ✅ |
+
+```bash
+# Recover a stranded volume by sending the service back to its data, then decide on a permanent pin
+docker service update --constraint-add 'node.hostname==<node-with-the-data>' --detach=false <svc>
+```
+
+⭐ **Two things this teaches that generalise past Docker.** First, **durability and availability are
+independent** — Redis had `--appendonly yes` and fsynced on `SIGTERM`, so the data was *never more
+durable* than at the moment it became unreachable. Second, **the incident presents as data loss and is
+really an addressing problem**, so the dangerous instinct is the diligent one: restoring a backup over
+the top of a healthy-but-stranded volume turns a recoverable event into a real one.
+
 ---
 
 ## 4. What is ACTUALLY deployed? (drift, versions, convergence)
@@ -360,6 +385,53 @@ report a 200 alongside a body from before it was.
 break *future task reschedules* — silently, weeks later, with every config file still reading correctly
 — rather than failing at deploy time.
 
+### 🚨 The secret is PRESENT but WRONG — the case no pre-flight can catch
+
+Measured Aug 18, 2026 (drill D). We rotated `pg_password` without touching the database, expressed the
+way a real rotation is: `name: pg_password_v2` under an unchanged `external: true` key, so the mount path
+inside the container never changed. **Pre-flight passed. All four services converged. Digests resolved.
+The smoke gate was the only thing that objected.**
+
+| Command | Question | Verified? |
+|---|---|---|
+| `docker service logs <app> --tail 80 \| grep -iE 'password\|authentic'` | ⭐ **The app's side of the mismatch.** Ours: `asyncpg.exceptions.InvalidPasswordError`. | ✅ |
+| `docker service logs <db> --tail 40 \| grep -i 'authentication failed'` | 🎯 **The server's side, and the discriminator that matters.** `FATAL: password authentication failed for user …` proves the *server* rejects the value the *client* was given — i.e. the rotation only ever reached one of the two. | ✅ |
+| `docker exec <db-cid> cat /run/secrets/<name>` | What the database container actually received. Will show the **new** value while the server still enforces the old one. | ✅ |
+| `docker service inspect <svc> --format '{{range .Spec.TaskTemplate.ContainerSpec.Secrets}}{{.SecretName}} -> {{.File.Name}} {{end}}'` | ⭐ **Which cluster secret is this service really using, and at which path?** The only way to see through a `name:` override. | ✅ |
+
+⭐ **Why `POSTGRES_PASSWORD_FILE` does not rotate anything.** The image reads it **only when `initdb`
+runs**, i.e. only on an empty data directory. With an existing volume the entrypoint skips
+initialisation, so the authority for the credential stays in the database's own catalog. **The secret is
+the client's copy; the server's copy lives in the volume.** The real rotation is two steps, in this order:
+
+```sql
+ALTER USER <user> WITH PASSWORD '<new>';   -- 1. server first: the old secret keeps working
+```
+```bash
+printf '<new>' | docker secret create <name>_v2 -   # 2. then the client, then redeploy
+```
+
+🚨 **Reverse the order and you own an outage between the steps. Do only step 2 and every orchestrator
+signal is green while nothing can reach the database.**
+
+⚠️ **Two traps found while running this.** (1) With `name:` in play, the *stack key* and the *cluster
+object* differ, so a pre-flight that greps the stack file for secret keys **verifies an object the
+deploy will not use.** (2) 🚨 **Do not test a database credential from inside its own container** —
+default `pg_hba.conf` in Postgres images carries `host all all 127.0.0.1/32 trust`, so loopback skips
+authentication entirely. A **deliberately garbage** password returned `1` for us. Test from another
+container, or read the server's log.
+
+```bash
+# The discriminator, if a loopback probe ever seems to accept a password:
+docker exec <db-cid> sh -c 'PGPASSWORD=total-garbage psql -h 127.0.0.1 -U <user> -d <db> -tAc "select 1"'
+docker exec <db-cid> sh -c 'grep -vE "^\s*#|^\s*$" /var/lib/postgresql/data/pg_hba.conf'
+```
+
+⭐ **The measurement lesson, general: when two probes of the same fact disagree, at least one is
+measuring something else.** Our second probe reported "REJECTED" and had actually failed on
+`database "capricorn" does not exist` — it omitted `-d`, and a `cmd && echo WORKS || echo FAILED` idiom
+**collapsed every failure mode into one label.** Never let a probe report a cause it did not distinguish.
+
 ---
 
 ## 7. Making changes (and undoing them)
@@ -408,6 +480,37 @@ break *future task reschedules* — silently, weeks later, with every config fil
 > 🚨 **`CA Configuration: Expiry Duration: 3 months` interacts badly with snapshots.** Certificates
 > rotate on a live cluster; a snapshot freezes them. Restore anything older than three months and the
 > certs expired while frozen — **it presents as a networking fault and is not one.**
+
+### 🚨 Quorum is gone — what still answers, and what you must not do
+
+Measured Aug 18, 2026 (drill C5) by stopping the daemon on the **leader** and one other manager, leaving
+one follower. **The application never missed a request.**
+
+| Command | Behaviour with no quorum | Verified? |
+|---|---|---|
+| `docker service ls` | 🚨 `rpc error: code = DeadlineExceeded`. **Reads need the leader too** — Swarm serves no stale answers from a follower. | ✅ |
+| `docker node ls` | `The swarm does not have a leader. It's possible that too few managers are online.` ⭐ **The clearest error message in Docker; trust it.** | ✅ |
+| `docker service scale` / `update` | Refused with the same message. **Verified afterwards that the writes genuinely never landed** (`Replicas` unchanged, label absent) — Raft refused honestly. | ✅ |
+| `docker info --format '{{.Swarm.Managers}} {{.Swarm.Nodes}} {{.Swarm.ControlAvailable}}'` | 🚨 **`0 0 true`** — reads as *"the cluster is empty"*, and `ControlAvailable` means "configured as a manager", **not** "management works". Monitoring built on that field reports healthy. | ✅ |
+| `docker ps` | ✅ Works. 🎯 **During quorum loss this is your ONLY inventory**, and it is per-node — you must visit each one. | ✅ |
+| `curl` the published ports | ✅ `200` with real data throughout. Existing tasks are unmanaged, not stopped. | ✅ |
+
+```bash
+# The only correct action. Quorum is arithmetic; nothing else fixes it.
+sudo systemctl start docker.service        # on any downed manager
+docker node ls                            # confirm a leader exists again
+docker service ls --format '{{.Name}}\t{{.Replicas}}'   # confirm full strength returned
+```
+
+> 🚨 **Three instincts that convert a fully-serving cluster into a real outage:** restarting Docker on
+> the node that still works, rebooting it, or running `docker swarm init --force-new-cluster`. The last
+> one is a genuine recovery tool for a **permanently** lost majority and is catastrophic when the other
+> managers are merely stopped. **A cluster with no leader is not down; it is serving traffic with the
+> steering wheel disconnected.**
+
+⭐ **Also observed twice now: Raft leadership is not sticky.** After recovery the leader was the node that
+had *stayed up*, not the one that had been leader before. Do not build any procedure that assumes a
+particular node is the leader — ask.
 
 ---
 
@@ -525,3 +628,20 @@ automating, and automating them before feeling them would package guesses.
 3. ⚠️ **Every trap in chapters 3–5 is a rule-generating opportunity** — C2 through C7 each produce a
    distinct signal. That is six rules if we capture them as they fire, or six reconstructions if we
    don't.
+
+#### ✅ Rules harvested as of Aug 18, 2026 — the drills are done, so this is the input the design session gets
+
+| Signal an operator sees | Discriminator that settles it | Section |
+|---|---|---|
+| `N/N` and the right tag, after a deploy you are unsure about | `UpdateStatus.State` — `rollback_*` means **your change was refused** | §4 |
+| Service under-replicated, nothing in a failed state | `CurrentState` shows **`Complete`** + `RestartPolicy.Condition` is `on-failure` | §4 |
+| Dataset empty, orchestrator green | `docker volume inspect --format '{{.CreatedAt}}'` — *seconds old* = new empty volume on a new node | §3 |
+| All green, requests 500 | The database's own log: `authentication failed` = a present-but-**wrong** secret | §6 |
+| Every management command times out, app fine | `docker node ls` says "no leader"; `docker ps` still works | §9 |
+| `Name or service not known` for a dependency | `docker service ls --filter name=<dep>` — `0/0` is far likelier than a DNS fault | §2 |
+| Digests differ between two deploys nobody changed | Compare `.Spec.TaskTemplate.ContainerSpec.Image` across runs — a mutable tag moved | §4 |
+
+⭐ **One requirement the drills added that was not in the original scope:** the tool must be able to say
+**"this looks fine and here is what that does NOT rule out."** Six of the eight false greens in
+chapter 6 would pass every check in §1. A tool that only reports problems it can see will be trusted for
+the ones it cannot.

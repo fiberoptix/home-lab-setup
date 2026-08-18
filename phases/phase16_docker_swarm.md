@@ -1719,6 +1719,205 @@ task-level view says `Complete` and every health endpoint returns 200.
 was found. A restore to `s04` reintroduces `on-failure` — the redeploy from the corrected manifest is the
 remedy, and the snapshot description does not say so.
 
+---
+
+## Traps C6, C3, C5 and secret rotation — predictions before the runs
+
+🙋 **PROVENANCE, stated because it matters: Andrew explicitly asked the AI to drive these four**
+(Aug 18, 7:02 PM) so the chapters could be written before context was lost, and he will review after.
+**This deviates from `METHOD.md`'s standing rule that he drives anything new** — recorded here rather than
+left implicit, because the material's authority rests on knowing whose hands were on the keyboard.
+
+### ⚠️ A void run to learn from first — C6, attempt 1
+
+The first C6 block **generated the broken variant correctly and then deployed the canonical file**, because
+the AI omitted `STACK_FILE=/tmp/capricorn.c6.yml`. It converged in 2.3 s, passed the smoke gate, and
+reported `EXIT=0`.
+
+**Third successful-looking-but-void run of the session, and the second caused by the AI.** The pattern is
+now unmistakable: `deploy_swarm.sh` **printed the file it was deploying on line 3 of its own output**, and
+nobody asserted on it.
+
+> ⭐ **The rule this yields, and it is the session's most repeated lesson: an experiment must ASSERT its
+> preconditions, not print them.** A printed precondition relies on a human reading carefully at exactly
+> the wrong moment. `STACK_FILE` defaulting silently to the canonical manifest is correct for CI and a
+> trap for variant drills — **forget the variable and you deploy production config while believing you
+> deployed a broken one.**
+
+⚠️ **Unconfirmed side observation:** `UpdateStatus` read `completed` before that no-op deploy and was
+**absent** afterwards. If an unchanged `stack deploy` really does clear the field, it weakens the stale
+`rollback_completed` latch concern written into `deploy_swarm.sh`. One observation, one confound (the
+deploy did print `Updating service` for all four) — to be settled by the clean series below.
+
+### Predictions
+
+| # | Drill | Prediction | Reasoning | Outcome |
+|---|---|---|---|---|
+| P20 | C6a — unpullable tag | The site **keeps serving on `:5001` throughout** | `order: start-first` never stops a healthy old task while the replacement cannot start, and a nonexistent tag never reaches `Running`. | ✅ **Confirmed.** `200` before, during and after. |
+| P21 | C6a | **One** failed task triggers `failure_action: rollback` | `max_failure_ratio` is unset; its default is 0. | ✅ **Confirmed.** One `Rejected` task on slot 3 → rollback. |
+| P22 | C6a | `UpdateStatus` → `rollback_started` → `rollback_completed`, and **`deploy_swarm.sh` dies with "rolled back"** | First real test of its rollback detection. | ✅ **Confirmed.** `rollback_started`; script exited **1** in **1.3 s**, on its first poll. |
+| P23 | C6a | 🎯 **Settles at `3/3` on the OLD digest** | So a count-only check calls a *rejected* deploy a success — chapter 2 asserts this; nothing has proved it. | ✅ **Confirmed — the headline.** `docker service ls` → `3/3`, `:latest`, old digest. |
+| P24 | C6a | ⚠️ **More than three `Rejected` rows per slot, perhaps unbounded** | Because `max_attempts` was removed hours earlier. If so, that fix traded silent under-replication for an unbounded retry storm, chapter 2's explanation of "exactly three" is void, and the honest setting is `max_attempts` **with** a `window`. | ❌ **Refuted, for the right reason.** 2 rows, not a storm: **`failure_action: rollback` ended the retries after one failure, so `max_attempts` never came into play.** ⚠️ **Still OPEN on the CREATE path** — trap C1 was a service *create*, where there is no rollback target, and that is where `max_attempts: 3` produced "exactly three". Removing it changes **that** path only. |
+| P25 | C6b — image that STARTS but is wrong | **No rollback fires. The deploy is reported as a success.** | `nginx:alpine` starts and answers 200. Swarm's rollback is driven by task failure, not by correctness. **This is why a healthcheck is not optional**, and it is the whole reason C6 has two halves. | ✅ **Confirmed, brutally.** `UpdateStatus: completed`, `EXIT=0`, `==> done` — with nginx's welcome page served to users. |
+| P26 | C6b | **Our smoke gate does NOT catch it either** | The gate polls the backend on `:5002`. A broken *frontend* is invisible to it — a real gap in our own tooling, not a hypothetical. | ✅ **Confirmed.** Gate printed `200, body matched` and `total=682 rows` while the entire UI was gone. |
+| P27 | C3 — redis onto empty storage | Redis comes up **`Running` and healthy with an empty dataset**, and the orchestrator reports success | The volume is node-local; rescheduling to another node finds nothing there. ⭐ **The failure signature, not the database: state silently gone, deploy green.** | ✅ **Confirmed, and worse than predicted** — Docker **silently created a second volume of the same name** on the new node. `DBSIZE 0`. Data **stranded, not destroyed**. |
+| P28 | C5 — quorum 1 of 3 | **Containers keep serving; every write to the control plane is refused** | Raft needs `floor(3/2)+1 = 2`. A single manager cannot commit. Degraded ≠ down, and "just bounce it" converts a serving cluster into an outage. | ✅ **Confirmed.** `scale` and `update` both refused; `:5001` and `:5002` both `200` with real data throughout. |
+| P29 | C5 | Reads may still work while writes fail | The local store can answer queries; only committing needs quorum. **If `docker service ls` answers, an operator will conclude the cluster is fine.** | ❌ **Refuted.** `docker service ls` → `DeadlineExceeded`. **Reads need the leader too; Swarm serves no stale reads.** Better for correctness, but it means **total loss of cluster visibility while the app is perfectly healthy.** |
+| P30 | Drill D — rotate the secret, not the DB | **Pre-flight PASSES** (the secret exists), the app starts anyway, and **the smoke gate is the only thing that fails** | Drill B proved the guard catches a *missing* secret. A *present-but-wrong* secret walks straight past it. This is the failure Andrew named from work. | ✅ **Confirmed exactly.** All four services converged, digests resolved, then `SMOKE FAILED … HTTP 500`. |
+| P31 | Drill D | Postgres keeps the OLD password | `POSTGRES_PASSWORD_FILE` is consumed by `initdb` only, and the volume already exists. **So rotating the secret rotates the client, never the server** — the asymmetry that makes this failure so common. | ✅ **Confirmed** by Postgres' own log: `FATAL: password authentication failed for user "capricorn"` for the backend's remote connections. ⚠️ **Two of the AI's probes for this were invalid — see below.** |
+
+### Findings
+
+**C6a — an unresolvable tag silently disables digest pinning.** Swarm printed, unprompted:
+
+> `image …/frontend:does-not-exist-c6 could not be accessed on a registry to record its digest. Each node`
+> `will access …:does-not-exist-c6 independently, possibly leading to different nodes running different`
+> `versions of the image.`
+
+⭐ **And it deployed anyway.** The digest pinning that makes trap C7 survivable is **best-effort**: when the
+tag cannot be resolved, Swarm degrades to per-node resolution and reduces the guarantee to a warning in
+scrollback. So the two traps compose — **a registry blip during a deploy does not merely delay it, it can
+strip the pinning that would otherwise have kept the cluster homogeneous.**
+
+**C6a — `start-first` makes the replica count go ABOVE desired.** The poller logged
+`still pending: capricorn_frontend(4/3)`. A three-replica service legitimately reads `4/3` mid-rollout, so
+**a naive `replicas == desired` check flaps**, and one written as `>=` would pass on a rollout that is only
+half done. `deploy_swarm.sh` survives this only because it treats anything not exactly `N/N` as pending.
+
+**C6b — the most important result of the session.** Pointing the frontend at `nginx:alpine` — an image that
+starts perfectly and answers `200` — produced: `UpdateStatus: completed`, `EXIT=0`, `==> done`, `3/3`, and
+**nginx's default welcome page served to users**. `grep -ci capricorn` on the served HTML: **0**.
+
+🚨 **Swarm's rollback is driven by task failure, not by correctness, so it cannot help here** — and **our own
+smoke gate passed too**, because it polls the backend on `:5002`. A total loss of the user-facing application
+was invisible to every signal we own, including the one built specifically to catch false greens.
+
+> ⭐ **The rule: a gate only defends the endpoint it actually calls.** The gate was written after Drill A,
+> when the *backend* was the thing that lied — so it watches the backend. **The generalisation is that
+> per-service verification cannot be inferred from a healthy dependency**, and the fix is either a
+> `healthcheck` on the frontend image (Swarm will then refuse the task, and rollback works again) or a
+> smoke check per published port.
+
+**C3 — state is stranded, not lost, and that is worse.** Redis ran `--appendonly yes` on volume
+`capricorn_redis_data_swarm`, with `placement: []`. Adding a constraint moved it to a node that had never
+held that volume:
+
+| Signal | What it said |
+|---|---|
+| `docker service update` | `verify: Service capricorn_redis converged` |
+| `docker service ls` | `1/1` |
+| `UpdateStatus` | `completed` |
+| `redis-cli DBSIZE` | **`0`** |
+| `docker volume ls` on the new node | `capricorn_redis_data_swarm` — **created 19:06:56, brand new and empty** |
+
+⭐ **Docker created a second volume with the same name rather than failing.** A named volume is
+cluster-wide in the manifest and **node-scoped in reality**, so two nodes now held the same name with
+different contents. Moving the constraint back to the original node returned both canary keys **exactly** —
+so the data was never destroyed, it was unreachable.
+
+🚨 **And note when it became unreachable:** the old task shut down *gracefully*, and Redis rewrote
+`dump.rdb` on the way out (timestamp `19:06`). **The data was never more durable than at the instant it
+stopped being available.** Durability and availability are independent properties, and a backup strategy
+that only proves the first one has proved nothing about an outage.
+
+**The application never noticed.** `:5001` → `200`, `/api/v1/data/summary` → full counts, and **zero**
+mentions of Redis in the backend's logs. A cache wiped to nothing produced no signal anywhere.
+
+✅ **Correction to a claim made mid-drill.** The AI first wrote that *neither* stateful service was
+pinned. **That is false and was corrected by reading the manifest and the live specs:**
+
+```
+capricorn_postgres   [node.hostname == docker-swarm-1]
+capricorn_redis      []          ← deliberately free, so C3 could run at all
+```
+
+**Postgres has been pinned since Part 3**, with the manifest stating the trade-off explicitly — *"trades
+availability for durability: postgres dies with docker-swarm-1"* — and `manifests/capricorn.stack.yml`
+line 29 records that Redis is unpinned **on purpose** for this trap. ⭐ **So the lab made the correct
+decision for the service that holds durable data, and the drill was only possible against the one where
+losing state is survivable.** The general lesson is unchanged; the accusation against the lab's
+configuration was wrong, and **the pin is the reason C3 could not touch the database.**
+
+**Drill D — the pre-flight guard cannot see this class of failure at all.** The rotation was expressed the
+way a real one would be, with the secret object swapped underneath an unchanged mount path:
+
+```yaml
+secrets:
+  pg_password:
+    name: pg_password_v2      # same /run/secrets/pg_password inside the container
+    external: true
+```
+
+Everything green through convergence, then `SMOKE FAILED: /api/v1/banking/categories returned 500`.
+`asyncpg.exceptions.InvalidPasswordError` in the app's log; `FATAL: password authentication failed for user
+"capricorn"` in Postgres'. ⭐ **Drill B's guard catches an ABSENT secret; only a gate that transacts can
+catch a WRONG one** — and since the wrong value is delivered successfully, every orchestrator-level signal
+is entitled to be green.
+
+⚠️ **A second-order trap in the guard itself:** with `name:` in play, the *cluster* secret is
+`pg_password_v2` while the *stack key* is still `pg_password`. A pre-flight that greps the stack file for
+secret keys therefore checks the existence of an object the deploy will not use.
+
+**Drill D — 🚨 `pg_hba.conf` trusts localhost, which the drill exposed by accident.** Two probes disagreed:
+the rotated password appeared to *work* over `127.0.0.1` inside the container while the backend was being
+rejected over the network. The discriminator settled it —
+
+```
+host all all 127.0.0.1/32 trust        # ← in the image's pg_hba.conf
+```
+
+A **deliberately garbage** password returns `1`; no password at all returns `capricorn`. **Local connections
+are not authenticated.** Combined with the earlier finding that `docker exec` reads `/run/secrets`, anyone
+in the `docker` group on the database's node has unauthenticated access to the data, and **rotating the
+password does not reduce that by one bit.**
+
+> ⭐ **The measurement lesson, and it is the fifth of the session: when two probes of the same fact
+> disagree, at least one of them is measuring something else.** The second probe's "REJECTED" turned out to
+> be `database "capricorn" does not exist` — it omitted `-d capricorn_lab`, and the `&& echo WORKS || echo
+> REJECTED` idiom **collapsed every possible failure into one label**. Truthful output, wrong conclusion.
+> **Never let a probe report a cause it did not actually distinguish.**
+
+**C5 — the control plane died and the application did not care.** Stopping the daemon on the **leader**
+(swarm-2) and swarm-3 left swarm-1, a follower, alone:
+
+| Attempted from the survivor | Result |
+|---|---|
+| `docker service scale` | `The swarm does not have a leader… more than half of the managers are online` |
+| `docker service update` | same refusal |
+| `docker service ls` (a **read**) | `rpc error: code = DeadlineExceeded` |
+| `docker node ls` | `The swarm does not have a leader` |
+| `docker ps` | ✅ fine — three containers `Up` |
+| `curl :5001`, `:5002/api/v1/…` | ✅ **`200`, with real data** |
+
+⭐ **P29 refuted: reads need the leader too.** Swarm will not answer from a local, possibly-stale store —
+correct for consistency, and it means **the operator's visibility disappears while the workload is
+untouched.** During a real quorum loss `docker ps` on each node is the only inventory you have.
+
+🚨 **And `docker info` reports `managers=0 nodes=0` with `ControlAvailable=true`.** That reads as "the
+cluster is empty" — an alarming, misleading display at exactly the wrong moment — and any monitoring that
+tests "am I a manager with control available?" answers **yes** while nothing works.
+
+**Verified that the refused writes truly never landed** (rather than trusting the error message): after
+recovery, `Spec.Mode.Replicated.Replicas` was still `3` and the `c5` label was absent. **Raft refused to
+commit, and refused honestly.**
+
+**Recovery, and an unplanned A/B on this afternoon's fix.** Both daemons restarted; quorum returned;
+**leadership moved to swarm-1** — the second observation that Raft leadership is not sticky. Every service
+came back to full strength (`2/2`, `3/3`, `1/1`, `1/1`) and the smoke gate passed.
+
+⭐ **That is the controlled comparison the `restart_policy` finding needed.** Stopping a daemon `SIGTERM`s
+its containers, which exit `0` — the identical mechanism that silently ate replicas under
+`condition: on-failure` this afternoon. Under `condition: any`, **nothing was lost.** Same failure input,
+opposite outcome, and the only variable was the policy.
+
+### Lab vs PROD rows added by these drills
+
+| # | Lab | Production | If you carry the habit |
+|---|---|---|---|
+| L16 | Postgres image ships `host all all 127.0.0.1/32 trust`; local connections skip the password | `scram-sha-256` for every path, including loopback | **Host access becomes database access.** Password rotation, secrets management and audit logging are all bypassed by one `docker exec`, and nothing in the config you *do* manage shows it |
+| L17 | Stateful services use node-local named volumes with **no placement constraint** | Replicated/networked storage, or a hard pin plus an availability plan for that node | **One reschedule serves an empty database while every dashboard stays green.** The data is intact on a node nobody is looking at, so the incident presents as data loss and is really an addressing problem |
+| L18 | The frontend image has **no `healthcheck`**, so Swarm's only failure signal is "did the process exit" | A healthcheck that exercises the thing the service exists to do | **Any image that starts becomes a successful deploy.** Rollback is disarmed precisely when it is needed — the wrong-but-running case, which is the one no human notices |
+
 #### 🚨 The gate works, but for a reason I had not established — which is not the same as being right
 
 | Measurement | Rows |

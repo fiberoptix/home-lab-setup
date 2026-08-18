@@ -24,12 +24,19 @@ plan, the decisions, the traps that are deliberately left in place, and what was
 |---|---|---|---|
 | 01 | [Building the cluster](chapter01_building_the_cluster.md) | Quorum arithmetic and why 2 managers are worse than 1; the manager-vs-worker token trap; idempotent provisioning; the address pool and CA expiry `swarm init` creates without telling you; `Ready` vs `Active` vs `Reachable` | ✅ Written |
 | 02 | [Shipping to it](chapter02_shipping_to_it.md) | Stack vs compose and what Swarm silently ignores; secrets as files; **how registry auth really reaches a node**; why `deploy` exiting 0 means nothing; why replica counts mislead; digests vs tags; the routing mesh | ✅ Written |
-| 03 | A pipeline that deploys | Portable deploy logic, deploy tokens, and why an HA control plane is not an HA delivery path | 🔲 Planned |
-| 04 | State, where Swarm hurts | No PersistentVolumeClaim equivalent; node-local volumes; the choices and what each costs | 🔲 Planned |
-| 05 | Failure drills | Quorum loss, drain, broken rollouts, silent empty-volume data loss, secret rotation | 🔲 Planned |
+| 03 | A pipeline that deploys | Portable deploy logic, deploy tokens, and why an HA control plane is not an HA delivery path | 🔲 Planned — blocked on Part 4 of the phase |
+| 04 | [State: what the cluster will not carry for you](chapter04_state.md) | Named volumes are node-scoped, so state gets **stranded rather than lost**; durability ≠ availability; rotating a secret rotates only the client; `trust` on loopback; concurrent workers racing to seed one database | ✅ Written |
+| 05 | [Breaking it on purpose](chapter05_breaking_it.md) | Ten drills with predictions written first: unpullable images and rollback; **an image that starts and is the wrong application**; quorum loss (writes *and* reads); the reboot that silently cost three replicas; how to run a drill that means something | ✅ Written |
+| 06 | [False greens](chapter06_false_greens.md) | ⭐ The unplanned capstone: eight ways this cluster reported success for a question nobody asked, why every one of those signals was *honest*, the ladder of questions, and the smoke gate we built — including the failure it missed | ✅ Written |
 
 Chapters are written after the work they describe, so the table fills in behind the build rather than
-ahead of it.
+ahead of it. **Chapter 6 was not planned** — the same phenomenon appeared in every drill, in our own
+tooling, and in five of our own experiments, which made it a subject rather than a footnote.
+
+⚠️ **Chapter 2 has one known staleness**: it explains "exactly three `Rejected` tasks" from
+`max_attempts: 3`, a setting later removed for the reason given in chapter 5 §3. The explanation still
+holds for a service **create**; on an *update*, rollback ends the retries first. Repair is 🔲 tracked in
+the phase file.
 
 ---
 

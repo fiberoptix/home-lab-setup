@@ -141,7 +141,41 @@ editing `CURSOR_RULES`:
   - **New `=== EDUCATION PROGRAM (/education) ===` section**, 7 rules (now 8 + `1b` after Aug 13).
 
 - **🔵 IN PROGRESS — Phase 16: Docker Swarm** (`phases/phase16_docker_swarm.md`).
-  🎯 **FIVE FAILURE DRILLS RAN Aug 18, 2026 (5:00–6:30 PM) — and the findings are about the APPLICATION,
+  🎯 **ALL DRILLS ARE DONE (Aug 18, 2026, 7:00–8:20 PM) AND CHAPTERS 4, 5, 6 ARE WRITTEN.** 🙋 Andrew asked
+  the **AI to drive** the last four drills so the chapters could be written before context was lost — a
+  deliberate exception to `METHOD.md`, recorded in both the phase file and `current_phase.md`.
+  **P20–P31: 10 confirmed, 2 refuted, and the refutations matter most.** (a) ❌ Removing `max_attempts`
+  causes **no** retry storm on an *update* — `failure_action: rollback` ends retries after one failure;
+  ⚠️ **still open on the CREATE path**, which is where chapter 2's "exactly three Rejected tasks" came
+  from, so **chapter 2 is stale on that point**. (b) ❌ **With no quorum, READS fail too** —
+  `docker service ls` → `DeadlineExceeded`; Swarm serves no stale reads, so you lose all cluster
+  visibility while the app serves normally and **`docker ps` per node is the only inventory.**
+  🎯 **The worst result in the track is C6b: `nginx:alpine` on the frontend deployed GREEN.**
+  `UpdateStatus: completed`, `EXIT=0`, `3/3`, **and our own smoke gate passed** (`200, body matched`,
+  `682 rows`) while every user saw *Welcome to nginx!*. **Swarm's rollback reacts to task failure, not
+  correctness; our gate only defends the endpoint it calls.** ⭐ **Verification does not compose** — 🔲 open
+  work: frontend `healthcheck` + one smoke assertion per published port.
+  ⭐ **C3: state is STRANDED, not lost.** Moving Redis off its node made Docker **silently create a second
+  empty volume of the same name**; `DBSIZE 0`, everything green; moving it back returned both keys exactly.
+  🚨 **It was fsynced on `SIGTERM` at the instant it became unreachable — durability ≠ availability.**
+  ✅ **Correction to an AI claim made mid-drill:** postgres **IS** pinned (`node.hostname ==
+  docker-swarm-1`, manifest says *"trades availability for durability: postgres dies with
+  docker-swarm-1"*); **redis is unpinned deliberately** so C3 could run. **The pin is why C3 could not
+  touch the database** — the lab's config was right and the accusation was wrong.
+  🚨 **New security finding: `pg_hba.conf` ships `host all all 127.0.0.1/32 trust`** — a garbage
+  password returns `1` from inside the container, so with `docker exec` reading `/run/secrets`, **`docker`
+  group on a node = unauthenticated DB access, and rotation does not change it.** Never test a DB
+  credential from inside its own container.
+  ⭐ **Drill D: a WRONG secret passes every guard** (pre-flight ✅, converged ✅, digests ✅) and **only the
+  smoke gate catches it.** `POSTGRES_PASSWORD_FILE` is read **only at `initdb`**, so rotation touches the
+  client and never the server → correct order is `ALTER USER` **first**, then the secret.
+  ⭐ **The `restart_policy: any` fix was validated by accident** — the quorum drill stops daemons, whose
+  containers exit `0`, the identical mechanism that ate three replicas under `on-failure`; nothing was lost.
+  ✅ **Resting state HEALTHY**: 2/2, 3/3, 1/1, 1/1, smoke gate green, quorum restored, **leader moved to
+  `docker-swarm-1`** (leadership not sticky — observed twice), C3 constraints removed, `pg_password_v2`
+  deleted. 🔲 **No `s05` snapshot taken** — recommended, left for Andrew; note `s04` still contains the
+  **broken `on-failure` policy**. 🔲 **GitHub push held**; GitLab only.
+  **Previously, Aug 18 (5:00–6:30 PM) — five drills whose findings were about the APPLICATION,
   not Swarm.** Resting state: stack healthy, **1621 DB rows = 939 tax reference (from `initdb`) + 682
   written by the app**, snapshot **`s04-drills-complete`** (all three VMs gracefully shut down first).
   🚨 **`:latest` MOVED on Aug 17** (pipeline #160) — `backend@b449d6c4`, `frontend@5507b283`,

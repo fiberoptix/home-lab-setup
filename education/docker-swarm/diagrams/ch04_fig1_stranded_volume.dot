@@ -1,0 +1,28 @@
+// Chapter 4, Figure 1 - a named volume is resolved per NODE, so the same name is two different disks.
+// Point of the figure: the service moved, the data did not, and the daemon created an empty volume
+// with the identical name rather than failing.
+digraph stranded {
+    rankdir=TB;
+    bgcolor="white";
+    node [fontname="Helvetica" fontsize=11 shape=box style="filled,rounded" fillcolor="#f5f5f5" color="#888888"];
+    edge [fontname="Helvetica" fontsize=11 color="#666666"];
+    graph [fontname="Helvetica" fontsize=11];
+
+    spec [label=<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="4"><TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>Service spec (cluster-wide)</B><BR/>volumes: redis_data_swarm:/data<BR/><I>one name — and NO placement constraint</I></TD></TR></TABLE>>
+          fillcolor="#e8eef7" color="#4a6fa5"];
+
+    n2 [label=<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="4"><TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>swarm-2</B> — where it used to run<BR/>capricorn_redis_data_swarm<BR/>dump.rdb + appendonlydir<BR/><B>2 keys, fsynced on SIGTERM</B><BR/><I>STRANDED: intact, durable, unread</I></TD></TR></TABLE>>
+         fillcolor="#f7f0e8" color="#a5794a"];
+
+    n3 [label=<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="4"><TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>swarm-3</B> — where it runs now<BR/>capricorn_redis_data_swarm<BR/><B>created seconds ago, EMPTY</B><BR/><I>same name, different disk</I></TD></TR></TABLE>>
+         fillcolor="#f7e8e8" color="#b03030"];
+
+    green [label=<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="4"><TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>What every signal said</B><BR/>converged &#183; 1/1 &#183; completed<BR/><B>DBSIZE 0</B></TD></TR></TABLE>>
+            fillcolor="#e8f7ee" color="#3a8a5a"];
+
+    spec -> n2 [label="  scheduled here on Monday" style=dashed];
+    spec -> n3 [label="  rescheduled here today"];
+    n3 -> green [label="  the daemon created the\l  name and moved on\l" fontcolor="#b03030" color="#b03030"];
+
+    {rank=same; n2; n3;}
+}
