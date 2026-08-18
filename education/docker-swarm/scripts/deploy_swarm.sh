@@ -45,8 +45,16 @@ SMOKE_EXPECT="${SMOKE_EXPECT:-\"success\":true}"
 SMOKE_TIMEOUT="${SMOKE_TIMEOUT:-90}"
 SMOKE_INTERVAL="${SMOKE_INTERVAL:-5}"
 # Second gate: a status code alone would pass an EMPTY database. Requires total >= SMOKE_MIN_ROWS.
+#
+# ⚠️ THE THRESHOLD HAS TO MEAN SOMETHING, and the first draft of this got it wrong: it defaulted to 1.
+# 001_schema.sql seeds 12 categories entirely on its own, so a floor of 1 - or of 12 - passes on a
+# database where the application's bootstrap NEVER RAN. That is the precise false-green this gate
+# exists to prevent, and it would have been shipped.
+#
+# A fully bootstrapped database reports total=682 (measured Aug 18). Schema-only is ~12. 100 sits
+# clearly between them. Per app, the rule is: PICK A NUMBER THE SCHEMA ALONE CANNOT REACH.
 SMOKE_ROWS_PATH="${SMOKE_ROWS_PATH:-/api/v1/data/summary}"
-SMOKE_MIN_ROWS="${SMOKE_MIN_ROWS:-1}"
+SMOKE_MIN_ROWS="${SMOKE_MIN_ROWS:-100}"
 
 die() { printf '\n\033[31mFAILED:\033[0m %s\n' "$*" >&2; exit 1; }
 say() { printf '\n\033[1m==> %s\033[0m\n' "$*"; }
@@ -112,7 +120,15 @@ docker stack deploy -c "$STACK_FILE" --with-registry-auth "$STACK"
 # failure_action fired. A rolled-back service ends up back at full replicas, so a count-only check
 # calls an automatic rollback a SUCCESS. It is the opposite: the new version was rejected.
 #
-# The field is EMPTY on a service that has never been updated since creation, so empty is healthy.
+# ✅ VERIFIED Aug 18, 2026: on a service that has never been updated, the key is not empty - it is
+# ABSENT, and the template fails with `map has no entry for key "UpdateStatus"`. The `2>/dev/null || true`
+# below collapses that into an empty string, which this script correctly treats as healthy.
+#
+# ⚠️ Note the contrast with the volume-wipe lesson recorded in COMMANDS.md, because the rule is not
+# "never suppress stderr". Suppression is right HERE because absence is a legitimate, expected state that
+# the code goes on to handle. It was wrong THERE because absence of the volume was a PRECONDITION whose
+# failure invalidated everything downstream. The test is whether you handle the silence, not whether you
+# create it.
 #
 # UNVERIFIED, to be tested when we deliberately trigger a rollback later in this phase: UpdateStatus
 # is a LATCH, not a live signal - it persists until the next update starts. If a redeploy that sends
@@ -211,9 +227,20 @@ if [ "$SMOKE" = "1" ]; then
     # matters because a 200 with an error payload is a real thing; so is a proxy answering for a
     # dead app.
     deadline=$(( $(date +%s) + SMOKE_TIMEOUT ))
+    tmp_body="$(mktemp)"
+    trap 'rm -f "$tmp_body"' EXIT
+
     while :; do
-        body="$(curl -sS --max-time 10 "${base}${SMOKE_PATH}" 2>/dev/null || true)"
-        code="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 10 "${base}${SMOKE_PATH}" 2>/dev/null || echo 000)"
+        # ONE request, not two: capture the body and the status from the same call. Two calls can
+        # straddle the moment the app becomes ready and report a 200 with an empty body, or worse,
+        # pass a check against a response nobody looked at.
+        #
+        # `|| true` and NOT `|| echo 000`: on a refused connection curl already writes 000 via -w
+        # AND exits non-zero, so the fallback appended a second 000 and printed "HTTP 000000".
+        # A nonsense status code in a CI log is a real cost - somebody will search for it.
+        code="$(curl -sS -o "$tmp_body" -w '%{http_code}' --max-time 10 "${base}${SMOKE_PATH}" 2>/dev/null || true)"
+        [ -n "$code" ] || code="000"
+        body="$(cat "$tmp_body")"
 
         if [ "$code" = "200" ] && printf '%s' "$body" | grep -qF "$SMOKE_EXPECT"; then
             echo "    ${SMOKE_PATH} -> 200, body matched"

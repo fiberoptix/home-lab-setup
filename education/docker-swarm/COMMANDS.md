@@ -15,6 +15,37 @@ because by chapter 5 there will be a hundred commands and no memory of which one
 
 ---
 
+## 0. How to run a block of these — the paste-runner
+
+⭐ **Andrew's practice, Aug 18, 2026.** Do not paste a multi-line block into an interactive shell. Paste
+it into a file and run the file:
+
+```bash
+# on the target node — write once, run once
+vi ~/DevShare/cursor-projects/home-lab-setup/education/docker-swarm/scripts/run_commands.sh
+chmod +x run_commands.sh && ./run_commands.sh
+```
+
+**Why this is not a style preference.** Both mispaste incidents on this track had the same shape: a
+block beginning with `ssh` was pasted, and the *remaining lines* sat in the terminal's input buffer
+while `ssh` was still connecting — so they were consumed by the wrong shell. On this lab that was
+almost invisible, because `~/DevShare` is mounted at the same path on the workstation and on the
+nodes, so `cd` succeeded on the wrong machine. **A file is read by one process from beginning to end.
+There is no buffer for another process to steal.** It also gives you the block verbatim to re-run
+after a change, which is what makes a drill a measurement instead of an anecdote.
+
+Two rules that come with it:
+
+| Rule | Why |
+|---|---|
+| **Never type a secret into the file.** Keep using `read -rsp 'pg password: ' PGPW`. | The file persists on disk, and here that disk is a **CIFS share** — a password in it is now on the NAS, in the project directory, next to a git repo. `read -rsp` keeps it in one process's memory and out of shell history. |
+| **Give it `#!/usr/bin/env bash` and `set -euo pipefail`.** | Without them the runner keeps going after a failed step, and you score a drill against output produced in a state you did not intend. The Aug 18 runner lacked both; it happened not to matter because nothing failed. |
+
+`education/*/scripts/run_commands.sh` is **git-ignored**: its contents change every time, and the
+artefact is this ledger, not the scratch pad.
+
+---
+
 ## 1. The 3am order — is the CLUSTER healthy, or the APP?
 
 Ask in this sequence. Each step narrows the blast radius, and **step 1 before step 2 matters**: a
@@ -72,6 +103,34 @@ control-plane problem and an application problem look identical from the outside
 | `docker node ps self` | Same for the node you are on. | ⚠️ |
 | `docker node inspect <node> --pretty` | Labels, availability, resources, engine version. | ✅ |
 | `docker ps` | Containers **on this host only.** ⚠️ A Swarm service is invisible here unless a task happens to be local — the classic "my service is running but `docker ps` is empty" confusion. | ✅ |
+| `docker volume ls` | 🚨 **Volumes are NODE-LOCAL, and Swarm will not tell you otherwise.** Run this on the wrong node and the database volume simply is not there. | ✅ |
+
+### 🚨 Wiping a Swarm-managed volume — the safe form
+
+Measured Aug 18, 2026: a "controlled" drill was **voided** because a `docker volume rm` failed silently
+and the deploy ran against the previous run's data. The rules that came out of it:
+
+| Command | Question | Verified? |
+|---|---|---|
+| `docker service ps <svc> --format '{{.Node}}'` | ⭐ **Which node holds the volume?** `docker volume rm` on any other node returns `no such volume`, which is indistinguishable from success if you discard the error. | ✅ |
+| `docker ps -a --filter name=<svc> --format '{{.Names}}\t{{.Status}}'` | **Is the container really gone?** `docker stack rm` returns before the container objects are reaped, and the volume stays busy until they are. Waiting for the *network* to disappear is not sufficient — measured. | ✅ |
+| `docker volume rm <vol>` **without `2>/dev/null`** | `no such volume` and `volume is in use` require opposite responses. Hiding stderr makes them the same message. | ✅ |
+| `docker volume ls -q \| grep -qx <vol> && exit 1` | ⭐ **Assert the precondition, then refuse to continue.** | ✅ |
+
+```bash
+# retry, report docker's own error, and abort rather than run the wrong experiment
+for i in $(seq 1 30); do
+  out="$(docker volume rm capricorn_postgres_data_swarm 2>&1)" && { echo "  removed"; break; }
+  printf '  attempt %s: %s\n' "$i" "$out"; sleep 2
+done
+docker volume ls -q | grep -qx capricorn_postgres_data_swarm \
+  && { echo "ABORT: volume survived - the run would use stale data"; exit 1; }
+```
+
+⭐ **The general rule, and it is not about Docker:** **never suppress stderr on a step the result depends
+on.** A precondition that fails quietly does not give you a failed run, it gives you a *successful-looking*
+run that answers a different question — the same false-green shape as [§4b](#4b-is-it-ready-for-business-as-distinct-from-running),
+but built into the instrumentation instead of the app.
 
 ---
 
@@ -85,6 +144,42 @@ The gap between "what the file says" and "what is running" is where outages live
 | `docker service inspect <svc> --format '{{.UpdateStatus.State}}'` | 🚨 **The real convergence signal.** `updating` / `completed` / `rollback_started` / `rollback_completed` / empty-if-never-updated. | ✅ |
 | `docker service inspect <svc> --format '{{.UpdateStatus.Message}}'` | Why the rollout ended the way it did. | ⚠️ |
 | `docker service ls` | Current replica counts only — **no history, no update state.** | ✅ |
+| `docker service ps <svc> --format '{{.Name}}\t{{.Node}}\t{{.CurrentState}}\t{{.DesiredState}}\t{{.Error}}'` | 🚨 **`Complete` is not a synonym for `Running`, and it is not an error.** A task whose container exited **0** is recorded `Complete`/`Shutdown` — a success. **Under `restart_policy: on-failure` it is never replaced.** See the reboot finding below. | ✅ |
+| `docker service inspect <svc> --format '{{.Spec.TaskTemplate.RestartPolicy.Condition}}'` | ⭐ **Read the policy from the SPEC, not the stack file.** The file is what you asked for; the spec is what Swarm is enforcing. | ✅ |
+
+### 🚨 After ANY reboot or maintenance: did every service come back to full strength?
+
+**Measured Aug 18, 2026.** Three VMs were gracefully shut down and restarted. Raft re-formed, all nodes
+`Ready`, no failed tasks, no rollback, every health endpoint 200 — and the stack sat at `backend 1/2`,
+`frontend 1/3`, `redis 0/1` indefinitely.
+
+| Container's fate on shutdown | Task state | Replaced under `on-failure`? |
+|---|---|---|
+| **Exited 0** (SIGTERM from a clean stop) | **`Complete`** | ❌ **never** — exit 0 is success |
+| **Vanished** | `Failed` — `No such container: …` | ✅ yes |
+
+```bash
+# the post-maintenance gate - run it as a check, not a glance
+docker stack services <stack> --format '{{.Name}} {{.Replicas}}' \
+  | awk '{split($2,a,"/"); if (a[1]!=a[2]) { print "  UNDER-REPLICATED: " $0; bad=1 }} END{exit bad}' \
+  || echo "  all services at desired replicas"
+```
+
+> 🚨 **`restart_policy: condition: on-failure` is wrong for every long-running service**, and it reads
+> like the cautious choice. `any` is Docker's default. **In production this is a rolling-patch bug:**
+> reboot nodes one at a time for kernel updates and each service that exits cleanly comes back short,
+> with no alert, until the lost capacity matters. `max_attempts` without a `window` is the same bug by
+> another route — after N restarts ever, the task stays dead.
+>
+> ⭐ **And note the inversion against [§4](#4-what-is-actually-deployed-drift-versions-convergence):**
+> there, replica count is *insufficient* because `start-first` and rollback hold it at full. Here it is
+> the **only** signal that catches the fault. **Neither works alone; they fail in opposite directions.**
+
+⚠️ **`UpdateStatus` is ABSENT, not empty**, on a service never updated since creation —
+`--format '{{.UpdateStatus.State}}'` fails with `map has no entry for key "UpdateStatus"`. Guard with
+`{{if .UpdateStatus}}` or tolerate the error. ⭐ **This is the case where suppressing stderr is correct**,
+and the contrast with the voided volume wipe is the real rule: **suppress silence you then handle; never
+suppress a precondition.**
 
 > 🚨 **Two ways a deploy reports green while broken.** First, `docker stack deploy` exits `0` when the
 > manager *accepts* desired state, not when anything runs. Second, **replica count is not convergence**:
@@ -95,6 +190,39 @@ The gap between "what the file says" and "what is running" is where outages live
 ⚠️ **Recorded as untested:** `UpdateStatus` appears to be a *latch* that persists until the next update
 begins, so a stale `rollback_completed` could make a checker fail a healthy cluster. To be settled in
 chapter 5.
+
+### 🚨 Observed, unplanned: `:latest` moved underneath a redeploy (Aug 18, 2026)
+
+A drill redeploy was expected to change *one* thing — the worker count. Printing the resolved digests
+showed **all three first-party images had different digests than the Aug 13 run**:
+
+| Service | Aug 13 digest | Aug 18 digest |
+|---|---|---|
+| `backend` | `fac031dd…` | `b449d6c4…` |
+| `frontend` | `ef8cdf13…` | `5507b283…` |
+| `postgres` | `18b8bf23…` | `5f76f30b…` |
+
+Nobody asked for that. The stack file says `:latest`, an unrelated CI pipeline pushed new images in
+between, and **`docker stack deploy` therefore performed an unannounced application upgrade** — three of
+them — while nominally running a controlled experiment.
+
+Two separate lessons, and the second is the one that stings:
+
+1. **Mutable tags mean every redeploy is an upgrade you did not authorise.** A `docker service update
+   --force` intended to restart a stuck service will silently ship whatever `:latest` now points at.
+   This is why the digest print exists in `deploy_swarm.sh`, and it is the argument for deploying by
+   digest — the finding arrived on its own, before the chapter that was going to teach it.
+2. ⭐ **It confounded the experiment.** Two variables changed between the Aug 13 observation and the
+   Aug 18 result, so the drill's null result cannot yet be attributed to the worker count. **Print the
+   digests before scoring any drill**, and if they moved, the comparison is not a comparison.
+
+```bash
+# the one-liner that caught it — run it before AND after any drill
+for s in backend frontend postgres redis; do
+  printf '%-10s %s\n' "$s" \
+    "$(docker service inspect capricorn_$s --format '{{.Spec.TaskTemplate.ContainerSpec.Image}}')"
+done
+```
 
 ---
 
@@ -111,6 +239,60 @@ and `/api/v1/banking/health` all said healthy. Only a request that touched the d
 | `docker exec $(docker ps -q -f name=<svc>\|head -1) python -c "from app.main import app; [print(p) for p in sorted(app.openapi()['paths'])]"` | **How to find a dependency-exercising path when `/openapi.json` is disabled** (`DEBUG=false` hides the docs). Ask the app for its own route table. | ✅ |
 | `curl … /api/v1/data/summary` and check `total` > 0 | 🚨 **A status code alone passes an EMPTY database.** The subtler outage: a one-shot startup bootstrap runs before the DB is reachable, never re-runs, the pool then reconnects lazily, and **every endpoint returns 200 with zero rows.** A 500 gets noticed; green dashboards over an empty database do not. | ✅ |
 
+### 🚨 Is the data COMPLETE, or did a fallback path run?
+
+Measured Aug 18, 2026: with 4 uvicorn workers against a freshly initialised database, **3 of the 4 lost a
+race to seed it** and the application *caught* the error and substituted a smaller dataset — while
+reporting success.
+
+| Command | Question | Verified? |
+|---|---|---|
+| `docker service logs <svc> 2>&1 \| grep -i "using minimal bootstrap"` | ⭐ **Did a degraded fallback path run?** The row count was correct *and* this fired. A count-based check cannot see it. | ✅ |
+| `docker service logs <svc> 2>&1 \| grep -i UniqueViolation \| sed -E 's/^(<svc>\.[0-9]+)\..*/\1/' \| sort \| uniq -c` | ⭐ **How many writers lost, and on which task?** `3 backend.2` and zero on `.1` localises the race to *one task's own workers*, which is a different bug from task-vs-task. | ✅ |
+| `docker service logs <svc> 2>&1 \| grep -c "Waiting for application startup"` | **How many worker processes actually started?** `workers × replicas`. Confirms a config change landed before you attribute a result to it. | ✅ |
+
+⭐ **Grep for the fallback, not just the error.** A caught exception followed by a degraded path is
+invisible to exit codes, status codes and row counts alike — the three things automation usually checks.
+
+### Reading the application's own source out of the running image
+
+When behaviour is ambiguous, **the image is the ground truth** — source on a workstation may not be what
+was built. Measured Aug 18, 2026: this settled a mechanism that two rounds of black-box drilling could
+not.
+
+| Command | Question | Verified? |
+|---|---|---|
+| `docker exec <c> sh -c 'grep -rl "<log string>" /app'` | ⭐ **Start from a log line and find the code that wrote it.** The fastest route from a symptom to its cause. | ✅ |
+| `docker exec <c> sh -c 'grep -n "def .*<name>" <file>'` | Locate the function without reading the file. | ✅ |
+| `docker exec <c> sh -c 'sed -n "535,575p" <file>'` | Print a specific range once `grep -n` has given you the line numbers. | ✅ |
+| `docker exec <c> sh -c 'awk "/<marker>/{f=NR} f&&NR>=f-25&&NR<=f+45" <file>'` | **Print a window around a match** when you do not know the line number yet. | ✅ |
+| `docker exec <c> sh -c 'grep -rn "DELETE FROM\|delete(\|ON CONFLICT\|commit\|rollback" <file>'` | ⭐ **Transaction boundaries are where data-loss bugs live.** Finding a `commit()` between a delete and its replacement insert is the whole game. | ✅ |
+
+⚠️ **This works because the container ships its source.** A compiled or minified image gives you nothing,
+which is an argument for keeping the source layer in the image for debuggability — and an argument against
+it for anyone worried about what a `docker exec` reveals. ⭐ **Note what this means for access control:
+anyone in the `docker` group can read the application's source *and* its secrets on any node.**
+
+### 🚨 A row-count gate is only as good as WHICH rows it counts
+
+| Command | Question | Verified? |
+|---|---|---|
+| ```docker exec -i $(docker ps -q -f name=<pg>\|head -1) psql -U <u> -d <db> -c "SELECT table_name, (xpath('/row/c/text()', query_to_xml(format('select count(*) as c from public.%I', table_name), false, true, '')))[1]::text::bigint AS rows FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE' ORDER BY rows DESC;"``` | ⭐ **Exact counts for every table in one query**, without naming them. `pg_stat_user_tables.n_live_tup` is an *estimate* and needs `ANALYZE` — do not gate on it. | ✅ |
+| `docker exec <pg> ls -la /docker-entrypoint-initdb.d/` | **What does the database contain before any application touches it?** | ✅ |
+| `docker exec <pg> sh -c 'grep -ic "insert into" /docker-entrypoint-initdb.d/*.sql'` | ⭐ **Which init scripts seed DATA, not just structure** — the per-file counts separate schema from reference data. | ✅ |
+
+**Measured Aug 18, 2026:** the database holds **1621** rows, of which **939 are tax reference data seeded
+by `initdb`** and **682 are written by the application's bootstrap.** The endpoint the smoke gate reads
+reports **682** — it counts only application-owned tables.
+
+> 🚨 **Had that endpoint summed all 21 tables, it would report 1621 on a healthy database and 939 on one
+> where the bootstrap never ran** — and a floor of 100 would pass a completely unseeded application.
+> The gate works because the metric happens to exclude reference data, **which was luck, not design.**
+>
+> ⭐ **The rule: gate on rows the application itself is responsible for creating.** Reference data
+> shipped with the schema is always present, so including it in the metric drowns the signal — the
+> larger the reference dataset, the more thoroughly it hides an empty application.
+
 🚨 **Not every endpoint named "health" is a health check.** On this app:
 
 | Endpoint | With the database SCALED TO ZERO |
@@ -126,6 +308,21 @@ dependency fails**, or do not bother writing one.
 ✅ **Now enforced in `deploy_swarm.sh`** as a post-convergence smoke gate (status + body match, then a
 row-count floor), so CI inherits the check instead of reimplementing it. `SMOKE=0` disables it and says
 loudly what you gave up.
+
+🚨 **The row floor has to be chosen, not defaulted — and the first version got this wrong.**
+`SMOKE_MIN_ROWS` shipped as `1`. But `001_schema.sql` seeds **12 categories by itself**, so a floor of 1
+— or of 12 — **passes on a database whose application bootstrap never ran**, which is the exact
+false-green the gate was written to catch. Measured Aug 18: a fully bootstrapped database reports
+`total=682`; schema-only is ~12. The default is now **100**, and the rule generalises:
+
+> **Pick a number the schema alone cannot reach.** A floor below the schema's own seed data is not a
+> weak check, it is a check that cannot fail.
+
+⚠️ **`|| echo 000` after a `curl -w '%{http_code}'` is a trap.** On a refused connection curl writes
+`000` *and* exits non-zero, so the fallback fired too and the gate logged **`HTTP 000000`**. Harmless to
+the logic, expensive to whoever greps that string out of a CI log at 3am. Use `|| true`, and capture the
+body and the status in **one** request — two requests can straddle the moment the app becomes ready and
+report a 200 alongside a body from before it was.
 
 ---
 

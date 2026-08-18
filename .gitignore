@@ -65,6 +65,14 @@ $RECYCLE.BIN/
 # lists. The chapters quote the results; the scratch copies are not the artefact.
 education/*/scratch/
 
+# Andrew's paste-runner (his idea, Aug 18 2026). Rather than paste a multi-line block
+# into an interactive shell — which is how BOTH mispaste incidents happened, because
+# later lines land in the input buffer while ssh is still connecting — he pastes into
+# this file and executes it. One process reads it start to finish; nothing can steal
+# the lines. The TECHNIQUE is documented in education/docker-swarm/COMMANDS.md; the
+# file's CONTENTS are different every time and are not an artefact.
+education/*/scripts/run_commands.sh
+
 # ------------------------------------------------------------------------------
 # PYTHON
 # ------------------------------------------------------------------------------

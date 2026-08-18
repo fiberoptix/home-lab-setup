@@ -57,10 +57,17 @@ services:
       rollback_config:
         parallelism: 1
         delay: 5s
+      # 🚨 WAS `condition: on-failure`, and a full-cluster reboot on Aug 18 2026 proved that wrong.
+      # A graceful shutdown sends SIGTERM, the container exits 0, and Swarm records the task as
+      # `Complete` - a SUCCESS. `on-failure` therefore never replaces it, so every clean host reboot
+      # permanently lowers the replica count with no error anywhere. Measured: frontend came back 1/3.
+      # `any` is Docker's default and the only correct setting for a long-running service.
+      #
+      # `max_attempts: 3` removed for the same reason: after three restarts the task stays dead
+      # forever, which is the same silent under-replication by a different route.
       restart_policy:
-        condition: on-failure
+        condition: any
         delay: 5s
-        max_attempts: 3
       resources:
         limits:
           memory: 256M
@@ -107,10 +114,11 @@ services:
       rollback_config:
         parallelism: 1
         delay: 5s
+      # See the note on the frontend service: `on-failure` does not replace a task that exited 0,
+      # so a graceful reboot left this service at 1/2. `any` is the default and the correct choice.
       restart_policy:
-        condition: on-failure
+        condition: any
         delay: 5s
-        max_attempts: 3
       resources:
         limits:
           memory: 1G
@@ -151,8 +159,11 @@ services:
         # trades availability for durability: postgres dies with docker-swarm-1.
         constraints:
           - node.hostname == docker-swarm-1
+      # `any`, not `on-failure` - see the frontend note. This service survived the Aug 18 reboot only
+      # because its container VANISHED (task `Failed`, so it was replaced). Had it exited 0 like the
+      # others, the database would simply not have come back.
       restart_policy:
-        condition: on-failure
+        condition: any
         delay: 10s
       resources:
         limits:
@@ -173,8 +184,10 @@ services:
       replicas: 1
       # NOT pinned, on purpose. C3 forces this onto another node to show a stateful task
       # coming up healthy against empty storage.
+      # `any`, not `on-failure`: this was the clearest casualty of the Aug 18 reboot - it exited 0,
+      # was marked `Complete`, and came back 0/1 with nothing reported as wrong anywhere.
       restart_policy:
-        condition: on-failure
+        condition: any
         delay: 10s
       resources:
         limits:

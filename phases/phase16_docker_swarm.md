@@ -1351,7 +1351,402 @@ This is why "ready for business" cannot be inferred from orchestrator state at a
 job ends at *the process is running*, and it does that job correctly. **Everything past that boundary is
 the application's claim about itself, and this application's claim was false.**
 
-🔲 **Action taken from this:** `deploy_swarm.sh` gets a post-convergence smoke gate that requests a
+### Drill B — fire the `pg_password` guard at last. Prediction
+
+The guard has dodged testing **twice**: on Aug 13 the run landed on the workstation, so the *manager*
+check fired first, and the secret was created before any manager-side run.
+
+| # | Prediction | Reasoning | Outcome |
+|---|---|---|---|
+| P9 | The script exits **non-zero naming `pg_password`**, and `docker stack ls` stays empty. | The check is a pre-flight, before anything is sent to the cluster. | ✅ **CONFIRMED.** `FAILED: secret 'pg_password' does not exist - create it first: …`, `EXIT=1`, `docker stack ls` empty. |
+| P10 | **The registry login never runs.** | The secret check sits *above* the login block, so a missing secret costs nothing and leaks no credential. ⭐ **Pre-flight order is a design choice:** cheapest and most-likely-wrong first, so failures are free. | ✅ **CONFIRMED** — no `logging in to …` line in the output at all. |
+
+#### 🚨 Andrew's work parallel — and why it is the OPPOSITE case to the one we just tested
+
+> *"I expected this to fail without secrets — we can't access PG. This happens at work whenever someone
+> rotates a PG password and forgets to update it in secrets."*
+
+**The instinct is right and the mapping is not.** These two failures look adjacent and behave nothing
+alike:
+
+| | Secret **MISSING** (drill B) | Secret **PRESENT but WRONG** (the rotation case) |
+|---|---|---|
+| Deploy | ❌ **refuses before touching the cluster** | ✅ **succeeds** |
+| Cost | nothing changed, nothing pulled, no login | services recreated, old tasks stopped |
+| Postgres | never starts | starts fine — **its password lives in its own data dir, not in the secret** |
+| Backend | never starts | retries 15×, `Bootstrap failed`, **starts anyway** (drill A) |
+| Swarm's verdict | failure, exit 1 | **converged, `2/2`, green** |
+| How you find out | immediately, from the deploy | a user, later |
+
+⭐ **`deploy_swarm.sh` checks that the secret EXISTS. Nothing checks that it WORKS** — and nothing can,
+cheaply, because **you cannot validate a credential without using it.** That is precisely the argument
+for the smoke gate: the only honest test of a password is a request that needs it.
+✅ **The gate added today would catch the rotation case**, where every pre-flight check passes.
+
+🚨 **The postgres-specific trap that makes rotation worse than it looks.** The official entrypoint reads
+`POSTGRES_PASSWORD_FILE` **only when it runs `initdb`**, and `initdb` only runs on an **empty** data
+directory. On an existing volume, initialisation is skipped entirely:
+
+- **Update the secret only** → postgres keeps the *old* password from its data dir; the backend presents
+  the new one; auth fails. **Nothing in the stack file is wrong.**
+- **`ALTER USER` in the database only** → postgres has the new password; the secret still holds the old
+  one; auth fails the same way.
+- **Both, in the wrong order** → a window where the running app cannot reconnect.
+
+⭐ **So a Swarm secret is not the system of record for a database password — the database is.** The secret
+is a *copy*, and two copies drift. This is the same root cause as L14 from a different direction: the
+orchestrator holds credentials it does not own.
+
+🔲 **Drill D added (chapter 5 material — "secret rotation" is already in its outline):** rotate
+`pg_password` **without** touching the database, redeploy, and confirm the smoke gate catches what every
+other check misses. **This also tests the gate itself**, which is currently unproven against a real
+failure.
+
+### Drill C — what actually caused the seeding collision? Prediction
+
+**Variant generated FROM the canonical stack file rather than copied**, so it cannot drift:
+
+```bash
+sed -e 's/--workers 4/--workers 1/' -e 's/replicas: 2/replicas: 1/' \
+    ../manifests/capricorn.stack.yml > /tmp/capricorn.seedtest.yml
+```
+
+(Both anchors verified unique — `grep -c` returns 1 for each.)
+
+| # | Prediction | Reasoning | Outcome |
+|---|---|---|---|
+| P11 | 🎯 **No `UniqueViolationError`.** One process against an empty volume seeds cleanly. | ⭐ **The Aug 13 evidence points here:** the violation appeared on `backend.2` **only**, never on `backend.1`, which started 3.6 s later. If the app's bootstrap collided with `001_schema.sql`'s own 12 seeded categories, **every** worker in **both** tasks would have hit it. That it was task-specific says the loser was racing *other writers*, not the schema. | ✅ **CONFIRMED — but see the confound below.** No violation, no retry loop, and a complete seed: `✅ Bootstrap complete: {…'categories': 51, 'transactions': 611, 'total': 682}`. Converged and passed the gate in **16.9 s**. |
+| P12 | Exactly **one** `Waiting for application startup` line, versus four per task before. | `--workers 1`. Confirms the variant took effect — worth checking so a null result is not just a config that never applied. | ✅ **CONFIRMED.** `grep -c` = **1**. The variant applied, so P11 is a real null result and not a config that never landed. |
+| P13 | **The smoke gate runs for the first time and passes.** | First deploy since it was added. | ✅ **CONFIRMED**, and it earned its keep: `/api/v1/banking/categories` → 200 with a matching body, `/api/v1/data/summary` → `total=682`. **It also exposed two defects in itself** — see below. |
+
+**Reading:** with the seeding path reduced to a single writer, the collision disappears and the import
+completes. That points at `--workers 4` and puts the fix **application-side — an upsert or an advisory
+lock around bootstrap — not a smaller replica count.** Scaling down to dodge a race is a workaround that
+expires the moment someone scales back up.
+
+### 🚨 The result is not clean, and it has to be said
+
+**Two variables changed between the Aug 13 observation and this one.** Printing the resolved digests
+showed `:latest` had moved for **all three** first-party images while the lab sat idle (an unrelated
+pipeline pushed them). Aug 13 collided on `backend@fac031dd…`; this run seeded cleanly on
+`backend@b449d6c4…`.
+
+So the honest statement is: **P11 is confirmed for this image, and the causal claim about worker count is
+not yet established.** A newer backend could have fixed the race outright. The distinguishing experiment
+is cheap and is *already* the restore step:
+
+> **Wipe the volume, deploy the canonical stack file (4 workers, 2 replicas) on the current image.**
+> If the `UniqueViolationError` returns → concurrency is the cause, P11 stands. If it does not → the
+> image changed the behaviour and the Aug 13 finding is now historical.
+
+⭐ **The transferable habit: capture the digests before *and* after every drill.** A drill compares two
+states; if something moved that you did not move, you are not comparing them. This is also trap C7
+(mutable tags) arriving unannounced, ahead of the chapter that was going to teach it.
+
+### Two defects the gate revealed in itself
+
+| Defect | What happened | Fix |
+|---|---|---|
+| **The row floor could not fail.** | `SMOKE_MIN_ROWS` defaulted to **1** while `001_schema.sql` seeds 12 categories unaided — so it would have passed a database whose bootstrap never ran, the exact false-green the gate exists to catch. It went untested here only because the seed *succeeded* (682 rows). **A latent hole in a check is worse than no check: it reports safety.** | Default raised to **100**, sitting between schema-only (~12) and a full bootstrap (682). Rule recorded: **pick a number the schema alone cannot reach.** |
+| **`HTTP 000000` in the log.** | `curl -w '%{http_code}'` writes `000` on a refused connection **and** exits non-zero, so the `|| echo 000` fallback appended a second `000`. Cosmetic, but a nonsense status code is something a stranger will burn twenty minutes searching for. | `|| true`, and body + status captured in **one** request instead of two — two calls can straddle readiness and pair a 200 with a stale body. | ✅ Fixed and confirmed on the next run: the log now reads `HTTP 000` once. |
+
+### 🚨 Attempt 1 at the control was VOID — and the reason is worth more than the experiment
+
+The control (4 workers, current image, fresh volume) ran and reported a clean pass: converged in 17.2 s,
+`total=682`, gate green. **It proves nothing, because the volume was never wiped.** The runner said:
+
+```text
+===== wipe the volume again: the control needs a GENUINE initdb =====
+  already gone                              ← my error message, not docker's
+local     capricorn_postgres_data_swarm     ← the volume, still there
+```
+
+`docker volume rm` failed; the block was written as `docker volume rm … 2>/dev/null || echo "already
+gone"`, which **discarded the reason and then asserted the opposite of the truth.** The next line printed
+the contradiction, and the deploy proceeded onto drill C's already-seeded database. So there was no
+`initdb`, no fresh bootstrap, and no opportunity for a seeding race — the `682` was drill C's rows being
+read back.
+
+⭐ **The lesson, which generalises past Docker entirely:**
+
+> **Never suppress stderr on a step the experiment depends on.** A precondition that fails quietly does
+> not produce a failed experiment — it produces a *successful-looking* one that answers a different
+> question than the one you asked. This is the same false-green shape as `/health` returning 200 with
+> the database on fire, except this time **I built it into the instrumentation**, which is worse: the
+> smoke gate was honest, and it was measuring a state nobody intended to create.
+
+The corrected form does three things the first did not:
+
+| Requirement | Why |
+|---|---|
+| **Show docker's actual error** instead of a hand-written guess | `no such volume` and `volume is in use` demand opposite responses, and the first version made them indistinguishable. |
+| **Retry**, because teardown is asynchronous | `docker stack rm` returns before the container objects are gone, and the volume stays busy until they are. The network-teardown wait was not enough. |
+| **Assert, then `exit 1`** if the volume survives | The only acceptable outcome of a failed precondition is *not running the experiment*. |
+
+🚨 **A node-scoped trap sits underneath this too:** volumes are **local to a node**. Running `docker
+volume rm` on the wrong node returns `no such volume` — which the original block would have cheerfully
+reported as "already gone". **Confirm where postgres is pinned before believing a wipe.**
+
+### ✅ Attempt 2 — the control held, and the cause is settled
+
+Preconditions asserted this time: postgres confirmed on `docker-swarm-1`, teardown waited for **3
+containers** to be reaped after the network had already gone (the network wait alone was genuinely
+insufficient), volume removal confirmed absent. Digests **identical** to the drill C run, so the image is
+held constant and the only variable is the worker count.
+
+| # | Prediction | Outcome |
+|---|---|---|
+| P14 | The `UniqueViolationError` returns, on exactly one of the two tasks | ✅ **CONFIRMED.** 3 violations, **all on `capricorn_backend.2`**, none on `.1`. `duplicate key value violates unique constraint "categories_pkey"`, `Key (id)=(1) already exists`. |
+| P15 | 8 `Waiting for application startup` lines | ✅ **CONFIRMED.** Exactly **8** — 4 workers × 2 replicas. |
+| P16 | The gate passes anyway at `total=682` | ✅ **CONFIRMED.** Converged in **12.1 s**, gate green, 682 rows. |
+
+🎯 **C2 is now causally answered, not just correlated.** Same digest, same volume state, same everything
+except `--workers 1` → `--workers 4`, and the collision reappears. **The cause is concurrent startup
+writers; the fix is application-side idempotency — an advisory lock, an upsert, or a one-shot job that
+runs before the app — and *not* a smaller replica count.**
+
+The counts are worth reading closely: **3 losers out of 4 workers on the task that raced.** One worker
+won and committed the full import. `backend.1`'s four workers logged nothing at all — by the time they
+reached the hook, the data existed and they skipped it. So the race is *within* the first task to arrive,
+between its own workers, and the second task never even competes.
+
+### 🚨 The defect is not the exception. It is the fallback.
+
+The full log line is:
+
+```text
+Failed to import demo data, using minimal bootstrap: … UniqueViolationError … "categories_pkey"
+```
+
+**The application catches the collision and silently substitutes a smaller dataset**, then prints
+`✅ Bootstrap complete`. Consequences, in order of how much they should worry someone:
+
+1. **The outcome is a coin flip decided by scheduling.** Here the full-import worker won, so `total=682`.
+   Nothing guarantees that. If a `minimal bootstrap` worker had won a given table, the database would
+   hold *less* data, the app would report success, and the deploy would be green.
+2. **The smoke gate would probably not save you.** `SMOKE_MIN_ROWS=100` catches an empty or
+   schema-only database. It does **not** catch a *minimal-but-plausible* one. A floor cannot distinguish
+   "the fallback ran" from "the import ran" unless the fallback lands below it — and nobody has measured
+   what the fallback produces.
+3. ⭐ **This is the third instance of the same anti-pattern in one application.** Named plainly, because
+   it is the through-line of this whole part:
+
+| # | Where | The app's behaviour | What it reports |
+|---|---|---|---|
+| 1 | DB unreachable at startup (drill A) | Retries 15×, gives up, **starts anyway** | `Application startup complete` |
+| 2 | `/health` | Returns a **static string**, touches nothing | `200 {"status":"healthy"}` |
+| 3 | Seed collision (this drill) | Catches it, **substitutes a smaller dataset** | `✅ Bootstrap complete` |
+
+> ⭐ **The pattern: the application is honest in its logs and dishonest in its outcomes.** Every one of
+> these three writes the truth to stdout and then returns success. That is why log-greps found all three
+> and why every status-based check missed all three. **A check that consumes only exit codes and status
+> codes is blind to this entire class of failure**, and it is the most common class in software that was
+> written to "be resilient".
+
+### ⚠️ This is not a Swarm problem, and that is the part that transfers
+
+Nothing in the mechanism involves Swarm. **Any environment that starts more than one worker process
+against a not-yet-seeded database has this race** — Docker Compose with `--workers 4`, an ECS task, a
+Cloud Run revision, a k8s Deployment. Swarm only made it *visible*, because this track wipes volumes
+deliberately and reads logs on purpose.
+
+**Actionable elsewhere:** the fingerprint is the string `using minimal bootstrap`. Grepping existing
+DEV/QA/PROD logs for it costs nothing and would show whether this has already happened quietly.
+
+**Forward-looking:** the durable fix is to stop doing data setup in an application startup hook. Swarm has
+no first-class one-shot primitive (this is a real gap — see chapter 5), which is exactly the argument
+Kubernetes answers with an **`initContainer`** or a **`Job`**, and the track's k8s successor should
+revisit this specific bug as the motivating example.
+
+### Drill E — what does "minimal bootstrap" actually produce? (measuring the gate's blind spot)
+
+Predictions P17/P18 were a pair of hypotheses I could not choose between, and the measurement resolved
+the surrounding facts while leaving the central one open.
+
+| # | Prediction | Outcome |
+|---|---|---|
+| P17 | Schema-only holds **0** categories; the `SMOKE_MIN_ROWS=100` justification is wrong | ❌ **REFUTED.** `001_schema.sql` contains `INSERT INTO categories (name, category_type, is_active) VALUES …`, so the schema **does** seed categories. Three init scripts seed data: `005_tax_tables.sql` (14 INSERTs), `013_tax_2026.sql` (9), `019_all_states_tax_2026.sql` (3). |
+| P18 | The schema seeds categories and the demo import **truncates** before inserting | ⚠️ **NOT SUPPORTED, and unresolved.** `grep -rn TRUNCATE /app --include=*.py` found only a *comment*. Yet `categories` is a contiguous `id` 1–51 and a single worker inserting **explicit** `id=1` did not collide with the schema's rows. Something clears them — a `DELETE`, an `ON CONFLICT`, or a sequence reset. **Recorded as open rather than guessed at.** |
+| P19 | The fallback produces enough rows to pass a floor of 100 | ❌ **REFUTED, and that is the good news.** The fallback writes **one** user-profile row. Well under 100, so **the row floor genuinely catches this failure mode** and `SMOKE_MIN_ROWS` is load-bearing rather than decorative. ⚠️ Only part of the function was read — the tail may add a few more rows, but not 100. |
+
+#### 🎯 P18 ANSWERED — and the answer is a committed delete
+
+Reading the bootstrap routine out of the running image settled it. There is no `TRUNCATE`; there is a
+`delete` on all ten tables. The shape, in pseudo-code:
+
+```text
+1. GUARD    if any of five "real user data" tables has a row, return and skip
+            ← why backend.1's four workers logged NOTHING
+
+2. CLEAR    delete from all ten tables, "so the seed data can use its own IDs"
+            COMMIT                              ← 🚨 THE DEFECT
+
+3. IMPORT   insert the seed data with explicit ids, commit at the end
+```
+
+⚠️ **Application-layer specifics — the file, the function names, the verbatim source and the suggested
+patch — are in `working/capricorn-app-findings-2026-08-18.md`, which is gitignored and therefore private.**
+Everything below is the transferable part and needs none of it.
+
+**Step 2 explains every observation.** The schema's seeded categories and placeholder profile are deleted
+so the demo data's explicit `id`s are free — which is why a single worker inserting `id=1` never collided
+with them, and why `categories` ends up a contiguous 1–51.
+
+### 🚨🚨 The codebase documents the exact defect it then commits
+
+Three hundred lines away in the same file, a *second* routine does the same clear-then-insert — and carries
+a comment stating that the whole thing runs in one transaction, committed only at the end, because
+**"the deletion must NEVER be committed on its own: that is how a failed import used to leave the database
+empty"**, citing an earlier incident by number.
+
+**The bootstrap routine commits the deletion on its own.** The defect was diagnosed, fixed in one path,
+written down at the site of the fix — **and reintroduced in the twin path.**
+
+⭐ **This is the most transferable thing in Part 3, and it is not about Docker.** A fix applied to one
+code path and a warning written next to it does not protect the *other* path with the same shape. The
+comment is doing the work of a test, and a comment cannot fail a build. **If a rule matters enough to
+write in prose, it matters enough to assert in a test** — one that would have caught the second instance.
+
+#### Why we still measured exactly 682 — and the states nobody has enumerated
+
+The committed delete makes the guard useless to concurrent workers: A deletes and commits, B's guard then
+sees an empty database and passes too. Both import explicit ids, and the second to commit hits
+`categories_pkey`. We observed 682 because **the winner committed last, and the winner's own delete-all
+removed whatever the three losers' minimal fallbacks had written.** Nothing enforces that ordering.
+
+| Interleaving | Final state | Reported |
+|---|---|---|
+| Full import commits last (observed) | 682 rows, correct | `✅ Bootstrap complete` |
+| A minimal fallback commits last | **1 profile, no transactions** — and the gate's row floor **catches it** | `✅ Bootstrap complete` |
+| Container restarts between step 2's commit and step 3's | **Committed empty database** — the exact incident the comment cites | app starts anyway (see anti-pattern #1) |
+
+⚠️ **The third row has no recovery net.** The import path snapshots the database before destroying
+anything; the bootstrap path's delete-and-commit does not.
+
+### 🚨 A second application-layer finding, held privately
+
+Reading that file also turned up **an unauthenticated HTTP route that can destroy user data** — a
+destructive operation exposed as a GET, with a guard that covers only half the tables it deletes.
+
+⚠️ **Details are deliberately NOT in this repo.** They are in
+`working/capricorn-app-findings-2026-08-18.md`, which is gitignored and reaches the private mirror only,
+because this repo's `main` is pushed to a **public** GitHub remote and the finding is a live path in a
+company application.
+
+⭐ **The lab-relevant part is how it was found:** by reading application source out of a running container
+during a drill about something else entirely. **`docker exec` makes the application's own code a
+first-class diagnostic surface** — and, symmetrically, means anyone in the `docker` group on any node can
+read both the source and the secrets.
+
+---
+
+## 🚨🚨 UNPLANNED — `restart_policy: on-failure` means every clean reboot silently loses replicas
+
+**Found Aug 18, 2026 at 6:35 PM, by taking a snapshot.** The three VMs were gracefully shut down for
+`s04-drills-complete` and restarted. Raft re-formed and every node returned `Ready`. **The stack did
+not.** Three minutes later it was still:
+
+```text
+capricorn_backend    1/2      capricorn_frontend   1/3
+capricorn_postgres   1/1      capricorn_redis      0/1
+```
+
+**Nothing reported an error.** No failed task, no rollback, no unhealthy container. `docker service ps`
+was, in fact, reporting *success*.
+
+### The discriminator, which is the whole lesson
+
+| What happened to the container | Task state | Replaced under `on-failure`? | Which tasks |
+|---|---|---|---|
+| **Exited 0** (SIGTERM from a clean shutdown) | **`Complete`** | ❌ **Never** — exit 0 *is* success | `redis.1`, `backend.2`, `frontend.1`, `frontend.2` |
+| **Vanished** (container gone at restart) | `Failed` — `No such container: …` | ✅ Yes | `postgres.1`, `backend.1`, `frontend.3` |
+
+The counts follow exactly: frontend had one `Failed` task and two `Complete` ones → **1/3**. Redis had a
+single `Complete` task and no others → **0/1**. Postgres survived **only by luck** — its container
+vanished rather than exiting cleanly, so the task `Failed` and was replaced. **Had postgres shut down
+tidily, the database would not have come back at all.**
+
+> 🚨 **`restart_policy: condition: on-failure` is wrong for every long-running service, and it reads like
+> the careful choice.** A graceful stop is not a failure, so Swarm has no reason to replace the task —
+> and it is right about that. The stack file explicitly opted out of Docker's default, which is `any`.
+>
+> ⭐ **In production this is a rolling-patch bug.** Reboot nodes one at a time for kernel updates, the
+> professional thing to do, and every service that exits cleanly comes back short. Replica counts erode
+> a little with each maintenance window, no alert fires, and the cluster looks fine until the day the
+> reduced capacity matters.
+
+**`max_attempts: 3` was removed at the same time**, because it is the same bug by another route: after
+three restarts across the service's whole lifetime, the task stays dead permanently.
+
+### ⭐ The signal inversion — today's other lesson, stood on its head
+
+This track has spent two days establishing that **replica count is not convergence**, because
+`order: start-first` and automatic rollback both hold counts at full while something is wrong. This
+failure is the exact opposite: **replica count is the *only* signal that catches it**, while the
+task-level view says `Complete` and every health endpoint returns 200.
+
+> **Neither signal is sufficient alone, and they fail in opposite directions.** A checker needs both:
+> counts to catch silent under-replication, and `UpdateStatus` to catch a full-count deploy that was
+> actually rejected. `docker-admin.sh` must encode this as a pair, not a preference.
+
+### Two smaller verified facts
+
+- ✅ **`UpdateStatus` is ABSENT, not empty**, on a service never updated since creation:
+  `docker service inspect --format '{{.UpdateStatus.State}}'` fails with
+  `map has no entry for key "UpdateStatus"`. `deploy_swarm.sh` already collapsed that to empty via
+  `2>/dev/null || true` and treats empty as healthy, so it was correct by accident of defensive coding.
+  ⚠️ **This is where suppressing stderr is right**, and the contrast with the voided volume wipe is the
+  actual rule: **suppress silence you go on to handle; never suppress a precondition.**
+- **The Raft leader moved to `docker-swarm-2`.** Leadership is not sticky across a simultaneous reboot,
+  so anything that assumes `.191` is the leader is fragile. `deploy_swarm.sh` only needs *a* manager and
+  was unaffected.
+
+### Lab vs PROD
+
+| | Lab (as it was) | Production |
+|---|---|---|
+| `restart_policy` | `on-failure` with `max_attempts: 3` | **`condition: any`, no attempt cap** for anything long-running |
+| Post-reboot check | none — the snapshot was the goal | **Assert desired == running for every service** after any maintenance, as a gate, not a glance |
+| Consequence of getting it wrong | frontend served from 1 replica instead of 3, unnoticed | Capacity quietly erodes across maintenance windows; the first symptom is an outage under normal load |
+
+✅ **Fixed and verified in the live specs**, not merely in the file:
+`backend any delay=5s maxAttempts=0`, `frontend any delay=5s maxAttempts=0`,
+`postgres any delay=10s maxAttempts=0`, `redis any delay=10s maxAttempts=0`. Redeploy converged to
+2/2, 3/3, 1/1, 1/1, smoke gate green at 682 rows, `categories` still 51 — nothing re-seeded, and
+`✅ User data exists, no bootstrap needed` confirms the guard held.
+
+⚠️ **Debt: `s04-drills-complete` captures the BROKEN policy**, since the snapshot was taken before this
+was found. A restore to `s04` reintroduces `on-failure` — the redeploy from the corrected manifest is the
+remedy, and the snapshot description does not say so.
+
+#### 🚨 The gate works, but for a reason I had not established — which is not the same as being right
+
+| Measurement | Rows |
+|---|---|
+| Whole database | **1621** |
+| Tax reference data, seeded by `initdb` | **939** |
+| Written by the application's bootstrap | **682** |
+
+`/api/v1/data/summary` reports **682**, matching the bootstrap's own tally exactly (`user_profile` 1 +
+`investor_profiles` 1 + `accounts` 4 + `categories` 51 + `portfolios` 3 + `market_prices` 4 +
+`transactions` 611 + `portfolio_transactions` 7). **The endpoint counts only application-owned tables.**
+
+> 🚨 **Had it summed all 21 tables, a healthy database would report 1621 and an unseeded one 939** — and
+> `SMOKE_MIN_ROWS=100` would pass an application that had never bootstrapped at all. The floor I chose
+> works, but the *reason* it works is a property of this endpoint that I had not checked when I chose it.
+>
+> ⭐ **The rule: gate on rows the application is responsible for creating.** Reference data is always
+> present, so including it in the metric drowns the signal — and the bigger the reference dataset, the
+> more completely it conceals an empty application. **A threshold is only meaningful relative to the
+> floor the metric cannot go below**, and that floor has to be measured, not assumed.
+
+Two useful artefacts came out of this, both now in `COMMANDS.md`: an exact per-table row count in one
+query without naming any tables, and `grep -ic "insert into"` across `/docker-entrypoint-initdb.d/` to
+separate scripts that create structure from scripts that seed data.
+
+---
+
+✅ **Action taken from this:** `deploy_swarm.sh` gets a post-convergence smoke gate that requests a
 **dependency-exercising** endpoint and fails the deploy on anything but 200 — so Part 4's pipeline
 inherits the check rather than reimplementing it. **Convergence answers "did Swarm do what I asked".
 The smoke gate answers "does the thing work".** They are not the same question and this drill is the

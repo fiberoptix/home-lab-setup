@@ -141,6 +141,67 @@ editing `CURSOR_RULES`:
   - **New `=== EDUCATION PROGRAM (/education) ===` section**, 7 rules (now 8 + `1b` after Aug 13).
 
 - **🔵 IN PROGRESS — Phase 16: Docker Swarm** (`phases/phase16_docker_swarm.md`).
+  🎯 **FIVE FAILURE DRILLS RAN Aug 18, 2026 (5:00–6:30 PM) — and the findings are about the APPLICATION,
+  not Swarm.** Resting state: stack healthy, **1621 DB rows = 939 tax reference (from `initdb`) + 682
+  written by the app**, snapshot **`s04-drills-complete`** (all three VMs gracefully shut down first).
+  🚨 **`:latest` MOVED on Aug 17** (pipeline #160) — `backend@b449d6c4`, `frontend@5507b283`,
+  `postgres@5f76f30b`; **chapters 1–2 quote the OLD digests.** It also *confounded a drill*, so **print
+  digests before AND after every experiment.**
+  🚨 **The seeding collision is causally settled: concurrent startup writers.** Same image, `--workers 1`
+  seeds cleanly; `--workers 4` reproduces `UniqueViolationError` on `categories_pkey` — 3 losers among one
+  task's 4 workers, 0 in the other task (its guard saw data and skipped). **Mechanism:
+  the bootstrap routine guards on 5 tables, deletes ten, COMMITS, then imports** — the committed empty
+  state is what lets a second worker's guard pass. **A second routine in the same file carries a comment
+  stating the deletion must NEVER be committed alone, citing an earlier incident — and the bootstrap path
+  does it.** ⭐ **A fix in one path plus a prose warning did not protect the identical shape in the other;
+  a comment cannot fail a build.**
+  ⭐ **The app's signature, three instances: honest logs, dishonest outcomes.** (a) DB unreachable →
+  retries 15× → `Application startup complete`; (b) `/health` → static 200, touches nothing; (c) seed
+  collision → caught, **smaller dataset substituted**, `✅ Bootstrap complete`. **Status-code checks missed
+  all three; log greps found all three.** Fingerprint for other environments: `using minimal bootstrap`.
+  ✅ **`deploy_swarm.sh` now has a smoke gate** (dependency-exercising endpoint + body match + row floor).
+  **Two of its own defects were found and fixed:** `SMOKE_MIN_ROWS` defaulted to 1 (a floor below the
+  schema's own seed **cannot fail**) — now 100; and `|| echo 000` after `curl -w '%{http_code}'`
+  double-printed, logging `HTTP 000000`. 🚨 **The floor works only because `/api/v1/data/summary` counts
+  app-owned tables** — had it summed all 21, healthy would read 1621 and unseeded 939, and 100 would pass
+  an app that never bootstrapped. **Rule: gate on rows the application creates, never on reference data.**
+  ⚠️ **One experiment was VOID and had to be re-run:** `docker volume rm` failed, `2>/dev/null || echo
+  "already gone"` hid the reason, and the "control" ran on the prior run's data while reporting a clean
+  pass. **Never suppress stderr on a step the result depends on.** Also: **volumes are node-local**, so
+  `volume rm` on the wrong node says `no such volume` — indistinguishable from success if stderr is
+  discarded. And `docker stack rm` returns **before the containers are reaped**; wait for the containers,
+  not just the network.
+  📌 **APP-LAYER FINDINGS ARE HELD PRIVATELY in `working/capricorn-app-findings-2026-08-18.md`** —
+  `working/` is gitignored, so it reaches the private GitLab mirror and never public GitHub. It holds the
+  committed-delete regression with its patch, **an unauthenticated destructive HTTP route** whose guard
+  covers half the tables it deletes, and a third item on what is already public. 🚨 **Do not restate those
+  specifics in tracked files**, and remember `push_github.sh` cannot catch this class — it screens for
+  secrets, not for a precise description of where a secret lives.
+  🚨🚨 **THE BIGGEST FINDING CAME FROM TAKING A SNAPSHOT, NOT A DRILL — `restart_policy: on-failure`
+  loses replicas on every clean reboot.** All three VMs were gracefully shut down for
+  `s04-drills-complete` and restarted: Raft re-formed, all nodes `Ready`, **no error anywhere**, and the
+  stack sat at `backend 1/2`, `frontend 1/3`, `redis 0/1` indefinitely. **Discriminator: a container that
+  exits 0 (clean SIGTERM) becomes task state `Complete` — a SUCCESS — and `on-failure` never replaces it;
+  containers that VANISHED became `Failed` and were replaced.** Postgres survived **only by luck**, via
+  the `Failed` path. ⭐ **In production this is a rolling-patch bug** — reboot nodes one at a time for
+  kernel updates and every cleanly-exiting service comes back short, silently. ⭐ **It also INVERTS the
+  week's other lesson: replica count is the ONLY signal that catches this**, while `docker service ps`
+  reports `Complete` and health endpoints return 200 — so counts *and* `UpdateStatus` are both required
+  and **fail in opposite directions**. ✅ **Fixed: `condition: any` on all four services, `max_attempts`
+  removed** (same bug, other route), verified in the LIVE SPECS, stack recovered 2/2 3/3 1/1 1/1.
+  ⚠️ **`s04` captures the BROKEN policy** — a restore reintroduces it. Also verified: **the Raft leader
+  moved to `docker-swarm-2`** (leadership is not sticky across a simultaneous reboot), and
+  **`UpdateStatus` is ABSENT, not empty**, until a service is first updated (`map has no entry for key`)
+  — ⭐ the one place suppressing stderr is RIGHT, because the code handles the silence, unlike the
+  precondition case above.
+  📌 **GITHUB PUSH IS HELD (Andrew's call, Aug 18):** the drill commit describes Capricorn source and an
+  unauthenticated destructive endpoint; it lives on the **private GitLab mirror only**. Do not push
+  `main` to `origin` without asking.
+  ⭐ **Andrew's paste-runner (Aug 18):** paste command blocks into
+  `education/*/scripts/run_commands.sh` (git-ignored) and execute the file rather than pasting into an
+  interactive shell — **this eliminates the mispaste class outright**, since both prior incidents were
+  lines stolen from the input buffer while `ssh` connected. Rules: never type a secret into it (it lives
+  on the CIFS share), always give it `set -euo pipefail`.
   🎯 **PART 3 IS ALSO COMPLETE (Aug 13, 2026, 2:20–4:12 PM) — Capricorn runs on the swarm:** `backend`
   2/2, `frontend` 3/3, `postgres` 1/1 (pinned `docker-swarm-1`), `redis` 1/1; UI on `:5001`, API on
   `:5002` answering from **all three nodes**; Capricorn's repo untouched (rule B7 held).

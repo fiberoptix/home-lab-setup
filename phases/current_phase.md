@@ -1,6 +1,94 @@
 # Current Phase
 
-**Updated:** August 17, 2026 - 11:32 AM EDT
+**Updated:** August 18, 2026 - 6:30 PM EDT
+
+---
+
+## 🎯 SESSION HANDOFF (Aug 18, 2026, ~5:00–6:30 PM EDT) — five drills, and the app is the story
+
+**Nothing half-finished. Stack healthy, 682 application rows verified by the smoke gate, snapshot
+`s04-drills-complete` taken with all three VMs gracefully shut down.**
+
+### The lab's exact resting state
+
+| Thing | State |
+|---|---|
+| Stack | `capricorn`: backend 2/2, frontend 3/3, postgres 1/1 (pinned `swarm-1`), redis 1/1 |
+| Data | **1621 rows total** — 939 tax reference rows from `initdb`, **682 written by the app's bootstrap** |
+| Images | 🚨 **`:latest` MOVED on Aug 17** (pipeline #160). Now `backend@b449d6c4`, `frontend@5507b283`, `postgres@5f76f30b`. The Aug 13 chapters quote the *old* digests. |
+| Snapshot chain | `s01-base-clean` → `s02-swarm-up` → `s03-stack-deployed` → **`s04-drills-complete`** |
+| `deploy_swarm.sh` | Now has a **smoke gate** (status + body match, then a row floor). Two of its own defects found and fixed today. |
+
+### What the drills established
+
+1. **Drill C + its control: the seeding collision is caused by concurrent startup writers.** 1 worker
+   on a fresh volume seeds cleanly (682 rows); the *same image* with 4 workers reproduces
+   `UniqueViolationError` on `categories_pkey` — **3 losers out of the 4 workers in one task**, none in
+   the other. **The fix is application-side idempotency, not a smaller replica count.**
+2. 🚨 **The mechanism is a committed delete.** The bootstrap routine guards on 5 tables, then deletes ten
+   and **commits**, then imports. That published empty state is what lets a second worker's guard pass.
+   **A second routine in the same file carries a comment stating the deletion must never be committed on
+   its own, citing an earlier incident — and the bootstrap path does exactly that.** A fix in one path
+   plus a prose warning did not protect the identical shape in the other. *(Specifics in
+   `working/capricorn-app-findings-2026-08-18.md` — gitignored, private mirror only.)*
+3. **The application's failure signature, three times over: honest logs, dishonest outcomes.** DB
+   unreachable → retries 15× then reports `Application startup complete`. `/health` → static 200.
+   Seed collision → caught, smaller dataset substituted, `✅ Bootstrap complete`. **Every status-code
+   check missed all three; every log grep found all three.**
+4. **The row floor is load-bearing, but for a reason that was luck.** `/api/v1/data/summary` reports
+   682 because it counts only app-owned tables. Had it summed all 21, healthy would read 1621 and
+   unseeded 939 — and `SMOKE_MIN_ROWS=100` would pass an app that never bootstrapped. **Rule: gate on
+   rows the application creates, never on reference data.** The `minimal bootstrap` fallback writes
+   ~1 row, so the floor does catch it.
+5. ⚠️ **A void experiment, corrected.** The first control run reported a clean pass and proved nothing:
+   `docker volume rm` failed, `2>/dev/null || echo "already gone"` hid the reason, and the deploy ran
+   on the previous run's data. **Never suppress stderr on a step the result depends on** — a quiet
+   precondition failure yields a successful-looking run that answers a different question.
+
+### Two items for the APP repo, not this one
+
+Both are written up in full — with the source, the suggested patches, and a third item about what is
+**already public** — in **`working/capricorn-app-findings-2026-08-18.md`**. That path is gitignored, so it
+reaches the private GitLab mirror and never GitHub. 🚨 **Do not restate the specifics in tracked files.**
+
+- **The regressed committed-delete** above. Fix is an advisory lock plus removing the intermediate commit.
+- 🚨 **An unauthenticated destructive HTTP route**, with a guard covering half the tables it deletes.
+
+### 🚨 The biggest finding came from taking the snapshot, not from a drill
+
+The three VMs were gracefully shut down and restarted. **Raft re-formed, every node `Ready`, no errors
+anywhere — and the stack stayed at `backend 1/2`, `frontend 1/3`, `redis 0/1` indefinitely.**
+
+Cause: **`restart_policy: condition: on-failure`.** A clean SIGTERM makes a container exit **0**, Swarm
+records the task `Complete` — a success — and never replaces it. Tasks whose containers *vanished* were
+marked `Failed` and *were* replaced, which is the discriminator and explains the exact counts. **Postgres
+survived only by luck**, on the `Failed` path; had it stopped tidily the database would not have returned.
+
+⭐ **In production this is a rolling-patch bug:** reboot nodes one at a time for kernel updates and every
+cleanly-exiting service comes back short, silently, until the lost capacity matters.
+
+⭐ **It also inverts the week's other lesson.** We established that replica count is *not* convergence
+(`start-first` and rollback hold it at full). Here replica count is the **only** signal that catches the
+fault, while `docker service ps` says `Complete` and every health endpoint returns 200. **Both checks are
+required and they fail in opposite directions.**
+
+✅ Fixed: `condition: any` on all four services, `max_attempts` removed (same bug, other route), verified
+in the **live service specs**, stack recovered to 2/2, 3/3, 1/1, 1/1, smoke gate green, no re-seed.
+Also verified: **the Raft leader moved to `docker-swarm-2`** — leadership is not sticky across a
+simultaneous reboot.
+
+### Open items
+
+| # | Item |
+|---|---|
+| 1 | 🚨 **`s04-drills-complete` captures the BROKEN `on-failure` policy** — a restore reintroduces it, and the snapshot description does not say so. Redeploy from the corrected manifest after any restore. |
+| 2 | **GitHub push is deliberately HELD.** Commit `01f1bd0` is on `main` locally and on the private GitLab mirror only. It contains Capricorn source excerpts and an unauthenticated destructive-endpoint description; Andrew's call, Aug 18. |
+| 3 | **Drill D** — rotate `pg_password` without touching the DB. Pre-flight passes, so this is the smoke gate's real test. |
+| 4 | **Part 4** — CI reaches Swarm; build trap C4 deliberately. |
+| 5 | Chapters 1–2 quote the **pre-Aug-17 digests**, and now also predate the `restart_policy` fix. Decide whether to re-quote or annotate. |
+| 6 | Tail of the fallback routine unread — the row count is small but not exactly known. |
+| 8 | 🚨 **Already public on GitHub from an earlier push:** `phase16` line 139 states that the Capricorn postgres image bakes the DB credentials into a layer *and* names the file where the password appears in a comment. More consequential than anything redacted on Aug 18, and the secrets gate could never catch it — it contains no secret, only a description of where one lives. **Decision needed: rotate and rebuild, rewrite public history, or accept.** |
+| 7 | `UpdateStatus`-as-a-latch is **still unverified**; the stale-`rollback_completed` question needs a deliberate rollback. |
 
 ---
 
