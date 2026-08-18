@@ -9,7 +9,8 @@
 #   Recorded claim for Phase 17 to test: if Jenkins forces a change to THIS file, the boundary
 #   between "deploy logic" and "CI wrapper" was drawn in the wrong place.
 #
-# This script owns: registry login, the deploy, waiting for convergence, and failing loudly.
+# This script owns: registry login, the deploy, waiting for convergence, PROVING THE APP ACTUALLY
+# SERVES (the smoke gate at the bottom), and failing loudly.
 # The CI wrapper owns: when it runs, who may run it, where the token comes from, which host it
 # targets, and who gets told.
 #
@@ -31,6 +32,21 @@ REG_USER="${REG_USER:-}"
 REG_TOKEN="${REG_TOKEN:-}"
 TIMEOUT="${TIMEOUT:-300}"
 INTERVAL="${INTERVAL:-5}"
+
+# --- Smoke gate (added Aug 18 2026, after a drill proved convergence is not readiness) -------------
+# Andrew's rule: "containers running and ready does not mean the application is ready for business."
+# SMOKE_PATH must be an endpoint that EXERCISES A DEPENDENCY. /health here is a static string and
+# returned 200 with the database scaled to zero, which is exactly the failure this gate exists to catch.
+SMOKE="${SMOKE:-1}"
+SMOKE_HOST="${SMOKE_HOST:-127.0.0.1}"
+SMOKE_PORT="${SMOKE_PORT:-5002}"
+SMOKE_PATH="${SMOKE_PATH:-/api/v1/banking/categories}"
+SMOKE_EXPECT="${SMOKE_EXPECT:-\"success\":true}"
+SMOKE_TIMEOUT="${SMOKE_TIMEOUT:-90}"
+SMOKE_INTERVAL="${SMOKE_INTERVAL:-5}"
+# Second gate: a status code alone would pass an EMPTY database. Requires total >= SMOKE_MIN_ROWS.
+SMOKE_ROWS_PATH="${SMOKE_ROWS_PATH:-/api/v1/data/summary}"
+SMOKE_MIN_ROWS="${SMOKE_MIN_ROWS:-1}"
 
 die() { printf '\n\033[31mFAILED:\033[0m %s\n' "$*" >&2; exit 1; }
 say() { printf '\n\033[1m==> %s\033[0m\n' "$*"; }
@@ -170,5 +186,81 @@ for svc in $(docker stack services "$STACK" --format '{{.Name}}'); do
     printf '  %-24s %s\n' "$svc" \
         "$(docker service inspect "$svc" --format '{{.Spec.TaskTemplate.ContainerSpec.Image}}')"
 done
+
+# ---------------------------------------------------------------------------------------------
+# Smoke gate. Convergence answers "did Swarm do what I asked". This answers "does it work".
+# ---------------------------------------------------------------------------------------------
+# MEASURED Aug 18 2026, with postgres scaled to 0 and the backend left running:
+#
+#   docker service ps            2 tasks Running, no failures      <- passed
+#   docker stack services        capricorn_backend 2/2             <- passed
+#   restart_policy/max_attempts  never triggered                   <- passed
+#   the convergence poll above   would converge and print digests  <- passed
+#   /health                      {"status":"healthy"}              <- passed
+#   /api/v1/banking/health       {"status":"healthy",...}          <- passed
+#   /api/v1/banking/categories   500                               <- THE ONLY HONEST SIGNAL
+#
+# Six of seven checks passed with no database. The orchestrator was not wrong: its job ends at
+# "the process is running", and it did that correctly. Everything past that boundary is the
+# application's claim about itself, and that claim can be false. So test the claim.
+if [ "$SMOKE" = "1" ]; then
+    base="http://${SMOKE_HOST}:${SMOKE_PORT}"
+    say "smoke gate: is it ready for business? (timeout ${SMOKE_TIMEOUT}s)"
+
+    # Gate 1 - a dependency-exercising endpoint must return 200 AND look right. The body check
+    # matters because a 200 with an error payload is a real thing; so is a proxy answering for a
+    # dead app.
+    deadline=$(( $(date +%s) + SMOKE_TIMEOUT ))
+    while :; do
+        body="$(curl -sS --max-time 10 "${base}${SMOKE_PATH}" 2>/dev/null || true)"
+        code="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 10 "${base}${SMOKE_PATH}" 2>/dev/null || echo 000)"
+
+        if [ "$code" = "200" ] && printf '%s' "$body" | grep -qF "$SMOKE_EXPECT"; then
+            echo "    ${SMOKE_PATH} -> 200, body matched"
+            break
+        fi
+
+        if [ "$(date +%s)" -ge "$deadline" ]; then
+            printf '\n\033[31mSMOKE FAILED:\033[0m %s returned %s\n' "${SMOKE_PATH}" "$code" >&2
+            printf '  body: %s\n\n' "$(printf '%s' "$body" | head -c 300)" >&2
+            echo "The stack CONVERGED and is still broken - which is the whole reason this gate" >&2
+            echo "exists. Check the app's own account of itself, not the task states:" >&2
+            echo "  docker service logs ${STACK}_backend --tail 60" >&2
+            echo "  docker service ps ${STACK}_postgres --no-trunc" >&2
+            echo >&2
+            die "smoke gate failed on ${SMOKE_PATH} (HTTP ${code})"
+        fi
+
+        printf '    waiting for %s (HTTP %s)\n' "${SMOKE_PATH}" "$code"
+        sleep "$SMOKE_INTERVAL"
+    done
+
+    # Gate 2 - a status code alone would happily pass an EMPTY database. That is the subtler
+    # outage: the backend starts before postgres, its one-shot bootstrap never runs, the
+    # connection pool then reconnects lazily and every endpoint returns 200 with zero rows.
+    # A 500 gets noticed. Green dashboards over an empty database do not.
+    if [ -n "$SMOKE_ROWS_PATH" ]; then
+        rows_body="$(curl -sS --max-time 10 "${base}${SMOKE_ROWS_PATH}" 2>/dev/null || true)"
+        total="$(printf '%s' "$rows_body" | sed -nE 's/.*"total":[[:space:]]*([0-9]+).*/\1/p' | head -1)"
+
+        if [ -z "$total" ]; then
+            echo "    ⚠️  could not read \"total\" from ${SMOKE_ROWS_PATH} - row check SKIPPED, not passed"
+        elif [ "$total" -lt "$SMOKE_MIN_ROWS" ]; then
+            printf '\n\033[31mSMOKE FAILED:\033[0m %s reports total=%s, expected >= %s\n' \
+                "${SMOKE_ROWS_PATH}" "$total" "$SMOKE_MIN_ROWS" >&2
+            echo "Every endpoint answers 200 over an EMPTY database. The likely cause is a" >&2
+            echo "one-shot startup bootstrap that ran before the database was reachable and" >&2
+            echo "never re-ran. Restarting the app re-runs it:" >&2
+            echo "  docker service update --force ${STACK}_backend" >&2
+            die "smoke gate: database is empty (total=${total})"
+        else
+            echo "    ${SMOKE_ROWS_PATH} -> total=${total} rows"
+        fi
+    fi
+else
+    printf '\n\033[33m==> smoke gate SKIPPED (SMOKE=0)\033[0m\n'
+    echo "    Convergence only proves Swarm did what it was told. Nothing here has confirmed"
+    echo "    the application can serve a request that touches its database."
+fi
 
 say "done"

@@ -59,6 +59,8 @@ control-plane problem and an application problem look identical from the outside
 | `Running`, then `Shutdown`, repeatedly | The app is crashing. Go to `service logs` |
 | `Pending` forever | Nothing satisfies placement — constraints, resource reservations, no `Active` node |
 | Task count fine, app broken | 🚨 **No healthcheck.** The process is up and serving garbage. Swarm cannot tell |
+| `Name or service not known` from the app | 🚨 **A dependency service is at 0 replicas or was never deployed.** A scaled-to-zero service leaves Swarm's DNS entirely, so a missing dependency presents as **name resolution**, not `connection refused`. ⚠️ **Grepping for `connection refused` finds nothing** and sends you to the overlay network instead of to the missing service |
+| `Waiting for database (attempt N/15)` then `Bootstrap failed` then `Application startup complete` | 🚨 **The app retried, gave up, and started anyway.** Measured Aug 18. Nothing exits, so `restart_policy` never fires, `max_attempts` is never consumed, the deploy converges green, and every request that touches the DB 500s. **One missing `sys.exit(1)`** |
 
 ---
 
@@ -93,6 +95,37 @@ The gap between "what the file says" and "what is running" is where outages live
 ⚠️ **Recorded as untested:** `UpdateStatus` appears to be a *latch* that persists until the next update
 begins, so a stale `rollback_completed` could make a checker fail a healthy cluster. To be settled in
 chapter 5.
+
+---
+
+## 4b. Is it READY FOR BUSINESS? (as distinct from "running")
+
+⭐ **Andrew's rule, Aug 18, 2026:** *containers running and ready does not mean the application is ready.*
+**Measured, with postgres scaled to 0 and the backend left running: six of seven available checks
+passed.** `docker service ps`, `docker stack services`, `restart_policy`, the convergence poll, `/health`
+and `/api/v1/banking/health` all said healthy. Only a request that touched the database disagreed.
+
+| Command | Question | Verified? |
+|---|---|---|
+| `curl -s -o /dev/null -w '%{http_code}' http://<node>:<port><dependency-path>` | ⭐ **The only check in this file that can detect a converged-but-broken deploy.** Must hit a path that **exercises a dependency** — see the warning below. | ✅ |
+| `docker exec $(docker ps -q -f name=<svc>\|head -1) python -c "from app.main import app; [print(p) for p in sorted(app.openapi()['paths'])]"` | **How to find a dependency-exercising path when `/openapi.json` is disabled** (`DEBUG=false` hides the docs). Ask the app for its own route table. | ✅ |
+| `curl … /api/v1/data/summary` and check `total` > 0 | 🚨 **A status code alone passes an EMPTY database.** The subtler outage: a one-shot startup bootstrap runs before the DB is reachable, never re-runs, the pool then reconnects lazily, and **every endpoint returns 200 with zero rows.** A 500 gets noticed; green dashboards over an empty database do not. | ✅ |
+
+🚨 **Not every endpoint named "health" is a health check.** On this app:
+
+| Endpoint | With the database SCALED TO ZERO |
+|---|---|
+| `/health` | **200** `{"status":"healthy"}` — a static string, touches nothing |
+| `/api/v1/banking/health` | **200** — reports *sub-module* readiness, still never touches the DB |
+| `/api/v1/banking/categories` | **500** ✅ the honest one |
+
+⭐ **A `healthcheck:` block pointed at `/health` would pass forever with the database on fire**, and would
+look like diligent engineering in the stack file. **Point readiness probes at something that fails when a
+dependency fails**, or do not bother writing one.
+
+✅ **Now enforced in `deploy_swarm.sh`** as a post-convergence smoke gate (status + body match, then a
+row-count floor), so CI inherits the check instead of reimplementing it. `SMOKE=0` disables it and says
+loudly what you gave up.
 
 ---
 

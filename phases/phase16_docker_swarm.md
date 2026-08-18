@@ -1206,10 +1206,31 @@ to initialise shared state is 8. **Anything an application does "once at startup
 times, in parallel, against one database** — and only the first one succeeds.
 
 The app degrades gracefully rather than crashing (`using minimal bootstrap`), which sounds fine and is
-the trap: **the replicas are no longer identical.** One holds imported demo data, the other a minimal
-bootstrap, and **which is which is decided by a race** — so the answer to "is the app working?" now
-depends on which replica the routing mesh sends you to. ⚠️ **A per-request-nondeterministic dataset is
-much harder to diagnose than a crash**, and the deploy reported success.
+the trap: **an import that failed was converted into a success message.**
+
+❌ **CORRECTION (Aug 18) — the first version of this note was wrong, and the error is worth keeping
+visible.** It claimed the two replicas "hold different data", one with demo data and one with a minimal
+bootstrap, so the answer would depend on which replica you reached. **That cannot happen: both replicas
+share one postgres database.** Per-replica divergence would require the app to cache state in-process,
+which is unproven and was never checked. ⭐ **The mistake was reasoning about a stateless service as if
+the failure it logged were local to it** — the failure was in *shared* state, which is a different
+problem with a different blast radius.
+
+**What the evidence actually supports**, re-measured Aug 18 with the same deploy still running:
+
+| Claim | Status |
+|---|---|
+| 8 processes (`2 replicas × 4 workers`) each run the startup path | ✅ four `Waiting for application startup` per task |
+| At least one import lost a race and violated `categories_pkey` | ✅ logged three times |
+| The app caught it and reported `using minimal bootstrap` | ✅ |
+| The database ended up populated | ✅ `/api/v1/data/summary` → 51 categories, 611 transactions, 4 accounts, 3 portfolios |
+| Data was lost or left partial by the race | ❓ **unproven — this is what drill C is for** |
+
+⚠️ **So the honest risk is not divergent replicas, it is a shared database whose final contents were
+decided by a race, with the losing writer's failure downgraded to an informational log line.** The
+population above looks complete, which is exactly why nobody would look — **a partial import would
+present identically**, because the only signal is a caught exception the app chose not to treat as
+fatal.
 
 ⚠️ **Not yet settled, and the logs cannot settle it:** whether the collision is worker-vs-worker or
 worker-vs-`001_schema.sql` (which seeds 12 categories of its own, 0.3 s earlier). Only `backend.2`
@@ -1233,6 +1254,161 @@ copied into this repo (rule B7).** Per Andrew's Aug 13 direction, the chapter ca
 generalisable lessons — *credentials in an image layer cannot be removed by editing a file*, and *a
 non-production environment pointed at production third-party credentials* — and **none** of the
 specifics. Detail stays in D4/D5 above as the working record.
+
+---
+
+## 🧪 Aug 18, 2026 — the three drills the C2 re-run left owed
+
+Andrew returned after studying the printed chapters. Cluster verified untouched first: **no reboots
+(4 d 23 h uptime)**, 3 × Ready with `.191` Leader, all four services at full replicas, 200 from all
+three nodes. `s03-stack-deployed` is the **newest** snapshot, so it is genuinely rollback-able — which
+is the safety net for everything below.
+
+### Baseline established first — separating "up" from "working"
+
+You cannot detect *healthy but broken* without an endpoint that touches the database. `/openapi.json`
+is disabled (`DEBUG=false`), so the route table came from inside the container:
+
+```bash
+docker exec $(docker ps -q -f name=capricorn_backend | head -1) \
+  python -c "from app.main import app; [print(p) for p in sorted(app.openapi()['paths'])]"
+```
+
+🚨 **The app has TWO health endpoints and they mean completely different things:**
+
+| Endpoint | With postgres UP | Touches DB? |
+|---|---|---|
+| `/health` | `{"status":"healthy","service":"capricorn-api"}` | ❌ **No — a static string** |
+| `/api/v1/banking/health` | `{"status":"healthy","module":"banking",…}` | ❌ reports *sub-module* readiness, not the DB |
+| `/api/v1/banking/categories` | `{"success":true,"data":[…51 categories…]}` | ✅ |
+| `/api/v1/data/summary` | 51 categories, 611 transactions, 4 accounts, 3 portfolios | ✅ |
+
+⭐ **This is the healthcheck lesson before we even run a drill.** A `healthcheck:` block pointed at
+`/health` would pass forever with the database on fire, and it would *look* like diligent engineering
+in the stack file. **The endpoint named "health" is the one that proves the least.** Whoever adds
+healthchecks after trap C6 must point them at something that fails when a dependency fails.
+
+### Drill A — force C2 honestly. Predictions BEFORE running
+
+C2 never fired because the backend won a race with postgres. **Removing the race instead of hoping to
+lose it:** scale postgres to 0, then recycle the backend so it starts with no database at all.
+
+| # | Prediction | Reasoning | Outcome |
+|---|---|---|---|
+| P5 | 🎯 **The backend starts SUCCESSFULLY with no database** — task `Running`, `Application startup complete` — rather than crash-looping. | Proven on Aug 13 that the app **catches** database exceptions during startup and continues (`Failed to import demo data, using minimal bootstrap`). If that handler also covers a connection failure, startup completes. | ✅ **CONFIRMED.** Both tasks `Running 36 seconds ago`, no `Failed`, no `Shutdown`. |
+| P6 | **`max_attempts: 3` is never consumed and `docker service ps` stays clean**, so Swarm reports the service fully converged and healthy. | Nothing exits, so there is nothing to restart. **A deploy in this state would report green.** | ✅ **CONFIRMED.** `docker stack services` → `capricorn_backend 2/2` with `capricorn_postgres 0/0` right beside it. |
+| P7 | `/health` returns **200** while `/api/v1/banking/categories` returns **5xx**. | The discriminator. `/health` is a static string; the categories route needs the DB. | ✅ **CONFIRMED exactly.** `/health` 200, `/api/v1/banking/health` 200, `/api/v1/banking/categories` **500** `{"detail":"Internal server error"}`. |
+| P8 | When postgres returns, the API recovers **without intervention**, but any startup-only work (the demo import) does **not** re-run. | A connection pool reconnects lazily per request; startup hooks do not fire again. **So it may come back "working" against an unseeded database.** | ✅ **CONFIRMED (first half).** No backend restart: `/api/v1/banking/categories` 200, `/api/v1/data/summary` 200 with **51 categories / 611 transactions / 682 rows** intact. Second half **untestable here** — the data already existed, so a skipped bootstrap is indistinguishable. Drill C tests it on a fresh volume. |
+
+#### ⭐ Andrew's read of P8 — half right, and the wrong half is the instructive one
+
+**His prediction before seeing the output:** *"When we re-scale PG I'm assuming we need to bounce the rest
+of the app to get it to go through the reconnection attempts."*
+
+**Reasonable, and wrong here — no bounce was needed.** What matters is *which* thing failed:
+
+| Failed at startup | Recovered by itself? |
+|---|---|
+| The **bootstrap** (demo-data import) — a one-shot startup task | ❌ never re-runs |
+| The **connection pool** — never actually established | ✅ SQLAlchemy opens connections **lazily, per request**, so the first request after postgres returned resolved DNS afresh and connected |
+
+⭐ **The generalisable rule: a dependency reached lazily per request heals itself; a dependency consumed
+once at startup does not.** Both live in the same process and the same log file, so "did the app
+recover?" has two different answers depending on which one you mean — and bouncing the service to
+"fix" the first would have been pointless work during an incident.
+
+🚨 **And the trap the lab could not show: this only looked clean because the VOLUME survived.** On a
+fresh volume the identical sequence leaves the schema present and the bootstrap never run, so the API
+returns **200 with empty results** — worse than the 500, because every monitor goes green. *That* is the
+state worth fearing, and it is what drill C is set up to find.
+
+✅ **Also confirmed incidentally:** scale-to-0 on a **pinned** service is a clean shutdown, not data
+loss. Postgres logged `database system was shut down at 21:44:20`, came back on `docker-swarm-1`
+because of the placement constraint, and found its data. **This is the opposite of trap C3**, which
+works only because redis is deliberately *not* pinned.
+
+#### 🎓 Andrew's professional takeaway (Aug 18, 2026) — the reason this drill was worth running
+
+> *"While containers may be running and ready it does not mean that the service, or application itself,
+> is ready. We need to check, and likely write validation scripts to include in pipelines that will
+> check that the application is 'ready for business' before assuming anything."*
+
+⭐ **Correct, and the drill proved something sharper than the general principle: EVERY signal available
+to the orchestrator agreed the deployment was fine.**
+
+| Signal | Said | Reality |
+|---|---|---|
+| `docker service ps` | 2 tasks `Running`, no failures | no database |
+| `docker stack services` | `capricorn_backend 2/2` | no database |
+| `restart_policy` / `max_attempts` | never triggered | no database |
+| `deploy_swarm.sh` convergence poll | ✅ would converge and print digests | no database |
+| `/health` | `{"status":"healthy"}` | no database |
+| `/api/v1/banking/health` | `{"status":"healthy","module":"banking"}` | no database |
+| **`/api/v1/banking/categories`** | **500** | ✅ **the only honest signal in the system** |
+
+🚨 **Six of seven checks passed, and the one that failed is the only one that touched the dependency.**
+This is why "ready for business" cannot be inferred from orchestrator state at all — the orchestrator's
+job ends at *the process is running*, and it does that job correctly. **Everything past that boundary is
+the application's claim about itself, and this application's claim was false.**
+
+🔲 **Action taken from this:** `deploy_swarm.sh` gets a post-convergence smoke gate that requests a
+**dependency-exercising** endpoint and fails the deploy on anything but 200 — so Part 4's pipeline
+inherits the check rather than reimplementing it. **Convergence answers "did Swarm do what I asked".
+The smoke gate answers "does the thing work".** They are not the same question and this drill is the
+proof.
+
+#### 🎯 C2 ANSWERED — the app retries, gives up, and then reports success
+
+**Andrew's original question was "does the app retry its DB connection or crash-loop?" The answer is a
+third thing neither option covered:**
+
+```
+⏳ Waiting for database (attempt 7/15)...          <- ×4, one per uvicorn worker
+⏳ Waiting for database (attempt 14/15)...
+❌ Bootstrap failed after 15 attempts: [Errno -2] Name or service not known
+INFO:     Application startup complete.           <- and then it starts anyway
+```
+
+⭐ **The application has a proper wait-for-database loop — 15 attempts — and someone clearly thought
+about this dependency. The defect is the three lines after the loop.** Having exhausted its retries and
+printed `❌`, it **falls through into normal startup** instead of exiting non-zero.
+
+🚨 **One `sys.exit(1)` is the entire difference between a loud failure and a silent one.** Trace what
+would happen if the process exited after exhausting its retries:
+
+| With `sys.exit(1)` | What actually happens |
+|---|---|
+| Task exits non-zero → `restart_policy: on-failure` restarts it | Task stays `Running` forever |
+| 3 restarts, then `max_attempts` exhausted → service stuck below desired | `2/2`, fully converged |
+| `deploy_swarm.sh` convergence poll never satisfied → **times out and exits non-zero** | Script reports **green**, prints digests, exits 0 |
+| CI job fails. Somebody looks. | CI passes. Traffic is routed to it. Every real request 500s. |
+
+**The retry loop is what makes this dangerous rather than merely broken.** It handles the *transient*
+case beautifully — postgres up to ~30 s late is completely absorbed — so the dependency looks solved,
+and it is solved, for the case that happens in testing. **The terminal case degrades into a process
+that lies.** Combined with the absent healthcheck (L13), nothing anywhere in the stack disagrees.
+
+⚠️ **REFINES the Aug 13 conclusion, which was too strong.** That entry said the cold-start race would
+"flip someday" and take the deploy down. It would not — the 15-attempt loop gives roughly **30 seconds
+of cushion**, far more than the 6.6 s margin measured. **The real boundary is ~30 s, and crossing it
+does not produce a crash — it produces a silently degraded service.** So the risk was misidentified: not
+a fragile deploy, but a deploy that cannot fail in a way anyone would notice.
+
+#### The failure presented as DNS, not as a refused connection
+
+`[Errno -2] Name or service not known` — **not** `connection refused`. Scaling a service to 0 removes
+it from Swarm's internal DNS entirely, so `postgres` stopped resolving rather than refusing.
+
+⚠️ **Practical consequence for triage: grepping logs for `connection refused` or `could not connect to
+server` would have found nothing here.** A dependency that has been scaled to zero, or whose stack was
+never deployed, looks like a **name resolution** problem — which sends you to the network and the
+overlay instead of to the missing service. **In Swarm, "does the name resolve?" and "is the service
+up?" are the same question**, and the error message only tells you about the first one.
+
+**If P5–P7 hold, this is the strongest Lab vs PROD callout in the phase:** an application that reports
+itself healthy, satisfies the orchestrator completely, passes a `/health` probe, and cannot serve a
+single request that matters. **The alternative — a clean crash-loop — would be far better operationally**,
+because `docker service ps` would show it and the deploy would fail loudly.
 
 ---
 
@@ -1264,6 +1440,7 @@ opinion until proven.** Do not let them wear the authority of the tested ones.
 | L11 | **The application is published over plain HTTP on `:5001`/`:5002`, with no reverse proxy and no TLS.** | Deliberately QA-shaped: the lab's job is to teach the routing mesh, and a proxy in front would hide it. | TLS terminated at an ingress proxy; the app's own ports never published to a network a user can reach. | Session cookies and every API payload cross the network in cleartext. ⚠️ **And the shape of the lab quietly justified it** — see the note under this table: the *frontend build* is what forced the HTTP path, so "no TLS" arrived as a consequence of an image, not as a decision anyone made. | ✅ deliberate |
 | L12 | **A single long-lived registry token (`swarm-lab-pull`, valid to Dec 31 2026) is used by a human at the CLI and embedded into every service spec.** | One operator, one cluster, a lab. | Short-lived, workload-scoped credentials — OIDC/federated identity for the CI job, no static token anywhere, and pull credentials issued per-deploy rather than stored. | One leaked token grants registry access for a year, **and revoking it silently breaks every future task reschedule** (see the latch finding below) rather than failing at deploy time where you would notice. | ⚠️ recited |
 | L13 | **No `healthcheck` on any service.** | 🎯 **Deliberate — trap C6 needs it absent** to show that `update_config`/`rollback_config` cannot detect a container that starts, stays up, and serves garbage. Healthchecks get added *after* C6 has been felt. | Every service has a real readiness/liveness check that exercises its dependencies, not a TCP-port ping. | 🚨 **Your rollback protection is decorative.** Swarm will happily call a broken deploy successful because the process did not exit — which is precisely what C6 is built to prove. | 🔲 will test (C6) |
+| L15 | 🚨 **The backend exhausts a 15-attempt wait-for-database loop, prints `❌ Bootstrap failed`, and then completes startup anyway** — so a database-less service reports `2/2`, passes `/health`, and 500s on every real request. | Nothing: the lab has no users, and the drill *wanted* this state to be reachable so it could be measured. | The process **exits non-zero** when a hard dependency is unavailable after its retry budget, and the readiness probe exercises the dependency rather than returning a constant. | 🚨 **Every safety net in the stack is defeated by one missing `sys.exit(1)`.** `restart_policy` never fires (nothing exited), `max_attempts` is never consumed, `deploy_swarm.sh` converges and prints digests, CI goes green, and the routing mesh sends users to it. ⚠️ **The retry loop is what makes it dangerous** — it absorbs the transient case perfectly, so the dependency looks handled right up to the terminal case, which degrades silently instead of failing. **An app that reports success while unable to serve is worse than one that crashes**, because a crash is a page and this is a support ticket three days later. | 🚨 **measured Aug 18** |
 | L14 | **The `pg_password` value existed ONLY inside Swarm's Raft log** — created out of band, never written down. The `s02` rollback destroyed it, and it is now unrecoverable. | Nothing of value was lost: the postgres volume was destroyed by the same rollback, so the next deploy runs `initdb` fresh and any new password works. | The authoritative copy lives in a real secrets manager (Vault, SSM, Secrets Manager) that the orchestrator *reads from*. The orchestrator is a **delivery mechanism, never the system of record**. | 🚨 **`docker secret` is not a secrets manager, and this is the trap.** The API will not give a secret back — `docker secret inspect` returns metadata, not the value — so a cluster rebuild loses every credential you did not store elsewhere. ⚠️ **But the NODE will:** `docker exec <task> cat /run/secrets/<name>` prints it in cleartext, so **`docker` group membership on any node equals read access to every secret scheduled onto it**, invisibly to any audit trail. Unreadable to operators, readable to anyone on the box — the worst of both. ⚠️ **We only escaped because the data volume died too.** Had the volume survived the Raft loss, postgres would still be authenticating against the OLD password baked into its data directory while the new secret disagreed: **a database you cannot log into, holding data you cannot read, with no copy of the credential anywhere.** | 🚨 **hit it for real, Aug 13** |
 
 ⭐ **L9 is the best row in this table and it wrote itself.** Docker *volunteered* the warning
