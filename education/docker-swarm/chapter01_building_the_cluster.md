@@ -3,7 +3,8 @@
 > **Series:** Home-Lab Education · Phase 16 (Docker Swarm)
 > **Built and verified:** August 13, 2026 on VMs 191/192/193 (`192.168.1.191–193`)
 > **Versions at time of writing:** Docker 29.7.2 · Compose v5.4.0 · Ubuntu 24.04 LTS (template 9000)
-> **Read this before:** Chapter 2 (shipping to it), Chapter 5 (failure drills)
+> **Read this before:** Chapter 2 (shipping to it), Chapter 5 (breaking it on purpose), Chapter 6
+> (false greens — where the track's threads converge)
 
 ---
 
@@ -52,9 +53,12 @@ never 4.
 
 > **The distinction to have ready:** losing quorum does **not** stop your application. Containers keep
 > running and keep serving traffic, because the *workers* need no consensus to keep doing what they
-> were last told. What you lose is the ability to **change anything** — no deploys, no scaling, no
-> `docker service update`. Degraded is not down, and chapter 5 makes this concrete because **the
-> instinct to "just restart it" is what turns a serving cluster into a real outage.**
+> were last told. What you lose is the whole management plane — and this is broader than the obvious
+> "no deploys, no scaling": ✅ **the drill showed that management *reads* fail too.** With quorum gone,
+> `docker service ls` and `docker node ls` return errors rather than stale answers, so you cannot even
+> *list* what the cluster is running from a manager. Your inventory during the outage is `docker ps`
+> node by node, and `curl` from outside. Degraded is not down, and Chapter 5 §2 walks the whole hour,
+> because **the instinct to "just restart it" is what turns a serving cluster into a real outage.**
 
 ---
 
@@ -222,12 +226,16 @@ expiry date for exactly this reason.
 
 The one to internalise is the third. [`Reachable` is a statement about the control plane, not about
 the application]{custom-style="Key"} — a node can be `Ready` and `Active`, happily running containers,
-while its manager component is out of contact and no longer counting toward quorum. Watch only STATUS
-and you will not see quorum erode until you try to deploy.
+while its manager component is out of contact and no longer counting toward quorum. Watch MANAGER
+STATUS, not just STATUS — and know the failure shape in advance: once quorum is actually gone, `docker
+node ls` itself stops answering (✅ measured — Chapter 5 §2), so you will not be reading this table
+*during* the incident. The time to notice `Unreachable` creeping in is while you still can.
 
 `Availability: Drain` deserves a note too, because it is the single most useful operational command in
 Swarm and reads like a failure state. It is not: it is how you take a node out of service for
 maintenance without an outage. Set it, watch the tasks move, do your work, set it back to `Active`.
+⚠️ *Described, not exercised: this lab has never actually drained a node — the reboot drill in Chapter 5
+§3 rebooted one live instead, which is precisely what drain exists to avoid.*
 
 A free role check, incidentally: `docker node ls` **only works on a manager.** Run it after a join and
 a worker answers `This node is not a swarm manager`, which is a one-command confirmation that the
@@ -300,7 +308,7 @@ docker node ls                            # managers only - a free role check
 docker node inspect <node> --pretty
 
 # the maintenance switch
-docker node update --availability drain  <node>
+docker node update --availability drain  <node>   # ⚠️ never run in this lab
 docker node update --availability active <node>
 
 # what init created that you did not ask for
@@ -309,7 +317,7 @@ docker info | grep -A5 Swarm              # CA expiry, autolock, node address
 
 # roles
 docker node promote <node>
-docker node demote  <node>                # demoting the last manager is refused
+docker node demote  <node>                # demoting the last manager is refused  ⚠️ never run in this lab
 ```
 
 > 📖 **Every command this track has used, organised by the question it answers rather than the chapter

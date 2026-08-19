@@ -25,8 +25,8 @@ catch", and it is completely learnable.
 ## 1. The drill that started it: six of seven signals said healthy
 
 We scaled the database to zero replicas while the application was running and healthy, expecting the
-backend to crash-loop. It did not. It retried its connection **fifteen times** over about 75 seconds,
-gave up, and logged:
+backend to crash-loop. It did not. It retried its connection **fifteen times** — roughly thirty seconds
+of cushion — gave up, and logged:
 
 ```
 Failed to import demo data, using minimal bootstrap: … Name or service not known
@@ -35,22 +35,23 @@ INFO:     Application startup complete.
 
 **"Application startup complete."** With no database in the cluster at all.
 
-Here is every signal an operator would reasonably consult, with what it said:
+Here is every signal that was checked during the drill, with what each one said:
 
 | # | Signal | Said | Truthful about |
 |---|---|---|---|
-| 1 | `docker service ls` | `2/2` | Two containers exist |
-| 2 | `docker service ps` | `Running`, no errors | The tasks are up |
-| 3 | `UpdateStatus` | `completed` | The last update finished |
-| 4 | `docker stack deploy` exit code | `0` | The manager **accepted** the spec |
-| 5 | Container `Status` | `Up 36 seconds` | The process is alive |
-| 6 | The app's own startup log | `startup complete` | Its startup code path finished |
+| 1 | `docker service ps` | 2 tasks `Running`, no failures | The tasks are up |
+| 2 | `docker stack services` | `capricorn_backend 2/2` | Two containers exist |
+| 3 | `restart_policy` | never triggered | Nothing *exited* — nothing did |
+| 4 | `deploy_swarm.sh` convergence poll | would converge and print digests | The desired state was reached |
+| 5 | `/health` | `{"status":"healthy"}` | The route is wired up |
+| 6 | `/api/v1/banking/health` | `{"status":"healthy","module":"banking"}` | That route too — **it touches nothing** |
 | 7 | 🎯 **A request that reads the database** | **HTTP 500** | 🎯 **Whether it works** |
 
 ⭐ **[Six green, one red, and only the red one was asking a useful question.]{custom-style="Key"}** Notice that none of the six
 is wrong. `2/2` is a true statement about replica count. `Running` is a true statement about the task.
-The exit code truthfully reports that the manager accepted the desired state. **Every one of them
-answers a question you did not mean to ask.**
+Even the *application's own* health endpoints are truthful — about routing, which is all they test.
+**Every one of them answers a question you did not mean to ask** — and two of them were designed by the
+application's authors to sound like they answer the big one.
 
 ### Why the application did this, and why it will happen to you
 
@@ -84,7 +85,7 @@ Every one of these was observed on the real cluster:
 | 2 | `completed` + `EXIT=0` + smoke gate **passed** | The entire frontend was replaced by nginx's welcome page | 5 §1 |
 | 3 | `1/1` + `converged` | Redis dataset was empty; its data was stranded on another node | 4 §1 |
 | 4 | `3/3` on the expected tag | The deploy had been **rejected and rolled back** | 5 §1 |
-| 5 | Nothing at all — no alert, no error | Capacity had silently fallen to `2/3` and `1/2` after a reboot | 5 §3 |
+| 5 | Nothing at all — no alert, no error | Capacity had silently fallen to `1/2`, `1/3` and `0/1` after a reboot | 5 §3 |
 | 6 | `✅ Bootstrap complete` | Three of four workers had failed and fallen back to a degraded path | 4 §3 |
 | 7 | `managers=0 nodes=0` with `ControlAvailable=true` | Quorum was lost; the field means "configured as a manager" | 5 §2 |
 | 8 | A drill that "worked" | The wrong stack file was deployed; the result was void | 5 §5 |
@@ -105,7 +106,7 @@ top. There is no configuration that makes a lower rung report on a higher one.
 > ⭐ **So the discipline is not "distrust the orchestrator". It is: know which rung each signal sits on,
 > and [never accept an answer from a rung below the question]{custom-style="Key"}.** Almost every incident in this phase was
 > an instance of one specific version of that error — accepting a **task-level** signal as an answer to
-> an **application-level** question. `Running` is rung four. "Is it working?" is rung seven.
+> an **application-level** question. `Running` is rung four of the figure's eight. "Can users do what they came to do?" is rung eight, and nothing below it has an opinion.
 
 ---
 
@@ -168,10 +169,19 @@ approval.
 > not evidence about its consumer. **Every published entry point needs its own assertion, and each
 > assertion must test something only the correct thing behind it would produce.**
 
-⚠️ **Honest status of our own tooling:** the gate covers the backend only. The frontend check is
-outstanding work, and the more robust fix is a `healthcheck` on the frontend image itself — which would
-also re-arm Swarm's rollback for that failure mode, as Chapter 5 §1 explains. **Written here rather than
-quietly fixed, because a chapter claiming a complete gate would be its own false green.**
+✅ **Status of our own tooling — the gap was closed and then re-tested, which is the only closure that
+counts.** The same evening, the frontend gained a healthcheck that greps the page for something only our
+bundle serves, and the script gained a third gate asserting the same thing from outside on `:5001`.
+Then C6b was **run again, identically**: the deploy that had passed green in the morning failed in 47
+seconds with `rollback_started`, the nginx task never received a byte of ingress traffic, and sixteen of
+sixteen probes during the failed rollout saw the real application (Chapter 5 §1, "C6b, closed").
+
+⭐ **Note that the two fixes sit on different rungs, and that is the design, not redundancy.** The
+healthcheck lets *Swarm* refuse the wrong container — the platform acts without an operator. Gate 3 lets
+*the deploy script* refuse a port serving wrong content even if every healthcheck lies — the operator
+verifies from outside. One instrument per rung, which is this chapter's §6 put into practice. **The
+backend still has no healthcheck, deliberately: its wrong-but-running case is what Gates 1–2 transact
+against, and the asymmetry is recorded in the manifest rather than left to be discovered.**
 
 ---
 
@@ -213,16 +223,17 @@ race, and nobody was told.
 
 ## 5. The same failure, with us in the orchestrator's role
 
-Five runs in this phase produced confident, plausible, **void** results — and it is the same phenomenon:
-a green signal answering a question nobody asked.
+Five times in this phase, one of our own instruments produced a confident, plausible, **wrong** answer —
+and it is the same phenomenon: a green signal answering a question nobody asked. Three were whole runs
+that were void; two were probes inside a run that measured something other than what they claimed.
 
-| The void run | What was actually true |
+| The instrument said | What was actually true |
 |---|---|
-| A drill "passed" in 2.3 seconds | The default stack file was deployed; the broken variant was never used |
-| A control experiment ran on an "empty" database | `docker volume rm` had failed, with stderr suppressed |
-| A password was "rejected" | The probe named a database that does not exist |
-| A password "worked" | Loopback connections are `trust` — no password was checked |
-| A script ran "on the node" | It ran on the workstation; a shared mount made both look identical |
+| A drill "passed" in 2.3 seconds | **Void run** — the default stack file was deployed; the broken variant was never used |
+| A control experiment ran on an "empty" database | **Void run** — `docker volume rm` had failed, with stderr suppressed |
+| A script ran "on the node" | **Void run** — it ran on the workstation; a shared mount made both look identical |
+| A password was "rejected" | **Invalid probe** — it had actually failed on a database name that does not exist |
+| A password "worked" | **Invalid probe** — loopback connections are `trust`, so it never tested the password at all |
 
 ⭐ **A successful-looking run is the most dangerous outcome of a badly instrumented experiment**, because
 it is indistinguishable from a real one and it goes into the notes as a finding. Four practices came out
@@ -236,7 +247,9 @@ of this, and they are cheap:
 3. ⭐ **Never let a probe report a cause it did not distinguish.** `cmd && echo WORKS || echo FAILED`
    collapses every failure mode into one label. Print the real error.
 4. ⭐ **When two probes of one fact disagree, at least one is measuring something else.** Find out which
-   *before* concluding. This is how the `trust` finding surfaced — the contradiction was the evidence.
+   *before* concluding. This is how the `trust` finding surfaced — the two invalid probes above contradicted each other, and
+   chasing the disagreement produced a real discovery. **A wrong measurement examined honestly is worth
+   more than a right one taken on faith.**
 
 **And write the prediction down before running the command.** It is the only instrument that catches the
 failure where you learn nothing because you had no expectation to violate. Our quorum prediction was
@@ -277,7 +290,8 @@ something rollback can act on.**
 > at deploy time, by `deploy_swarm.sh`. There is no alerting, no dashboard, and nothing watching between
 > deploys. *Why it's acceptable here:* the lab is driven by hand, the operator is present for every
 > change, and drills are the point. *In production:* the same assertions run **continuously** as
-> synthetic checks, and replica counts are alerted on rather than inspected. *If you carry the habit:*
+> synthetic checks, and replica counts are alerted on rather than inspected — ⚠️ *an unverified
+> prescription: standard practice, but nothing in this lab has tested it.* *If you carry the habit:*
 > **every failure that begins after a deploy is discovered by a user.** Deploy-time verification only
 > proves the system was correct at one instant — and the reboot that silently cost us three replicas
 > happened at no deploy at all, which is precisely why nothing noticed.
@@ -325,6 +339,8 @@ The complete ledger for this track, indexed by the question each command answers
 
 ## 9. Check yourself
 
+Answer out loud; the section is given rather than the answer.
+
 1. Name the six signals that said "healthy" while the application had no database, and state precisely
    what each one was truthfully reporting. (§1)
 2. Why is "retry, then start anyway and serve errors" worse than crashing, in terms of *who finds out*
@@ -337,7 +353,7 @@ The complete ledger for this track, indexed by the question each command answers
    sentence. (§3)
 6. Four log lines were each individually true and collectively misleading. Which three properties made
    them dangerous? (§4)
-7. Which single practice would have prevented all five void runs, and why is printing a precondition not
-   the same as asserting one? (§5)
+7. Of the five wrong measurements in §5, which would "assert preconditions" have prevented and which
+   needed a different practice? Why is printing a precondition not the same as asserting one? (§5)
 8. For a deploy pipeline you actually maintain: what could be broken today and still let it go green?
    (§6)

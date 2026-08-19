@@ -6,12 +6,14 @@ cooperate with that order.
 
 ⭐ **This file is the specification for a future `docker-admin.sh`** (Andrew's idea, Aug 13, 2026) — a
 portable read-only investigation tool. It is written *as the track runs*, not reconstructed at the end,
-because by chapter 5 there will be a hundred commands and no memory of which ones mattered. See
+because by the time the drills finished there were a hundred commands and, without this file, there
+would have been no memory of which ones mattered. See
 [§11](#11-toward-docker-adminsh) for the design rules that fall out of it.
 
 **Verified?** column:
 - ✅ **ran it here** — executed in this lab, output understood
 - ⚠️ **standard, not run here** — believed correct, **not** exercised. Do not present as tested.
+- 🔲 **planned** — a drill or check that is designed but has not been run yet.
 
 ---
 
@@ -89,7 +91,7 @@ control-plane problem and an application problem look identical from the outside
 | `Preparing` for a long time | Pulling a large image, or the registry is unreachable |
 | `Running`, then `Shutdown`, repeatedly | The app is crashing. Go to `service logs` |
 | `Pending` forever | Nothing satisfies placement — constraints, resource reservations, no `Active` node |
-| Task count fine, app broken | 🚨 **No healthcheck.** The process is up and serving garbage. Swarm cannot tell |
+| Task count fine, app broken | 🚨 **No healthcheck.** The process is up and serving garbage; Swarm cannot tell. (The frontend now carries one — added and re-drilled Aug 18 evening, see §4b — the backend deliberately does not; the smoke gate covers it) |
 | `Name or service not known` from the app | 🚨 **A dependency service is at 0 replicas or was never deployed.** A scaled-to-zero service leaves Swarm's DNS entirely, so a missing dependency presents as **name resolution**, not `connection refused`. ⚠️ **Grepping for `connection refused` finds nothing** and sends you to the overlay network instead of to the missing service |
 | `Waiting for database (attempt N/15)` then `Bootstrap failed` then `Application startup complete` | 🚨 **The app retried, gave up, and started anyway.** Measured Aug 18. Nothing exits, so `restart_policy` never fires, `max_attempts` is never consumed, the deploy converges green, and every request that touches the DB 500s. **One missing `sys.exit(1)`** |
 
@@ -166,8 +168,8 @@ The gap between "what the file says" and "what is running" is where outages live
 | Command | Question | Verified? |
 |---|---|---|
 | `docker service inspect <svc> --format '{{.Spec.TaskTemplate.ContainerSpec.Image}}'` | ⭐ **The resolved DIGEST, not the tag you asked for.** Swarm pins a tag to a digest at accept time, so this is the only honest answer to "what version is live". | ✅ |
-| `docker service inspect <svc> --format '{{.UpdateStatus.State}}'` | 🚨 **The real convergence signal.** `updating` / `completed` / `rollback_started` / `rollback_completed` / empty-if-never-updated. | ✅ |
-| `docker service inspect <svc> --format '{{.UpdateStatus.Message}}'` | Why the rollout ended the way it did. | ⚠️ |
+| `docker service inspect <svc> --format '{{if .UpdateStatus}}{{.UpdateStatus.State}}{{else}}<absent>{{end}}'` | 🚨 **The real convergence signal.** `updating` / `completed` / `rollback_started` / `rollback_completed` — and **ABSENT** (not empty) if never updated: the unguarded template errors. See the callout below. | ✅ |
+| `docker service inspect <svc> --format '{{.UpdateStatus.Message}}'` | Why the rollout ended the way it did — C6a's read `update rolled back due to failure or early termination of task …`. | ✅ |
 | `docker service ls` | Current replica counts only — **no history, no update state.** | ✅ |
 | `docker service ps <svc> --format '{{.Name}}\t{{.Node}}\t{{.CurrentState}}\t{{.DesiredState}}\t{{.Error}}'` | 🚨 **`Complete` is not a synonym for `Running`, and it is not an error.** A task whose container exited **0** is recorded `Complete`/`Shutdown` — a success. **Under `restart_policy: on-failure` it is never replaced.** See the reboot finding below. | ✅ |
 | `docker service inspect <svc> --format '{{.Spec.TaskTemplate.RestartPolicy.Condition}}'` | ⭐ **Read the policy from the SPEC, not the stack file.** The file is what you asked for; the spec is what Swarm is enforcing. | ✅ |
@@ -187,7 +189,10 @@ The gap between "what the file says" and "what is running" is where outages live
 # the post-maintenance gate - run it as a check, not a glance
 docker stack services <stack> --format '{{.Name}} {{.Replicas}}' \
   | awk '{split($2,a,"/"); if (a[1]!=a[2]) { print "  UNDER-REPLICATED: " $0; bad=1 }} END{exit bad}' \
-  || echo "  all services at desired replicas"
+  && echo "  all services at desired replicas"
+# && not || — an earlier revision of this very file had || here, which printed the
+# success line ON FAILURE, right under the UNDER-REPLICATED evidence. A gate whose
+# green message fires on the red path is this ledger's own false-green lesson applied to itself.
 ```
 
 > 🚨 **`restart_policy: condition: on-failure` is wrong for every long-running service**, and it reads
@@ -211,10 +216,15 @@ suppress a precondition.**
 > `order: start-first` holds `3/3` right through a rolling replacement, and `failure_action: rollback`
 > restores the *old* version at *full* replicas — so a count-only check calls a **rejected deploy a
 > success**. Always pair counts with `UpdateStatus`.
+>
+> ⭐ **Measured while polling:** counts can also read **`4/3`** — more running than desired — for the
+> moment `start-first` has both the old and new task up. A poller must treat *any* `current != desired`
+> as **pending**, not failed; `deploy_swarm.sh` does.
 
-⚠️ **Recorded as untested:** `UpdateStatus` appears to be a *latch* that persists until the next update
-begins, so a stale `rollback_completed` could make a checker fail a healthy cluster. To be settled in
-chapter 5.
+⚠️ **Still open after the drills:** `UpdateStatus` persists until the next update begins, so a stale
+`rollback_completed` could make a checker fail a healthy cluster. C6a proved the *detection* side
+(`rollback_started` caught in 1.3 s); the stale-latch side was not isolated. `deploy_swarm.sh` mitigates
+by recording the pre-deploy state and comparing, rather than trusting the field absolutely.
 
 ### 🚨 Observed, unplanned: `:latest` moved underneath a redeploy (Aug 18, 2026)
 
@@ -302,7 +312,7 @@ anyone in the `docker` group can read the application's source *and* its secrets
 
 | Command | Question | Verified? |
 |---|---|---|
-| ```docker exec -i $(docker ps -q -f name=<pg>\|head -1) psql -U <u> -d <db> -c "SELECT table_name, (xpath('/row/c/text()', query_to_xml(format('select count(*) as c from public.%I', table_name), false, true, '')))[1]::text::bigint AS rows FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE' ORDER BY rows DESC;"``` | ⭐ **Exact counts for every table in one query**, without naming them. `pg_stat_user_tables.n_live_tup` is an *estimate* and needs `ANALYZE` — do not gate on it. | ✅ |
+| `docker exec -i $(docker ps -q -f name=<pg>\|head -1) psql -U <u> -d <db> -c "SELECT table_name, (xpath('/row/c/text()', query_to_xml(format('select count(*) as c from public.%I', table_name), false, true, '')))[1]::text::bigint AS rows FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE' ORDER BY rows DESC;"` | ⭐ **Exact counts for every table in one query**, without naming them. `pg_stat_user_tables.n_live_tup` is an *estimate* and needs `ANALYZE` — do not gate on it. | ✅ |
 | `docker exec <pg> ls -la /docker-entrypoint-initdb.d/` | **What does the database contain before any application touches it?** | ✅ |
 | `docker exec <pg> sh -c 'grep -ic "insert into" /docker-entrypoint-initdb.d/*.sql'` | ⭐ **Which init scripts seed DATA, not just structure** — the per-file counts separate schema from reference data. | ✅ |
 
@@ -333,6 +343,14 @@ dependency fails**, or do not bother writing one.
 ✅ **Now enforced in `deploy_swarm.sh`** as a post-convergence smoke gate (status + body match, then a
 row-count floor), so CI inherits the check instead of reimplementing it. `SMOKE=0` disables it and says
 loudly what you gave up.
+
+✅ **Extended Aug 18 evening, after C6b proved a gate only defends the port it calls:** a third gate
+asserts every published port — `:5001` must return 200 **and** a body only our bundle serves
+(`grep -qiF capricorn`; a stock nginx also answers 200, measured). Same evening the frontend gained a
+manifest `healthcheck` with the same discriminator, and **re-running C6b flipped it from silent success
+to a 47-second loud rollback with zero user-visible damage** (P32–P34 in the phase record). A gate that
+cannot read its instrument now **fails instead of skipping** — a skipped check reported as green was
+this file's own false-green pattern.
 
 🚨 **The row floor has to be chosen, not defaulted — and the first version got this wrong.**
 `SMOKE_MIN_ROWS` shipped as `1`. But `001_schema.sql` seeds **12 categories by itself**, so a floor of 1
@@ -439,7 +457,7 @@ measuring something else.** Our second probe reported "REJECTED" and had actuall
 | Command | Question | Verified? |
 |---|---|---|
 | `docker stack deploy -c <file> --with-registry-auth <stack>` | Deploy or reconcile. **Declarative: it reconciles the whole stack**, so any service whose *spec* changed is recreated — including specs changed by things you never wrote in the file. | ✅ |
-| `docker service scale <svc>=<n>` | Quick replica change. ⚠️ **Drifts from the stack file** — the next deploy reverts it. | ⚠️ |
+| `docker service scale <svc>=<n>` | Quick replica change. ⚠️ **Drifts from the stack file** — the next deploy reverts it. | ✅ scale-to-0 and back (Drill A); refusal under quorum loss (§9) |
 | `docker service update --image <img> <svc>` | Change one service without a stack file. Same drift caveat. | ⚠️ |
 | `docker service rollback <svc>` | Return to the previous spec. | ⚠️ |
 | `docker node update --availability drain <node>` | ⭐ **The maintenance switch.** Evacuates tasks, accepts no new ones. Reads like a failure state; is the opposite. | ⚠️ |
@@ -640,6 +658,11 @@ automating, and automating them before feeling them would package guesses.
 | Every management command times out, app fine | `docker node ls` says "no leader"; `docker ps` still works | §9 |
 | `Name or service not known` for a dependency | `docker service ls --filter name=<dep>` — `0/0` is far likelier than a DNS fault | §2 |
 | Digests differ between two deploys nobody changed | Compare `.Spec.TaskTemplate.ContainerSpec.Image` across runs — a mutable tag moved | §4 |
+| `UpdateStatus: completed`, smoke gate green — and users report the site is gone | `curl` **every published port** and match the body against something only your app serves — the gate only defends the port it calls | §4b |
+| Replicas read `4/3` mid-deploy | Not a fault: `start-first` runs old + new together for a moment. A poller must treat `current != desired` as *pending*, not *failed* — and `4/3` proves counts can exceed desired | §4 |
+| `/health` is 200 while the app cannot do business | `/health` tests routing only; a dependency-exercising request (the §4b gate) is the discriminator | §4b |
+| Log says `✅ Bootstrap complete`, data is wrong | grep for the **fallback fingerprint** (`using minimal bootstrap`) above the success line — success messages can sit downstream of a caught failure | §5 |
+| A drill or check "passed" suspiciously fast | Assert the preconditions it depended on (which file deployed, which host ran it, was the volume really gone) — **a passing check with unasserted preconditions is not evidence** | §0 |
 
 ⭐ **One requirement the drills added that was not in the original scope:** the tool must be able to say
 **"this looks fine and here is what that does NOT rule out."** Six of the eight false greens in

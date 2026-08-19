@@ -141,20 +141,38 @@ editing `CURSOR_RULES`:
   - **New `=== EDUCATION PROGRAM (/education) ===` section**, 7 rules (now 8 + `1b` after Aug 13).
 
 - **🔵 IN PROGRESS — Phase 16: Docker Swarm** (`phases/phase16_docker_swarm.md`).
-  🎯 **ALL DRILLS ARE DONE (Aug 18, 2026, 7:00–8:20 PM) AND CHAPTERS 4, 5, 6 ARE WRITTEN.** 🙋 Andrew asked
+  🎯 **FULL TRACK REVIEW DONE (Aug 18, evening): four review agents audited everything; all findings
+  fixed; C6b CLOSED BY RE-DRILL.** Frontend got a manifest `healthcheck` (`wget | grep -qi capricorn`
+  — pre-verified in both the real image and nginx:alpine), `deploy_swarm.sh` got **Gate 3** (assert
+  every published port), a NON-DEFAULT STACK FILE banner, a pre-deploy UpdateStatus snapshot, and a
+  row-gate that FAILS instead of skipping on parse errors. **P32–P34 all confirmed**: healthy deploy
+  63 s green with `(healthy)`; identical nginx re-drill **failed loudly in 47 s** (`rollback_started`,
+  EXIT=1) with **16/16 serving probes on the real app — zero user-visible seconds**; and the recovery
+  deploy showed **a stack deploy of an identical spec CLEARS a stale `rollback_completed` to
+  `<absent>`** (measured both sides) — the stale-latch worry is bounded to the window between deploys.
+  Chapter fixes worth remembering: reboot counts were misquoted in ch5/ch6 (**measured: backend 1/2,
+  frontend 1/3, postgres 1/1, redis 0/1**); ch6's Drill A table was rewritten back to the seven signals
+  actually checked; the "five void runs" are honestly **3 void runs + 2 invalid probes**; COMMANDS.md's
+  own post-reboot gate had `|| echo` printing success ON FAILURE (fixed to `&&`, kept as a lesson);
+  "three services use start-first" was always wrong — **two** (frontend, backend). Track README now
+  carries the L1–L18 index, a not-covered list, a reproduce quickstart, a grounded Swarm↔K8s table
+  (Part 7 still owed), and a capstone. Chapter 2's max_attempts staleness is repaired — the
+  "exactly three" story is labelled create-path history under the old policy, current create-path
+  behaviour recorded as OPEN.
+  **Earlier that evening (7:00–8:20 PM): ALL DRILLS DONE AND CHAPTERS 4, 5, 6 WRITTEN.** 🙋 Andrew asked
   the **AI to drive** the last four drills so the chapters could be written before context was lost — a
   deliberate exception to `METHOD.md`, recorded in both the phase file and `current_phase.md`.
   **P20–P31: 10 confirmed, 2 refuted, and the refutations matter most.** (a) ❌ Removing `max_attempts`
   causes **no** retry storm on an *update* — `failure_action: rollback` ends retries after one failure;
   ⚠️ **still open on the CREATE path**, which is where chapter 2's "exactly three Rejected tasks" came
-  from, so **chapter 2 is stale on that point**. (b) ❌ **With no quorum, READS fail too** —
+  from — ✅ chapter 2 repaired during the evening review. (b) ❌ **With no quorum, READS fail too** —
   `docker service ls` → `DeadlineExceeded`; Swarm serves no stale reads, so you lose all cluster
   visibility while the app serves normally and **`docker ps` per node is the only inventory.**
   🎯 **The worst result in the track is C6b: `nginx:alpine` on the frontend deployed GREEN.**
   `UpdateStatus: completed`, `EXIT=0`, `3/3`, **and our own smoke gate passed** (`200, body matched`,
   `682 rows`) while every user saw *Welcome to nginx!*. **Swarm's rollback reacts to task failure, not
-  correctness; our gate only defends the endpoint it calls.** ⭐ **Verification does not compose** — 🔲 open
-  work: frontend `healthcheck` + one smoke assertion per published port.
+  correctness; our gate only defends the endpoint it calls.** ⭐ **Verification does not compose** — ✅ the open
+  work (frontend `healthcheck` + per-port smoke assertion) was done and re-drilled the same evening.
   ⭐ **C3: state is STRANDED, not lost.** Moving Redis off its node made Docker **silently create a second
   empty volume of the same name**; `DBSIZE 0`, everything green; moving it back returned both keys exactly.
   🚨 **It was fsynced on `SIGTERM` at the instant it became unreachable — durability ≠ availability.**

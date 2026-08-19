@@ -4,7 +4,7 @@
 > **Built and verified:** August 13 and 18, 2026 on the three-manager cluster from Chapter 1
 > **Versions at time of writing:** Docker 29.7.2 · Compose file format 3.8
 > **Read this before:** Chapter 6 — why so many of these signals were green
-> **Read this after:** Chapter 2 (shipping to it), Chapter 4 (state)
+> **Read this after:** Chapter 1 (quorum arithmetic), Chapter 2 (shipping to it), Chapter 4 (state)
 
 ---
 
@@ -72,7 +72,8 @@ update_config:
 
 ⚠️ **With the defaults**, this same deploy would have removed one of three replicas, failed to replace
 it, and then **paused** — leaving the service permanently at `2/3` with no further action, no rollback,
-and a deploy command that has already exited.
+and a deploy command that has already exited. *(Reasoned from the documented defaults; we ran the drill
+only with our settings, so the default path itself was not measured here.)*
 
 ### 🎯 The finding: a rejected deploy is indistinguishable from a good one by replica count
 
@@ -125,8 +126,9 @@ you — it can strip the mechanism that keeps your cluster homogeneous.**
 
 ### C6b — an image that starts perfectly and is the wrong application
 
-This one was designed in advance. Our stack file has a **deliberate omissions** block, written five days
-before the drill, stating the hypothesis in full:
+This one was designed in advance. Our stack file carried a **deliberate omissions** block, written five
+days before the drill, stating the hypothesis in full (quoted as it stood when the drill ran; the block
+was rewritten the same evening, when the omission became a fix — see below):
 
 ```yaml
 # DELIBERATE OMISSIONS - DO NOT "FIX" THESE
@@ -188,13 +190,45 @@ so a total frontend failure passed it in `200`-shaped silence.
 > had broken. **Every published port needs its own check, and each check must assert something specific
 > to the thing behind it.**
 
-> **Lab vs PROD — no healthcheck on the application images.** *In the lab:* none of the four services
-> defines `healthcheck`, so Swarm's only failure signal is "did the process exit". *Why it's acceptable
-> here:* we are studying orchestrator behaviour, and running without checks is exactly what exposed
-> C6b. *In production:* every service carries a healthcheck that exercises the thing the service exists
+> **Lab vs PROD — no healthcheck on the application images.** *In the lab:* at drill time none of the
+> four services defined a `healthcheck`, so Swarm's only failure signal was "did the process exit" (the
+> frontend gained one the same evening — next section). *Why it's acceptable here:* we are studying
+> orchestrator behaviour, and running without checks is exactly what exposed C6b. *In production:* every service carries a healthcheck that exercises the thing the service exists
 > to do — and it is treated as part of the deliverable, not deployment configuration. *If you carry the
 > habit:* **any image that starts becomes a successful deploy.** Rollback is disarmed precisely in the
 > wrong-but-running case, which is the one no human notices, and you will find out from a customer.
+
+### C6b, closed: the same drill re-run against the fix
+
+The manifest comment promised *"healthchecks get ADDED after C6 has been felt"*, and the same evening it
+was kept: the frontend gained `healthcheck: wget -qO- http://127.0.0.1/ | grep -qi capricorn` (the grep
+matters — nginx answers 200 too), and the deploy script gained a third gate asserting a
+`capricorn`-shaped body on `:5001`. Then **the identical drill was run again** — same `nginx:alpine`
+swap, same everything (P33):
+
+```
+==> waiting for convergence (timeout 300s)
+    still pending: capricorn_frontend(updating)
+    ...
+rolled back: capricorn_frontend
+the new version was rejected and the previous one restored - this is a FAILED deploy
+FAILED: deploy rolled back: capricorn_frontend        EXIT=1   (47.5s)
+```
+
+The morning's silent success is the evening's loud failure. The nginx task never left `starting`: the
+probe ran *inside* it (busybox `wget` and `grep` exist in `nginx:alpine` — verified before relying on
+it), failed on content, and Swarm shut the task down — its final state is `Complete`, **and it never
+entered the ingress rotation.** A probe on `:5001` every three seconds through the whole 48-second
+rollout returned `200` with the real application's body, sixteen out of sixteen times (P34).
+⭐ **[A failed deploy with zero user-visible seconds is the entire promise of `start-first` +
+healthcheck + rollback, and it was cashed on the first try.]{custom-style="Key"}**
+
+⭐ **The recovery redeploy answered an open question by accident.** The rollback had left
+`UpdateStatus: rollback_completed` — the stale latch §1 worries about — and redeploying the canonical
+file (an identical spec, so no new update) did not leave it there: **it reset the field to `<absent>`.**
+Measured on both sides of the deploy. So the latch is real *between* deploys but a `docker stack deploy`
+clears it, changed spec or not; the script's pre-deploy snapshot remains as defence for the window in
+between.
 
 ### Also unplanned: `:latest` moved underneath a redeploy
 
@@ -290,14 +324,15 @@ strength and the smoke gate passed.
 > into a real outage.]{custom-style="Key"}** The correct action is boring: **bring a manager back.** Quorum is arithmetic —
 > nothing else fixes it, and nothing needs to.
 
-> **Lab vs PROD — three managers that are also the only workers.** *In the lab:* all three nodes are
-> managers and all three run application tasks. *Why it's acceptable here:* three VMs is the minimum
-> that can demonstrate quorum at all, and co-locating is what makes a three-node lab useful. *In
-> production:* managers are dedicated and typically five of them, so you tolerate two failures and
-> retain quorum during a rolling upgrade of the control plane. *If you carry the habit:* **one node
-> reboot puts you one failure from losing quorum**, and because manager work and application work share
-> the same CPU and disk, a workload spike can make a manager slow enough to be considered failed —
-> **an application problem escalating into a control-plane problem.**
+> **Lab vs PROD — managers that also carry the workload.** *In the lab:* all three nodes are managers
+> and all three run application tasks. *Why it's acceptable here:* three VMs is the minimum that can
+> demonstrate quorum at all, and co-locating is what makes a three-node lab useful. *In production:*
+> managers are dedicated nodes that schedule work but do not run it (⚠️ *unverified prescription —
+> standard guidance, not something this lab has tested*). *If you carry the habit:* **manager work and
+> application work share the same CPU, memory and disk, so a workload spike can make a manager slow
+> enough to miss heartbeats and be considered failed — an application problem escalating into a
+> control-plane problem.** Chapter 1's callout covers the sibling risk: co-located managers mean a
+> workload-driven reboot is also a quorum event.
 
 ---
 
@@ -308,7 +343,9 @@ the cluster looked fine. It was not.
 
 ```
 capricorn_backend    1/2      ← should be 2
-capricorn_frontend   2/3      ← should be 3
+capricorn_frontend   1/3      ← should be 3
+capricorn_postgres   1/1      ← intact, and NOT for a reassuring reason (below)
+capricorn_redis      0/1      ← gone entirely
 ```
 
 The task history explained it, and the explanation is a single word in the manifest:
@@ -345,8 +382,9 @@ it is the fingerprint of a replica that will never come back.
 
 **Why this is the most valuable finding in the phase:** every other failure here was provoked. This one
 was produced by *the most ordinary operation in infrastructure*, it degraded capacity rather than
-availability, and **it announced itself nowhere.** The service was serving. Nothing alerted. Capacity
-had quietly fallen by a third and the only evidence was a number nobody was reading.
+availability, and **it announced itself nowhere.** The services were serving. Nothing alerted. The
+backend was at half strength, the frontend at a third, Redis **gone entirely** — and the only evidence
+was a column of numbers nobody was reading.
 
 The fix is one word — `condition: any` — and the reasoning generalises: **in a cluster, "the process
 exited cleanly" is not a reason to stop running the service.** You asked for three replicas. The desired
@@ -396,8 +434,8 @@ rate to be a subject rather than an embarrassment, and the causes were always th
 |---|---|
 | A variant stack file was generated, then the **default** one was deployed | 🚨 **Assert your preconditions; do not print them.** The deploy script *printed* the file it was using. Nobody read it. |
 | `docker volume rm` failed, with stderr suppressed, so the "empty database" was not empty | ⭐ **Never suppress stderr on a step the experiment depends on.** |
-| Two probes of one fact disagreed; one was testing a missing database, not a wrong password | ⭐ **When two probes disagree, at least one measures something else.** Find out which before concluding. |
-| `cmd && echo WORKS \|\| echo FAILED` reported an auth failure that was really a typo'd database name | ⭐ **Never let a probe report a cause it did not distinguish.** Print the real error. |
+| One probe said the rotated password "worked" — over loopback, where `pg_hba.conf` is `trust`, so no password was ever checked | ⭐ **When two probes disagree, at least one measures something else.** The disagreement was the evidence; chasing it produced the `trust` finding (Chapter 4 §2). |
+| The other probe said it was "rejected" — but `cmd && echo WORKS \|\| echo FAILED` had collapsed a typo'd database name into an auth failure | ⭐ **Never let a probe report a cause it did not distinguish.** Print the real error. *(These two rows are one incident: two invalid probes of the same fact, invalid in opposite directions.)* |
 | A command intended for a cluster node ran on the workstation, because a shared mount made both look identical | ⭐ **Have the script verify where it is** — ours calls `docker node ls` first and would have refused. |
 
 ⭐ **The thread through all five: [a successful-looking run is the most dangerous possible outcome of a
@@ -456,6 +494,8 @@ docker service ls --format '{{.Name}}\t{{.Replicas}}'
 
 ## 8. Check yourself
 
+Answer out loud; the section is given rather than the answer.
+
 1. `docker service ls` shows `3/3` and the tag you expected. Name two completely different situations
    that produce that output, and the single command that separates them. (§1)
 2. Why does a healthcheck restore Swarm's ability to roll back, and what property must the check have
@@ -466,7 +506,7 @@ docker service ls --format '{{.Name}}\t{{.Replicas}}'
    going to do, and why is each of those three instincts harmful? (§2)
 5. Why is a control plane that refuses reads without a leader easier to operate than one that serves
    stale reads? (§2)
-6. A service shows `2/3` after a reboot and nothing is in a failed state. What single word in the
+6. A service shows `1/3` after a reboot and nothing is in a failed state. What single word in the
    manifest explains it, and what does `Complete` mean in the task list? (§3)
 7. Which drill accidentally validated the fix from §3, and why was it a fair test? (§3)
 8. You run a drill and it works exactly as predicted, first time. What should you check before writing

@@ -18,7 +18,7 @@ produced by the same tooling.
 | Track | Subject | Chapters | Built in the lab? | Status |
 |---|---|---|---|---|
 | [**k8s-k3s-redpanda**](k8s-k3s-redpanda/README.md) | Kubernetes (k3s), Redpanda, and an order management system built on both | 7 written | **Yes** — everything in Ch1–6 was run on a real cluster | ✅ Ch1–7 complete · Ch8–10 planned |
-| [**docker-swarm**](docker-swarm/README.md) | Docker Swarm: building a three-manager cluster, shipping to it from a pipeline, and breaking it | 5 planned | **Yes** — a real three-node cluster running a real application | 🔵 In progress — cluster being built |
+| [**docker-swarm**](docker-swarm/README.md) | Docker Swarm: building a three-manager cluster, shipping to it, breaking it on purpose, and the false-greens capstone | 5 of 6 written | **Yes** — a real three-node cluster running a real application, with failure drills run against it | 🔵 In progress — chapter 3 blocked on a CI design decision |
 
 Further tracks are being scoped against the stack Andrew works on now. The roadmap lives in
 [`phases/phase15_education_program.md`](../phases/phase15_education_program.md); each track gets its

@@ -22,11 +22,16 @@
 # ---------------------------------------------------------------------------------------------
 # DELIBERATE OMISSIONS — DO NOT "FIX" THESE
 # ---------------------------------------------------------------------------------------------
-#  * No healthcheck: blocks are absent on purpose so trap C6 can show that update_config /
-#    rollback_config cannot detect a container that starts, stays up, and serves garbage.
-#    Healthchecks get ADDED after C6 has been felt, not before.
+#  * Healthchecks were absent on purpose until Aug 18 2026, so trap C6 could show that
+#    update_config / rollback_config cannot detect a container that starts, stays up, and serves
+#    garbage. C6b was felt exactly as designed: a stock nginx replaced the frontend and every
+#    signal stayed green. The frontend healthcheck below is the fix, added AFTER the lesson —
+#    the backend still has none, deliberately, because its wrong-but-running case is caught by
+#    the deploy script's smoke gate and a second lesson needs no second scar.
 #  * No Traefik / no TLS: this stack is deliberately QA-shaped. See the Lab vs PROD ledger.
-#  * redis is NOT pinned: trap C3 needs it free to reschedule onto empty storage.
+#  * redis is NOT pinned. Originally to keep trap C3 armed; C3 has now been run (the volume
+#    stranded on schedule). Leaving it unpinned is now a DECISION we keep making, recorded in
+#    chapter 4: a cache is the one service allowed to reschedule onto empty storage.
 #  * Capricorn's third-party credentials (Plaid, market data, the Fernet export key) are
 #    deliberately NOT carried over — hard rule B7. Features depending on them will degrade;
 #    that is expected and is itself worth observing.
@@ -45,6 +50,25 @@ services:
         mode: ingress
     networks:
       - capricorn
+    # Added Aug 18 2026, AFTER drill C6b proved the gap it closes: a wrong-but-running image
+    # (stock nginx on this port) kept every orchestrator signal green, because without a
+    # healthcheck "the process is up" is the only correctness Swarm can see.
+    #
+    # The probe greps for a string only OUR bundle serves — a plain `wget /` would pass nginx's
+    # welcome page (HTTP 200) and re-open the exact hole this closes. With this check, a task
+    # serving the wrong content goes `starting` -> unhealthy -> FAILED, which is a signal
+    # failure_action: rollback can finally act on. (wget is in the image at /usr/bin/wget and
+    # the page references capricorn_icon.ico — both verified before this block was written.)
+    #
+    # NOTE: healthcheck is a sibling of image/ports, NOT under deploy: — Swarm copies it from
+    # the container spec. Placing it under deploy: is silently ignored, which would be a
+    # false green about false-green protection.
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/ | grep -qi capricorn"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 20s
     deploy:
       # 3 replicas = one per node, which is what makes trap C1 legible: without
       # --with-registry-auth only the manager you logged in on can pull.
@@ -86,6 +110,11 @@ services:
     #   exec  replaces the shell with uvicorn so uvicorn is PID 1 and receives SIGTERM.
     #       Without it, sh holds PID 1, never forwards the signal, and EVERY rolling update
     #       is ungraceful until the grace period expires and the task is SIGKILLed.
+    # ⚠️ --workers 4 × replicas 2 = 8 uncoordinated processes running the app's startup seeding
+    # against one database. Measured Aug 18 2026: the four workers of the first task raced each
+    # other (three lost with UniqueViolation and fell back to a degraded bootstrap — while
+    # logging success). This is an app-side defect the stack merely scales out; kept as-is
+    # because the app repo is out of bounds here. Chapter 4 §3 has the full mechanism.
     command:
       - sh
       - -c
@@ -153,6 +182,10 @@ services:
       - capricorn
     deploy:
       replicas: 1
+      # No update_config here or on redis, deliberately: with one replica there is nothing to
+      # roll one-at-a-time, and the defaults (stop-first, failure_action: pause) apply. Worth
+      # knowing they DIFFER from the frontend/backend settings above — the four services do not
+      # behave uniformly during a deploy.
       placement:
         # A3: pinned. In production this would not be a container at all — it would be real
         # PG hosts with replication and PITR. The pin keeps the lab's data still, and it

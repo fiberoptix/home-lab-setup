@@ -3,7 +3,8 @@
 > **Series:** Home-Lab Education · Phase 16 (Docker Swarm)
 > **Built and verified:** August 13, 2026 on the three-manager cluster from Chapter 1
 > **Versions at time of writing:** Docker 29.7.2 · Compose file format 3.8 · private GitLab registry on `:5050`
-> **Read this before:** Chapter 3 (a pipeline that deploys), Chapter 4 (state)
+> **Read this before:** Chapter 4 (state), Chapter 5 (breaking it on purpose), Chapter 6 (false greens).
+> Chapter 3 (a pipeline that deploys) is planned but unwritten — it waits on a design decision.
 > **Read this after:** Chapter 1 — the cluster, quorum, and what `swarm init` created
 
 ---
@@ -35,7 +36,7 @@ They use the same syntax. They are read by different things, and each ignores pa
 | Reads `deploy:` | **Ignores it** | This is where all the important settings live |
 | Reads `depends_on:` | Honours it | 🚨 **Silently ignores it** |
 | Reads `build:` | Builds the image | **Ignores it** — images must already exist in a registry |
-| `restart:` | Honoured | Ignored; use `deploy.restart_policy` |
+| `restart:` | Honoured | Ignored; use `deploy.restart_policy` — 🚨 and **not** with `condition: on-failure` for a long-running service: a clean shutdown exits `0`, is not a "failure", and the replica silently never comes back (proved by a reboot; Chapter 5 §3) |
 | Scaling | `--scale` flag | `deploy.replicas`, reconciled continuously |
 
 [The dangerous entries are the ones that are ignored rather than rejected]{custom-style="Key"}. A
@@ -71,6 +72,19 @@ Our stack declares the secret as `external: true`, meaning "this must already ex
 it". The deploy fails immediately and clearly if it doesn't, which is the desired behaviour — the
 alternative is a database that starts and then refuses every connection for a reason you have to go
 digging for.
+
+✅ **Proved by drill (Aug 18, Drill B).** With the secret deleted, `deploy_swarm.sh` refused before
+touching the cluster:
+
+```
+FAILED: secret 'pg_password' does not exist - create it first: …
+EXIT=1        # and docker stack ls stayed empty
+```
+
+And the registry login never ran — the secret check sits **above** the login on purpose, so the
+cheapest, most-likely-wrong precondition fails free of cost and without exposing a credential.
+⚠️ **What this guard cannot do is notice a secret that exists but holds the wrong value** — that one
+sails through everything and is caught only at the very end. Chapter 4 §2 runs that failure in full.
 
 Note `printf`, not `echo`. **`echo` appends a newline and the newline becomes part of the secret.** The
 resulting authentication failures are entirely invisible: the password looks right everywhere you can
@@ -126,6 +140,14 @@ it produces is genuinely confusing.
 docker login gitlab.gothamtechnologies.com:5050 -u <deploy-token-user>
 ```
 
+> **Lab vs PROD — plaintext registry.** *In the lab:* every node's `/etc/docker/daemon.json` lists this
+> registry under `insecure-registries`, so pulls and `docker login` cross the LAN over HTTP. *Why it's
+> acceptable here:* an isolated home network, and the credentials are lab-only by rule. *In production:*
+> the registry gets a real TLS certificate and `insecure-registries` is never set. *If you carry the
+> habit:* **you have put a registry credential on the wire in cleartext** — and `insecure-registries` is
+> precisely the knob people reach for to make a TLS error "go away", silencing a warning that was
+> correct.
+
 That writes a credential to `~/.docker/config.json` on the machine you ran it on. Now deploy the stack
 **without** the registry-auth flag and watch what happens:
 
@@ -175,12 +197,23 @@ honestly — and it therefore looked like the odd one out, as though the problem
 
 ### The retry budget is visible, and it runs out
 
-There were **exactly three** `Rejected` rows per task slot. That is `restart_policy.max_attempts: 3`
-being consumed. After the third refusal, **Swarm stops trying — permanently.**
-
-This is why the failure was *stable* rather than transient. `docker stack deploy` had exited `0` half a
+There were **exactly three** `Rejected` rows per task slot. That was `restart_policy.max_attempts: 3`
+being consumed — the manifest carried that setting when this failure was recorded on August 13. After
+the third refusal, **Swarm stopped trying, permanently**: `docker stack deploy` had exited `0` half a
 minute earlier, the retries quietly exhausted themselves, and the service sat at zero replicas
 indefinitely with nothing surfaced anywhere you would normally look.
+
+⚠️ **That setting is gone, and the story now has two branches — worth reading precisely, because the
+"exactly three" only ever applied to one of them.** `max_attempts` was removed on August 18, together
+with `condition: on-failure`, after a reboot silently ate replicas (Chapter 5 §3). The drills then
+established (P24, Chapter 5 §1):
+
+- On an **update** of an existing service, `max_attempts` was never the thing limiting retries anyway —
+  `failure_action: rollback` ends the attempt after **one** failed task.
+- The "exactly three, then stop forever" behaviour belongs to the **create** path — a first deploy,
+  where there is no previous version to roll back to. That is exactly what this section's failure was.
+  **With `max_attempts` now removed, the create-path retry behaviour is uncapped and has not been
+  re-measured** — recorded as open, not assumed.
 
 ### ⚠️ The delayed failure mode — recorded, not yet verified
 
@@ -230,7 +263,9 @@ retries.
 
 **A deployment job that stops at that exit code reports green while your application is down.** This
 is the single most common defect in a hand-written deploy pipeline, and it is why
-[`scripts/deploy_swarm.sh`](scripts/deploy_swarm.sh) polls.
+[`scripts/deploy_swarm.sh`](scripts/deploy_swarm.sh) polls — and why, since the failure drills, it no
+longer stops at convergence either: a converged stack can still be unable to do business, so the script
+ends with a smoke gate that transacts against the application (the full story is Chapter 6 §3).
 
 ### Counting replicas is not enough either
 
@@ -246,18 +281,28 @@ broken image can satisfy a count-only check on the very first poll.
 version, and the service settles back at **full replicas**. A count-only check sees `3/3` and reports a
 successful deployment. 🚨 **The truth is the opposite: your new code was rejected and the cluster is
 running the old code.** That is the most misleading green a deploy job can produce, and it is what a
-correctly-configured service is *designed* to do.
+correctly-configured service is *designed* to do. ✅ *Written here as reasoning on Aug 13; **proved by
+drill on Aug 18** — a deploy of an unpullable image ended at `3/3` on the old digest with nothing in
+`docker service ls` recording the refusal. Chapter 5 §1 has the task history.*
 
 The fix is to ask Swarm, which tracks this properly:
 
 ```bash
-docker service inspect <svc> --format '{{.UpdateStatus.State}}'
-# updating | completed | rollback_started | rollback_completed | (empty, if never updated)
+docker service inspect <svc> \
+  --format '{{if .UpdateStatus}}{{.UpdateStatus.State}}{{else}}<absent>{{end}}'
+# updating | completed | rollback_started | rollback_completed | <absent, if never updated>
 ```
 
-Treat `rollback_*` as a **hard failure**, not a success. ⚠️ *Recorded as untested:* `UpdateStatus`
-appears to be a latch that persists until the next update begins, which would mean a stale
-`rollback_completed` could fail a cluster that is actually healthy. Chapter 5 settles it.
+⚠️ **`<absent>`, not empty — the guarded form above is load-bearing.** On a service that has never been
+updated the field does not exist, and the naive template `{{.UpdateStatus.State}}` **errors** instead of
+returning an empty string. A check that crashes on a freshly created service will be discovered at the
+worst possible moment.
+
+Treat `rollback_*` as a **hard failure**, not a success. ✅ *The rollback-detection half was proved on
+Aug 18: the deploy script caught `rollback_started` and failed in 1.3 seconds (Chapter 5 §1).* ⚠️ *The
+latch half remains open: `rollback_completed` persists until the next update begins, so a stale value
+could fail a healthy cluster. The script mitigates by comparing against the state observed before
+deploying rather than trusting the field absolutely — mitigated, not settled.*
 
 ### The blast radius of a deploy is neither "everything" nor "nothing"
 
@@ -279,6 +324,7 @@ credentials, and anything else Swarm computes on your behalf.
 ### Tags are resolved to digests, once
 
 ```
+# as resolved on Aug 13 — the backend digest is deliberately left as it was that day; see below
 capricorn_backend   …/backend:latest@sha256:fac031dd827c3f1c78d6732d925ae6888ee65b821c08218dd4b1ea7…
 capricorn_redis     redis:7.2.4-alpine@sha256:c8bb255c3559b3e458766db810aa7b3c7af1235b204cfdb304e79…
 ```
@@ -288,10 +334,15 @@ do **not** follow a moving tag the way `docker compose pull` does.
 
 This cuts both ways, and both matter:
 
-- **Good:** your deployment is reproducible. A rebuild of `:latest` cannot silently change what is
-  running underneath you.
+- **Good:** your deployment is reproducible. A rebuild of `:latest` cannot change what is running
+  underneath you **between deploys**.
 - 🚨 **Surprising:** "I pushed a fix and production is still running the old code" is a Swarm classic.
   Redeploying the same tag may legitimately do nothing at all.
+- 🚨 **And the third edge, which happened to us on Aug 18:** the *next* deploy of `:latest` resolves the
+  tag **again** — so if someone pushed in the meantime, a redeploy you intended as a no-op is an
+  unannounced upgrade. The digest above is stale for exactly this reason: the tag moved under us
+  mid-drill and confounded an experiment (Chapter 5 §1). **Pinning protects a running service, not a
+  redeploy. Only deploying by digest protects both.**
 
 Even the deliberately-pinned `redis:7.2.4-alpine` got a digest recorded. **A tag — however specific it
 looks — is a mutable pointer that whoever controls the registry can move. The digest is the image.**
@@ -371,7 +422,8 @@ docker service ps <svc>                  # per-task state WITH history
 docker service ps <svc> --no-trunc       # the full error string
 
 # the questions that actually tell you if a deploy worked
-docker service inspect <svc> --format '{{.UpdateStatus.State}}'
+# (guarded: on a never-updated service the field is ABSENT and the naive template errors)
+docker service inspect <svc> --format '{{if .UpdateStatus}}{{.UpdateStatus.State}}{{else}}<absent>{{end}}'
 docker service inspect <svc> --format '{{.Spec.TaskTemplate.ContainerSpec.Image}}'   # the digest
 docker service inspect <svc> --pretty    # the spec in force, not what your file says
 docker service logs <svc> --tail 50
@@ -421,7 +473,7 @@ jq -r '.auths|to_entries[0].value.auth' ~/.docker/config.json | base64 -d
 | **`mode: ingress`** | Port publishing via the routing mesh. Contrast `mode: host`, which binds only where a task runs |
 | **Overlay network** | A virtual network spanning nodes, so containers on different hosts share a subnet |
 | **Digest** | `sha256:…` — the immutable identity of an image. What Swarm actually stores |
-| **`UpdateStatus`** | Swarm's own record of how the last rollout went. The honest convergence signal |
+| **`UpdateStatus`** | Swarm's own record of how the last rollout went — honest about the **update**, silent about whether the app is right (an image that starts but is wrong completes cleanly; Chapter 5 §1). Absent until the first update |
 | **`order: start-first`** | Start the replacement before stopping the old task. Why replica counts mislead |
 | **`failure_action: rollback`** | On a failed rollout, restore the previous version — and full replica count |
 | **Convergence** | Reality matching desired state. **Not** the same as the deploy command exiting 0 |
@@ -442,7 +494,8 @@ jq -r '.auths|to_entries[0].value.auth' ~/.docker/config.json | base64 -d
 6. You add a flag to fix one broken service and three others restart, but a fourth doesn't. What
    determines which? (§4)
 7. You push a rebuilt `:latest` and redeploy. Nothing changes. Why, and is that a bug? (§4)
-8. `curl http://node1:5002/health` succeeds. What does that prove about node 1? (§5)
+8. `curl http://node1:5002/health` succeeds. What does that prove about node 1 — and, separately, what
+   does it *not* prove about the application? (§5; the second half is Chapter 6 §1)
 9. The UI's API calls all fail but `curl` against the backend works fine. Where do you look? (§6)
 10. Why is `printf` used to create a secret rather than `echo`, and how would the mistake present? (§2)
 11. A colleague removes a hardcoded password from a Dockerfile and commits the fix. Is the credential

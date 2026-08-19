@@ -1,6 +1,63 @@
 # Current Phase
 
-**Updated:** August 18, 2026 - 8:20 PM EDT
+**Updated:** August 18, 2026 - 11:55 PM EDT
+
+---
+
+## 🎯 SESSION HANDOFF (Aug 18, 2026, evening) — full track review: holes filled, C6b closed by re-drill
+
+🙋 **Andrew asked for a full textbook-quality review of the docker-swarm track** ("fill in any holes and
+improve documentation or scripts... spin up agents and take as long as you need"). Four parallel review
+agents audited chapters 1–6, `COMMANDS.md`, the scripts/manifest, and coverage; every finding was then
+fixed centrally. **The AI also ran three live deploys under the standing drill authorization** (P32–P34,
+all confirmed — see phase16 Part 6.5).
+
+### What changed, in reading order
+
+1. **C6b is CLOSED, by re-running the drill against the fix.** The frontend now has a manifest
+   `healthcheck` (`wget | grep -qi capricorn` — pre-verified against both images), `deploy_swarm.sh`
+   gained Gate 3 (one assertion per published port). The identical nginx swap that passed green this
+   morning now **fails in 47 s with `rollback_started`, EXIT=1, and 16/16 serving probes saw the real
+   app** — zero user-visible seconds. Bonus finding: a stack deploy of an identical spec **clears** a
+   stale `rollback_completed` to `<absent>` (measured both sides), so the stale-latch worry is bounded
+   to the window *between* deploys; the script also snapshots pre-deploy UpdateStatus as defence.
+2. **Chapters 1–2 repaired**: the `max_attempts`/"exactly three" story recast (create-path history, not
+   current behaviour); quorum section now says management **reads** fail too; stale digest labelled and
+   the `:latest`-moved edge added; Drill B evidence block added to ch2 §2; forward refs point at real
+   chapter titles; `insecure-registries` Lab-vs-PROD callout added (L1). **README's "chapter 2 known
+   staleness" note is gone because the staleness is gone.**
+3. **Chapters 4–6 factual fixes**: reboot counts corrected to measured `1/2, 1/3, 1/1, 0/1` (two places
+   said `2/3`); seeding-race steps now match the measured within-first-task race; ch6 Drill A signal
+   table restored to the seven signals actually checked; the five "void runs" honestly split into three
+   void runs + two invalid probes; ch4 gained the L14 secrets-manager callout, the L10 distinction, and
+   stack-rm/volume-wipe semantics.
+4. **COMMANDS.md**: the post-reboot awk gate had `|| echo` printing the success line ON FAILURE — fixed
+   to `&&` (and the mistake recorded in place as its own lesson); `UpdateStatus` table cell fixed to
+   ABSENT; harvest table +6 rows (C6b per-port rule, 4/3 overshoot, fallback fingerprint, assert-
+   preconditions...); legend includes 🔲.
+5. **deploy_swarm.sh**: Gate 3; NON-DEFAULT STACK FILE banner (fired during the re-drill); pre-deploy
+   UpdateStatus snapshot; row-check parse failure now FAILS instead of skipping; stale comments
+   updated ("three services use start-first" → two, C6a verification noted).
+6. **README (track)**: Lab-vs-PROD index L1–L18 → chapter map; "what this track deliberately does not
+   cover" (drain, demote, configs, global mode, host publishing, parallelism>1...); reproduce-the-lab
+   quickstart incl. ZFS-linearity and paste-runner warnings; **Swarm↔K8s comparison table** (grounded,
+   recited rows marked — Part 7 still owed the full session); a 4-exercise capstone.
+7. Phase record: P32–P34 written before running and scored after; measured details backfilled (9.135 s
+   reschedule, canary key, 155-byte dump.rdb, full pg_hba dump); its own stale claims fixed; ledger
+   L13/L18 marked closed-for-frontend. Docx rebuilt (5 chapters), all 6 figures ≥10 pt.
+
+### Superseded items from the previous handoff (below)
+
+- "🔲 Open work: a frontend healthcheck, and a gate assertion per published port" — ✅ **done and
+  re-drilled.**
+- "Chapter 2 is stale on this point and the README now says so" — ✅ **repaired; README note removed.**
+- Temp files on swarm-1: `/tmp/capricorn.c6b-hc.yml` and `/tmp/c6b_probe.log` were added tonight
+  (harmless, same caveat: `STACK_FILE` must be unset for a normal deploy).
+- Still Andrew's calls, unchanged: **s05 snapshot** (even more recommended now — s04 predates the
+  healthcheck *and* the fixed restart policy), **GitHub push** (chapters still unreviewed by him),
+  **Part 4 CI design** (chapter 3 stays blocked), **docker-admin.sh design session** (its §11 input
+  got richer tonight), and the two app-repo findings (bootstrap committed-delete; the unauthenticated
+  destructive endpoint).
 
 ---
 

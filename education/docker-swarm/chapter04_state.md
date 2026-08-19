@@ -147,7 +147,15 @@ exist, and they are different sizes:
 | Fix | What it buys | What it costs |
 |---|---|---|
 | Pin with a placement constraint | The service can only ever run where its data is | If that node is down, the service is **down** — you have chosen consistency over availability, deliberately |
-| Replicated / networked storage (NFS, Ceph, a cloud volume) | The data follows the task | Real operational surface: a storage system to run, and its failure modes become yours |
+| Replicated / networked storage (NFS, Ceph, a cloud volume) — ⚠️ *not tested in this lab* | The data follows the task | Real operational surface: a storage system to run, and its failure modes become yours |
+
+⭐ **And behind both options sits the decision production teams usually make instead: the
+system-of-record database is not a container at all.** A pin solves the *addressing* problem this
+chapter demonstrates; it does nothing about the deeper one, which is that the database's availability is
+now a scheduling decision made by software whose contract ends at "a process is running". Real PG hosts
+with replication and point-in-time recovery are the production answer our own phase record gives — the
+lab containerises Postgres because studying Swarm is the point here, not because it is a pattern to
+carry out of the lab.
 
 🚨 **What you must not do is leave it unpinned and *believe* you have redundancy.** An unpinned stateful
 service on a three-node cluster **looks** more available than a pinned one and is strictly more
@@ -170,6 +178,19 @@ tells you the truth immediately; an unpinned one comes up empty and reports succ
 With Redis wiped to nothing, the frontend served `200`, the summary endpoint returned full counts, and
 the backend's logs mentioned Redis **zero** times.
 
+### Removing state on purpose is also harder than it looks
+
+The inverse operation — deliberately wiping a volume for a clean experiment — bit us twice, and the
+mechanics are worth exactly three sentences. **`docker stack rm` returns before the container objects
+are reaped**, so the volume stays "in use" for a window after the command succeeds — waiting for the
+stack's *network* to disappear is not sufficient, measured. **`docker volume rm` is node-scoped like
+everything else here**, so running it on the wrong node returns `no such volume` — which is
+indistinguishable from success if stderr is suppressed, and that exact combination silently voided one
+of our control experiments. The safe form: find the node with `docker service ps <svc> --format
+'{{.Node}}'` first, wait for `docker ps -a` to show the container really gone, run the `rm` with stderr
+visible, and then **assert** the volume is absent (`docker volume ls -q | grep -qx <vol> && abort`)
+rather than trusting the removal.
+
 ⭐ **A cache losing everything is supposed to be survivable, and here it was.** But note what that
 means for detection: **the component whose whole job is to be non-critical is also the component whose
 failure produces no signal.** If Redis had held sessions, rate-limit counters, or a job queue, the same
@@ -191,6 +212,18 @@ secrets:
     name: pg_password_v2      # the CLUSTER object; the container still sees /run/secrets/pg_password
     external: true
 ```
+
+> **Lab vs PROD — `docker secret` as the only home a credential has.** *In the lab:* the Postgres
+> password was created with `printf | docker secret create` and existed nowhere else — until a VM
+> snapshot rollback destroyed the Raft store that held it, and with it the only copy. *Why it's
+> acceptable here:* the password guards regenerable demo data, and losing it cost an afternoon, not an
+> incident. *In production:* secrets originate in a real secrets manager (Vault, cloud KMS/SM) and are
+> *delivered* through the orchestrator — the orchestrator's store is a cache of record, never the
+> system of record (⚠️ *unverified prescription — standard guidance; this lab runs no Vault*). *If you
+> carry the habit:* **the API will not return a secret's value even to an admin, so the day the Raft
+> store is lost or rolled back, the credential is not "somewhere safe" — it is gone**, and everything
+> that authenticates with it needs an emergency rotation at the worst possible time. We proved the loss
+> mechanism by accident on this very password.
 
 We deployed that with a genuinely new value and **left the database alone** — which is not a contrived
 scenario. It is the everyday one: somebody rotates the credential in the secret store, and the server
@@ -237,8 +270,8 @@ what we just built.
 
 ### 🚨 The pre-flight guard cannot see this class of failure, and neither can any orchestrator
 
-Chapter 2's deploy script guards against a **missing** secret, and Chapter 5's Drill B proves that guard
-fires. This is the neighbouring failure and the guard is blind to it:
+Chapter 2's deploy script guards against a **missing** secret, and Drill B proved that guard fires —
+the evidence is in Chapter 2 §2. This is the neighbouring failure and the guard is blind to it:
 
 | | Secret **absent** | Secret **present but wrong** |
 |---|---|---|
@@ -280,6 +313,9 @@ host    all   all   ::1/128            trust
 host    all   all   all                scram-sha-256
 ```
 
+*(Abridged from the measured dump — the file also carries matching `trust` lines for replication
+connections, which change nothing about the point.)*
+
 Only the last line — the one covering connections from *other containers* — checks a password. **[Anyone
 who can get a shell in that container is already inside the database as its owner.]{custom-style="Key"}** On Swarm that means
 **anyone in the `docker` group on that node**, who can also read `/run/secrets/pg_password` directly with
@@ -289,8 +325,8 @@ who can get a shell in that container is already inside the database as its owne
 > the Postgres image's default `pg_hba.conf` trusts all loopback connections, and every lab operator is
 > in the `docker` group on all three nodes. *Why it's acceptable here:* an isolated home network, a
 > single operator, and lab-only data. *In production:* `scram-sha-256` on every line including
-> loopback, and membership of the `docker` group treated as **equivalent to root on that host** —
-> because it is. *If you carry the habit:* **host access silently becomes data access.** Your password
+> loopback (⚠️ *unverified prescription — we measured the default, not the hardened config*), and
+> membership of the `docker` group treated as **equivalent to root on that host** — because it is. *If you carry the habit:* **host access silently becomes data access.** Your password
 > rotation, your secrets manager and your database audit log are all bypassed by one `docker exec`, and
 > nothing in the configuration you *do* review will show it. This is also why "the database only
 > listens on localhost" is a weaker statement than it sounds: **on a container host, localhost is a
@@ -315,15 +351,20 @@ Failed to import demo data, using minimal bootstrap:
 ✅ Bootstrap complete: {… 'total': 682}
 ```
 
-**Eight workers, no coordination, one shared database.** The mechanism is worth understanding in general
-form because the shape recurs everywhere:
+**Eight workers, no coordination, one shared database.** What we measured is narrower and more
+instructive than "everyone raced": the collision happened **among the four workers of the first task to
+start** — three of its four lost — while the second task's workers arrived late enough that the guard
+saw data and they skipped cleanly. The task that *lost* zero workers did so by scheduling luck, not by
+design. The mechanism generalises:
 
-1. Each worker checks "does data exist?" — all eight see empty, all eight proceed.
+1. Workers that start close together all check "does data exist?", see empty, and proceed.
 2. The seeding routine **clears leftovers and commits that clear** before inserting.
-3. That commit **publishes an empty state**, so a worker that was about to be saved by the guard now
-   passes it too.
-4. Workers insert rows with explicit primary keys; the losers collide and fail.
+3. That commit **publishes an empty state**, so a worker that would otherwise have been saved by the
+   guard now passes it too — the window is held open, not merely left ajar.
+4. The racing workers insert rows with explicit primary keys; the losers collide and fail.
 5. Each loser catches the error and falls back to a minimal path — then logs **success**.
+6. Workers that start late enough see the winner's committed data and skip. **Whether a worker races or
+   skips is decided by arrival time, which nothing controls.**
 
 ⭐ **The defect is step 2, and it is a general rule about guarded initialisation: [a guard that reads
 committed state is worthless if the guarded routine commits an intermediate state.]{custom-style="Key"}** The window it
@@ -415,4 +456,4 @@ Answer out loud; the section is given rather than the answer.
    on a VM? (§2)
 7. A guard checks whether data exists before seeding. Under what circumstance does that guard actively
    *cause* a corruption it was written to prevent? (§3)
-8. Which of this chapter's four failures would a valid, tested backup have prevented? (§1, §2, §3)
+8. Which of this chapter's failure modes would a valid, tested backup have prevented? (§1, §2, §3)

@@ -55,6 +55,14 @@ SMOKE_INTERVAL="${SMOKE_INTERVAL:-5}"
 # clearly between them. Per app, the rule is: PICK A NUMBER THE SCHEMA ALONE CANNOT REACH.
 SMOKE_ROWS_PATH="${SMOKE_ROWS_PATH:-/api/v1/data/summary}"
 SMOKE_MIN_ROWS="${SMOKE_MIN_ROWS:-100}"
+# Third gate (added Aug 18 2026, after drill C6b): the gates above only defend the port they call.
+# A deploy that replaced the frontend with a stock nginx image sailed through both - UpdateStatus
+# `completed`, backend smoke green - because nothing ever asked :5001 a question. One assertion per
+# published port, and the body match must be something ONLY OUR APP would serve (nginx's welcome
+# page returns 200; `grep -ci capricorn` on it returned 0, measured).
+SMOKE_UI_PORT="${SMOKE_UI_PORT:-5001}"
+SMOKE_UI_PATH="${SMOKE_UI_PATH:-/}"
+SMOKE_UI_EXPECT="${SMOKE_UI_EXPECT:-capricorn}"
 
 die() { printf '\n\033[31mFAILED:\033[0m %s\n' "$*" >&2; exit 1; }
 say() { printf '\n\033[1m==> %s\033[0m\n' "$*"; }
@@ -70,6 +78,11 @@ docker node ls >/dev/null 2>&1 || die "not a swarm manager (or swarm is inactive
 # The stack references an external secret. Creating it here would mean inventing a password in a
 # script; requiring it means the deploy fails fast with a clear reason instead of a confused
 # postgres that cannot authenticate.
+#
+# ⚠️ The name is hardcoded, and drill D showed the limit of that: an `external:` secret can carry a
+# `name:` override in the manifest (we rotated via `name: pg_password_v2`), in which case this check
+# inspects a secret the stack no longer uses. Good enough while the manifest is ours; a general tool
+# would have to parse the manifest's secrets block instead of assuming.
 docker secret inspect pg_password >/dev/null 2>&1 \
     || die "secret 'pg_password' does not exist - create it first:  printf '<password>' | docker secret create pg_password -"
 
@@ -94,6 +107,26 @@ fi
 # ---------------------------------------------------------------------------------------------
 say "deploying stack '$STACK' from $STACK_FILE"
 
+# Printing the path above is a courtesy, not a control - a voided drill proved nobody reads it at
+# the moment it matters. What CAN be asserted is that an override was intentional: if STACK_FILE
+# came from the environment, make it impossible to miss.
+default_stack_file="$(cd "$(dirname "${BASH_SOURCE[0]}")/../manifests" && pwd)/capricorn.stack.yml"
+if [ "$STACK_FILE" != "$default_stack_file" ]; then
+    printf '\n\033[33m==> NON-DEFAULT STACK FILE\033[0m\n'
+    printf '    deploying: %s\n    default:   %s\n' "$STACK_FILE" "$default_stack_file"
+    printf '    If you are running a drill, this line is your precondition - check it NOW.\n'
+fi
+
+# Snapshot each service's UpdateStatus BEFORE deploying. UpdateStatus is a latch that persists
+# until the next update begins, so a rollback_completed left over from an OLD failure would
+# otherwise fail this deploy of a healthy cluster. Comparing to the pre-deploy state separates
+# "this deploy rolled back" from "an earlier one did".
+declare -A pre_state
+while read -r name; do
+    pre_state["$name"]="$(docker service inspect "$name" \
+        --format '{{if .UpdateStatus}}{{.UpdateStatus.State}}{{end}}' 2>/dev/null || true)"
+done < <(docker stack services "$STACK" --format '{{.Name}}' 2>/dev/null || true)
+
 # --with-registry-auth is NOT optional for a private registry. Without it the manager keeps the
 # credential to itself and tasks scheduled on other nodes are Rejected with
 # "error from registry: access forbidden" - while the same image pulls fine by hand on the manager.
@@ -110,10 +143,12 @@ docker stack deploy -c "$STACK_FILE" --with-registry-auth "$STACK"
 # anything is running. A job that stops here reports green while the app crash-loops. So poll, and
 # exit non-zero if the cluster never gets there.
 #
-# Replica count alone is NOT a sufficient test, and this is easy to get wrong. Three of these
-# services use `order: start-first`, which starts the replacement task BEFORE stopping the old one,
-# so running/desired can read 3/3 continuously through an entire rolling replacement. A deploy that
-# swapped every container for a broken image could satisfy a count-only check on the first poll.
+# Replica count alone is NOT a sufficient test, and this is easy to get wrong. Two of these
+# services (frontend and backend) use `order: start-first`, which starts the replacement task
+# BEFORE stopping the old one, so running/desired can read 3/3 continuously through an entire
+# rolling replacement - and can briefly read 4/3, which is why current != desired below means
+# PENDING, never failed. A deploy that swapped every container for a broken image could satisfy
+# a count-only check on the first poll.
 #
 # So also require UpdateStatus.State. Swarm sets it to `updating` while a rollout is in flight and
 # `completed` when it finishes - and crucially to `rollback_started` / `rollback_completed` when
@@ -130,11 +165,14 @@ docker stack deploy -c "$STACK_FILE" --with-registry-auth "$STACK"
 # failure invalidated everything downstream. The test is whether you handle the silence, not whether you
 # create it.
 #
-# UNVERIFIED, to be tested when we deliberately trigger a rollback later in this phase: UpdateStatus
-# is a LATCH, not a live signal - it persists until the next update starts. If a redeploy that sends
-# an identical spec does not begin a new update, a stale `rollback_completed` from an earlier failure
-# could make this script fail a cluster that is actually healthy. Do not trust this paragraph until
-# the trap has been run; it is written down as a claim to falsify, not as a fact.
+# ✅ VERIFIED Aug 18 2026 (drill C6a): a deliberately unpullable image made failure_action fire and
+# this loop caught `rollback_started` in 1.3 seconds. Detection works.
+#
+# ⚠️ Still open: UpdateStatus is a LATCH - it persists until the next update starts. If a redeploy
+# sends an identical spec, no new update begins, and a stale `rollback_completed` from an earlier
+# failure would linger. The pre_state snapshot taken before the deploy handles it: a rollback state
+# that is IDENTICAL to what we saw before deploying is reported loudly but not treated as this
+# deploy's failure.
 say "waiting for convergence (timeout ${TIMEOUT}s)"
 
 deadline=$(( $(date +%s) + TIMEOUT ))
@@ -147,7 +185,15 @@ while :; do
         state="$(docker service inspect "$name" --format '{{.UpdateStatus.State}}' 2>/dev/null || true)"
 
         case "$state" in
-            rollback*) rolled_back="$rolled_back $name" ;;
+            rollback*)
+                if [ "$state" = "${pre_state[$name]:-}" ]; then
+                    # Stale latch from a PREVIOUS deploy - it was already there before we started.
+                    printf '    ⚠️  %s carries a pre-existing %s (stale latch, not this deploy) - verify by hand\n' \
+                        "$name" "$state"
+                else
+                    rolled_back="$rolled_back $name"
+                fi
+                ;;
         esac
 
         if [ "$current" != "$desired" ] || [ "$desired" = "0" ]; then
@@ -271,7 +317,12 @@ if [ "$SMOKE" = "1" ]; then
         total="$(printf '%s' "$rows_body" | sed -nE 's/.*"total":[[:space:]]*([0-9]+).*/\1/p' | head -1)"
 
         if [ -z "$total" ]; then
-            echo "    ⚠️  could not read \"total\" from ${SMOKE_ROWS_PATH} - row check SKIPPED, not passed"
+            # This used to SKIP, which is a false green by another name: a gate that cannot read
+            # its instrument must not wave the deploy through. Disable explicitly with
+            # SMOKE_ROWS_PATH="" if the endpoint is intentionally gone.
+            printf '\n\033[31mSMOKE FAILED:\033[0m could not read "total" from %s\n' "${SMOKE_ROWS_PATH}" >&2
+            printf '  body: %s\n' "$(printf '%s' "$rows_body" | head -c 300)" >&2
+            die "smoke gate: row-count endpoint unreadable - a gate that cannot measure must not pass"
         elif [ "$total" -lt "$SMOKE_MIN_ROWS" ]; then
             printf '\n\033[31mSMOKE FAILED:\033[0m %s reports total=%s, expected >= %s\n' \
                 "${SMOKE_ROWS_PATH}" "$total" "$SMOKE_MIN_ROWS" >&2
@@ -283,6 +334,40 @@ if [ "$SMOKE" = "1" ]; then
         else
             echo "    ${SMOKE_ROWS_PATH} -> total=${total} rows"
         fi
+    fi
+
+    # Gate 3 - every published port gets one assertion. C6b (Aug 18 2026): the frontend was
+    # replaced wholesale by nginx's welcome page and gates 1-2 stayed green, because both only
+    # ever talk to :5002. A port nobody asks a question of can serve anything.
+    if [ -n "$SMOKE_UI_PORT" ]; then
+        ui_base="http://${SMOKE_HOST}:${SMOKE_UI_PORT}"
+        deadline=$(( $(date +%s) + SMOKE_TIMEOUT ))
+        while :; do
+            ui_code="$(curl -sS -o "$tmp_body" -w '%{http_code}' --max-time 10 "${ui_base}${SMOKE_UI_PATH}" 2>/dev/null || true)"
+            [ -n "$ui_code" ] || ui_code="000"
+            ui_body="$(cat "$tmp_body")"
+
+            # 200 is not the test - nginx's welcome page is a 200. The body must contain something
+            # only OUR frontend serves.
+            if [ "$ui_code" = "200" ] && printf '%s' "$ui_body" | grep -qiF "$SMOKE_UI_EXPECT"; then
+                echo "    ${SMOKE_UI_PORT}${SMOKE_UI_PATH} -> 200, body matched '${SMOKE_UI_EXPECT}'"
+                break
+            fi
+
+            if [ "$(date +%s)" -ge "$deadline" ]; then
+                printf '\n\033[31mSMOKE FAILED:\033[0m port %s returned HTTP %s without %s\n' \
+                    "${SMOKE_UI_PORT}" "$ui_code" "'${SMOKE_UI_EXPECT}'" >&2
+                printf '  body starts: %s\n\n' "$(printf '%s' "$ui_body" | head -c 200)" >&2
+                echo "A 200 here is NOT success - a stock nginx answers 200 too. Whatever is on" >&2
+                echo "this port right now, it is not our application:" >&2
+                echo "  docker service inspect ${STACK}_frontend --format '{{.Spec.TaskTemplate.ContainerSpec.Image}}'" >&2
+                echo "  curl -s ${ui_base}${SMOKE_UI_PATH} | head" >&2
+                die "smoke gate failed on published port ${SMOKE_UI_PORT}"
+            fi
+
+            printf '    waiting for %s%s (HTTP %s, no body match)\n' "${SMOKE_UI_PORT}" "${SMOKE_UI_PATH}" "$ui_code"
+            sleep "$SMOKE_INTERVAL"
+        done
     fi
 else
     printf '\n\033[33m==> smoke gate SKIPPED (SMOKE=0)\033[0m\n'
