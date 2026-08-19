@@ -3,8 +3,14 @@
 **Status:** ✅ Complete  
 **Date:** December 2025  
 **Amended:** Aug 19, 2026 — added **Memory Configuration** (verified DIMM inventory for the Z6 *and*
-the Z8 dev workstation, the do-not-move-DIMMs decision, and current pricing). This file is the
-reference for physical part numbers and slot maps.
+the Z8 dev workstation, the do-not-move-DIMMs decision, and current pricing) and the **Storage
+Capacity Audit** (verdict: **no storage purchase needed — 4% of pool space is actually written**;
+also corrects the stale `nvmeXn1` device names). This file is the reference for physical part numbers
+and slot maps.
+
+⭐ **Both of Aug 19's findings had the same shape: a number in the docs was believed, and the live
+hardware disagreed.** RAM slot positions were wrong, DIMM prices were 10x stale, disk device names had
+drifted, and "70% full" turned out to be 7.5% written. **Re-read the hardware before spending.**
 
 ---
 
@@ -187,19 +193,132 @@ which looks exactly like a host fault and is not one.** This is why ARC was neve
 
 | Slot | Device | Model | Size | Purpose |
 |------|--------|-------|------|---------|
-| Motherboard M.2 #1 | nvme0n1 | WD Blue SN5100 | 500GB | Proxmox OS (mirror) |
-| Motherboard M.2 #2 | nvme3n1 | WD Blue SN5100 | 500GB | Proxmox OS (mirror) |
-| HP Turbo Quad Slot 1 | nvme1n1 | Lexar SSD NM620 | 1TB | vm-critical (mirror) |
-| HP Turbo Quad Slot 2 | nvme2n1 | Lexar SSD NM620 | 1TB | vm-critical (mirror) |
-| HP Turbo Quad Slot 3 | nvme4n1 | Lexar SSD NM620 | 1TB | vm-ephemeral (stripe) |
-| HP Turbo Quad Slot 4 | nvme5n1 | Lexar SSD NM620 | 1TB | vm-ephemeral (stripe) |
+| Motherboard M.2 #1 | ~~nvme0n1~~ | WD Blue SN5100 | 500GB | Proxmox OS (mirror) |
+| Motherboard M.2 #2 | ~~nvme3n1~~ | WD Blue SN5100 | 500GB | Proxmox OS (mirror) |
+| HP Turbo Quad Slot 1 | ~~nvme1n1~~ | Lexar SSD NM620 | 1TB | vm-critical (mirror) |
+| HP Turbo Quad Slot 2 | ~~nvme2n1~~ | Lexar SSD NM620 | 1TB | vm-critical (mirror) |
+| HP Turbo Quad Slot 3 | ~~nvme4n1~~ | Lexar SSD NM620 | 1TB | vm-ephemeral (stripe) |
+| HP Turbo Quad Slot 4 | ~~nvme5n1~~ | Lexar SSD NM620 | 1TB | vm-ephemeral (stripe) |
+
+🚨 **The `nvmeXn1` names above are STALE and the lesson is that they always will be — NVMe
+enumeration order is not stable across boots/kernels.** Verified Aug 19, 2026: the boot mirror is now
+`nvme0n1`+`nvme1n1` (not `0`+`3`), `vm-critical` is `nvme2n1`+`nvme3n1`, `vm-ephemeral` is
+`nvme4n1`+`nvme5n1`. **Pool membership by SERIAL never changed** — only the kernel names moved.
+⚠️ **Never act on a device name from a document. Re-read it, and identify drives by serial**
+(see Drive Serial Numbers below). The *physical* quad-slot ↔ serial mapping was NOT re-verified on
+Aug 19 and is still as originally recorded.
 
 ### HP Z Turbo Drive Quad Pro
 
-- PCIe card with 4x M.2 NVMe slots
+- PCIe card with 4x M.2 NVMe slots — **in Slot 5** (hence `phase13`'s "Slot 5 Bifurcation" +
+  "Slot 5 VROC" BIOS settings). **All 4 slots are FULL.**
 - Passive bifurcation (x4x4x4x4)
 - No RAID controller - drives appear individually to OS
 - Originally configured with Intel VROC (abandoned due to ESXi issues)
+- **VMD is active:** two `Intel Volume Management Device` controllers present, giving PCI domains
+  `10000` (the 2x boot WDs) and `10001` (the 4x NM620s on this card).
+
+---
+
+## 📊 Storage Capacity Audit — Aug 19, 2026 (verdict: NO PURCHASE NEEDED)
+
+**Question asked:** *"I think we might be near 70% usage on the critical storage. I'm thinking of
+buying another card and more NVMe sticks."* **Answer: the 70% is real but it is RESERVATION, not
+data. Buy nothing.** All figures below read live from the Proxmox REST API (`/nodes/pve/...`).
+
+### 🚨 The headline: 137 GiB of real data on 3.24 TiB of pool. That is 4%.
+
+| Pool | Layout | Usable | **Actually written** (`zpool alloc`) | Alloc % | Physically free |
+|------|--------|--------|--------------------------------------|---------|-----------------|
+| `rpool` | 2x 500GB mirror | 460 GiB | 14.1 GiB | 3.1% | 446 GiB |
+| `vm-critical` | 2x 1TB mirror | 952 GiB | **71.6 GiB** | **7.5%** | **880 GiB** |
+| `vm-ephemeral` | 2x 1TB stripe | 1,904 GiB | 51.2 GiB | 2.7% | 1,853 GiB |
+
+### ⭐ Why PVE says 70.9% when only 7.5% is written
+
+**Both VM pools are THICK-provisioned**, so every zvol reserves its full size whether or not a byte is
+written: `vm-critical` has **no `sparse` key at all** and `vm-ephemeral` has `sparse: 0`. Only
+`local-zfs` is thin (`sparse: 1`). ⭐ **`zfs list` / the PVE GUI count `refreservation` as USED, while
+`zpool list` counts only blocks actually allocated. That gap is the whole mystery** — about **582 GiB
+of `vm-critical`'s 654 GiB "used" is reserved space that has never been written.**
+
+| Storage | PVE "used" (reservation-inclusive) | Provisioned zvols | Written |
+|---|---|---|---|
+| `vm-critical` | 654.0 of 922.5 GiB (**70.9%**) | 630 GiB | **71.6 GiB** |
+| `vm-ephemeral` | 647.4 of 1,845 GiB (35.1%) | 623.5 GiB | 51.2 GiB |
+
+`vm-critical` zvols: **VM 181 GitLab = 500 GiB** (79% of the pool's whole commitment), 183 = 30,
+184 = 50, **185 = 50 (VM is STOPPED/RETIRED — a dead VM holding a live reservation).**
+
+⚠️ **Thick provisioning is not a fault here.** 630 GiB committed on a 922 GiB pool means **no
+overcommit** — every VM could fill its disk and the pool would still hold. PVE's 70.9% is an honest
+report of *committed* capacity. It is not a capacity problem, and 71% is not a number to panic at.
+
+### ✅ Three independent reasons no storage is needed
+
+1. **ZFS only cares about allocation, and it is 2.7–7.5%.** Pools degrade past ~80% allocated —
+   an order of magnitude of runway away.
+2. **~1.43 TiB of committable space is still free even keeping thick provisioning** (268 GiB on
+   `vm-critical` + 1,198 GiB on `vm-ephemeral`) — room for many more VMs, changing nothing.
+3. **Growth is ~9 GiB/month** on `vm-critical` (71.6 GiB after ~8 months of GitLab + CI + SonarQube).
+   The 880 GiB of physically free space on that pool is ~8 years out at that rate.
+
+### 🔲 Free levers, if the 70.9% number is bothersome (cleanups, NOT fixes)
+
+1. **Delete VM 185 (`vm-openclaw-1`)** — retired, stopped, `onboot=0`, phase closed. Frees a 50 GiB
+   reservation → `vm-critical` drops to ~63%.
+2. **Drop the reservation on GitLab's oversized disk** — instant, no data movement, reversible:
+   `zfs set refreservation=none vm-critical/vm-181-disk-0`, then `sparse 1` on the storage so future
+   disks are thin. ⚠️ **The trade is real:** thin allows overcommit, and a *full* ZFS pool is far
+   worse than a full ext4 — only do this with the existing Gmail alerting watching pool allocation.
+3. ⛔ **Do NOT shrink the zvol.** Shrinking under a live filesystem is how you lose a GitLab.
+
+### 🎯 Tripwire — revisit a purchase when ANY of these is true
+
+- **`zpool list` ALLOC crosses ~60–65% on any pool** (act well before the 80% cliff). Today: 7.5% max.
+- More than **~1.4 TiB of new thick VM disks** is needed.
+- **Redundancy for `vm-ephemeral` is wanted** — see below. This is the only *likely* future purchase,
+  and it is driven by redundancy, **not capacity**.
+
+```bash
+zpool list                     # ALLOC/CAP = the number that actually matters
+zfs list -o name,used,avail,refreservation,volsize
+```
+
+### ⚠️ What IS worth attention (bigger than capacity)
+
+**`vm-ephemeral` is a 2-disk STRIPE with no redundancy and it no longer holds disposable workloads.**
+It carries VM 186 (k3s/Redpanda rig), **191/192/193 (the whole Docker Swarm study cluster)**, 182
+(runner) and 200. 🚨 **The `s01`–`s06` swarm snapshot chain lives on the same pool it is meant to
+protect** — one NM620 failure destroys the VMs *and* every snapshot of them.
+
+**And there is exactly ONE scheduled backup job on the host:** VM 181 → `nas-gitlab` at 02:00 (healthy,
+nightly, ~12 GiB, latest Aug 19). Everything else has **no schedule**:
+- **191/192/193: one backup each, from Aug 13 18:10** — predating Part 4, the C4 fix and chapter 3.
+- **182, 183, 184, 186, 200: no backups at all.** ⚠️ **184 hosts PROD Capricorn** (on the mirror, so
+  redundant, but with no restore point).
+
+⭐ **The design assumption drifted:** `vm-ephemeral` was chosen for speed because its VMs were
+disposable, and the education work living there stopped being disposable when it became onboarding
+material. **The fix costs $0** — there are 880 GiB physically free on the *mirrored* pool, so move
+what now matters onto `vm-critical` and/or add backup jobs. That is a better use of money than
+capacity: it needs none. **Acting on this changes VM placement, so it belongs in a phase, not here.**
+
+### 🔧 If expansion is ever actually needed — the PCIe constraints
+
+- The Z6 G4 has **two x16 CPU slots: Slot 2 and Slot 5**. With a single CPU, **slots 1, 2, 4, 5 are
+  active**; slots 3 and 6 need the 2nd CPU riser (HP Z6 G4 QuickSpecs / Architecture white paper).
+- **Slot 5 holds the quad card, so Slot 2 is the only candidate** — and the **Quadro P2000 is very
+  likely in it** (present at `0000:21:00.0`; the physical slot was NOT confirmed — needs
+  `dmidecode -t slot` or eyes inside the case).
+- 🚨 **The P2000 cannot simply be removed.** Xeon Platinum 8168 has **no integrated graphics** and
+  there is **no out-of-band console** (phase13 gap 3), so it is the only display path for BIOS work —
+  including the memory upgrade above. It *can* be relocated to **Slot 1** (x4, open-ended) since it is
+  idle and only needed for display.
+- ⛔ **Slot 4 is not usable for a 4-drive card:** it is x8 but **drops to x4 electrical when the 2nd
+  onboard M.2 is populated** — and both M.2 slots hold the boot mirror.
+- **All 4 quad-card slots and both onboard M.2 slots are full**, so adding *any* drive requires a
+  second card in Slot 2 with the GPU moved first.
 
 ---
 
@@ -244,28 +363,41 @@ This led to switching from VMware ESXi to Proxmox VE.
 
 ## Drive Serial Numbers
 
+**Serial → pool is the STABLE mapping. Device names are re-verified Aug 19, 2026 and will drift again.**
+
 **Boot Drives (2x WD Blue SN5100 500GB):**
 
-| Device | Pool | Serial Number |
-|--------|------|---------------|
-| nvme0n1 | rpool (mirror) | 25434V801543 |
-| nvme3n1 | rpool (mirror) | 25434V802501 |
+| Serial Number | Pool | Device (Aug 19, 2026) | Device (as first recorded) | Health / wearout |
+|---------------|------|----------------------|---------------------------|------------------|
+| 25434V801543 | rpool (mirror) | **nvme1n1** | nvme0n1 | PASSED / 99 |
+| 25434V802501 | rpool (mirror) | **nvme0n1** | nvme3n1 | PASSED / 99 |
 
-**VM Storage Drives (4x Lexar SSD NM620 1TB):**
+**VM Storage Drives (4x Lexar SSD NM620 1TB, on the HP Turbo Quad Pro):**
 
-| Device | Pool | Serial Number |
-|--------|------|---------------|
-| nvme1n1 | vm-critical (mirror) | PKG237W103886P1100 |
-| nvme2n1 | vm-critical (mirror) | PKG237W103845P1100 |
-| nvme4n1 | vm-ephemeral (stripe) | PKG237W103863P1100 |
-| nvme5n1 | vm-ephemeral (stripe) | PKG237W103887P1100 |
+| Serial Number | Pool | Device (Aug 19, 2026) | Device (as first recorded) | Health / wearout |
+|---------------|------|----------------------|---------------------------|------------------|
+| PKG237W103886P1100 | vm-critical (mirror) | **nvme2n1** | nvme1n1 | PASSED / 99 |
+| PKG237W103845P1100 | vm-critical (mirror) | **nvme3n1** | nvme2n1 | PASSED / 99 |
+| PKG237W103863P1100 | vm-ephemeral (stripe) | **nvme5n1** | nvme4n1 | PASSED / 100 |
+| PKG237W103887P1100 | vm-ephemeral (stripe) | **nvme4n1** | nvme5n1 | PASSED / 100 |
+
+**Wearout 99–100 = endurance essentially untouched** after ~8 months (PVE reports life *remaining*;
+`smartctl -A /dev/nvmeX` → `Percentage Used` is the direct figure). No drive is near replacement.
+
+**Controllers:** the four NM620s are **`MAXIO MAP1202`, which is DRAM-less** — fine for this lab's
+load, but relevant if drives are ever bought: prefer DRAM-equipped, higher-endurance parts for a new
+mirrored pool rather than more NM620s.
 
 **To check all serials:**
 ```bash
 lsblk -o NAME,SIZE,MODEL,SERIAL
+ls -l /dev/disk/by-id/                       # stable names — prefer these over nvmeXn1
+zpool status -v                              # which serial sits in which vdev
 ```
 
-**Why this matters:** If a drive fails in a ZFS mirror, you need the serial number to identify which physical drive to replace.
+**Why this matters:** If a drive fails in a ZFS mirror, you need the serial number to identify which
+physical drive to replace — and ⚠️ **the `nvmeXn1` name in any document may already be wrong.**
+Pull the serial live, then match it to this table.
 
 ---
 
