@@ -1,0 +1,135 @@
+# =====================================================================================
+# home-lab-setup CI — Phase 16, Part 4: ship to the Docker Swarm lab cluster.
+#
+# This file adds NO deploy logic. It is a WRAPPER around
+# education/docker-swarm/scripts/deploy_swarm.sh, which was written in Part 3 and run by
+# hand first, on purpose.
+#
+#   The script owns : registry login, `docker stack deploy`, convergence polling, the
+#                     three smoke gates, and the rollback decision.
+#   The wrapper owns: WHEN it runs, WHO may run it, WHERE the secret comes from,
+#                     WHICH host it targets, and who gets told.
+#
+# Recorded claim for Phase 17 (Jenkins) to test: if a second CI system forces a change
+# to deploy_swarm.sh, the boundary above was drawn in the wrong place.
+#
+# 🚨 This project is NOT Capricorn. `deploy_qa` and `deploy_prod_local` live in
+#    production/capricorn and are never touched from here (phase16 hard rule B1).
+#    deploy_qa fires on every `develop` push; deploy_prod_local serves real production.
+# =====================================================================================
+
+# -------------------------------------------------------------------------------------
+# Gate 1 of 2 — does a pipeline get CREATED at all?
+#
+# ⚠️ NOT optional polish. ./push_gitlab.sh snapshots this repo to gitlab/main constantly
+# as a backup, and CI is already enabled on the project, so without this guard every
+# backup push would spawn a pipeline. Worse than noise: it would bury the deliberate
+# ones in a list of accidental ones.
+#
+# `web` means a human clicked "Run pipeline" in the UI. A push matches nothing and
+# creates nothing at all — not a blocked pipeline, not an entry in the list.
+#
+# ⚠️ The guard had to exist in the FIRST version of this file written TO DISK, not
+# merely in the first commit: push_gitlab.sh stages the working tree with `git add -f -A`
+# (tracked AND ignored), so a file is live on gitlab/main the moment it is saved.
+# -------------------------------------------------------------------------------------
+workflow:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "web" && $CI_COMMIT_BRANCH == "main"'
+    - when: never
+
+stages:
+  - deploy
+
+variables:
+  # Not secrets, so they live HERE and not in CI settings. A non-secret hidden in the
+  # settings UI is invisible to review, invisible to a fresh clone, and invisible to
+  # whoever is reading this job log at 3am wondering which host it touched.
+  REGISTRY: gitlab.gothamtechnologies.com:5050
+  REG_USER: swarm-lab-pull
+
+  SWARM_USER: agamache
+  # ⚠️⚠️ TRAP C4 — DO NOT "FIX" THIS. ⚠️⚠️
+  # One manager, by IP. The control plane is HA (3 managers, quorum 2) but this delivery
+  # path is not: kill THIS node and the deploy fails while the cluster is perfectly
+  # healthy and serving traffic. That is the best CI lesson in the phase and it has to be
+  # FELT before it is fixed. See phase16 -> planted traps -> C4.
+  SWARM_HOST: 192.168.1.191
+
+  # deploy_swarm.sh resolves the manifest RELATIVE TO ITSELF:
+  #   $(dirname $BASH_SOURCE)/../manifests/capricorn.stack.yml
+  # so the wrapper must reproduce that SHAPE on the remote host. Copying both files flat
+  # and passing STACK_FILE=... would "work" and would also fire the script's
+  # NON-DEFAULT STACK FILE banner on every routine deploy — a precondition check that
+  # exists because a drill was once voided by nobody noticing an override. Making it fire
+  # every time turns a working alarm into wallpaper.
+  REMOTE_DIR: /home/agamache/swarm-ci
+
+deploy_swarm:
+  stage: deploy
+
+  # Pinned explicitly rather than inheriting the runner's default, so a config.toml edit
+  # on .182 cannot silently change this job's toolchain.
+  # ⭐ Verified Aug 19: docker:24.0 (Alpine 3.20) already ships /usr/bin/ssh and
+  # /usr/bin/scp — the Docker CLI supports ssh:// connection contexts, so it must. Hence
+  # no `apk add openssh-client`, unlike Capricorn's alpine:latest jobs.
+  image: docker:24.0
+  tags:
+    - docker
+
+  # Gate 2 of 2 — does the job RUN inside a pipeline that exists?
+  #
+  # Kept even though gate 1 already means only a human can create the pipeline: the job's
+  # safety must not DEPEND on the workflow guard staying in place. A `workflow:` block is
+  # exactly the kind of thing a later session relaxes to "make CI work again".
+  when: manual
+
+  environment:
+    name: swarm-lab
+    url: http://192.168.1.191:5001
+
+  before_script:
+    # The key goes into ssh-agent VIA STDIN and is never written to a file. It therefore
+    # never appears in argv (world-readable via ps) and leaves nothing behind in the build
+    # workspace. The agent signs challenges; the private key never leaves its memory.
+    #
+    # ⭐ Side benefit found the hard way (phase16 P4-F1): no key file means no key-file
+    # PERMISSIONS. The project share is CIFS with file_mode=0775,nounix, where chmod 600
+    # is a silent no-op, so `ssh -i` refuses the key outright. This pattern is immune.
+    #
+    # `tr -d '\r'` is not superstition: a key pasted through a browser textarea or an
+    # editor that has met Windows arrives CRLF, and ssh then rejects it with
+    # "error in libcrypto" — a message that names nothing relevant.
+    - eval $(ssh-agent -s)
+    - echo "$SWARM_SSH_KEY" | tr -d '\r' | ssh-add -
+    # Lets ssh persist the host key for the life of the job, so connection 1 learns it and
+    # the rest verify against it. See the StrictHostKeyChecking callout below.
+    - mkdir -p ~/.ssh && chmod 700 ~/.ssh
+
+  script:
+    - echo "Deploying to swarm manager $SWARM_HOST (single target — see trap C4)"
+
+    # Reproduce the layout deploy_swarm.sh expects, then ship the two artefacts.
+    # ⚠️ Deliberately NOT relying on the NAS share being mounted on the node, even though
+    # it is: a deploy that depends on a shared mount deploys whatever happens to be on
+    # someone's workstation, not what CI checked out of git.
+    - ssh -o StrictHostKeyChecking=no "$SWARM_USER@$SWARM_HOST" "mkdir -p '$REMOTE_DIR/scripts' '$REMOTE_DIR/manifests'"
+    - scp -o StrictHostKeyChecking=no education/docker-swarm/scripts/deploy_swarm.sh "$SWARM_USER@$SWARM_HOST:$REMOTE_DIR/scripts/"
+    - scp -o StrictHostKeyChecking=no education/docker-swarm/manifests/capricorn.stack.yml "$SWARM_USER@$SWARM_HOST:$REMOTE_DIR/manifests/"
+
+    # The token crosses on STDIN and is read into an environment variable on the far side.
+    #
+    # ⚠️ Why not the obvious `ssh host "REG_TOKEN=$REG_TOKEN bash ..."`: that expands the
+    # token into the remote command line, where /proc/<pid>/cmdline is world-readable and
+    # `ps` shows it to every user on the node for the life of the deploy. Read from stdin,
+    # it reaches the script as ENVIRONMENT, and /proc/<pid>/environ is readable only by the
+    # owner and root. GitLab masking hides a value in JOB LOGS and does nothing about
+    # either of these.
+    #
+    # ⚠️ Honest limit: the lab registry is plain HTTP (ledger L1), so `docker login` puts
+    # this token on the LAN in cleartext no matter how carefully it was handled at both
+    # ends. Scoping it to read_registry (hard rule B6) limits what a captured token is
+    # WORTH; it does not prevent the capture.
+    - |
+      echo "$REG_TOKEN" | ssh -o StrictHostKeyChecking=no "$SWARM_USER@$SWARM_HOST" \
+        "read -r REG_TOKEN; export REG_TOKEN; export REG_USER='$REG_USER'; export REGISTRY='$REGISTRY'; bash '$REMOTE_DIR/scripts/deploy_swarm.sh'"

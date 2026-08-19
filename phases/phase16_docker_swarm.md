@@ -40,7 +40,7 @@ the original list read as five things blocking the phase, which was misleading.
 | # | Item | Owner | State |
 |---|---|---|---|
 | A1 | Will the `.182` runner pick up jobs for `home-lab-setup`? | *verified, no human needed* | ✅ **CLOSED Aug 12 — yes, no runner change needed.** |
-| A2 | Should this repo gain a `.gitlab-ci.yml` at all? | 🙋 **Andrew** | ⏸️ **DEFERRED to Part 4 (Aug 13)** — decide it with the `workflow: rules:` guard, since they are one decision |
+| A2 | Should this repo gain a `.gitlab-ci.yml` at all? | 🙋 **Andrew** | ✅ **RESOLVED Aug 19 — YES, guarded to `$CI_PIPELINE_SOURCE == "web"`, and the job ALSO keeps `when: manual`.** See "A2 resolved" below. |
 | A3 | postgres storage: pin to a node, or NAS volume? | 🙋 **Andrew** | ✅ **RESOLVED Aug 13 (early, by argument) — PIN to a node, plus a time-boxed ~30 min NAS-volume demonstration.** See "A3 resolved" below. |
 | A4 | Which published port, and does it collide? | *resolved, default chosen* | ✅ **CLOSED — publish `8080`.** |
 | A5 | Is `education/docker-swarm/{scripts,manifests}/` the right home for the stack file and deploy script? | 🙋 **Andrew** | ✅ **CLOSED Aug 13 — yes, keep it in the track.** A track is self-contained per `CONVENTIONS.md`. Later tracks copy this. |
@@ -97,6 +97,37 @@ a real Swarm skill and how people solve this when they have no choice. ⭐ **The
 to be able to say "I have done it and here is why I would not reach for it"**, which carries more
 weight in a conversation than either building it properly or skipping it.
 
+**A2 — resolved Aug 19, 2026, with two gates and one correction.** Andrew's call: the file lands, and
+the pipeline only ever comes into existence from the web UI. Two gates, deliberately independent:
+
+| Gate | Mechanism | What it decides |
+|---|---|---|
+| 1 | `workflow: rules: $CI_PIPELINE_SOURCE == "web"` | whether a pipeline is **created at all** — a push creates nothing, so `push_gitlab.sh` leaves no trail of dead pipelines |
+| 2 | `when: manual` on `deploy_swarm` | whether the job **runs** inside a pipeline that exists |
+
+⭐ **Gate 2 kept on purpose even though gate 1 already means only a human can create the pipeline**
+(Andrew, Aug 19): *the job's own safety must not depend on the workflow guard staying in place.* If a
+later session relaxes gate 1 — and a `workflow:` block is exactly the kind of thing that gets relaxed to
+"make CI work again" — the deploy still cannot fire on its own. It also matches the shape of a real
+pipeline, where the pipeline is created by a push and the manual gate *is* the production approval.
+
+⚠️ **Correction to the plan's own wording, found while walking A2.** The Part 4 text said the guard must
+land "in the SAME commit as the CI file". **Too weak.** `push_gitlab.sh` stages the working tree with
+`git add -f -A` (tracked *and* ignored), so the file reaches `gitlab/main` **the moment it exists on
+disk** — committed or not, staged or not. The guard must therefore be in the **first version written to
+disk**, not merely the first commit. A file created "to fill in later" is already live.
+
+🚨 **Open finding raised at the same moment, deliberately NOT solved yet (see P-numbers in Part 4's log
+when it runs).** `gitlab/main` is the **full plaintext mirror**: `push_gitlab.sh` exists precisely to put
+`PASSWORDS.md`, `github_credentials.md`, `proxmox/credentials` and `working/` on that branch. GitLab CI
+clones the branch it builds, so **the job's working directory contains every secret in the project** —
+which makes the masked `read_registry` variable (rule B6) a lock on a door in a building with no walls.
+This is not one of the planted traps (🅒); we walked into it while reasoning about A2. It is likely the
+strongest material in chapter 3, because the general form — ⭐ **a CI job's blast radius is the CONTENT OF
+THE BRANCH IT CHECKS OUT, not the variables you were careful with** — transfers directly to a Jenkins
+shop and to any repo whose "private mirror" doubles as a CI source. Chase it during the build; do not
+pre-empt it here.
+
 **A4 — closed.** The nodes are fresh VMs on their own IPs, so a published port cannot collide with
 anything existing in the lab; the only real constraints are avoiding Swarm's own `2377`/`7946`/`4789`.
 **Publish `8080`** and move on. (Recorded rather than dropped, because "why 8080" is the sort of
@@ -137,6 +168,8 @@ pre-empting them removes the lesson and leaves you with a tutorial.
 | D2 | Three VMs on one physical host simulates **node** failure, not **host** failure. | Honest caveat to state in the chapter, same as Phase 14's three-brokers-in-one-VM note. Every drill is a real Raft event; losing the Z6 still loses all three. |
 | D4 | 🚨 **`docker/docker-compose.qa.deploy.yml` is COMMITTED to the Capricorn repo with live third-party credentials inline** — a `DATABASE_URL` with the password, `MARKET_DATA_API_KEY`, `PLAID_CLIENT_ID`, `PLAID_SECRET`, and `EXPORT_ENCRYPTION_KEY` (the Fernet key that decrypts Plaid access tokens in `/data/export` files). ⚠️ **`PLAID_ENV=production`** — the QA environment is pointed at Plaid **production**, so these are not sandbox credentials. | ⚠️ **Application layer — raise with whoever owns Capricorn; NOT fixed here.** Materially worse than D3: D3 is a database password on one host, this is a **committed** set of live third-party financial-API credentials plus the key that decrypts exported access tokens. Editing the file does not help — it is in git history. Rotation at the provider is the only real remedy. **Values were deliberately NOT copied into this repo** (rule B7); the finding is recorded, the secrets are not. |
 | D5 | ⚠️ **`Dockerfile.postgres` bakes `ENV POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` into the image**, which is why QA's compose supplies no postgres environment at all. The same password also appears **in a comment on line 3 of `001_schema.sql`**, likewise baked into a layer. | ⚠️ **Application layer.** Consequence worth stating: **anyone who can pull the image has the database password** — including this phase's own `swarm-lab-pull` deploy token, which was granted `read_registry` for image pulls and got a credential as a side effect. **This is why our stack overrides `POSTGRES_PASSWORD` to `""` and supplies a lab-only value through `docker secret`** instead of inheriting the baked one. A credential in an image layer cannot be removed by editing a file. |
+| D6 | 🚨 **`deploy_qa` performs a registry login by putting the GitLab `root` account's password INLINE on an SSH command line**, in the committed `.gitlab-ci.yml` (read Aug 19 while copying the runner→host SSH pattern for Part 4). Two consequences the file's own author may not have joined up: the credential is **in git history** and therefore unremovable by editing, and because it is a **literal rather than a CI variable, GitLab's masking cannot touch it** — so it is printed into the job log of a job that fires automatically on *every* `develop` push. It is also visible in `ps` on the target host for the life of the command. | ⚠️ **Application layer — raise with whoever owns Capricorn; NOT fixed here** (rule B1 forbids touching that job at all). Recorded because it is the exact anti-pattern rule **B6** was written against, and we now have a live in-house example rather than a hypothetical one. ⭐ **This is why our job uses a `read_registry` deploy token delivered over stdin.** For the chapter, carry the **pattern** and never the value or the account (`CONVENTIONS.md` → app-specific findings table). |
+| D7 | **Every `ssh` and `scp` in both deploy jobs carries `-o StrictHostKeyChecking=no`**, and the `before_script` runs `mkdir -p ~/.ssh && chmod 700 ~/.ssh` while **never writing a `known_hosts`**. | ⚠️ **Inherited pattern, and a decision point for Part 4 rather than a defect to fix in Capricorn.** ⭐ **The `mkdir` is the interesting part:** GitLab's documented snippet is `mkdir -p ~/.ssh` *followed by* `ssh-keyscan "$HOST" >> ~/.ssh/known_hosts`. The safety step was dropped and **its scaffolding was kept** — the fingerprint of a copy-paste. Worth teaching as a habit: *when a config step looks purposeless, ask what used to be next to it.* ✅ **Correction, Aug 19 — the AI first wrote that the `mkdir` "protects nothing", and that is wrong.** Under `StrictHostKeyChecking=no` ssh still tries to *append* the host key to `~/.ssh/known_hosts`; with no `~/.ssh` it warns and carries on statelessly. The `mkdir` lets the key persist **for the life of the job**, so the first connection learns it and the seven that follow verify against it. That is trust-on-first-use scoped to one job: weak, since a MITM present at connection one is simply trusted, but **not nothing** — an attacker who intercepts only *some* connections gets caught. ⚠️ Recorded because overstating a criticism is its own kind of inaccuracy, and the corrected version is the more useful lesson. |
 | D3 | **Capricorn's compose on `.184` holds its secrets in plaintext, inline** — `POSTGRES_PASSWORD`, `POSTGRES_USER`, `POSTGRES_DB`, and a `DATABASE_URL` containing the password. There is **no `.env` file**; the values are committed into the compose file itself. | ⚠️ **Application layer — not ours to fix**, but it is the reason for hard rule B7. Note that `push_github.sh` would likely catch a leaked `DATABASE_URL` (its URL-with-password gate) but **would not catch a bare `POSTGRES_PASSWORD=` line** — so the protection against copy-paste is partial and accidental, not something to rely on. Raise the plaintext-secrets issue with whoever owns Capricorn. |
 
 ---
@@ -610,7 +643,50 @@ Requirements to work through:
   is perfectly healthy. **Notice this, then fix it** (try each manager in turn, or a name that
   resolves to all three). This is the best CI lesson in the phase — HA control plane ≠ HA delivery.
 
-**Then `s04-ci-wired`.**
+**Then `s06-ci-wired`.** ⚠️ **Corrected Aug 19 — this section originally said `s04-ci-wired`**, a name the
+drills session already used (`s04-drills-complete`). The chain is `s01 → s02 → s03 → s04 → s05`, so the
+CI snapshot is **`s06`**. Left visible rather than silently overwritten because ZFS rollback here is
+**linear and newest-only**: acting on the stale name would not have created a duplicate, it would have
+been a request to roll the cluster back to before the drills.
+
+---
+
+### Decisions taken Aug 19, 2026 — mirror Capricorn, document the gap, fix it in Phase 17
+
+🙋 **Andrew's call, and it is a deliberate deviation worth its own record.** Part 4 **copies Capricorn's
+existing deployment mechanism**, including the parts we can see are wrong, rather than building the
+secure version now:
+
+| Choice | What we do | Why |
+|---|---|---|
+| Key delivery | `ssh-agent` + `ssh-add -` from a **plain multi-line CI variable**, exactly as `deploy_qa` does | It is the mechanism he will actually be handed. GitLab **cannot mask a multi-line value**, so the key is unmaskable by construction — a constraint, not an oversight |
+| Host keys | `-o StrictHostKeyChecking=no`, as the inherited jobs do (finding D7) | Same reason. The callout names the consequence |
+| Registry token | 🚫 **NOT copied.** Ours is a `read_registry` deploy token over **stdin** | Rule B6, and finding D6 is the live counter-example |
+| The key itself | ⭐ **A NEW dedicated keypair, not Capricorn's** | See below — the one place we refuse to mirror |
+
+⭐ **Same mechanism, separate credential — the one carve-out, and the reasoning is the transferable
+part.** Capricorn's `.gitlab-ci.yml` footer describes `SSH_PRIVATE_KEY` as *"the runner's private key for
+SSH access to VMs"*: **one key serving `.180` (QA) and `.184` (local production)**. Reusing it would give
+the *study cluster's* pipeline SSH access to production Capricorn hosts, which **inverts the entire reason
+Part 4 lives in this repo** (O2: breaking the lab cluster must not be able to break Capricorn's delivery
+path). It also makes the lab key unrevokable — burning it after Phase 16 teardown would break production
+deploys. A fresh keypair costs one command and can be destroyed at teardown with no blast radius.
+⚠️ Secondary and merely practical: Capricorn's variable is almost certainly **project-scoped**, so
+promoting it to instance level would be an edit to production CI config — the spirit of rule B1.
+
+🚨 **The honesty cost, stated up front.** Deferring the correct implementation means the *"in production
+you would…"* half of these rows stays ⚠️ **recited**, and `CONVENTIONS.md` forbids a recitation wearing
+the authority of a test. **Turned into an asset instead** (agreed Aug 19):
+
+⭐ **PHASE 17 CHARTER — the recited rows ARE the scope.** Phase 17's success condition is not "Jenkins
+deploys the stack"; it is **"every ⚠️ recited row in the Phase 16 ledger is now ✅ verified."** Concretely:
+host keys pinned rather than `StrictHostKeyChecking=no`; a credential GitLab-or-Jenkins can actually mask
+(or a keystore-backed one that never becomes an env var); and a build agent that is **not** privileged
+with the docker socket mounted (L19). This makes Phase 17 testable, and it stops Part 4's shortcuts from
+becoming permanent by being written down as "fine". ⚠️ **A phase whose scope is another phase's unpaid
+debt is a pattern worth reusing** — consider folding it into `METHOD.md` once it has actually worked.
+
+**Then `s06-ci-wired`** (see the correction above).
 
 ---
 
@@ -2055,6 +2131,9 @@ opinion until proven.** Do not let them wear the authority of the tested ones.
 | L15 | 🚨 **The backend exhausts a 15-attempt wait-for-database loop, prints `❌ Bootstrap failed`, and then completes startup anyway** — so a database-less service reports `2/2`, passes `/health`, and 500s on every real request. | Nothing: the lab has no users, and the drill *wanted* this state to be reachable so it could be measured. | The process **exits non-zero** when a hard dependency is unavailable after its retry budget, and the readiness probe exercises the dependency rather than returning a constant. | 🚨 **Every safety net in the stack is defeated by one missing `sys.exit(1)`.** `restart_policy` never fires (nothing exited), `max_attempts` is never consumed, `deploy_swarm.sh` converges and prints digests, CI goes green, and the routing mesh sends users to it. ⚠️ **The retry loop is what makes it dangerous** — it absorbs the transient case perfectly, so the dependency looks handled right up to the terminal case, which degrades silently instead of failing. **An app that reports success while unable to serve is worse than one that crashes**, because a crash is a page and this is a support ticket three days later. | 🚨 **measured Aug 18** |
 | L14 | **The `pg_password` value existed ONLY inside Swarm's Raft log** — created out of band, never written down. The `s02` rollback destroyed it, and it is now unrecoverable. | Nothing of value was lost: the postgres volume was destroyed by the same rollback, so the next deploy runs `initdb` fresh and any new password works. | The authoritative copy lives in a real secrets manager (Vault, SSM, Secrets Manager) that the orchestrator *reads from*. The orchestrator is a **delivery mechanism, never the system of record**. | 🚨 **`docker secret` is not a secrets manager, and this is the trap.** The API will not give a secret back — `docker secret inspect` returns metadata, not the value — so a cluster rebuild loses every credential you did not store elsewhere. ⚠️ **But the NODE will:** `docker exec <task> cat /run/secrets/<name>` prints it in cleartext, so **`docker` group membership on any node equals read access to every secret scheduled onto it**, invisibly to any audit trail. Unreadable to operators, readable to anyone on the box — the worst of both. ⚠️ **We only escaped because the data volume died too.** Had the volume survived the Raft loss, postgres would still be authenticating against the OLD password baked into its data directory while the new secret disagreed: **a database you cannot log into, holding data you cannot read, with no copy of the credential anywhere.** | 🚨 **hit it for real, Aug 13** |
 
+| L19 | 🚨 **The shared runner's `docker` executor mounts `/var/run/docker.sock` into every job container AND runs `privileged = true`.** Observed Aug 19 at the start of Part 4 in `/etc/gitlab-runner/config.toml` on `.182`: `executor = "docker"`, `image = "docker:24.0"`, `privileged = true`, `volumes = ["/cache", "/var/run/docker.sock:/var/run/docker.sock"]`. | It is how the existing Capricorn pipeline builds and pushes images, and it was inherited, not chosen. One operator, one LAN. | Rootless build tooling that needs no daemon socket — **Buildah/`kaniko`/BuildKit in rootless mode** — or a dedicated build service the job talks to over an authenticated API. `privileged` is not granted, and the socket is never mounted. Where a daemon socket is genuinely unavoidable, the runner is **single-tenant and disposable**, not shared. | 🚨 **The docker socket is a root shell on the runner host, and there is no smaller way to say it.** Any job can `docker run -v /:/host` and read or write the entire filesystem as root — so **every project that can reach this runner can take over `.182`**, and `.182` is the host that deploys real production. ⚠️ **The part that makes it structural rather than sloppy: a job CANNOT decline it.** `volumes` and `privileged` live in the *runner's* config, so least privilege is not available to the person writing the pipeline — our `deploy_swarm` job inherits root-equivalent access to the runner host whether it wants it or not, and no amount of care in `.gitlab-ci.yml` can give it back. **This is also why "the runner already exists and needs no setup" (A1) was good news about effort and bad news about blast radius.** | ✅ **VERIFIED — read out of the live runner config, Aug 19** |
+| L20 | 🚨 **The branch CI builds from is the full plaintext secret mirror.** `push_gitlab.sh` exists to put `PASSWORDS.md`, `github_credentials.md`, `proxmox/credentials` and `working/` onto `gitlab/main` (`git add -f -A`, ignore rules bypassed on purpose). GitLab CI clones the branch it builds, so the job's working directory holds every credential in the project. | The mirror's whole purpose is to be a complete plaintext backup of a private repo, and until Aug 19 nothing ever *built* from it. Adding CI is what turned a backup branch into a build source. | Secrets never live in the repository at any layer — not in the working tree, not in a "private mirror", not in history. CI reads them from a secrets manager at job time, and the repo the pipeline checks out contains code only. | ⭐ **A CI job's blast radius is the CONTENT OF THE BRANCH IT CHECKS OUT, not the variables you were careful with.** Masking `REG_TOKEN` and scoping it to `read_registry` (rule B6) is correct and also nearly beside the point while the same job can `cat PASSWORDS.md` — which holds the Proxmox root password, the GitLab root password, and the swarm postgres secret. ⚠️ **The failure is compositional: two individually defensible decisions** (a complete private backup; a manual CI job) **combine into something neither of them was.** That is the general shape worth remembering, because each half will look fine in its own review. Mitigations exist and are cheap — `GIT_STRATEGY: none` or a sparse checkout of only the two files the job needs — but the *reason* to reach for them is this row, not tidiness. | ✅ **VERIFIED — `push_gitlab.sh` line 118 stages tracked + ignored; confirmed by its own `--dry-run` output listing the ignored paths** |
+
 ⭐ **L9 is the best row in this table and it wrote itself.** Docker *volunteered* the warning
 (`WARNING! Your credentials are stored unencrypted…`) without being asked. The tool told us it had just
 done something substandard, and **the near-universal response is to scroll past it.** That is the
@@ -2162,3 +2241,106 @@ operator checks). Chapter 6's rule — one instrument per rung — implemented r
 **Parts 3, 5 and 6 are done (deploy, drills, chapters). Next: Part 4 — the CI wrapper (Andrew's
 design decision pending, includes building trap C4 on purpose), then chapter 3, then the Part 7
 Swarm↔K8s comparison session and the `docker-admin.sh` design session.**
+
+---
+
+## Part 4 — implementation log (Aug 19, 2026)
+
+🙋 **Andrew driving, one step at a time, per `METHOD.md`.** A2 resolved at the top of the session; see
+"Decisions taken Aug 19" in the Part 4 design section.
+
+### Pre-flight, in order, with what each step actually established
+
+| # | Step | Result |
+|---|---|---|
+| 1 | Baseline from **inside** the guest: `docker node ls`, `docker stack services capricorn` | 3 managers `Ready`/`Active`, leader `docker-swarm-1`, engine 29.7.2; stack `2/2 3/3 1/1 1/1` |
+| 1a | Baseline from the **application**: the three smoke gates by hand | `ui:200`, `capricorn` body hits **2**, `api:200`, `total: 682` (611 transactions, 51 categories). ⭐ Deliberately not trusting `3/3` — chapter 6 exists because `3/3` was green while users saw *Welcome to nginx!* |
+| 2 | `executor` on `.182` | `docker` executor, `image = "docker:24.0"`, **`privileged = true`**, **`/var/run/docker.sock` mounted** → ledger **L19** |
+| 3 | Does `docker:24.0` even have an SSH client? | ❌ **Prediction refuted — it does.** `/usr/bin/ssh`, `/usr/bin/scp`, Alpine 3.20. **Mechanism:** the Docker CLI supports `ssh://` connection contexts, so the image must ship an SSH client. No `apk add` needed, unlike Capricorn's `alpine:latest` jobs |
+| 4 | Read Capricorn's `deploy_qa`/`deploy_prod_local` for the runner→host pattern | Pattern adopted: `ssh-agent` + `ssh-add -` from stdin. Findings **D6** (root password inline on an ssh command line, unmaskable because it is a literal) and **D7** (`StrictHostKeyChecking=no` + vestigial `mkdir ~/.ssh`) |
+| 5 | Dedicated keypair, ed25519, no passphrase, `working/phase16/` | `SHA256:Z4ZrDsR10B6GHUlowCgb0Bb/xjuD7mPOaWVCpdlYXZ8`. ⭐ `git check-ignore -v` run **before** the key existed — `.gitignore:10:/working/` |
+| 5a | Public half installed on all three managers | Andrew did `.191` by hand, AI did `.192`/`.193` (`METHOD.md` repetition rule). Verified public-key-only on all three; each can also run `docker node ls`, so the account is in the `docker` group |
+
+### 🚨 Finding P4-F1 — the project share CANNOT hold an SSH private key, and `chmod` cannot fix it
+
+`ssh -i` refused the new key outright: `Permissions 0775 … are too open. This private key will be
+ignored.` The cause is not a missing `chmod`:
+
+```
+/mnt/DevShare  //192.168.1.120/NeoCortex/DEV_Projects  cifs
+  rw,…,file_mode=0775,dir_mode=0775,nounix,…
+```
+
+**The mode is SYNTHESISED by the CIFS client from mount options**, not stored on the server, and `nounix`
+means there is no UNIX-extension channel to change it. `chmod 600` on that path is a no-op **that reports
+success**. ⚠️ **Two of our own good rules collided:** L14 says write the credential down somewhere
+authoritative inside the project tree; SSH says a private key must be `0600`. On this filesystem those are
+mutually exclusive, and no amount of care resolves it.
+
+⭐ **Resolved by making the local test mirror CI instead of approximating it** — which it should have been
+anyway. The pipeline never writes the key to a file; it pipes it into `ssh-agent` via `ssh-add -`, and
+`cat` does not care about the mode. So file permissions are **irrelevant in CI**, and the constraint only
+ever affected local verification. ⭐ **Credit where due: the inherited Capricorn pattern sidesteps an
+entire class of problem** (key-file modes, cleanup, leftover files in a build workspace) and we had not
+credited it with that when we adopted it.
+
+⚠️ **Do not let this feel solved.** The permission check is a *proxy* for "can anyone else read this
+file", and on a CIFS share the honest answer is yes — anyone who can mount `//192.168.1.120/NeoCortex`
+reads it, and `0775` is not even the NAS's real ACL. We suppressed the messenger, not the exposure.
+Acceptable only because the key is lab-only, scoped to three disposable VMs, and labelled
+`destroy at teardown` in its own comment field. The production answer is the SSH CA in the Phase 17
+charter: a credential short-lived enough that where it sits stops being interesting.
+
+### 🚨 Finding P4-F2 — `IdentitiesOnly=yes` restricts KEYS, not AUTH METHODS (an AI error, caught by the output)
+
+The verification command recommended by the AI was `ssh -i <key> -o IdentitiesOnly=yes`. It is **half a
+test.** `IdentitiesOnly` controls which *keys* are offered; it says nothing about which *methods* are
+permitted. So ssh discarded the key for bad modes and then **fell straight through to a password prompt.**
+
+⭐ **The false-green that was one keystroke away.** Had Andrew typed his password, the command would have
+printed `docker-swarm-1` and a healthy `docker node ls` — *exactly the output he had been told to expect* —
+while the key was explicitly ignored three lines earlier, above the scroll. The pipeline would then have
+failed in an environment with no password fallback, pointing at the wrong cause.
+
+**A conclusive test removes the fallback:** `-o PreferredAuthentications=publickey`. Final form, which is
+also a faithful replica of the CI environment rather than an approximation of it:
+
+```bash
+ssh-agent bash -c 'cat working/phase16/swarm_deploy_ed25519 | tr -d "\r" | ssh-add - && \
+  ssh -o PreferredAuthentications=publickey agamache@192.168.1.191 "hostname && docker node ls"'
+```
+
+`ssh-agent bash -c` starts an agent holding **nothing**, scoped to one command — no contamination from the
+operator's own loaded keys. Result: `Identity added: (stdin)`, no prompt, `docker-swarm-1`.
+
+⭐ **This belongs in chapter 3 and it generalises past SSH: a test can pass for a reason that will not
+exist in production.** Verifying a new credential while your *own* credentials are loaded is the everyday
+form of it — and it is the same family as chapter 6's false greens, one rung lower down, since here the
+instrument itself was misconfigured rather than the system lying.
+
+### CI variables (Andrew, GitLab UI, Aug 19)
+
+| Key | Type | Masked | Protected |
+|---|---|---|---|
+| `REG_TOKEN` | Variable | ✅ **yes** | no |
+| `SWARM_SSH_KEY` | Variable | ❌ **impossible** | no |
+
+Non-secrets (`REGISTRY`, `REG_USER`, `SWARM_USER`, `SWARM_HOST`, `REMOTE_DIR`) live in the `variables:`
+block of `.gitlab-ci.yml` instead. ⭐ **The rule: a value that is not secret belongs in version control**,
+where it is reviewable, present in a fresh clone, and visible to whoever is reading the job log at 3am
+wondering which host the job touched. Hiding non-secrets in the settings UI is a habit that costs nothing
+until the person debugging has no UI access.
+
+⚠️ Both variables are **unprotected**, so any branch's pipeline could read them. Normally worth tightening;
+here it is swamped by **L20** — the branch already contains every secret in plaintext.
+
+### Predictions BEFORE the first pipeline run
+
+| # | Prediction | Reasoning | Outcome |
+|---|---|---|---|
+| P35 | GitLab **accepts** masking on `REG_TOKEN`. | Mechanism argument, not a memory of the docs: GitLab's own deploy tokens are prefixed `gldt-` and contain `_` and `-`, so a masking charset that rejected them would be self-defeating. | ✅ **CONFIRMED** |
+| P36 | GitLab **refuses/does not offer** masking on `SWARM_SSH_KEY`. | Masking requires a single-line value; a PEM key is multi-line by construction. | ✅ **CONFIRMED** — accepted only as unmasked. **The key is unmaskable by design, not by oversight**, which is exactly the recited row Phase 17 must fix |
+| P37 | Committing this file and running `push_gitlab.sh` creates **NO pipeline** — not a blocked one, not a list entry. | `workflow: rules:` decides whether a pipeline is *created*; `push` matches no rule. | 🔲 |
+| P38 | ⭐ **The falsifiable one.** The first manual run deploys successfully with `deploy_swarm.sh` **byte-identical** to the by-hand version, no `STACK_FILE` override, no NON-DEFAULT banner, all three smoke gates green, `EXIT=0`. | Part 3 drew the boundary so the wrapper only supplies *when/who/where/which host*. Everything the script needs was verified in pre-flight. | 🔲 |
+| P39 | If P38 fails, the failure is in the **stdin token handoff** (`read -r` under a non-interactive `ssh` command shell), **not** in ssh auth, connectivity, or the script. | Auth was proven conclusively on all three managers with an agent-only, publickey-only test; the token path is the only piece never exercised. **Naming the most likely failure in advance is what makes a red pipeline diagnostic instead of a mystery.** | 🔲 |
+| P40 | Trap **C4**: with `.191` stopped, the job fails at the first `ssh` while `docker node ls` on `.192` still shows quorum and the app keeps serving on `:5001` from the surviving nodes. | 3 managers, quorum 2 — losing one is the *designed* failure for the control plane. The delivery path has no redundancy at all: one IP, hardcoded. | 🔲 |
