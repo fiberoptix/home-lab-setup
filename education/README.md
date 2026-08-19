@@ -18,7 +18,14 @@ produced by the same tooling.
 | Track | Subject | Chapters | Built in the lab? | Status |
 |---|---|---|---|---|
 | [**k8s-k3s-redpanda**](k8s-k3s-redpanda/README.md) | Kubernetes (k3s), Redpanda, and an order management system built on both | 7 written | **Yes** — everything in Ch1–6 was run on a real cluster | ✅ Ch1–7 complete · Ch8–10 planned |
-| [**docker-swarm**](docker-swarm/README.md) | Docker Swarm: building a three-manager cluster, shipping to it, deploying through a pipeline, breaking it on purpose, and the false-greens capstone | 6 of 6 written | **Yes** — a real three-node cluster running a real application, deployed by a real pipeline, with failure drills run against it | 🔵 In progress — all chapters written; Part 7 (Swarm↔k8s crib sheet) outstanding |
+| [**docker-swarm**](docker-swarm/README.md) | Docker Swarm: building a three-manager cluster, shipping to it, deploying through a pipeline, breaking it on purpose, the false-greens capstone, and the Kubernetes comparison | 8 written | **Yes** — a real three-node cluster running a real application, deployed by a real pipeline, with failure drills run against it | ✅ Ch1–8 complete (Ch7 AI-executed, Ch8 synthesis) |
+
+**The two tracks are one comparison, and this is where it is drawn.** The k3s track ran Kubernetes on
+**one** node; the Swarm track ran three, with a real pipeline and seven planted traps. That asymmetry
+makes several rows tempting and wrong, so the crib sheet
+[**docker-swarm/chapter08_swarm_vs_kubernetes.md**](docker-swarm/chapter08_swarm_vs_kubernetes.md)
+labels every claim with the lab that measured it, and marks as **recited** anything neither lab ran.
+It is the only document that cites both tracks; the chapters themselves stay self-contained.
 
 Further tracks are being scoped against the stack Andrew works on now. The roadmap lives in
 [`phases/phase15_education_program.md`](../phases/phase15_education_program.md); each track gets its

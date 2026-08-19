@@ -1,0 +1,46 @@
+// Chapter 8, figure 1 - the two object models, and the ONE extra layer that explains most of the
+// ergonomic difference. Deliberately NOT a side-by-side feature panel: a three-panel comparison is
+// tabular, and CONVENTIONS.md says tabular content belongs in a Markdown table, which prints at body
+// size. This figure earns its place by showing STRUCTURE - the ReplicaSet layer Swarm has no analogue
+// for, which is where revision history lives.
+//
+// No `subgraph cluster_*` here on purpose: `rank=same` pulls nodes OUT of clusters ("removing empty
+// cluster") and the column titles silently disappear. Plaintext header nodes survive rank alignment.
+// Render: dot -Tpng -Gdpi=150 ch08_fig1_object_models.dot -o ../images/ch08_fig1_object_models.png
+digraph object_models {
+    rankdir=TB;
+    bgcolor="white";
+    nodesep=0.45;
+    ranksep=0.30;
+    node [shape=box, style="rounded,filled", fontname="Helvetica", fontsize=13,
+          margin="0.14,0.08", fillcolor="#eef2f7", color="#5b6b7f"];
+    edge [color="#5b6b7f", arrowsize=0.7];
+
+    hs [label="DOCKER SWARM", shape=plaintext, style="", fontsize=14, fontcolor="#1f4e79"];
+    hk [label="KUBERNETES",   shape=plaintext, style="", fontsize=14, fontcolor="#1f4e79"];
+
+    s1 [label="stack",     fillcolor="#e8eef6"];
+    s2 [label="service",   fillcolor="#e8eef6"];
+    s3 [label="task",      fillcolor="#e8eef6"];
+    s4 [label="container"];
+    gap [label="no layer here", fillcolor="#fdeaea", color="#c0392b",
+         style="rounded,filled,dashed", fontsize=12];
+
+    k1 [label="namespace",  fillcolor="#eaf4ea"];
+    k2 [label="Deployment", fillcolor="#eaf4ea"];
+    k3 [label="ReplicaSet\lone per spec revision\l", fillcolor="#fff3d6", color="#b8860b", fontsize=12];
+    k4 [label="Pod",        fillcolor="#eaf4ea"];
+    k5 [label="container"];
+
+    hs -> s1 [style=invis];
+    hk -> k1 [style=invis];
+    s1 -> s2 -> gap -> s3 -> s4;
+    k1 -> k2 -> k3 -> k4 -> k5;
+
+    { rank=same; hs; hk; }
+    { rank=same; s1; k1; }
+    { rank=same; s2; k2; }
+    { rank=same; gap; k3; }
+    { rank=same; s3; k4; }
+    { rank=same; s4; k5; }
+}

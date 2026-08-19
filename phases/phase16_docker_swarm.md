@@ -1,11 +1,12 @@
 # Phase 16 — Docker Swarm: build it, wire a pipeline to it, then break it
 
-**Status:** 🔵 **IN PROGRESS — Parts 1–6 COMPLETE and ALL SEVEN PLANTED TRAPS CLOSED (Aug 19, 2026).**
+**Status:** 🟢 **ALL SEVEN PARTS COMPLETE and ALL SEVEN PLANTED TRAPS CLOSED (Aug 19, 2026).**
 Three nodes (`s01-base-clean`) → three-manager cluster, quorum 2 of 3 (`s02-swarm-up`) → Capricorn
-deployed → CI pipeline (Part 4) → state and failure drills (Parts 5–6) → **trap C7 closed last**.
-Snapshot chain runs to **`s07-c4-fixed-verified`**, the first one containing the C4 fix.
-**Next up: Part 7 — the Swarm↔Kubernetes crib sheet** (the last real deliverable), plus drill D
-(rotate `pg_password`) and a highlight pass on chapters 1/2/4/5/6.
+deployed → CI pipeline (Part 4) → state and failure drills (Parts 5–6) → **trap C7 closed** → **Part 7
+crib sheet written as chapter 8**. Snapshot chain runs to **`s07-c4-fixed-verified`**, the first one
+containing the C4 fix. Eight chapters written.
+**Remaining, both optional:** drill D (rotate `pg_password`, outlined in chapter 5 but never run) and a
+highlight pass on chapters 1/2/4/5/6, which carry 5–6 marks each against ~40 in track 1.
 ⚠️ **This header read "Parts 1 & 2 COMPLETE … Next up: Part 3" until Aug 19** — six days and four Parts
 out of date, while the log at the bottom was current. **A status line at the top of a long file is the
 first thing read and the last thing updated;** treat it as a claim to re-verify, not as state.
@@ -783,6 +784,53 @@ Written last, from experience rather than from docs. At minimum:
   the tag in the manifest and leaves resolution to the kubelet's pull policy.
 - Where Swarm's simplicity is a genuine advantage, and where it is a ceiling.
 - One honest paragraph: which would you pick for Capricorn, and why.
+
+### ✅ DONE — Aug 19, 2026, as `education/docker-swarm/chapter08_swarm_vs_kubernetes.md`
+
+Every bullet above is covered. Three decisions and one correction are worth recording, because they are
+the parts a re-read would otherwise have to re-derive.
+
+**D1 — it is a chapter in the Swarm track, not a top-level cross-track document.** A comparison of two
+tracks arguably belongs at `education/` level, and `CONVENTIONS.md` does say cross-track references go
+through `education/README.md`. It went into the track anyway for a practical reason: **`build_docx.py`
+takes a track argument**, so a file at `education/` level would never be printed, and the printed
+binder is the artefact. The convention is honoured by having `education/README.md` carry the pointer
+and the statement that this is the only document citing both tracks.
+
+**D2 — per-row provenance marks, and they are the reason the chapter is worth anything.** Every claim
+carries **S** (measured on this three-node Swarm), **K** (measured on single-node k3s), 🤖 (measured
+only in AI-executed chapter 7) or ⚠️ **recited** (neither lab ran it). Without the marks it is
+indistinguishable from any feature-comparison blog post, and worse — it would launder textbook claims
+into apparent experience. The device is reusable and should be reused for any future cross-track piece.
+
+**D3 — the framing is the lab asymmetry, not the feature list.** Three nodes with seven planted traps
+against one node with none. Almost every honest "Kubernetes didn't show that" row means **the lab had
+one node**, not that Kubernetes lacks the property — and the bias runs the other way too, because
+Swarm's higher fault count in this phase is a product of unequal scrutiny. That distinction leads §1.
+
+**Two findings the writing itself produced** (neither was in the plan):
+
+- ⭐ **The PVC row in the usual comparison is backwards.** The k3s lab ran `local-path`, whose
+  PersistentVolume is a directory on the node — so it **strands data on exactly the same nail** as a
+  Swarm named volume, and only escaped demonstrating it by having one node. What Kubernetes actually
+  supplies is a standard interface with a live driver ecosystem behind it. That is decisive, and it is
+  an argument about **ecosystem and storage**, not about the PVC object — which also reframes the
+  Capricorn verdict in §13.
+- ⭐ **Swarm's image default is the safer of the two**, which is the opposite of the usual narrative.
+  Pinning a digest at accept time is what keeps a 3am reschedule on the same build as its siblings.
+
+**C1 — one factual error caught during grounding, worth logging as a near-miss.** A first draft credited
+Swarm with bringing up "mutual TLS and an **encrypted Raft log** with no configuration." Chapter 1
+contains a Lab-vs-PROD callout stating the opposite — `Autolock Managers: false`, so **the Raft log is
+not encrypted at rest**. The claim was plausible, flattering, and contradicted by this track's own
+material. It is now stated correctly, with the TLS half marked ⚠️ **recited** because the lab never
+inspected a certificate. **This is the whole case for grounding a synthesis chapter in the source
+chapters rather than in recollection.**
+
+Mechanics: figure `ch08_fig1_object_models` (the ReplicaSet layer Swarm lacks) at 21.2pt on the page —
+`figcheck.py` passes all 10 figures ≥ 10pt; 69 highlights at **14.5%** of prose; docx built. A
+three-panel "what each lab could prove" comparison was deliberately **not** drawn as a figure —
+`CONVENTIONS.md` requires tabular content to be a Markdown table, which prints at body size.
 
 ---
 

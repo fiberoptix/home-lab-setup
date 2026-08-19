@@ -12,8 +12,9 @@ control plane is alive but refuses to accept changes.
 This track is also **the second half of a comparison.** The
 [k3s + Redpanda track](../k8s-k3s-redpanda/README.md) covered the same ideas on Kubernetes, on one
 node. Running the same workload on Swarm makes the differences concrete instead of theoretical — the
-short version is [below](#swarm--kubernetes-what-the-two-tracks-actually-showed); the full crib sheet
-is a planned Part 7 session.
+short version is [below](#swarm--kubernetes-what-the-two-tracks-actually-showed), and the full crib
+sheet is **[Chapter 8](chapter08_swarm_vs_kubernetes.md)**, written last, with every row labelled by
+which lab measured it.
 
 **Working record:** [`phases/phase16_docker_swarm.md`](../../phases/phase16_docker_swarm.md) — the
 plan, the decisions, the traps that are deliberately left in place, and what was actually run.
@@ -35,6 +36,7 @@ assumes. `COMMANDS.md` is a reference, not a chapter; keep it beside you from Ch
 | 05 | [Breaking it on purpose](chapter05_breaking_it.md) | The failure drills, predictions written first: unpullable images and rollback; **an image that starts and is the wrong application — first passing every signal, then re-run against the fix and caught in 47 seconds**; quorum loss (writes *and* reads); the reboot that silently cost three replicas; how to run a drill that means something | ✅ Written |
 | 06 | [False greens](chapter06_false_greens.md) | ⭐ The unplanned capstone: eight ways this cluster reported success for a question nobody asked, why every one of those signals was *honest*, the ladder of questions, and the smoke gate we built — including the failure it missed and how the gap was closed | ✅ Written |
 | 07 | [The tag that lies](chapter07_the_tag_that_lies.md) | 🤖 **AI-executed — declared in the chapter, and one step weaker than its siblings.** Why the `:latest` trap **could not fire**, and the two mechanisms that stranded old code anyway: a rolling update that reports `3/3` + `update in progress` **forever** because `start-first` and a per-node cap cannot both be satisfied, and `--force` restarting the old build while printing `converged`. Then 🚨 **two builds served from one URL at once** after a registry blip stripped the digest — and the same pin **protecting** a rescheduled task | ✅ Written |
+| 08 | [Swarm ↔ Kubernetes: a crib sheet](chapter08_swarm_vs_kubernetes.md) | The comparison this track exists for, written from both labs and **labelled row by row** with which one measured it. The object-model layer Swarm lacks; the command pairs that look identical and are not; **two opposite image defaults, neither safe**; the one place Kubernetes is structurally better (and it is not the one people cite); ⭐ **the PVC abstraction is not what protects your data — the lab's own storage class strands it identically**; where simplicity is an advantage, where it is a ceiling, and why it is *not* fewer ways to be wrong; and which one would run Capricorn | ✅ Written |
 
 Chapters are written after the work they describe, so the table fills in behind the build rather than
 ahead of it. **Chapter 6 was not planned** — the same phenomenon appeared in every drill, in our own
@@ -44,6 +46,12 @@ tooling, and in five of our own experiments, which made it a subject rather than
 Chapters 1–6 were driven by Andrew at the keyboard; chapter 7's commands were executed by the AI at his
 written instruction. Every output in it is real, but the operator judgement behind it was not earned by
 hand — so it is deliberately marked as weaker rather than quietly shelved alongside the others.
+
+**Chapter 8 ran no commands at all, and that is not a defect** — it is the comparison, and a comparison
+is synthesis rather than a session at the keyboard. What keeps it honest is that every claim carries a
+mark for where it came from: measured on this three-node Swarm, measured on the single-node k3s lab,
+measured only in AI-executed Chapter 7, or **recited** — meaning neither lab ran it, so it must never
+be quoted as experience.
 
 ---
 
@@ -149,7 +157,8 @@ sentence, so you know to learn it elsewhere:
 ## Swarm ↔ Kubernetes: what the two tracks actually showed
 
 ⚠️ *Grounded in what the two tracks ran (k3s on one node, Swarm on three); rows the labs did not
-exercise are marked recited. The full comparison is a planned Part 7 working session.*
+exercise are marked recited. This is the summary — the full treatment, with per-row provenance, the
+object-model figure and the Capricorn verdict, is **[Chapter 8](chapter08_swarm_vs_kubernetes.md)**.*
 
 | Question | Swarm (this track) | Kubernetes (k3s track) |
 |---|---|---|
