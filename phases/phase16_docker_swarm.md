@@ -2123,7 +2123,7 @@ opinion until proven.** Do not let them wear the authority of the tested ones.
 | L6 | **No backups — snapshots only.** | Nodes are rebuildable from template 9000 in minutes; nothing here is authoritative. | Back up the Raft state and every named volume; snapshots are not backups. | **A snapshot is a rollback, not a recovery.** Lose the host and you lose every snapshot on it. | ✅ policy |
 | L7 | **Password SSH auth still enabled** (observed during the `.192` join). | Template default; LAN-only. | Keys only, `PasswordAuthentication no`, ideally certificate-based with a bastion. | Cluster managers exposed to credential-stuffing, and no per-human audit trail. | ✅ observed |
 | L8 | **Images published and deployed as `:latest`.** | It is what Capricorn actually does — inherited, not chosen. | Immutable tags or digests; `:latest` never referenced by a deployed service. | "I pushed a fix and prod is still running the old code." **Trap C7 exists to make this happen on purpose.** | 🔲 will test (C7) |
-| L9 | **`docker login` writes the registry credential to `~/.docker/config.json` as base64** — an encoding, not encryption, reversible with no key. | Lab-only deploy token, `read_registry` scope, ~30-day expiry. | A **credential helper** backed by the OS keystore (`docker-credential-secretservice`, `pass`, or the cloud provider's helper), so the token never sits on disk in recoverable form. | Any process running as that user, any backup, **and every one of our VM snapshots** contains a working registry credential. ⚠️ In a CI context it also means a leaked build artefact or a debug `cat` in a pipeline log hands the token over. | ✅ **VERIFIED** — Docker printed the warning itself, and we decoded the blob back to `swarm-lab-pull` in one line |
+| L9 | **`docker login` writes the registry credential to `~/.docker/config.json` as base64** — an encoding, not encryption, reversible with no key. | Lab-only deploy token, `read_registry` scope, ~30-day expiry. | A **credential helper** backed by the OS keystore (`docker-credential-secretservice`, `pass`, or the cloud provider's helper), so the token never sits on disk in recoverable form. | Any process running as that user, any backup, **and every one of our VM snapshots** contains a working registry credential. ⚠️ In a CI context it also means a leaked build artefact or a debug `cat` in a pipeline log hands the token over. | ✅ **VERIFIED** — Docker printed the warning itself, and we decoded the blob back to `swarm-lab-pull` in one line. ⚠️ **Amended Aug 19 (P4-F3): the warning is WRITE-TIME ONLY.** An identical re-login prints `Login Succeeded` and nothing else — measured, with `config.json` untouched to the nanosecond. So **the one signal that made this row verifiable fires once per credential change**, and a reviewer auditing repeated CI deploys for it sees clean logs while the credential sits on disk exactly as readable as before. 🚨 *A security warning you only get on the first occurrence is a warning you will not get during the audit.* |
 | L10 | **The system-of-record database runs as a container task on a node-local volume**, pinned to one node so it cannot move. | Capricorn self-bootstraps demo data, so the lab's data is worth nothing and losing it costs nothing. The pin is what keeps it from silently moving. | 🚨 **Not a container at all.** Real PG hosts or a managed cluster: streaming replication, PITR, a *tested* restore path, and an upgrade story that does not involve a scheduler. | **You have made your database's availability a function of your orchestrator's scheduling decisions** — and given it a single point of failure with no replica, no backup and no restore rehearsal. ⚠️ Note the pin is *also* a lab compromise: it trades availability for durability, which is the wrong trade to make deliberately in production. | ✅ **Andrew's call, Aug 13** — and the narrow claim only: Redis, OpenSearch, MongoDB and Redpanda *are* routinely run on orchestrators in production |
 | L11 | **The application is published over plain HTTP on `:5001`/`:5002`, with no reverse proxy and no TLS.** | Deliberately QA-shaped: the lab's job is to teach the routing mesh, and a proxy in front would hide it. | TLS terminated at an ingress proxy; the app's own ports never published to a network a user can reach. | Session cookies and every API payload cross the network in cleartext. ⚠️ **And the shape of the lab quietly justified it** — see the note under this table: the *frontend build* is what forced the HTTP path, so "no TLS" arrived as a consequence of an image, not as a decision anyone made. | ✅ deliberate |
 | L12 | **A single long-lived registry token (`swarm-lab-pull`, valid to Dec 31 2026) is used by a human at the CLI and embedded into every service spec.** | One operator, one cluster, a lab. | Short-lived, workload-scoped credentials — OIDC/federated identity for the CI job, no static token anywhere, and pull credentials issued per-deploy rather than stored. | One leaked token grants registry access for a year, **and revoking it silently breaks every future task reschedule** (see the latch finding below) rather than failing at deploy time where you would notice. | ⚠️ recited |
@@ -2340,7 +2340,58 @@ here it is swamped by **L20** — the branch already contains every secret in pl
 |---|---|---|---|
 | P35 | GitLab **accepts** masking on `REG_TOKEN`. | Mechanism argument, not a memory of the docs: GitLab's own deploy tokens are prefixed `gldt-` and contain `_` and `-`, so a masking charset that rejected them would be self-defeating. | ✅ **CONFIRMED** |
 | P36 | GitLab **refuses/does not offer** masking on `SWARM_SSH_KEY`. | Masking requires a single-line value; a PEM key is multi-line by construction. | ✅ **CONFIRMED** — accepted only as unmasked. **The key is unmaskable by design, not by oversight**, which is exactly the recited row Phase 17 must fix |
-| P37 | Committing this file and running `push_gitlab.sh` creates **NO pipeline** — not a blocked one, not a list entry. | `workflow: rules:` decides whether a pipeline is *created*; `push` matches no rule. | 🔲 |
-| P38 | ⭐ **The falsifiable one.** The first manual run deploys successfully with `deploy_swarm.sh` **byte-identical** to the by-hand version, no `STACK_FILE` override, no NON-DEFAULT banner, all three smoke gates green, `EXIT=0`. | Part 3 drew the boundary so the wrapper only supplies *when/who/where/which host*. Everything the script needs was verified in pre-flight. | 🔲 |
-| P39 | If P38 fails, the failure is in the **stdin token handoff** (`read -r` under a non-interactive `ssh` command shell), **not** in ssh auth, connectivity, or the script. | Auth was proven conclusively on all three managers with an agent-only, publickey-only test; the token path is the only piece never exercised. **Naming the most likely failure in advance is what makes a red pipeline diagnostic instead of a mystery.** | 🔲 |
+| P37 | Committing this file and running `push_gitlab.sh` creates **NO pipeline** — not a blocked one, not a list entry. | `workflow: rules:` decides whether a pipeline is *created*; `push` matches no rule. | ✅ **CONFIRMED** — "There were no pipelines yet". ⭐ Checked as its own step, deliberately: **an absence is only evidence if you went looking for it before creating the thing that would fill the gap** |
+| P38 | ⭐ **The falsifiable one.** The first manual run deploys successfully with `deploy_swarm.sh` **byte-identical** to the by-hand version, no `STACK_FILE` override, no NON-DEFAULT banner, all three smoke gates green, `EXIT=0`. | Part 3 drew the boundary so the wrapper only supplies *when/who/where/which host*. Everything the script needs was verified in pre-flight. | ✅ **CONFIRMED first try.** Independently verified from the cluster rather than from CI's own report: `/home/agamache/swarm-ci/{scripts,manifests}` created 11:34 in the right shape, all four services `UpdatedAt 2026-08-19 15:34:18 UTC`, stack `2/2 3/3 1/1 1/1`. **The Part 3 boundary holds — the wrapper contributed zero deploy logic** |
+| P39 | If P38 fails, the failure is in the **stdin token handoff** (`read -r` under a non-interactive `ssh` command shell), **not** in ssh auth, connectivity, or the script. | Auth was proven conclusively on all three managers with an agent-only, publickey-only test; the token path is the only piece never exercised. **Naming the most likely failure in advance is what makes a red pipeline diagnostic instead of a mystery.** | ➖ **VACUOUS — scored as neither.** It was conditional on P38 failing and P38 passed. ⚠️ **Recorded rather than quietly counted as a hit:** a conditional prediction whose antecedent never fires has told you nothing, and treating it as confirmation is how a prediction log inflates its own accuracy. The mechanism *was* separately verified (`echo SENTINEL \| ssh "read -r X…"` → `GOT=[SENTINEL-12345]`) |
+
+### ⭐ Finding P4-F3 — `docker login` writes NOTHING when the credential is unchanged, and the AI drew a confident wrong conclusion from that
+
+**The observation that started it.** After a green pipeline, `~/.docker/config.json` on `.191` still read
+**Aug 13 18:27** — the day of the by-hand Part 3 deploy. The AI's hypothesis: the token never arrived, the
+script took its `else` branch (*"no REG_TOKEN supplied - relying on the existing login"*), and **the deploy
+only succeeded because a hand-made login from six days earlier was still on the node** — a false green
+manufactured by our own earlier work, in the same family as the manual `docker pull`s that half-voided
+trap C1.
+
+🚨 **Wrong.** The job log says plainly:
+
+```
+==> logging in to gitlab.gothamtechnologies.com:5050 as swarm-lab-pull
+    login ok
+```
+
+**Measured, after banking the log evidence first** (running the test in the other order would have
+destroyed the only proof — `METHOD.md`'s contamination rule, applied to the *sequence* of a diagnosis):
+
+```
+stat  →  2026-08-13 18:27:16.128571619 -0400   134 bytes
+printf '%s' '<token>' | docker login … --password-stdin   →  Login Succeeded
+stat  →  2026-08-13 18:27:16.128571619 -0400   134 bytes
+```
+
+**Identical to the nanosecond**, which rules out a rewrite of the same bytes. `docker login` compares the
+credential it would store against what is already there and, when they match, **does not touch the file.**
+
+⭐ **Three consequences, in increasing order of how much they matter:**
+
+1. **`config.json`'s mtime answers a different question than the one people ask it.** During an incident
+   the natural question is *"when did this node last authenticate to the registry?"* The mtime answers
+   *"when did this credential last CHANGE"* — potentially weeks earlier. A timeline built on it is wrong
+   and looks authoritative.
+2. 🚨 **The plaintext-storage WARNING is also write-time-only.** Ledger **L9** exists because Docker
+   volunteered `WARNING! Your password will be stored unencrypted…` on Aug 13. Today's identical login
+   printed **no warning at all**. So the single best security signal in this phase fires **once per
+   credential change**, and anyone auditing CI logs for it will see a clean log and conclude the exposure
+   is not there. **The credential on disk is just as readable; only the notification is gone.**
+3. ⭐ **You cannot prove from the node's filesystem that CI's `docker login` did anything.** An idempotent
+   operation leaves no trace when it has nothing to do, so **"nothing changed on disk" is not evidence
+   that "nothing happened."** The job log was the only proof.
+
+⚠️ **And the honest part: the AI reasoned from a filesystem artefact to a confident, wrong, alarming
+conclusion** — and would have "found" a false green that did not exist. ⭐ **Name it: this is a FALSE RED,
+and it belongs in chapter 6's taxonomy as the mirror image of everything already in it.** Chapter 6
+catalogues systems reporting health they do not have; this is an *observer* reporting failure that is not
+there. Both come from the same root error — **trusting a signal without knowing what generates it** — and
+the false red is the more expensive one in an incident, because it sends people to roll back a system
+that was fine.
 | P40 | Trap **C4**: with `.191` stopped, the job fails at the first `ssh` while `docker node ls` on `.192` still shows quorum and the app keeps serving on `:5001` from the surviving nodes. | 3 managers, quorum 2 — losing one is the *designed* failure for the control plane. The delivery path has no redundancy at all: one IP, hardcoded. | 🔲 |

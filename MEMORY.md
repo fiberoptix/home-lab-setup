@@ -141,6 +141,49 @@ editing `CURSOR_RULES`:
   - **New `=== EDUCATION PROGRAM (/education) ===` section**, 7 rules (now 8 + `1b` after Aug 13).
 
 - **🔵 IN PROGRESS — Phase 16: Docker Swarm** (`phases/phase16_docker_swarm.md`).
+  🎯 **PART 4 IS WIRED AND WORKING (Aug 19, 2026, ~10:00–11:45 AM). 🙋 Andrew drove it, one step at a
+  time.** GitLab CI now deploys the swarm stack. **A2 RESOLVED: yes, this repo has a `.gitlab-ci.yml`**,
+  with **two independent gates** — `workflow: rules:` restricts pipeline *creation* to
+  `$CI_PIPELINE_SOURCE == "web" && $CI_COMMIT_BRANCH == "main"` (because `push_gitlab.sh` pushes
+  constantly), and the job stays `when: manual` so its safety does not depend on that guard surviving a
+  future edit. ⚠️ **The guard had to be in the FIRST version written to DISK, not the first commit** —
+  `push_gitlab.sh` stages the working tree with `git add -f -A`, so an untracked file is already live on
+  `gitlab/main`. **P38 confirmed first try: the wrapper added ZERO deploy logic** — `deploy_swarm.sh` ran
+  byte-identical, no `STACK_FILE` override, three gates green. Verified from the *cluster*, not from CI's
+  report: `/home/agamache/swarm-ci/{scripts,manifests}` shipped by CI, all four services
+  `UpdatedAt 15:34:18 UTC`, stack `2/2 3/3 1/1 1/1`. **The wrapper reproduces the DIRECTORY SHAPE the
+  script expects** (`scripts/` + `manifests/` siblings) because `deploy_swarm.sh` resolves the manifest
+  relative to itself — copying both files flat and passing `STACK_FILE=` would fire the NON-DEFAULT STACK
+  FILE banner on every routine deploy and turn a working alarm into wallpaper.
+  **Credentials:** dedicated `working/phase16/swarm_deploy_ed25519` (ed25519, no passphrase,
+  `SHA256:Z4ZrDsR10B6GHUlowCgb0Bb/xjuD7mPOaWVCpdlYXZ8`) authorized for `agamache` on **all three**
+  managers; CI variables `REG_TOKEN` (masked ✅) and `SWARM_SSH_KEY` (**unmaskable — GitLab can only mask
+  single-line values, and a PEM key never is**), both unprotected. ⭐ **Deliberately a NEW keypair, not
+  Capricorn's `SSH_PRIVATE_KEY`**, which serves `.180` AND `.184`: sharing it would have given the study
+  cluster's pipeline SSH into production and made the lab key unrevokable.
+  🚨 **Two ledger rows worth reloading cold. L19:** the shared runner is `privileged = true` **with
+  `/var/run/docker.sock` mounted into every job** — a root shell on `.182`, the host that deploys real
+  production, available to **every project on the GitLab instance**, and **a job cannot decline it**
+  (it is runner config, not job config). **L20:** `gitlab/main` is the full plaintext mirror, and CI
+  clones the branch it builds, so **the job's working directory contains `PASSWORDS.md` and every other
+  secret** — which makes the masked token a lock on a door in a building with no walls.
+  ⭐ **P4-F3, the best finding: `docker login` writes NOTHING when the credential is unchanged.** Measured
+  to the nanosecond (`config.json` unmoved at Aug 13 18:27:16.128571619, 134 bytes, across a
+  `Login Succeeded`). Consequences: (a) that mtime answers *"when did the credential last CHANGE"*, not
+  *"when did this node last authenticate"* — a forensic timeline built on it is wrong; (b) 🚨 **the
+  plaintext-storage WARNING behind row L9 is write-time-only**, so it fires once per credential change and
+  an audit of repeated CI deploys sees clean logs; (c) an idempotent action leaves no trace, so **"nothing
+  changed on disk" is not evidence that "nothing happened"** — the AI reasoned from the stale mtime to a
+  confident *wrong* conclusion (a phantom false-green), which is a **FALSE RED** and the mirror image of
+  chapter 6's taxonomy. **P4-F1:** the project's CIFS share (`file_mode=0775,nounix`) **cannot hold an SSH
+  private key** — `chmod 600` is a silent no-op — but it does not matter, because the `ssh-agent` +
+  `ssh-add -` pattern never writes the key to a file. **P4-F2:** `IdentitiesOnly=yes` restricts *keys*, not
+  *auth methods*; the test fell through to a password prompt and one keystroke would have produced a
+  convincing false pass. Use `-o PreferredAuthentications=publickey`.
+  🔲 **Still owed on Part 4:** trap **C4** (`SWARM_HOST` is hardcoded to `.191` — stop that manager and
+  the deploy dies while the cluster is healthy; **DO NOT pre-fix**), then `s06-ci-wired`, then chapter 3.
+  ⭐ **PHASE 17 CHARTER agreed:** its success condition is *"every ⚠️ recited row in the Phase 16 ledger is
+  now ✅ verified"* — host keys pinned, a maskable/keystore credential, an unprivileged agent.
   🎯 **FULL TRACK REVIEW DONE (Aug 18, evening): four review agents audited everything; all findings
   fixed; C6b CLOSED BY RE-DRILL.** Frontend got a manifest `healthcheck` (`wget | grep -qi capricorn`
   — pre-verified in both the real image and nginx:alpine), `deploy_swarm.sh` got **Gate 3** (assert
@@ -1266,6 +1309,35 @@ cheapest first — pick by how much capability you need:
 
 **DIND Note:** Docker-in-Docker (services: docker:dind) fails. Standard jobs work fine.
 Use docker socket mount for builds: `volumes = ["/var/run/docker.sock:/var/run/docker.sock"]`
+
+### 🚨 What that socket mount actually costs (read out of config.toml, Aug 19 2026 — Phase 16 ledger L19)
+
+Verbatim from `/etc/gitlab-runner/config.toml`:
+
+```
+executor = "docker"
+  image = "docker:24.0"
+  privileged = true
+  volumes = ["/cache", "/var/run/docker.sock:/var/run/docker.sock"]
+```
+
+**The docker socket is a root shell on `.182`.** Any job can `docker run -v /:/host` and read or write
+the whole filesystem as root. Runner #2 is **`instance_type`** (instance-wide shared) with
+`run_untagged=true`, so **every project on this GitLab can do that** — and `.182` is the host that runs
+`deploy_prod_local` against real production.
+
+⚠️ **A pipeline author CANNOT decline it.** `privileged` and `volumes` are *runner* config, so least
+privilege is unavailable at the job level no matter how the `.gitlab-ci.yml` is written. Phase 16's
+"the runner already exists and needs no setup" (item A1) was good news about effort and bad news about
+blast radius. Fixing this is part of the **Phase 17 charter**, not a Phase 16 task.
+
+### `docker:24.0` already ships an SSH client (verified Aug 19, 2026)
+
+`docker run --rm docker:24.0 sh -c 'command -v ssh; command -v scp'` → `/usr/bin/ssh`, `/usr/bin/scp`,
+on Alpine 3.20. **Mechanism:** the Docker CLI supports `ssh://` connection contexts, so the image must
+carry one. So a deploy job on this image needs **no `apk add --no-cache openssh-client`** — unlike
+Capricorn's `alpine:latest` jobs, which do. Pin `image:` in the job anyway, so a `config.toml` edit here
+cannot silently change a job's toolchain.
 
 **APT signing key (packages.gitlab.com):**
 - Keyring: `/etc/apt/keyrings/runner_gitlab-runner-archive-keyring.gpg`

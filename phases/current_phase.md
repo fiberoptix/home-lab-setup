@@ -1,45 +1,143 @@
 # Current Phase
 
-**Updated:** August 18, 2026 - 8:25 PM EDT
+**Updated:** August 19, 2026 - 11:50 AM EDT
 
 ---
 
-## ▶️ RESUME HERE — "start on the next learning chapter" means THIS
+## ▶️ RESUME HERE — Part 4 is WIRED AND GREEN. Next: trap C4, then `s06`, then chapter 3.
 
-**Phase 16 (Docker Swarm), Part 4 → Chapter 3.** Chapters 1, 2, 4, 5, 6 are written, reviewed and
-docx-built; the cluster is healthy and snapshotted (`s05-review-c6b-closed`, all three VMs). Chapter 3
-("A pipeline that deploys") is the only gap, and it **cannot be written yet** — house rule: only
-document what was run, and Part 4 has not been run.
+**Phase 16 (Docker Swarm), Part 4.** ✅ **GitLab CI deploys the stack** (Aug 19, ~10:00–11:45 AM,
+🙋 Andrew driving one step at a time). **A2 is resolved**, the job ran green on the first attempt, and
+**P38 is confirmed: the wrapper added zero deploy logic** — `deploy_swarm.sh` ran byte-identical with no
+`STACK_FILE` override. Verified from the *cluster*, not from CI's own report.
 
-**The session therefore starts with Part 4, and 🙋 ANDREW DRIVES IT** (METHOD.md: CI wiring is the
-thing being learned, not lab plumbing). One step at a time, predictions before traps. The design is
-already complete in `phases/phase16_docker_swarm.md` → "Part 4 — Wire a pipeline to the cluster"
-(~line 554). Sequence:
+**Three things remain, in this order:**
 
-1. 🙋 **Decision A2 first** (the only true blocker): does this repo gain a `.gitlab-ci.yml`?
-   It is ONE decision with the `workflow: rules:` guard (e.g. `$CI_PIPELINE_SOURCE == "web"`) —
-   `push_gitlab.sh` pushes constantly, so the guard must land in the SAME commit as the CI file.
-2. Setup, small: SSH key from the runner (`.182`) to a manager — copy the existing `.182 → .184`
-   pattern; store the `swarm-lab-pull` token (`read_registry`, valid to Dec 2026) as a masked CI
-   variable (hard rule B6). Runner itself needs no work (A1 verified: id=2, shared, untagged ok).
-3. The job: manual-only, thin wrapper, token over **stdin** never inline (ps-visibility — reasoning
-   in the phase file). 🚨 Hard rule B1: never touch Capricorn's `deploy_qa`/`deploy_prod_local`.
-4. ⚠️ **DO NOT PRE-FIX TRAP C4**: target ONE manager by IP first, kill that manager, feel the
-   healthy-cluster-refuses-deploy failure, THEN fix (try managers in turn). Pre-solving it deletes
-   the phase's best CI lesson.
-5. Falsifiable claim to test: the pipeline adds ZERO deploy logic — `deploy_swarm.sh` is invoked
-   **unchanged**. If CI forces a script change, the Part 3 boundary was wrong (that is a finding).
-   The script's three smoke gates come free, so CI green = ready-for-business from day one.
-6. Snapshot after wiring: **`s06-ci-wired`** (chain is s01→s05; ZFS = linear, newest-only rollback).
-7. Then write chapter 3 from what happened: "three wrappers one script" (~line 2085), token
-   handling, P10 pre-flight ordering, trap C4 — all earmarked in the phase file.
+1. 🔲 **`s06-ci-wired` on all three VMs — AWAITING ANDREW'S AUTHORIZATION.** Command is drafted in the
+   session handoff below. Take it BEFORE the drill (anti-pattern: "skip a snapshot because the drill
+   looks safe"). ⚠️ ZFS = linear stack: taking `s06` forfeits direct rollback to `s05`. Judged fine —
+   `s06` supersedes it, differing only by today's CI work.
+2. 🔲 **Trap C4 — do NOT pre-fix.** `SWARM_HOST` is hardcoded to `192.168.1.191` in `.gitlab-ci.yml`,
+   and the comment above it says do-not-fix in capitals. Run `qm stop 191`, re-run the pipeline from the
+   UI, and **feel a healthy 2-of-3 cluster refuse a deploy while users notice nothing.** Andrew was
+   asked to predict three things first (which command fails; what `docker node ls` says from `.192`;
+   whether `:5001` still serves) — **the lesson is the COMBINATION, not "a deploy can fail"**. Then fix
+   it (try each manager in turn) and record both states.
+3. 🔲 **Chapter 3, "A pipeline that deploys"** — now unblocked, and the material is much richer than
+   planned. Earmarked: the two-gate design; `/proc/<pid>/cmdline` world-readable vs `environ` 0600 as the
+   real mechanism behind "no secrets on a command line"; the directory-shape-vs-`STACK_FILE` decision
+   (a lazy `scp` would have turned the NON-DEFAULT banner into wallpaper); **P4-F3 as a FALSE RED**;
+   P4-F2 (`IdentitiesOnly` restricts keys, not auth methods); Lab-vs-PROD callouts drawn from L19/L20
+   and D6/D7; and the "three wrappers, one script" boundary (phase16 ~line 2085).
 
-**Still open besides this:** GitHub push (chapters unreviewed by Andrew — GitLab only until he says);
-the two app-repo findings (bootstrap committed-delete; unauthenticated destructive endpoint — see
-`working/`); Part 7 Swarm↔K8s session; `docker-admin.sh` design session (COMMANDS.md §11 is its spec).
-**Lab state:** stack 2/2 3/3 1/1 1/1, frontend `(healthy)`, gates green, leader swarm-1; temp files
-`/tmp/capricorn.c6*.yml`, `/tmp/c6b_probe.log` on swarm-1 are harmless but `STACK_FILE` must be unset
-for a normal deploy.
+🔲 **Still owed / unchanged:** the raw job log has NOT yet been saved to
+`education/docker-swarm/scratch/` (chapter 3 needs real output — ask Andrew for it); **GitHub push held**
+(chapters unreviewed by Andrew, and see the redaction question below); the two app-repo findings
+(bootstrap committed-delete; unauthenticated destructive endpoint — `working/`); Part 7 Swarm↔K8s
+session; `docker-admin.sh` design session (COMMANDS.md §11 is its spec).
+
+⚠️ **Decision deferred, do not lose it:** L19/L20/D6 in `phases/phase16_docker_swarm.md` describe a
+working attack path on the lab in tracked, GitHub-bound files. Andrew's call (Aug 19) was **"deal with it
+at GitHub-push time, in one review pass with the chapters."** `push_github.sh` cannot catch this — its
+gates look for key blocks and passwords-in-URLs, not prose. **No secret VALUES are in tracked files.**
+
+**Lab state:** stack `2/2 3/3 1/1 1/1`, 682 rows, all three gates green, leader `docker-swarm-1`,
+snapshot chain `s01→s05`. `/home/agamache/swarm-ci/{scripts,manifests}` now exists on `.191` (shipped by
+CI). Old temp files `/tmp/capricorn.c6*.yml`, `/tmp/c6b_probe.log` on swarm-1 are harmless, but
+`STACK_FILE` must be unset for a normal deploy.
+
+---
+
+## 🎯 SESSION HANDOFF (Aug 19, 2026, ~9:45–11:50 AM EDT) — Part 4: CI reaches the swarm, first try
+
+🙋 **Andrew drove every step**, per `METHOD.md` ("CI wiring is the thing being learned"), which restores
+the practice after two AI-driven sessions. Explicitly asked for step-by-step teaching: *"I need to learn
+this by hand for my new job."* **He has already started the job** — framing is on-the-job, not interview.
+
+### Decisions taken (all recorded in `phase16_docker_swarm.md`)
+
+| # | Decision |
+|---|---|
+| **A2** | ✅ **Yes to `.gitlab-ci.yml`**, with TWO gates: `workflow: rules:` limits pipeline *creation* to `$CI_PIPELINE_SOURCE == "web" && $CI_COMMIT_BRANCH == "main"`; the job keeps `when: manual`. ⭐ Gate 2 kept on purpose — **the job's safety must not depend on the workflow guard surviving a later edit** |
+| Mechanism | 🙋 **Mirror Capricorn's insecure-but-real pattern** (`ssh-agent` + `ssh-add -` from a plain multi-line variable, `StrictHostKeyChecking=no`) and **document the gap**, rather than building the secure version now. Reasoning: it is the shape he will actually be handed at work, and it makes chapter 3 honest instead of pristine |
+| Key | ⭐ **A NEW dedicated keypair — the one carve-out.** Capricorn's `SSH_PRIVATE_KEY` serves `.180` AND `.184`, so reusing it would give the study cluster's pipeline SSH into production and make the lab key unrevokable. **Same mechanism, separate credential** |
+| **Phase 17** | ⭐ **Charter agreed: its success condition is "every ⚠️ recited row in the Phase 16 ledger is now ✅ verified."** Turns deferred debt into a testable phase instead of a promise |
+| Push | GitLab only (`5091564`). Commit `a54b023` on `main`. GitHub held |
+
+### What was built
+
+- **`.gitlab-ci.yml`** (new, 122 lines, heavily commented *with the reasoning*, not the mechanics).
+  One `deploy_swarm` job on `image: docker:24.0`, pinned explicitly so a `config.toml` edit on `.182`
+  cannot change the job's toolchain. Non-secrets live in the `variables:` block **on purpose** — a
+  non-secret hidden in the settings UI is invisible to review, to a fresh clone, and to whoever reads
+  the job log at 3am.
+- **Deploy key** `working/phase16/swarm_deploy_ed25519` (gitignored; `git check-ignore -v` run **before**
+  the key existed), authorized for `agamache` on `.191` (Andrew by hand) and `.192`/`.193` (AI, under the
+  repetition rule). Verified public-key-only on all three.
+- **CI variables:** `REG_TOKEN` (masked ✅ — P35 confirmed), `SWARM_SSH_KEY` (**unmaskable**, P36
+  confirmed: GitLab masks single-line values only, and a PEM key never is). Both unprotected.
+
+### 🚨 The five findings, in order of how much they are worth
+
+1. ⭐ **P4-F3 — `docker login` writes NOTHING when the credential is unchanged, and the AI drew a
+   confident WRONG conclusion from that.** `config.json` still read Aug 13 after a green pipeline, so the
+   AI hypothesised the token never arrived and the deploy had succeeded only on a six-day-old hand login
+   — a false green manufactured by our own earlier work. **Wrong:** the log said `login ok`, and a
+   by-hand re-login left the file untouched **to the nanosecond**. Consequences: that mtime answers *when
+   the credential last CHANGED*, not when the node last authenticated; 🚨 **the plaintext-storage warning
+   behind row L9 is write-time-only**, so it fires once per credential change and an audit of repeated
+   deploys sees clean logs; and **"nothing changed on disk" is not evidence that "nothing happened."**
+   ⭐ **Name it a FALSE RED** — the mirror image of chapter 6's taxonomy, and more expensive in an
+   incident because it sends people to roll back something that was fine.
+2. 🚨 **L19 — the shared runner is `privileged = true` with `/var/run/docker.sock` mounted into every
+   job**, i.e. root on `.182`, available to every project on the instance, on the host that deploys real
+   production. **A job cannot decline it** (runner config, not job config), so least privilege is not
+   available to the pipeline author at all.
+3. 🚨 **L20 — the branch CI builds from is the full plaintext secret mirror.** `push_gitlab.sh` puts
+   `PASSWORDS.md` et al. on `gitlab/main` by design, and CI clones what it builds. ⭐ **A CI job's blast
+   radius is the CONTENT OF THE BRANCH IT CHECKS OUT, not the variables you were careful with.** The
+   failure is **compositional**: a complete private backup and a manual CI job are each defensible, and
+   together they are not. 🔲 Not yet proven empirically that the runner's checkout contains them —
+   `GIT_STRATEGY: none` or a sparse checkout is the cheap mitigation when we get there.
+4. **P4-F2 — `IdentitiesOnly=yes` restricts KEYS, not AUTH METHODS.** The verification command the AI
+   recommended fell through to a password prompt; **one keystroke would have produced the exact expected
+   output while the key was explicitly ignored above the scroll.** Use
+   `-o PreferredAuthentications=publickey`. ⭐ Generalises: *a test can pass for a reason that will not
+   exist in production* — verifying a new credential while your own credentials are loaded.
+5. **P4-F1 — the project's CIFS share cannot hold an SSH private key.** `file_mode=0775,nounix` means the
+   mode is synthesised by the client and `chmod 600` is a **silent no-op**. L14 (write the credential
+   down, in-project) and SSH's 0600 requirement are mutually exclusive here. Irrelevant in the end,
+   because `ssh-add -` never writes a key file — ⭐ **credit to the inherited pattern for sidestepping an
+   entire class of problem.** ⚠️ But the exposure is real, not solved: anyone who can mount the share
+   reads that key.
+
+**Inherited findings recorded:** **D6** — Capricorn's `deploy_qa` puts an admin password **inline on an
+ssh command line** in a committed file: in git history, **unmaskable because it is a literal**, printed
+into the log of a job that fires on every `develop` push. **D7** — `StrictHostKeyChecking=no` everywhere;
+the surviving `mkdir -p ~/.ssh` is scaffolding from a docs snippet whose `ssh-keyscan` line was dropped
+(✅ **corrected in-record**: the AI first said it "protects nothing" — in fact it lets the host key persist
+for the life of the job, which is trust-on-first-use scoped to one job: weak, not nothing).
+
+### Predictions scored
+
+**P35 ✅, P36 ✅, P37 ✅, P38 ✅ (first try), P39 ➖ vacuous, P40 🔲 not yet run.**
+⚠️ **P39 is recorded as *neither* confirmed nor refuted** — it was conditional on P38 failing and P38
+passed. Counting an untriggered conditional as a hit is how a prediction log inflates its own accuracy.
+
+### One thing to correct in the plan, already done
+
+Part 4's text said to snapshot as **`s04-ci-wired`**; `s04` was taken by the drills session. The chain is
+`s01→s05`, so ours is **`s06`**. Left visible in the phase file rather than silently overwritten, because
+ZFS rollback is linear/newest-only: acting on the stale name would have been a request to roll the cluster
+back to before the drills.
+
+**Snapshot command, drafted and awaiting authorization:**
+
+```bash
+for v in 191 192 193; do
+  qm snapshot $v s06-ci-wired --description "Part 4 complete: GitLab CI deploys the stack. .gitlab-ci.yml with web-only workflow guard + manual job; swarm_deploy_ed25519 authorized on all three managers; /home/agamache/swarm-ci shipped by CI. Stack 2/2 3/3 1/1 1/1, 682 rows, three gates green. Trap C4 NOT yet fixed - SWARM_HOST is hardcoded to .191."
+done
+```
 
 ---
 
