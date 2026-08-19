@@ -210,12 +210,55 @@ editing `CURSOR_RULES`:
   the window the `!=` was incidentally protecting, and a **degraded-cluster precondition** that refuses to
   deploy if any node is not `Ready`/`Active` (override `ALLOW_DEGRADED=1`, kept deliberately — a tool that
   forbids the right incident action gets worked around in ways nobody records).
-  ⚠️ **UNTESTED, and recorded as such in the chapter and the track README: the degraded branch has NEVER
-  EXECUTED.** The post-fix pipeline was green on a *healthy* cluster, where old and new logic agree — so it
-  proves the happy path is unbroken and **cannot** distinguish the fix from the bug. Also untested: the
+  ✅ **BOTH VERIFIED against a genuinely degraded cluster (Aug 19, 2:48 PM), not recited.** Precondition: job
+  failed in **3 s** naming `docker-swarm-3(Down/Active)`, vs **5 min 10 s** and a wrong answer before the fix
+  — and `docker login` never ran, so a refused deploy touches no credential. 🚨 **That guard then made the
+  counting fix UNREACHABLE by normal means** (it stops execution upstream of the poll, in exactly the
+  scenario the poll fix was for) — ⭐ *an early guard can render a downstream path untestable*, which is the
+  better reason `ALLOW_DEGRADED=1` exists. Counting was therefore proved through the hatch, phantoms
+  confirmed present FIRST (`backend 3/2`, `frontend 5/3` — one ghost and two, reconciling exactly against
+  task placement): **`all services converged`** plus all three smoke gates and `total=682`. 🚨 **The old
+  logic would have burned 300 s reporting a FAILED DEPLOY on a demonstrably healthy application** — a false
+  red in our own tooling. ⭐ **Reload this framing: our poll now DISAGREES with `docker service ls` on
+  purpose and is right to** — post-deploy, Docker read `3/2`/`5/3` while we read `2/2`/`3/3`, because
+  `Replicas` counts tasks Swarm cannot confirm dead and we count tasks Swarm still wants alive. Being able to
+  say *which question each number answers* is what licenses contradicting a vendor's headline number.
+  ⚠️ Still untested: the
   rigorous settle-delay variant (compare `.Version.Index` across the deploy). Also unmeasured: whether
   unpinned `redis` silently lost its local volume when it rescheduled during the outage (trap C3's
   mechanism, possibly having occurred for real inside a different drill).
+  🚨 **UNPLANNED INCIDENT, Aug 19 2:55–3:02 PM — `qm start 193` made the restarted manager DEPOSE the healthy
+  leader every ~20 s for 2.5 minutes, and DOING NOTHING WAS CORRECT.** Reload the whole mechanism, it is the
+  best material in the phase. While powered off, `.193` kept campaigning and inflated its raft **term** 12→31
+  **without appending a log entry**, so it rebooted holding *the highest term and the stalest log* — and those
+  have opposite consequences. **Term is authority:** any node seeing a higher term must stand down, so `.191`
+  (a healthy leader at term 12) logged `became follower` + `soft state changed … resetting and cancelling all
+  waits`, which **aborts in-flight control-plane work** — a deploy landing in that window fails inexplicably.
+  **Index gates election:** `.191` at `index 775` rejected `.193` at `743`, so `.193` **could never win the
+  election it forced.** ⭐ **THE SENTENCE TO REMEMBER: a stale manager can force elections but can never win
+  one, so each forced election raises the term until a current-log node wins high enough to silence it — the
+  failure mode contains its own termination condition.** `.191` took term 34 with `.192`'s vote; settled;
+  churn count `0`. 🚨 **`docker swarm leave --force` on `.193` — the standard internet remediation — would
+  have destroyed a cluster 90 s from self-healing.** After a manager reboot: **wait ~3 min, re-measure churn**
+  (`journalctl -u docker --since '2 min ago' | grep -cE 'became leader|became follower|lost leader'`, `0` =
+  settled) and only escalate to demote/rejoin if churn stays non-zero (that points at log compaction, not term
+  inflation). ⚠️ **Diagnose from a node that is NOT the suspect:** `docker info` on `.193` said `The swarm does
+  not have a leader … too few managers are online` — **true at that instant and its stated explanation false**,
+  because `.193` had just deposed the leader. `nc … 2377` succeeded both directions and clocks were NTP-synced,
+  so network and skew were ruled out by measurement.
+  ✅ **P4-F8 FIXED — `MANAGER STATUS` is a THIRD question the guard never asked.** Throughout the flap `.193`
+  read `Ready/Active`, so the precondition called the cluster healthy. ⭐ `STATUS` = can it run tasks (worker
+  plane) · `AVAILABILITY` = drained? · `MANAGER STATUS` = live raft quorum member (control plane); **they move
+  independently — "one instrument per question" applied to three columns of ONE command.** `deploy_swarm.sh`
+  now prints a **`CONTROL PLANE DEGRADED (advisory)`** block and **PROCEEDS**, deliberately: quorum-intact
+  churn creates no phantoms so downstream checks stay valid, the condition self-limits, and blocking would
+  forbid a safe deploy *and* invite the reflex that causes the outage. **Severity should match consequence,
+  not alarm level.** ⚠️ The awk filter needs **`NF > 1`** — a worker's `ManagerStatus` is EMPTY, so without it
+  every worker is flagged a broken manager forever.
+  ✅ **P4-F7 FIXED:** the degraded banner printed `Refusing to deploy` and then deployed under
+  `ALLOW_DEGRADED=1` — the log contradicted itself. Verdict is now computed *before* it is narrated.
+  ⭐ **Never let an override change behaviour without changing the wording** (same class as P4-F6).
+  ⚠️ **`.191` still holds the PRE-FIX copy of `deploy_swarm.sh`;** the next pipeline `scp`s F7+F8 over it.
   ⭐ **Two CI-specific traps worth reloading cold. (1) A job RETRY replays the pipeline's ORIGINAL commit**
   — we fixed a file, pushed, hit Retry, and the runner checked out the old commit and failed identically;
   the manufactured conclusion "my fix did nothing" is wrong and extremely convincing. **After a fix, create
@@ -1821,7 +1864,7 @@ All pools feature-flag current (zpool upgrade Jul 9).
 | 14 | Kubernetes + Redpanda POC (was interview prep) | ✅ **CLOSED Aug 12, 2026 — goal met: the interviews happened Aug 6/7 and Andrew got the job.** Parts 1–6 done, 7 chapters written. VM 186 right-sized to 8 vCPU / 16 GB and left at snapshot `s05-app-running`. **Do not extend it**; Ch8–10 are track-1 education work, not phase 14. |
 | 11 | OpenClaw AI Agent | ✅ COMPLETE (vm-openclaw-1 @ .185, Feb 20, 2026) |
 | 15 | Education program — multi-track study repo | ✅ **Parts A–D COMPLETE Aug 12, 2026.** `education/` is now a shelf: one folder per track, shared `tools/`, `CONVENTIONS.md`. One item open — the `docker-swarm` row in `education/README.md`'s track table, held until the folder exists. |
-| 16 | Docker Swarm (education track 2) | 🔵 **IN PROGRESS — Parts 1 & 2 COMPLETE Aug 13, 2026.** VMs 191/192/193 built from template 9000; **three-manager swarm formed, quorum 2 of 3**, snapshots `s01-base-clean` → `s02-swarm-up` on all three. **Next: Part 3 — stack file, `docker secret`, first deploy, trap C1.** 🙋 Andrew drives from here (`education/METHOD.md` → "Who does the work"). Re-walk the `📌 READ THIS FIRST` pre-flight list in `phases/phase16_docker_swarm.md` each session. |
+| 16 | Docker Swarm (education track 2) | 🔵 **IN PROGRESS — Parts 1–4 COMPLETE Aug 19, 2026; all 6 chapters written.** VMs 191/192/193 from template 9000; three-manager swarm, quorum 2 of 3; snapshots `s01-base-clean` → **`s06-ci-wired`** (⚠️ `s06` PREDATES the C4 fix, so rolling back loses it; `s07` was declined). CI deploys the stack from GitLab; traps C1–C5 fired; **C4 fixed and VERIFIED against a degraded cluster (P48+P50)**; chapter 3 complete with highlight pass. **Next: trap C7 (digest freezing, rescoped to a LAB-ONLY image — hard rule B1 forbids touching production Capricorn tags), drill D (rotate `pg_password`), Part 7 Swarm↔K8s crib sheet.** 🙋 Andrew drives (`education/METHOD.md` → "Who does the work"). Re-walk the `📌 READ THIS FIRST` pre-flight list in `phases/phase16_docker_swarm.md` each session. |
 | 17 | Jenkins (education track 3) | 📋 **CONFIRMED NEXT after Phase 16** — Jenkins is named explicitly on the study list (`education/fin_tech_stack.txt`), so this is no longer provisional. Phase 16 Part 3 deliberately keeps deploy logic in a shell script, so this track is largely "write a different wrapper". |
 | 18+ | Remaining study list | 💭 **Backlog, worked STEP-BY-STEP in its stated order** after Jenkins: OpenSearch + Dashboards → Prometheus + Grafana → Redpanda Connect + Debezium CDC → MongoDB + Postgres → SAML/OIDC (authentik) → Ansible. Source of truth is `education/fin_tech_stack.txt`; do not re-derive priorities. |
 

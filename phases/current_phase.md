@@ -1,33 +1,73 @@
 # Current Phase
 
-**Updated:** August 19, 2026 - 2:30 PM EDT
+**Updated:** August 19, 2026 - 3:21 PM EDT
 
 ---
 
-## ▶️ RESUME HERE — Part 4 is DONE and the track is 6 of 6. Next: one 5-minute test, then Part 7.
+## ▶️ RESUME HERE — Part 4 DONE and VERIFIED, chapter 3 COMPLETE. Next: trap C7 (lab-only image).
 
-**Phase 16 (Docker Swarm), Part 4 is COMPLETE** (Aug 19, ~10:00 AM – 2:26 PM, 🙋 Andrew driving). CI
-deploys the stack, **trap C4 was fired, felt, and fixed**, and **chapter 3 is written** — every chapter in
-the track now exists. Nothing is committed: the working tree holds 8 modified + 4 new files.
+**Phase 16 (Docker Swarm), Part 4 is COMPLETE** (Aug 19, ~10:00 AM – 3:21 PM, 🙋 Andrew driving). CI
+deploys the stack, **trap C4 was fired, felt, fixed, and the fix is now PROVEN**, an **unplanned Raft
+incident** was diagnosed and written up, and **chapter 3 is finished** — prose, figure 2, highlight pass,
+docx. Every chapter in the track exists.
 
-### 🔲 The one thing that should happen before anything else, because it is 5 minutes
+✅ **Cluster state at handoff: HEALTHY.** `.193` restarted; all three `Leader/Reachable/Reachable`, churn
+count `0`, services `2/2 3/3 1/1 1/1`, smoke gates green at `total=682`.
+⚠️ **`.191` still holds the PRE-FIX `deploy_swarm.sh`** — the P4-F7 wording fix and the P4-F8 control-plane
+advisory are in the repo but not yet on the node. The next pipeline run `scp`s them over.
 
-⚠️ **The C4 fix has never actually run.** Andrew restarted `.191` before the post-fix pipeline, so the run
-was green on a **healthy** cluster — where the old broken logic and the new logic produce *identical*
-output. **It proves the happy path is unbroken and cannot distinguish the fix from the bug.**
+### ✅ CLOSED — the C4 fix is verified, not recited (P48 + P50, 2:40–2:48 PM)
 
-Concretely, these code paths have executed **zero** times:
-- the degraded-cluster precondition's failure branch in `deploy_swarm.sh` (`CLUSTER DEGRADED: …`)
-- the corrected task-level convergence counting *under phantom conditions*, which is the only condition
-  it was written for
+Both previously-unexecuted paths have now run against a genuinely degraded cluster (`qm stop 193`, chosen
+because it hosts no pinned service, so the app stayed healthy and the variable stayed isolated):
 
-**To close it (prediction P48 is already recorded):** `qm stop 193` — deliberately **not** `.191`, so the
-app stays healthy and the variable stays isolated — then `./push_gitlab.sh` and **create a NEW pipeline**
-(a retry replays the old commit; see P4-F4). Expect a failure in **under ~5 seconds**, before
-`docker login`, naming `docker-swarm-3(Down/Active)`. Then `qm start 193` and re-run for green.
+- **P48 ✅ precondition.** Pipeline failed in **3 s** naming `docker-swarm-3(Down/Active)`, vs **5 min 10 s**
+  and a *wrong* answer pre-fix. `docker login` never ran — a refused deploy touches no credential.
+- **P50 ✅ counting**, through `ALLOW_DEGRADED=1` by hand on `.191`, phantoms confirmed present **first**
+  (`backend 3/2`, `frontend 5/3` — one ghost and two, reconciling exactly against task placement):
+  `all services converged`, all three smoke gates, `total=682`.
 
-⭐ By this project's own standard, shipping the fix untested makes it **recited, not verified** — the exact
-category the Phase 17 charter exists to eliminate. Do not let it become inherited debt.
+🚨 **Two findings worth carrying, both bigger than the bug.** (1) **The precondition made the counting fix
+unreachable** — it halts upstream of the poll in exactly the scenario the poll was written for; ⭐ *an early
+guard can render a downstream path untestable*, which is the better reason the escape hatch exists.
+(2) **The old logic would have spent 300 s reporting a FAILED DEPLOY on a demonstrably healthy application**
+— the smoke gates in the same run are the ground truth. A false red, in our own tooling, for a day.
+⭐ **Our poll now disagrees with `docker service ls` on purpose and is right to** (`3/2`/`5/3` vs `2/2`/`3/3`):
+`Replicas` counts tasks Swarm cannot confirm dead; we count tasks Swarm still wants alive.
+
+Raw logs: `scratch/c4_job_log_p48_degraded.txt`, `scratch/p50_allow_degraded_converged.txt`.
+
+### ✅ CHAPTER 3 IS COMPLETE (3:2x PM) — incident written up, figure 2, highlight pass, docx
+
+- **§7 retitled** "One node, three lies: a false count, a broken checker, and a deposed leader" — the old
+  title stopped describing the section once the restart incident went in. Four new subsections cover the
+  blind spot, the term/index mechanism, why doing nothing was right, and the advisory fix.
+- **Figure 2** `ch03_fig2_term_inflation` — the disruption loop. ⚠️ **Sizing is not free-form:** `figcheck.py`
+  enforces ≥10pt rasterised, and the build scales every figure to the 7in box, so **raw aspect ratio sets
+  the font size**. One column = 8.7in tall (overflows); one row = 18in wide (4.2pt); two pairs on shared
+  ranks = 9.0pt (rejected). One shared rank landed it at **12.5pt**. All 8 track figures now pass.
+- **Highlight pass DONE** — 113 marks, **16.7%** of prose. Anchors: `scratch/ch03_anchors.py`.
+  ⚠️ **Never re-run `highlight.py` on this file.** A first pass hit 22.9% because anchors were whole
+  sentences; ⭐ *marking a whole sentence defeats the purpose — if everything is marked, nothing is*, so
+  they were cut to the operative clause. Multi-line anchors work (the markdown is hard-wrapped).
+- **docx rebuilt** and verified inside the zip: 249 `Key` runs, both figures embedded, footer present,
+  **zero literal `custom-style` leakage** into body text.
+- **Corrections made in the same pass:** a stale `(§6)` cross-reference that should have been `(§7)`, and
+  `COMMANDS.md`'s claim that the "swarm does not have a leader" message can be trusted — today it appeared
+  with **quorum fully intact**, so §9 now has a subsection on diagnosing it from a *different* node.
+
+### 🔲 Found while doing this: the Swarm track never got a real highlight pass
+
+| Track | Marks per chapter |
+|---|---|
+| `k8s-k3s-redpanda` | 33, 38, 39, 42, 45, 45, 103 — a real ~15% pass |
+| `docker-swarm` | **5, 5, 6, 6, 5** (ch1, 2, 4, 5, 6) — incidental marks only, not a pass |
+| `docker-swarm` ch3 | **113** ✅ (done today) |
+
+⭐ Chapter 3 is now the only Swarm chapter that can be revised from its marks. The other five need anchor
+lists (~40 each). Not urgent, but it is an inconsistency inside one printed track, and the anchor lists live
+in gitignored `scratch/`, so they are not recoverable from a clone — see the accepted debt note in
+`CONVENTIONS.md`.
 
 ### 🔲 Also open, smaller
 
@@ -44,8 +84,7 @@ category the Phase 17 charter exists to eliminate. Do not let it become inherite
 - 🔲 **Unchanged from before:** **GitHub push held** (chapters unreviewed + the redaction question below);
   the two app-repo findings (bootstrap committed-delete; unauthenticated destructive endpoint —
   `working/`); **Part 7 Swarm↔K8s crib sheet** (now the last substantive Phase 16 item);
-  `docker-admin.sh` design session (COMMANDS.md §11 is its spec). The highlight pass
-  (`highlight.py`) has **not** been run on chapter 3 — ⚠️ never re-run it on an already-highlighted file.
+  `docker-admin.sh` design session (COMMANDS.md §11 is its spec).
 
 ⚠️ **Decision deferred, do not lose it:** L19/L20/D6 (and now L21/L22) in
 `phases/phase16_docker_swarm.md` describe a working attack path on the lab in tracked, GitHub-bound files.
@@ -84,7 +123,9 @@ predicted (5 tasks, not 2) · **P43 ✅** including the hang-then-500 (first cal
 endpoint; by the second the failure is known — **same fault, two symptoms, distinguished only by when you
 ask**) · **P44 ✅** (`export` in one `script:` entry is visible to later entries — the runner concatenates
 `before_script` + `script` into one shell) · **P45 ✅** (`.191` rejected instantly; `EHOSTUNREACH`, not the
-5s timeout) · **P46 ✅** · **P47 ✅** · **P49 ✅** (green: 682 rows, three gates) · **P48 ➖ NOT TESTED.**
+5s timeout) · **P46 ✅** · **P47 ✅** · **P49 ✅** (green: 682 rows, three gates) · **P48 ✅** (3 s, named
+`docker-swarm-3(Down/Active)`, before `docker login`) · **P50 ✅** (the discriminating run: phantoms present,
+`all services converged`, gates passed).
 **P40c ⚠️ half refuted** — I predicted the app kept serving; the UI did, the API did not. 🙋 **Andrew's own
 prediction beat mine**: he read the manifest and called the `postgres` pin. (He also said redis was pinned —
 refuted by manifest line 32; ⭐ and the consequence *inverts*: unpinned + local volume means it reschedules
@@ -141,7 +182,9 @@ ledger **L21** (passphrase-less key in an unmasked variable; GitLab cannot mask 
 and **L22** (`StrictHostKeyChecking=no`; ✅ **measured** that `mkdir ~/.ssh` gives TOFU *within* the job —
 `Permanently added` appears once, later connections verify, so the window is the job's FIRST connection.
 The earlier claim that it "protects nothing" was wrong) · track README 6-of-6, `education/README.md`,
-chapter 2's header pointer, and "does not cover" now lists the untested degraded path.
+chapter 2's header pointer, and "does not cover" now lists the untested `.Version.Index` refinement (the
+degraded path was listed there until P48/P50 closed it — ⚠️ **stale "untested" claims are as wrong as stale
+"tested" ones**; both were corrected in the same pass).
 
 ---
 

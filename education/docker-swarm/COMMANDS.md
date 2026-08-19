@@ -507,7 +507,7 @@ one follower. **The application never missed a request.**
 | Command | Behaviour with no quorum | Verified? |
 |---|---|---|
 | `docker service ls` | 🚨 `rpc error: code = DeadlineExceeded`. **Reads need the leader too** — Swarm serves no stale answers from a follower. | ✅ |
-| `docker node ls` | `The swarm does not have a leader. It's possible that too few managers are online.` ⭐ **The clearest error message in Docker; trust it.** | ✅ |
+| `docker node ls` | `The swarm does not have a leader. It's possible that too few managers are online.` ⭐ A very clear message — but see the ⚠️ below: **it describes the node you asked, not the cluster.** | ✅ |
 | `docker service scale` / `update` | Refused with the same message. **Verified afterwards that the writes genuinely never landed** (`Replicas` unchanged, label absent) — Raft refused honestly. | ✅ |
 | `docker info --format '{{.Swarm.Managers}} {{.Swarm.Nodes}} {{.Swarm.ControlAvailable}}'` | 🚨 **`0 0 true`** — reads as *"the cluster is empty"*, and `ControlAvailable` means "configured as a manager", **not** "management works". Monitoring built on that field reports healthy. | ✅ |
 | `docker ps` | ✅ Works. 🎯 **During quorum loss this is your ONLY inventory**, and it is per-node — you must visit each one. | ✅ |
@@ -529,6 +529,33 @@ docker service ls --format '{{.Name}}\t{{.Replicas}}'   # confirm full strength 
 ⭐ **Also observed twice now: Raft leadership is not sticky.** After recovery the leader was the node that
 had *stayed up*, not the one that had been leader before. Do not build any procedure that assumes a
 particular node is the leader — ask.
+
+### ⚠️ The same "no leader" message with quorum FULLY INTACT — do not diagnose from one node
+
+Measured Aug 19, 2026, unplanned, after restarting one of three managers. `docker info` on the **rebooted**
+node reported `The swarm does not have a leader. It's possible that too few managers are online.` while the
+other two held quorum and the application served every request.
+
+🚨 **The message was true and the explanation it offers was false.** Enough managers *were* online. What had
+happened is that the rebooted node had campaigned while powered off, inflating its **Raft term** without
+advancing its **log index** — so it returned with the highest term and the stalest log. High term forces a
+sitting leader to stand down (`resetting and cancelling all waits`, which **aborts in-flight service
+updates**); a stale log makes it ineligible to win. It deposed the leader roughly every 20 s and lost every
+election it forced.
+
+| Ask this | To answer | Not this |
+|---|---|---|
+| `docker node ls` **on a node that is not the suspect** | Does the cluster have a leader and quorum? | `docker info` on the suspect, which reports only its own view |
+| `docker node ls --format '{{.Hostname}} {{.ManagerStatus}}'` | Which managers are in the quorum *now*? (⚠️ empty for workers — filter `NF>1`) | `STATUS`/`AVAILABILITY`, which describe the **worker** plane and read `Ready/Active` throughout this fault |
+| `journalctl -u docker --since '2 min ago' \| grep -cE 'became leader\|became follower\|lost leader'` | Is leadership **stable**, or flapping? `0` = settled | any single point-in-time reading, which cannot see churn |
+
+> 🚨 **The remediation you will find recommended online — `docker swarm leave --force` then rejoin — would
+> have destroyed a cluster that fixed itself in about 2.5 minutes.** ⭐ **The loop is self-limiting by
+> construction: a stale manager can force elections but can never win one, so terms rise until a node with a
+> current log wins high enough to silence it.** After a manager reboot, **wait ~3 minutes and re-measure the
+> churn count** before touching anything. Escalate to demote/rejoin only if churn stays non-zero, which
+> points at log compaction (the leader having trimmed past the follower's index) rather than at term
+> inflation.
 
 ---
 

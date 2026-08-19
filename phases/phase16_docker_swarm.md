@@ -2751,6 +2751,226 @@ break the happy path** — worth knowing, and not what was claimed.
 EXECUTED.** By this project's own standard that makes them *recited*, not verified — the exact category
 Phase 17 was chartered to eliminate. It is a five-second test. Do it rather than inherit it.
 
+#### P48 ✅ CONFIRMED (run #4, `baab2a64`, 2:43 PM) — with `.193` stopped, not `.191`
+
+⭐ **`.193` was chosen deliberately: it holds no pinned service, so the app stayed healthy and the only
+variable was "one node is not `Ready`".** The original C4 run conflated two failures; this one does not.
+
+```
+    192.168.1.191   USABLE — reachable, a manager, and has quorum
+==> deploy target: 192.168.1.191
+CLUSTER DEGRADED: docker-swarm-3(Down/Active)
+FAILED: cluster degraded: docker-swarm-3(Down/Active) (override with ALLOW_DEGRADED=1 …)
+ERROR: Job failed: exit code 1
+```
+
+**Every clause held:** it fired **before `docker login`** (no `logging in to…` line — the precondition sits
+between the manager check and the registry login), and it named the right node.
+
+🚨 **The number that makes the case, and it is worth quoting in full:**
+
+| Same class of problem | `step_script` duration | Verdict |
+|---|---|---|
+| Before the fix (C4, `.191` down) | **05:10** | wrong — accused two healthy services, cleared the broken one |
+| After the fix (`.193` down) | **00:03** | right — named the degraded node |
+
+⭐ **~100× faster and correct instead of incorrect, from asking the cheap question first.** The expensive
+check was not made better; it was made *unnecessary*, which is the more valuable move. **Note also that
+`docker login` never ran** — the fast path avoided touching a credential at all, so a refused deploy now
+leaves no trace on the node. That was not designed; it falls out of ordering the checks by cost.
+
+Note the two-stage decay found earlier pays off here: `Status` passes through `Unknown` before `Down`, and
+the check triggers on **either**, because both fail the `Ready` test rather than matching a specific string.
+
+#### 🚨 But the OTHER half of the fix is now UNREACHABLE, and that is a self-inflicted problem
+
+**The corrected task-level convergence counting is still untested, and the precondition is the reason.**
+The guard stops execution *upstream* of the convergence poll, in exactly the scenario the counting fix was
+written for. **A phantom task can no longer occur in a run that reaches the poll.**
+
+⭐ **General lesson worth more than the fix itself: adding an early guard can make a downstream code path
+untestable by normal means.** Both changes are correct, and together they create a path that can never be
+exercised in production conditions — which is how code rots into something nobody dares touch.
+
+⚠️ **The only route left is the escape hatch**, which is a second reason `ALLOW_DEGRADED=1` was worth
+keeping. **Prediction P50, to be run with `.193` still down:**
+
+```bash
+ssh agamache@192.168.1.191
+ALLOW_DEGRADED=1 bash /home/agamache/swarm-ci/scripts/deploy_swarm.sh
+```
+
+*(No `REG_TOKEN` needed — the script skips login when it is unset and relies on the node's existing
+credential. The manifest resolves relative to the script, so no `NON-DEFAULT STACK FILE` banner.)*
+
+**P50:** the degraded banner prints as **ADVISORY**, the deploy proceeds, and the convergence poll reports
+**`all services converged`** — where the old `!=`-on-`Replicas` logic would have hung for the full 300 s on
+phantom-inflated counts. That single run is what discriminates the new counting from the old.
+
+⚠️ **PRECONDITION — check before running it, or the result is VACUOUS.** P50 only means something if
+`.193` was actually hosting tasks when it went down. Run `docker service ls` first: **if `backend` reads
+`3/2` or `frontend` reads `4/3`, phantoms exist and the test is real. If they read `2/2` and `3/3`, there
+are no phantoms and the run proves nothing** — say so rather than banking a pass. This is the same
+discipline that marked P39 vacuous rather than green.
+
+#### ✅ P50 CONFIRMED (2:48 PM, by hand on `.191`) — the counting rewrite is VERIFIED, not recited
+
+**The precondition was checked first and the test was real.** Phantoms were present, and more than expected:
+
+```
+capricorn_backend    replicated   3/2      <- 1 phantom (backend.1 was on docker-swarm-3)
+capricorn_frontend   replicated   5/3      <- 2 phantoms (frontend.2 AND .3 were on docker-swarm-3)
+```
+
+The arithmetic reconciles exactly against the 2:07 PM task placement: `.193` held one `backend` and **two**
+`frontend` tasks, so 2 survivors + 1 ghost = `3/2`, and 3 survivors + 2 ghosts = `5/3`.
+
+**The result:**
+
+```
+  ALLOW_DEGRADED=1 - proceeding anyway. Treat every check below as ADVISORY.
+==> waiting for convergence (timeout 300s)
+    all services converged
+==> smoke gate: is it ready for business? (timeout 90s)
+    /api/v1/banking/categories -> 200, body matched
+    /api/v1/data/summary -> total=682 rows
+    5001/ -> 200, body matched 'capricorn'
+==> done
+```
+
+🚨 **This is the discriminating run, and the contrast is total.** Same cluster shape, same phantom
+inflation, one node down:
+
+| | Old logic (`!=` on `Replicas`) | New logic (tasks, `desired-state=running`) |
+|---|---|---|
+| Verdict | **`did not converge`** after 300 s | **`all services converged`** in seconds |
+| Named | `backend(3/2) frontend(5/3)` — both healthy | nothing — correctly |
+| Smoke gates | **never reached** | ✅ all three, `total=682` |
+
+⭐ **And the ground truth is in the same output: the smoke gates passed.** The application was genuinely
+serving, with real data, on a cluster missing a node — so `converged` is the *correct* verdict, and the old
+code would have declared **a FAILED DEPLOY on a healthy application**, then sent someone to investigate a
+rollback of a working system. **That is a false red, and it was in our own tooling for a day.**
+
+🚨 **Worth stating plainly, because it is the mature version of this whole lesson: our tool now DISAGREES
+with `docker service ls` on purpose, and is right to.** After the deploy, Docker's own summary column still
+reads `3/2` and `5/3`; our poll reads `2/2` and `3/3` and calls it converged. **We built an instrument that
+contradicts the vendor's headline number, and we can justify the disagreement from first principles** —
+`Replicas` counts tasks Swarm cannot confirm dead, and we count tasks Swarm still wants alive. ⭐ Being able
+to say *which question each number answers* is the difference between second-guessing a tool and trusting
+your own.
+
+**Every code path in the C4/convergence work has now executed.** The only remaining untested item in this
+area is the `.Version.Index` refinement of the settle delay, which was never claimed as done.
+
+#### 🚨 P4-F7 — the override made the script's OWN LOG lie, found by reading the P50 output
+
+The banner printed **`Refusing to deploy.`** and then deployed. Under `ALLOW_DEGRADED=1` the wording was
+never re-checked, so the log asserted one thing and did the opposite four lines later.
+
+⭐ **This is the same defect class as P4-F6** (the failure message that contradicted the dump beneath it):
+**a message describing an INTENTION rather than the action actually taken.** Harmless while you are watching
+the whole run scroll past; not harmless at 3am reading a log tail, where `Refusing to deploy` is a complete,
+plausible, and wrong explanation of why the fix you shipped is not live. **An operator would go looking for a
+deploy that had in fact happened.**
+
+🚨 **The general rule, now in the script as a comment: never let an override change behaviour without
+changing the wording.** Fixed by computing the verdict *before* narrating it, and the trailing line changed
+from `proceeding anyway` to **`ADVISORY MODE - a green result below does NOT mean the cluster is healthy`** —
+which states the consequence rather than the mechanism. ⚠️ The copy on `.191` is now stale; the next pipeline
+`scp`s the corrected script.
+
+---
+
+### 🚨 UNPLANNED INCIDENT (2:55–3:02 PM) — a rebooted manager DEPOSED the healthy leader for 2.5 minutes
+
+**This was not a planted trap.** It arrived on its own from `qm start 193` after the P48/P50 tests, and it is
+the most instructive failure of the phase. **Nobody intervened, and that was the correct action.**
+
+#### What was observed, in the order it was observed
+
+| Time | Vantage | Reading |
+|---|---|---|
+| 2:55 | `.191` | `docker-swarm-3   Ready   Active   **Unreachable**` — services already clean `2/2 3/3 1/1 1/1` |
+| 2:58 | `.193` | `Error: The swarm does not have a leader. It's possible that too few managers are online.` |
+| 2:58 | `.193` raft | campaigning at terms 21→26, `1 MsgVoteResp votes and 0 vote rejections` |
+| 3:00 | `.191` raft | `received a MsgAppResp with higher term from …[term: 31]` → `became follower` → `cancelling all waits` |
+| 3:00 | `.191` raft | `[logterm: 12, index: 775] rejected MsgVote from …[logterm: 11, index: 743]` |
+| 3:00 | both | `nc -vz … 2377` succeeded **both directions**; `timedatectl` synced, no skew |
+| 3:02 | `.191` | all three `Leader/Reachable/Reachable`; **churn count `0`** |
+
+#### The mechanism — ⭐ `term` and `index` moved in OPPOSITE directions
+
+While `.193` was powered off it kept campaigning into the void, **inflating its raft term from 12 to 31
+without ever appending a log entry.** It rebooted holding **the highest term in the cluster and the most
+stale log** — and those two facts have opposite consequences in Raft:
+
+1. **Term is authoritative.** Any node seeing a higher term MUST stand down. So a healthy leader at term 12
+   was forced to `become follower` — and `soft state changed … resetting and cancelling all waits`, which
+   **aborts in-flight control-plane operations.**
+2. **Log freshness gates election.** `.191` at `index: 775` rejected `.193` at `index: 743`, so `.193`
+   **could never win** the election it had just forced.
+3. `.191` re-elected itself with `.192`, `.193` bumped its term again, repeat — **a leadership flap every
+   ~20 s.**
+
+⭐ **The single sentence worth memorising: a stale manager can force elections but can never win one, so the
+loop RAISES THE TERM until a current-log node wins high enough to silence it. The failure mode contains its
+own termination condition.** Observed duration: 14:57:03 first campaign → 14:59:39 `.191` leader at term 34 →
+settled. **~2.5 minutes, zero intervention.** This is what Raft PreVote exists to prevent.
+
+#### 🚨 The reflex would have caused the outage it was meant to fix
+
+At 2:58 the evidence was a manager reporting `does not have a leader`, stuck `Unreachable`, churning six
+terms a minute. **Every instinct says intervene, and `docker swarm leave --force` on `.193` is the standard
+internet-recommended remediation.** It would have destroyed a cluster that was **90 seconds from fixing
+itself**, trading a self-healing degradation for a real outage plus a manual rejoin under pressure.
+⭐ *The reflex to "just bounce something" turns degraded into outage* — previously a line inherited from the
+Redpanda phase, now **a thing that nearly happened here.** Waiting was not luck; it was justified by the
+self-limiting property above.
+
+#### 🙋 Two AI diagnostic errors, both from the same root, both worth keeping
+
+**(1) "`.193` is isolated and will stay that way" — REFUTED.** Built on `0 vote rejections` from a log window
+covering 14:57–14:58, when the peer transport had not yet re-dialled. By 14:59:11 it had, and rejections
+began arriving. 🚨 **Two log windows captured minutes apart were read as one stable condition** — ⭐ *an
+evolving fault, sampled twice at a distance, impersonates a stable fault of a different kind.*
+
+**(2) "Two honest vantage points" — wrong in an interesting way.** The `.193` vs `.191` disagreement was
+framed as *perspective*. It was **time**: at the instant `.193` asked, there genuinely was no leader,
+because `.193` had just deposed him. **Both nodes were correct, seconds apart, about a cluster that was
+flapping.** ⚠️ The lesson survives in stronger form — *when two instruments disagree, establish whether they
+disagree about the world or about the moment, before theorising about vantage point.*
+
+#### Predictions
+
+**P51 ➖ REFUTED** (`MANAGER STATUS` did *not* flip within ~60 s of engine start; it took ~2.5 min and only
+after a term-34 election) · **P52 ✅ CONFIRMED** (churn count exactly `0`, all three `Reachable`, `tail -20`
+empty) · **P53 ➖ VACUOUS** — antecedent never held, so **nothing is concluded about log compaction or
+snapshots**, and demote/rejoin was never needed.
+
+#### 🚨 P4-F8 — the verified guard has a blind spot, demonstrated by this incident
+
+Throughout the flap `.193` read `Ready/Active`, so the precondition proved this afternoon **would have called
+the cluster healthy and deployed into a control plane cancelling in-flight work every 20 s.**
+`MANAGER STATUS` was the only column telling the truth, and the guard never looked at it.
+
+⭐ **Three columns, three different questions, and they move independently:** `STATUS` = can this node run
+tasks (worker plane) · `AVAILABILITY` = has an admin drained it · `MANAGER STATUS` = is it a live raft quorum
+member (control plane). **"One instrument per question" applied to the columns of a single command.**
+
+**Fixed as an ADVISORY, not a failure** — and the severity reasoning is the teachable part: quorum-intact
+churn creates no phantom tasks, so every downstream check stays meaningful; the condition is self-limiting;
+so blocking would forbid a safe deploy *and* invite the demote/rejoin reflex that turns this into an outage.
+**Severity should match consequence, not alarm level.** The advisory prints the churn-count one-liner and an
+explicit "wait ~3 minutes, do NOT `swarm leave --force`".
+
+⭐ **Third unplanned validation of the C4 capability probe.** `ssh .193` worked fine throughout, so a naive
+reachability check would have selected it; `docker node ls` on `.193` failed, so the probe skips it. Written
+for C5's deliberate quorum loss, and it correctly handled a spontaneous fault of the same class.
+**"Reachable is not usable" is now measured three independent ways.**
+
+Raw evidence: `scratch/incident_raft_term_inflation.txt`.
+
 #### What the recovery revealed about A3's trade-off
 
 `total=682`, unchanged. ⭐ **The pin that CAUSED the outage is the same pin that preserved the data**:
@@ -2842,4 +3062,5 @@ catalogues systems reporting health they do not have; this is an *observer* repo
 there. Both come from the same root error — **trusting a signal without knowing what generates it** — and
 the false red is the more expensive one in an incident, because it sends people to roll back a system
 that was fine.
-| P40 | Trap **C4**: with `.191` stopped, the job fails at the first `ssh` while `docker node ls` on `.192` still shows quorum and the app keeps serving on `:5001` from the surviving nodes. | 3 managers, quorum 2 — losing one is the *designed* failure for the control plane. The delivery path has no redundancy at all: one IP, hardcoded. | 🔲 |
+| P40 | Trap **C4**: with `.191` stopped, the job fails at the first `ssh` while `docker node ls` on `.192` still shows quorum and the app keeps serving on `:5001` from the surviving nodes. | 3 managers, quorum 2 — losing one is the *designed* failure for the control plane. The delivery path has no redundancy at all: one IP, hardcoded. | ⚠️ **HALF REFUTED (Aug 19)** — clauses 1 and 2 ✅ (`Host is unreachable`, exit 255; quorum held, leader moved to `.193`). Clause 3 ❌: the **UI** kept serving (`ui:200`, `grep → 2`) but the **API** did not (`{"detail":"Internal server error"}`), because `postgres` is pinned to the node I stopped. 🙋 **Andrew's prediction beat mine** — he read the manifest and called the pin. Full write-up in the Part 4 log |
+| P41–P49 | Scored in the **Part 4 implementation log** above (trap C4 section) rather than duplicated here: P41 ✅, P42 ✅ (worse than predicted — 5 tasks), P43 ✅, P44 ✅, P45 ✅, P46 ✅, P47 ✅, P49 ✅. | — | ⚠️ **P48 ➖ NOT TESTED** — the degraded-cluster precondition's failure branch has never executed. **The single open experiment in Phase 16's CI work.** |

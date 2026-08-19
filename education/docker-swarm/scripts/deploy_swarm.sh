@@ -90,9 +90,19 @@ docker node ls >/dev/null 2>&1 || die "not a swarm manager (or swarm is inactive
 degraded="$(docker node ls --format '{{.Hostname}} {{.Status}} {{.Availability}}' \
     | awk '$2 != "Ready" || $3 != "Active" { printf " %s(%s/%s)", $1, $2, $3 }')"
 if [ -n "$degraded" ]; then
+    # Decide the verdict BEFORE narrating it. The first version printed "Refusing to deploy" and then,
+    # under ALLOW_DEGRADED=1, deployed anyway - so the log contradicted itself, and anyone reading the
+    # top of it during an incident would conclude nothing had been deployed. Same defect class as the
+    # failure-message-vs-dump contradiction (P4-F6): a message that describes an intention rather than
+    # the action actually taken. Never let an override change behaviour without changing the wording.
+    if [ "${ALLOW_DEGRADED:-0}" = "1" ]; then
+        verdict="Deploying ANYWAY (ALLOW_DEGRADED=1). Every check below is ADVISORY ONLY, because"
+    else
+        verdict="Refusing to deploy. Not because the deploy would necessarily fail - it might well succeed - but because"
+    fi
     printf '\n\033[31mCLUSTER DEGRADED:\033[0m%s\n' "$degraded" >&2
-    echo "Refusing to deploy. Not because the deploy would necessarily fail - it might well" >&2
-    echo "succeed - but because NOTHING THIS SCRIPT CHECKS AFTERWARDS WOULD MEAN ANYTHING:" >&2
+    echo "$verdict" >&2
+    echo "NOTHING THIS SCRIPT CHECKS AFTERWARDS WOULD MEAN ANYTHING:" >&2
     echo "  * tasks on an unreachable node still count as Running (Swarm cannot confirm a" >&2
     echo "    shutdown it cannot deliver), so replica counts read high and hide real failures" >&2
     echo "  * a service pinned to the missing node can never schedule, and reports the phantom" >&2
@@ -103,12 +113,45 @@ if [ -n "$degraded" ]; then
     echo >&2
     # An escape hatch, on purpose. During a real incident, deploying into a degraded cluster is
     # sometimes exactly the right call, and a tool that makes the correct action impossible gets
-    # worked around in ways nobody records. Make it deliberate and make it LOUD, not impossible.
+    # worked around in ways nobody records. It also keeps the convergence logic below REACHABLE:
+    # without it, this guard would make the phantom-counting path untestable by any normal means.
     if [ "${ALLOW_DEGRADED:-0}" = "1" ]; then
-        printf '\033[33m  ALLOW_DEGRADED=1 - proceeding anyway. Treat every check below as ADVISORY.\033[0m\n' >&2
+        printf '\033[33m  ADVISORY MODE - a green result below does NOT mean the cluster is healthy.\033[0m\n' >&2
     else
         die "cluster degraded:$degraded (override with ALLOW_DEGRADED=1 if this is deliberate)"
     fi
+fi
+
+# A SECOND question the check above cannot answer, and does not pretend to. Status/Availability describe
+# the WORKER plane: can this node run tasks. MANAGER STATUS describes the RAFT plane: is this manager a
+# live member of the quorum. They move independently, and on Aug 19 2026 they disagreed for 2.5 minutes -
+# docker-swarm-3 read Ready/Active (so the guard above saw a healthy cluster) while reading Unreachable
+# as a manager, because it had rebooted with an inflated raft term and a stale log and was DEPOSING the
+# healthy leader every ~20s. Each deposition logs "cancelling all waits", i.e. it aborts in-flight
+# control-plane work - a deploy landing in that window fails for reasons invisible in its own output.
+#
+# ⚠️ Deliberately an ADVISORY, not a failure, and the reasoning matters more than the code:
+#   * quorum-intact churn does NOT create phantom tasks, so every check below stays meaningful
+#   * the condition is usually SELF-LIMITING - a stale manager can force elections but can never win
+#     one, so terms rise until a current-log node wins high enough to silence it (observed: 2.5 min)
+#   * therefore blocking here would forbid a safe deploy, and worse, would invite the demote/rejoin
+#     reflex that converts a self-healing degradation into a real outage
+# Severity should match consequence. Say it loudly, then proceed.
+unreachable_mgr="$(docker node ls --format '{{.Hostname}} {{.ManagerStatus}}' \
+    | awk 'NF > 1 && $2 != "Leader" && $2 != "Reachable" { printf " %s(%s)", $1, $2 }')"
+if [ -n "$unreachable_mgr" ]; then
+    printf '\n\033[33mCONTROL PLANE DEGRADED (advisory):\033[0m%s\n' "$unreachable_mgr" >&2
+    echo "Workers are fine and this deploy will proceed - replica counts below remain trustworthy." >&2
+    echo "But the raft quorum is short a member, so:" >&2
+    echo "  * there is NO manager fault tolerance right now - losing one more ends the control plane" >&2
+    echo "  * if leadership is flapping, in-flight service updates get cancelled mid-flight" >&2
+    echo >&2
+    echo "  sudo journalctl -u docker --since '2 min ago' \\" >&2
+    echo "    | grep -cE 'became leader|became follower|lost leader'   # 0 = settled, not flapping" >&2
+    echo >&2
+    echo "⚠️  If a manager just rebooted, WAIT ~3 minutes and re-check before touching anything." >&2
+    echo "    Do NOT reach for 'swarm leave --force' or demote/promote as a first move." >&2
+    echo >&2
 fi
 
 # The stack references an external secret. Creating it here would mean inventing a password in a
