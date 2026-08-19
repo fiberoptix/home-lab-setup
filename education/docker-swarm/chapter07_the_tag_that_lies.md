@@ -33,7 +33,7 @@ would have been, because `"I pushed a fix and production is still running the ol
 - the same pin, in the same cluster, **protecting** a rescheduled task from silently changing version
 - what all of this means for anything that tries to check whether a deploy worked
 
-Seven predictions were written down before any of it ran. **Two were wrong**, and both wrong ones are
+Seven predictions were written down before any of it ran. [**Two were wrong**, and both wrong ones are]{custom-style="Key"}
 more instructive than the five that were right.
 
 ---
@@ -43,8 +43,8 @@ more instructive than the five that were right.
 `docker compose pull` taught a generation of engineers that `:latest` means *"whatever is newest"*.
 Under Swarm it does not mean that.
 
-When a service is created, the manager **resolves the tag to a content digest and stores the digest in
-the service spec.** From that moment the service is pinned to an immutable image, and the tag is
+When a service is created, [the manager **resolves the tag to a content digest and stores the digest in
+the service spec.**]{custom-style="Key"} [From that moment the service is pinned to an immutable image, and the tag is]{custom-style="Key"}
 decoration. You can see both halves at once:
 
 ```bash
@@ -94,7 +94,7 @@ Updating service c7lab_web
 === SPEC AFTER ===    …/c7demo:latest@sha256:95cd3d5e…   (v2)
 ```
 
-The spec followed the tag, exactly as designed. **[So the trap as written was unfireable]{custom-style="Key"}** — which
+[The spec followed the tag, exactly as designed]{custom-style="Key"}. **[So the trap as written was unfireable]{custom-style="Key"}** — which
 makes it the second trap in this phase whose lesson is why it *cannot* happen the way the plan assumed.
 
 The plan had named a **real symptom** [and attached it to the **wrong cause**]{custom-style="Key"}. That is worth pausing on,
@@ -120,7 +120,7 @@ c7lab_web.3 | docker-swarm-2  | Running | Running 2 minutes ago
 
 Two settings, each defensible on its own, cannot both be satisfied:
 
-- **`order: start-first`** requires the replacement task to be *Running before* the old one stops. It
+- **`order: start-first`** [requires the replacement task to be *Running before* the old one stops]{custom-style="Key"}. It
   [is the standard choice for zero-downtime rollouts]{custom-style="Key"}, and Capricorn's own frontend uses it.
 - **`max_replicas_per_node: 1`** forbids two replicas of a service on one node. It is the standard
   anti-affinity idiom, and the reason you would write it is to guarantee spread.
@@ -165,7 +165,7 @@ c7lab_web.1 | docker-swarm-3      c7lab_web.2 | docker-swarm-3      c7lab_web.3 
 ```
 
 **[Two replicas on one node and none on another.]{custom-style="Key"}** [The cap was doing a real job]{custom-style="Key"}; deleting it traded a
-stalled rollout for a silent loss of spread. The honest resolutions are `order: stop-first` (accept a
+[stalled rollout for a silent loss of spread]{custom-style="Key"}. The honest resolutions are `order: stop-first` (accept a
 brief gap) **or** keeping replicas below the node count — not removing the constraint and moving on.
 
 ⚠️ **Two footnotes that cost real minutes.** The CLI flag is `--replicas-max-per-node` while the
@@ -199,7 +199,7 @@ verify: Service c7lab_web converged
 ```
 
 [Every task was destroyed and recreated]{custom-style="Key"}. The spec digest was unchanged — `95cd3d5e` before and after —
-so **all three replicas came back as v2 while the registry held v3.**
+[so **all three replicas came back as v2 while the registry held v3.**]{custom-style="Key"}
 
 `--force` [recreates tasks *from the existing spec*]{custom-style="Key"}, and the spec holds a **digest**, not a tag. There
 is nothing in the mechanism that would consult the registry. **This is the "I restarted it and it's
@@ -213,7 +213,7 @@ redeploying the stack or with an explicit `--image`.
 
 ## 5. What actually strips the pin — and what doesn't
 
-We predicted that `--resolve-image never` would drop the digest and leave a bare tag. **It does the
+[We predicted that `--resolve-image never` would drop the digest and leave a bare tag]{custom-style="Key"}. **It does the
 opposite:**
 
 ```bash
@@ -227,7 +227,7 @@ docker stack deploy -c c7lab.stack.yml --resolve-image never --with-registry-aut
 `never` means *do not query the registry*, [so the digest already in the spec]{custom-style="Key"} **survives untouched**.
 [It is the safest of the three modes, not the most dangerous.]{custom-style="Key"}
 
-⭐ **Stripping a pin requires a resolution that is ATTEMPTED AND FAILS, not one that is skipped.** To
+⭐ **[Stripping a pin requires a resolution that is ATTEMPTED AND FAILS, not one that is skipped]{custom-style="Key"}.** To
 get that, [break name resolution on the leader]{custom-style="Key"} — the node where `stack deploy` resolves — and deploy
 normally:
 
@@ -270,7 +270,7 @@ nodes that could still reach the registry all pulled `:latest` and converged on 
 [The local cache is the **fallback**, not the first choice.]{custom-style="Key"} So divergence needs **two** faults at once:
 
 1. the pin **stripped** (a resolution attempted and failed at deploy time), **and**
-2. at least one node holding a **stale** `:latest` *while unable to reach the registry*, so its
+2. [at least one node holding a **stale** `:latest` *while unable to reach the registry*]{custom-style="Key"}, so its
    fallback disagrees with what its peers freshly pull
 
 Constructed deliberately — `.191` blocked from the registry with a stale local `:latest` of v3, while
@@ -296,7 +296,7 @@ routing mesh happens to pick — and Chapter 2 covered why you cannot choose.
 Think about what this does to debugging. A bug report that reproduces one time in three is normally
 [read as a race condition, a caching layer, or an unlucky client]{custom-style="Key"}. **The idea that a third of your fleet
 [is running different code does not naturally occur to anyone]{custom-style="Key"}**, because every instrument you would
-reach for says the deploy finished.
+[reach for says the deploy finished]{custom-style="Key"}.
 
 > **Lab vs PROD — a moving `:latest` in a deployed service.** *In the lab:* every image is published
 > and deployed as `:latest`, inherited from what the application already did. *Why it's acceptable
@@ -326,8 +326,8 @@ c7lab_web.1 | docker-swarm-3 | Failed  38 seconds ago | "task: non-zero exit (13
 replicas stayed identical.
 
 ⭐ **This is [the same mechanism as §4 with the opposite consequence]{custom-style="Key"}, and holding both at once is the
-actual lesson.** Pinning is what stops a task that reschedules at 3am — because a node rebooted, or a
-container OOMed — from silently coming up as a **different build from its siblings**. The property that
+actual lesson.** [Pinning is what stops a task that reschedules at 3am]{custom-style="Key"} — because a node rebooted, or a
+container OOMed — [from silently coming up as a **different build from its siblings**]{custom-style="Key"}. The property that
 frustrates you when you want a new version is the property that keeps your fleet homogeneous when you
 are not looking.
 
@@ -362,7 +362,7 @@ on a body match rather than a status code.
 ⚠️ **One instrument was already right, and it is worth naming because it was a near-miss.** A throwaway
 probe using `{{.UpdateStatus.State}}` errored with `map has no entry for key "UpdateStatus"` when the
 field came back `null`. `deploy_swarm.sh` already guards exactly that with `{{if .UpdateStatus}}` and
-a documented note from a previous session. **The committed tooling was correct and the ad-hoc command
+a documented note from a previous session. **[The committed tooling was correct and the ad-hoc command]{custom-style="Key"}
 was not** — which is [an argument for running the real script rather than a quick approximation of it]{custom-style="Key"}.
 
 ---
@@ -380,7 +380,7 @@ was not** — which is [an argument for running the real script rather than a qu
 - **Three VMs on one physical host** [simulates node failure, not host failure]{custom-style="Key"} — the same caveat as
   every other chapter in this track.
 - **The registry outage was simulated with `/etc/hosts`**, which fails fast with `connection refused`.
-  A real outage that *hangs* instead of refusing may behave differently on timeouts, and that was not
+  [A real outage that *hangs* instead of refusing may behave differently on timeouts]{custom-style="Key"}, and that was not
   tested.
 - ⚠️ **Every `docker push` to this registry failed on its first attempt** with `error from registry:
   blob unknown to registry`, and succeeded on the retry — **[four times out of four]{custom-style="Key"}.** It looks like a

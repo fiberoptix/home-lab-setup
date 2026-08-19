@@ -35,6 +35,37 @@ def anchor_re(s):
     return "".join(out)
 
 
+def inside_existing_mark(text, pos):
+    """True if pos sits within a mark that is already open.
+
+    Scanning forward, the closing delimiter can only appear before the next `[`
+    if we are inside a mark that opened earlier. Checking the character straight
+    after the match is not enough: a mark whose text wraps across source lines
+    swallows anchors picked from its middle, which nests one mark inside another
+    and quietly double-highlights the passage."""
+    close = text.find(CLOSE, pos)
+    if close == -1:
+        return False
+    nxt = text.find(OPEN, pos)
+    return nxt == -1 or close < nxt
+
+
+def unbalanced_inline(s):
+    """Report inline markup the mark would cut in half.
+
+    A mark that contains one `**` of a pair leaves pandoc with emphasis it
+    cannot close inside the span, and the asterisks render literally in the
+    .docx. Balanced markup either sits wholly inside the mark or wholly
+    outside it."""
+    body = re.sub(r"`[^`]*`", "", s)
+    for token, count in (("**", body.count("**")),
+                         ("`", s.count("`")),
+                         ("*", len(re.findall(r"(?<!\*)\*(?!\*)", body)))):
+        if count % 2:
+            return token
+    return None
+
+
 def apply(text, anchors):
     problems = []
     for a in anchors:
@@ -45,6 +76,13 @@ def apply(text, anchors):
         m = hits[0]
         if CLOSE in text[m.end():m.end() + len(CLOSE)]:
             problems.append(f"  already highlighted: {a[:70]!r}")
+            continue
+        if inside_existing_mark(text, m.end()):
+            problems.append(f"  inside an existing mark: {a[:70]!r}")
+            continue
+        token = unbalanced_inline(m.group(0))
+        if token:
+            problems.append(f"  splits a {token!r} pair: {a[:70]!r}")
             continue
         text = text[:m.start()] + OPEN + m.group(0) + CLOSE + text[m.end():]
     return text, problems

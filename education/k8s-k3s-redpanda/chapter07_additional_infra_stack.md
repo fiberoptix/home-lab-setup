@@ -8,19 +8,19 @@
 
 ## How this chapter is different
 
-Chapters 1 through 6 each open with a verified-facts header, because every command in them was executed on VM 186 and every output quoted is real. **This chapter has no such header, and that is deliberate: nothing here was run in the lab.** It is a research and design document.
+Chapters 1 through 6 each open with a verified-facts header, because every command in them was executed on VM 186 and every output quoted is real. [**This chapter has no such header, and that is deliberate: nothing here was run in the lab.**]{custom-style="Key"} It is a research and design document.
 
-That changes how you should read it. Where the earlier chapters tell you what *did* happen, this one tells you what the industry does, why, and where it would attach to the system we built. Version numbers, product states and regulatory dates were checked in July–August 2026 and are cited so you can re-verify them — several are moving targets, and two of them moved in the last twelve months in ways that change the right answer.
+That changes how you should read it. Where the earlier chapters tell you what *did* happen, [this one tells you what the industry does, why, and where it would attach to the system we built]{custom-style="Key"}. Version numbers, product states and regulatory dates were checked in July–August 2026 and are cited so you can re-verify them — several are moving targets, and two of them moved in the last twelve months in ways that change the right answer.
 
-The purpose is to give you the shape of each area and the vocabulary to go deeper, not to make you an expert in six domains at once. Each section ends with the handful of things actually worth carrying into an interview or an incident.
+The purpose is to give you the shape of each area and the vocabulary to go deeper, [not to make you an expert in six domains at once]{custom-style="Key"}. Each section ends with the handful of things actually worth carrying into an interview or an incident.
 
-> ⭐ **Why this chapter has no "Lab vs PROD" callouts, added Aug 13, 2026.** Chapters 1 through 6 were retrofitted with them: short pull-outs naming a place where the lab did something that would be *wrong* in production, and what breaks if the habit follows you. **This chapter gets none, and the reason is the point of the paragraph above** — a callout contrasts *our lab practice* against production, and there is no lab practice here to contrast. Everything in this chapter already *is* the production side of that comparison. ⚠️ **Read the whole chapter as unverified by definition.** The earlier chapters mark individual prescriptions as recited rather than tested; here that marking would apply to every sentence, so the declaration is made once, up front, instead of decorating every paragraph. **The gaps this chapter closes are listed in §0 — that table is the honest inventory of what Chapters 1–6 left undone.**
+> ⭐ **Why this chapter has no "Lab vs PROD" callouts, added Aug 13, 2026.** Chapters 1 through 6 were retrofitted with them: short pull-outs naming a place where the lab did something that would be *wrong* in production, and what breaks if the habit follows you. **This chapter gets none, and the reason is the point of the paragraph above** — [a callout contrasts *our lab practice* against production, and there is no lab practice here to contrast]{custom-style="Key"}. Everything in this chapter already *is* the production side of that comparison. ⚠️ **[Read the whole chapter as unverified by definition]{custom-style="Key"}.** The earlier chapters mark individual prescriptions as recited rather than tested; here that marking would apply to every sentence, so the declaration is made once, up front, instead of decorating every paragraph. **The gaps this chapter closes are listed in §0 — that table is the honest inventory of what Chapters 1–6 left undone.**
 
 ---
 
 ## What this chapter covers
 
-The OMS from Chapters 1–6 is a real distributed system, and it is also a machine sitting on a bench with no case around it. It has no front door, no identity model, no secrets, no certificates, a database that holds one file, and telemetry you have to SSH in to read.
+The OMS from Chapters 1–6 is a real distributed system, and it is also a machine sitting on a bench with no case around it. [It has no front door, no identity model, no secrets, no certificates]{custom-style="Key"}, a database that holds one file, and telemetry you have to SSH in to read.
 
 Six areas close that gap:
 
@@ -90,7 +90,7 @@ Two numbers in that table do most of the work. **[Thousands of external users me
 
 ### The layers, and what each is actually for
 
-"Put it behind Cloudflare" collapses six distinct jobs into one phrase. They fail independently and are worth separating.
+"Put it behind Cloudflare" [collapses six distinct jobs into one phrase. They fail independently and are worth separating]{custom-style="Key"}.
 
 | Layer | The problem it solves | Where it runs |
 |---|---|---|
@@ -109,7 +109,7 @@ The confusion that causes real problems is between the **WAF** and the **API gat
 Chapter 1 noted that k3s ships Traefik as its built-in ingress controller. Two developments make the ingress question worth revisiting rather than inheriting:
 
 - **The Ingress API is feature-frozen**, and **Gateway API is its designated successor**, now GA for `Gateway`, `GatewayClass`, `HTTPRoute`, `GRPCRoute` and `TLSRoute` ([Kubernetes docs](https://kubernetes.io/docs/concepts/services-networking/gateway/)).
-- **Ingress NGINX reached end of life in March 2026** ([Datadog's migration guide](https://www.datadoghq.com/blog/migrate-to-gateway-api/) covers the practical path). If you inherit a cluster running it, migration is a security obligation, not a nice-to-have — future vulnerabilities will have no supported fix.
+- [**Ingress NGINX reached end of life in March 2026**]{custom-style="Key"} ([Datadog's migration guide](https://www.datadoghq.com/blog/migrate-to-gateway-api/) covers the practical path). If you inherit a cluster running it, migration is a security obligation, not a nice-to-have — future vulnerabilities will have no supported fix.
 
 The development most relevant to an OMS is newer still: **Gateway API v1.6 graduated `TCPRoute` and `UDPRoute` to Standard** ([release announcement](https://kubernetes.io/blog/2026/08/03/gateway-api-v1-6-release/)). [Raw layer-4 routing now has a stable, portable Kubernetes API — which is exactly what FIX traffic needs]{custom-style="Key"}, and which previously forced you into vendor-specific annotations or a separate load balancer.
 
@@ -131,7 +131,7 @@ Cloudflare's relevant products for this shape of system are the proxy and WAF, R
 
 ### The latency question, which you should not gloss over
 
-An order path is latency-sensitive, and **terminating TLS at an edge and re-originating adds hops**. That is a genuine cost, not a rounding error, and it is why firms typically split the traffic rather than routing everything the same way:
+An order path is latency-sensitive, and [**terminating TLS at an edge and re-originating adds hops**]{custom-style="Key"}. That is a genuine cost, not a rounding error, and it is why firms typically split the traffic rather than routing everything the same way:
 
 | Traffic | Path | Reasoning |
 |---|---|---|
@@ -143,7 +143,7 @@ Deciding this deliberately is the mark of someone who has thought about it. "Eve
 
 ### FIX is not HTTP, and nearly nothing above applies to it
 
-FIX sessions are **long-lived persistent TCP connections** carrying a sequenced message stream, often held open for the entire trading day. That breaks most of the HTTP-shaped tooling:
+[FIX sessions are **long-lived persistent TCP connections** carrying a sequenced message stream]{custom-style="Key"}, often held open for the entire trading day. That breaks most of the HTTP-shaped tooling:
 
 - There are no requests to cache, no paths to route on, and no headers for a WAF to inspect.
 - Authentication happens **once per session** (SenderCompID/TargetCompID, IP allowlists, and ideally TLS client certificates), not per message.
@@ -151,7 +151,7 @@ FIX sessions are **long-lived persistent TCP connections** carrying a sequenced 
 
 The operational consequences deserve their own list, because they are where this goes wrong:
 
-- **Idle timeouts must exceed the FIX heartbeat interval**, or quiet sessions die mysteriously overnight.
+- [**Idle timeouts must exceed the FIX heartbeat interval**, or quiet sessions die mysteriously overnight]{custom-style="Key"}.
 - **A proxy restart is a mass disconnect.** [Every client reconnects simultaneously and replays from its last sequence number — a thundering herd with a correctness dimension]{custom-style="Key"}, because sequence gaps trigger resend requests.
 - **Deploys need connection draining**, and draining a connection that is meant to last eight hours means either waiting for the session to end or forcing a reconnect at a chosen moment. Choose the moment: outside market hours.
 - **Sticky routing matters**, because FIX session state lives somewhere.
@@ -198,7 +198,7 @@ For client certificate authentication specifically, decide early **whether the e
 
 ### The real client IP problem, which is a compliance problem here
 
-When traffic passes through a proxy, **the origin sees the proxy's address, not the client's.** The real address arrives in a header — `X-Forwarded-For`, or a provider-specific one such as `CF-Connecting-IP`. Three consequences, and the third is the one that matters at a broker-dealer:
+When traffic passes through a proxy, [**the origin sees the proxy's address, not the client's.**]{custom-style="Key"} The real address arrives in a header — `X-Forwarded-For`, or a provider-specific one such as `CF-Connecting-IP`. Three consequences, and the third is the one that matters at a broker-dealer:
 
 1. **IP allowlists silently stop working**, because every connection now appears to come from the proxy's ranges.
 2. **Rate limiting keyed on source IP collapses**, since all clients share an apparent address — another reason to key on authenticated client identity instead.
@@ -224,7 +224,7 @@ Note also what the root cause was — [**not an attack, but a routine internal c
 
 The edge sees things the cluster cannot: requests blocked before they arrived, TLS versions and cipher suites, client geography, and the true origin address. It is also the only place that can measure **what a user experienced when your origin was unreachable** — during an origin outage your in-cluster metrics show nothing at all, because nothing arrived.
 
-The requirement that makes this usable is **correlation**. The edge must stamp a request ID, propagate it to the origin, and the application must log it and attach it to traces. Without that, an edge log and an application log are two unjoinable datasets, and every investigation starts with timestamp arithmetic. This is the same problem §6 solves inside the cluster with trace context — the edge is simply the first hop, and it should be the origin of the trace, not a gap before it.
+The requirement that makes this usable is **correlation**. The edge must stamp a request ID, propagate it to the origin, and the application must log it and attach it to traces. Without that, [an edge log and an application log are two unjoinable datasets]{custom-style="Key"}, and every investigation starts with timestamp arithmetic. This is the same problem §6 solves inside the cluster with trace context — the edge is simply the first hop, and it should be the origin of the trace, not a gap before it.
 
 > **What to carry from this section**
 >
@@ -242,7 +242,7 @@ The requirement that makes this usable is **correlation**. The edge must stamp a
 
 [Two populations, two entirely different problems, and conflating them is the most common structural mistake in this area.]{custom-style="Key"}
 
-**Thousands of external users** are customers. They authenticate to place orders, and the hard part is not proving who they are — it is deciding what they are entitled to do. **Hundreds of internal users** are staff. Most need read access to a handful of systems; a few dozen can reach production, and for those the hard part is proving afterwards exactly what they did.
+**Thousands of external users** are customers. They authenticate to place orders, and the hard part is not proving who they are — [it is deciding what they are entitled to do]{custom-style="Key"}. **Hundreds of internal users** are staff. Most need read access to a handful of systems; a few dozen can reach production, and for those the hard part is proving afterwards exactly what they did.
 
 The first is customer identity (CIAM). The second is workforce identity plus **privileged access management (PAM)**. They share protocols and almost nothing else.
 
@@ -277,7 +277,7 @@ At a few hundred internal users, identity stops being a list and becomes a set o
 | **Leaver** | Access removed same day | The contractor whose account worked for three months after the engagement ended |
 | **Recertification** | Periodic review with a named reviewer and evidence the revocations happened | A campaign that was completed but never enforced |
 
-The mechanism is an IdP (Okta, Entra ID, Ping) fed by HR, pushing to applications over **SCIM**, with SAML or OIDC for login. The key architectural rule: **the IdP is the only identity source.** Anything holding local accounts — including the PAM system itself — becomes a place a leaver survives.
+The mechanism is an IdP (Okta, Entra ID, Ping) fed by HR, pushing to applications over **SCIM**, with SAML or OIDC for login. The key architectural rule: [**the IdP is the only identity source.**]{custom-style="Key"} Anything holding local accounts — including the PAM system itself — becomes a place a leaver survives.
 
 ### 2c. Privileged access, and what Symantec PAM actually is
 
@@ -305,7 +305,7 @@ Three operational details worth knowing if you inherit it. Release 4.3 added **L
 >
 > Every step produces an artefact, and all of them resolve to a single identity. That correlation is the deliverable: an auditor asking "who touched production at 02:14, under what approval, and what did they run" gets one answer from four independent systems.
 
-There is **no out-of-the-box Kubernetes connector** in Symantec PAM. That is not a gap to work around so much as a design constraint that pushes you toward the right answer anyway: PAM brokers and records the *human session*, and the *API credential* comes from OIDC.
+[There is **no out-of-the-box Kubernetes connector** in Symantec PAM]{custom-style="Key"}. That is not a gap to work around so much as a design constraint that pushes you toward the right answer anyway: PAM brokers and records the *human session*, and the *API credential* comes from OIDC.
 
 **The problem to solve first.** Chapter 1 noted that `/etc/rancher/k3s/k3s.yaml` is mode 644 and called it a sandbox convenience. The precise statement is worse than that, and it is the single best thing to be able to say in an interview on this topic:
 
@@ -412,7 +412,7 @@ Human access to `rpk` deserves the same treatment as `kubectl`. In particular `r
 - **Credential rotation breaks running applications, hours later.** PAM rotates a password on schedule; the application read it once at startup and holds it in a connection pool; [everything fails at the next reconnect, long after the change, which destroys the causal link during triage]{custom-style="Key"}. Mitigate by fetching on demand rather than at startup, by dual-credential alternating rotation, and by never scheduling rotation during market hours. Alert on **authentication-failure rate per principal** — the broker sees the SASL failures before your error budget does.
 - **Application-to-application credential fetch makes PAM a runtime dependency.** [The moment a pod calls PAM at startup, the PAM appliance has the same availability requirement as your database.]{custom-style="Key"} Decide fail-open versus fail-closed explicitly; for an OMS, crash-looping beats running blind. Symantec's A2A model authorises on requestor *script path and host*, which fits containers badly — a real reason teams put Vault in front of Kubernetes workloads and leave A2A for the legacy estate.
 - **Session recording has more gaps than people expect.** It captures the brokered session. It does not capture a copied kubeconfig used from a laptop, the CI/CD pipeline, or the `nodes/proxy` websocket. Recording is necessary and not sufficient; the API audit log covers what the proxy cannot see.
-- **Impersonation breaks naive attribution.** `kubectl --as` is logged with both the impersonator and the impersonated identity, but a SIEM query keyed only on the effective user will credit the action to the wrong person. Constrained impersonation went beta and on-by-default in v1.36, which finally lets you scope `--as` to specific verbs and resources.
+- [**Impersonation breaks naive attribution.**]{custom-style="Key"} `kubectl --as` is logged with both the impersonator and the impersonated identity, but a SIEM query keyed only on the effective user will credit the action to the wrong person. Constrained impersonation went beta and on-by-default in v1.36, which finally lets you scope `--as` to specific verbs and resources.
 - **Break-glass is only real if it is tested.** Untested emergency access fails at 02:00 because the password expired or a hardening script disabled the account. For Kubernetes specifically, [hold the emergency certificate against a **`cluster-admin` ClusterRoleBinding, never against `system:masters`**]{custom-style="Key"} — because you can delete a binding, and you cannot revoke a certificate.
 - **If the IdP is unreachable, nobody can authenticate to the API server at all.** That is the standing objection to OIDC and it has a real answer: multiple JWT authenticators in the structured config, plus an offline break-glass certificate.
 
@@ -431,11 +431,11 @@ Human access to `rpk` deserves the same treatment as `kubectl`. In particular `r
 
 ### What the OMS does today, and why it is worse than it looks
 
-Every setting in Chapters 4 through 6 arrives as a plain environment variable — `BROKERS`, `TOPIC`, `ACKS`, `GROUP`, `ORDERS`. That was the right call for a teaching lab. It is also the pattern that, once a real credential is added, produces the most common secret leak in Kubernetes.
+Every setting in Chapters 4 through 6 arrives as a plain environment variable — `BROKERS`, `TOPIC`, `ACKS`, `GROUP`, `ORDERS`. That was the right call for a teaching lab. [It is also the pattern that, once a real credential is added, produces the most common secret leak in Kubernetes]{custom-style="Key"}.
 
 Environment variables are visible in `/proc/<pid>/environ` to anything in the same container, are inherited by every child process, and land in crash dumps, core files and error-reporting payloads. `kubectl describe pod` prints any literal `value:` field, and so does `kubectl describe replicaset`, and so do controller logs and events. [A secret in an environment variable is a secret in a dozen places you did not choose.]{custom-style="Key"}
 
-Moving them into a Kubernetes `Secret` is a real improvement, and it is not secret management. Four claims worth being able to state precisely:
+[Moving them into a Kubernetes `Secret` is a real improvement, and it is not secret management]{custom-style="Key"}. Four claims worth being able to state precisely:
 
 1. **base64 is an encoding, not encryption.** The Kubernetes documentation says so outright: Secrets are stored unencrypted in etcd by default.
 2. **Encryption at rest is off until you turn it on**, and enabling it does not encrypt objects that already exist — you must rewrite every one of them. On k3s, `--secrets-encryption` uses a local AES key sitting on the same node as etcd, which is honestly described as compliance-grade rather than attacker-grade. [KMS v2 (stable since Kubernetes 1.29) is the only variant that meaningfully separates the key from the data.]{custom-style="Key"}
@@ -454,7 +454,7 @@ Moving them into a Kubernetes `Secret` is a real improvement, and it is not secr
 | **Transit** | Encryption as a service — the application never holds the key |
 | **Audit devices** | A per-request record of who read which secret, when |
 
-The dynamic credential is the headline. Rather than a password `position-keeper` holds forever, Vault mints `v-kubernetes-position-k-8tLpu816obl-1755656708` with a one-hour lease and drops the user when it expires. The username itself encodes the auth method, role and timestamp, so `db.currentOp()` inside MongoDB becomes an audit trail.
+The dynamic credential is the headline. Rather than a password `position-keeper` holds forever, Vault mints `v-kubernetes-position-k-8tLpu816obl-1755656708` [with a one-hour lease and drops the user when it expires]{custom-style="Key"}. The username itself encodes the auth method, role and timestamp, so `db.currentOp()` inside MongoDB becomes an audit trail.
 
 On the state of the product, since it moves: **IBM closed the HashiCorp acquisition on 27 February 2025**, and IBM is now the named Licensor in Vault's BUSL 1.1 file. BUSL restricts hosting Vault as a competing service and has never restricted a bank running it internally — the 2023 panic was about cloud vendors, not end users. **Vault 2.0 went GA on 14 April 2026** (latest patch 2.0.3), and it is a genuine major version, not a 1.22. The breaking change that matters most: **[the rekey and key-update endpoints now require a valid token in addition to seal or recovery key fragments]{custom-style="Key"}**, which quietly invalidates most written break-glass runbooks. **OpenBao**, the MPL 2.0 fork now under LF Edge, is at 2.6.1 and genuinely healthy; you give up namespaces, replication and FIPS-validated builds, which is usually what keeps regulated shops on Enterprise.
 
@@ -495,7 +495,7 @@ volumes:
             expirationSeconds: 3600
 ```
 
-Note what that pod did *not* receive: no `ca.crt`, no namespace file, and no token usable against the Kubernetes API. That is the point.
+[Note what that pod did *not* receive: no `ca.crt`, no namespace file]{custom-style="Key"}, and no token usable against the Kubernetes API. That is the point.
 
 ### Two things that will bite this specific system
 
@@ -510,24 +510,24 @@ The exception is **SASL/OAUTHBEARER**, which Redpanda supports and which librdka
 ### Rotation, leases and the pattern that actually works
 
 - **`max_ttl` is a hard wall.** [Renewal extends a lease only up to `max_ttl` measured from *original issuance*.]{custom-style="Key"} A `1h`/`24h` role means the credential is dead at 24 hours regardless of how faithfully you renew. There is no renewing forever. System defaults for both `default_lease_ttl` and `max_lease_ttl` are 768 hours, and role TTLs are silently truncated to the mount's maximum.
-- **Write explicit `revocation_statements` on every database role**, and run `rotate-root` immediately after configuring the connection so that not even you know the bootstrap password. Vault's generic default revocation statements are frequently wrong for a given environment, and the result is thousands of orphaned `v-…` users accumulating in the database — a routine and embarrassing audit finding.
+- **Write explicit `revocation_statements` on every database role**, and run `rotate-root` immediately after configuring the connection so that not even you know the bootstrap password. Vault's generic default revocation statements are frequently wrong for a given environment, and the result is [thousands of orphaned `v-…` users accumulating in the database]{custom-style="Key"} — a routine and embarrassing audit finding.
 - **Build for fail-and-reacquire, not renewal timers.** Catch the authentication error, re-read the credential, rebuild the client, retry with backoff. It survives lease expiry, manual revocation and Vault failover identically. The rule of thumb: **if an application cannot reconnect, do not give it dynamic credentials** — use a static role with scheduled rotation and a planned restart window. [Choosing dynamic credentials for an app that cannot re-authenticate is choosing a scheduled outage.]{custom-style="Key"}
 
-Sensible TTLs for our two workloads fall straight out of their shapes: `order-gateway` is a Job that lives for minutes, so a 15-minute batch token with no renewal machinery at all; `position-keeper` runs forever, so one hour default and 24-hour maximum with fail-and-reacquire — which has the pleasant property that **the re-authentication code path gets exercised every single day** rather than for the first time during an incident.
+Sensible TTLs for our two workloads fall straight out of their shapes: `order-gateway` is a Job that lives for minutes, so a 15-minute batch token with no renewal machinery at all; `position-keeper` runs forever, so one hour default and 24-hour maximum with fail-and-reacquire — which has the pleasant property that [**the re-authentication code path gets exercised every single day**]{custom-style="Key"} rather than for the first time during an incident.
 
 ### Audit, and the outage nobody predicts
 
-Vault's audit device writes a JSON record per request: who, what path, what operation, from where, and whether it succeeded. Sensitive values are HMAC-SHA256'd with a per-device salt rather than logged in plaintext, which is what makes the log safe to ship to a SIEM — and there is a neat consequence most people do not know: to answer "was *this specific* secret ever read," you compute the HMAC of the known value via `sys/audit-hash` and search for it.
+Vault's audit device writes a JSON record per request: who, what path, what operation, from where, and whether it succeeded. Sensitive values are HMAC-SHA256'd with a per-device salt rather than logged in plaintext, which is what makes the log safe to ship to a SIEM — and there is a neat consequence most people do not know: to answer "was *this specific* secret ever read," [you compute the HMAC of the known value via `sys/audit-hash` and search for it]{custom-style="Key"}.
 
 The failure mode is the part to remember. **[If a request cannot be written to any enabled audit device, Vault refuses the request.]{custom-style="Key"}** One audit device plus a full disk equals a total Vault outage, and it is one of the most common real-world Vault incidents. Always enable two devices with independent failure modes, and enable them *before* the first secret is written, because entries from before you turned it on simply do not exist.
 
 ### The traps
 
 - **Vault outages have a delayed blast radius.** Running applications keep working; lease renewals fail; things break hours later at expiry, looking like an unrelated incident. You get paged twice for one root cause.
-- **"Vault is down, so we cannot deploy the fix."** If CI pulls registry credentials and signing keys from Vault, a Vault outage blocks the deployment that would resolve it. Keep a sealed break-glass path that does not depend on Vault.
-- **Secret zero.** Something must authenticate to Vault first. Kubernetes auth solves this elegantly because the platform itself is the trust anchor — the kubelet vouches for the pod. Where you cannot use it, AppRole with a response-wrapped SecretID delivered out of band is the standard answer, and the single-use wrapping token means that if the consumer finds it already used, you *know* it was intercepted. Never a static token in a manifest.
+- **"Vault is down, so we cannot deploy the fix."** If CI pulls registry credentials and signing keys from Vault, [a Vault outage blocks the deployment that would resolve it]{custom-style="Key"}. Keep a sealed break-glass path that does not depend on Vault.
+- **Secret zero.** Something must authenticate to Vault first. Kubernetes auth solves this elegantly because the platform itself is the trust anchor — the kubelet vouches for the pod. Where you cannot use it, AppRole with a response-wrapped SecretID delivered out of band is the standard answer, and the single-use wrapping token means that [if the consumer finds it already used, you *know* it was intercepted]{custom-style="Key"}. Never a static token in a manifest.
 - **KV v2 policy paths.** [The actual path is `<mount>/data/<path>`, not `<mount>/<path>`. A policy granting `oms/market/*` matches nothing.]{custom-style="Key"} This is the single most common Vault policy bug.
-- **Vault as a config store.** Teams start putting non-secret configuration in KV because it is convenient, and now a feature flag has Vault's availability profile. Keep non-secrets in ConfigMaps.
+- **Vault as a config store.** Teams start putting non-secret configuration in KV because it is convenient, [and now a feature flag has Vault's availability profile]{custom-style="Key"}. Keep non-secrets in ConfigMaps.
 
 > **What to carry from this section**
 >
@@ -536,7 +536,7 @@ The failure mode is the part to remember. **[If a request cannot be written to a
 > - The Injector and CSI put Vault **on the pod-start critical path**; the Secrets Operator does not. That is the most important operational difference between them.
 > - **`librdkafka` reads credentials only at client construction**, so a rotated Kafka credential fails at the next reconnect — hours later, looking unrelated.
 > - **`max_ttl` is a hard wall**; build applications around **fail-and-reacquire** rather than renewal timers.
-> - **A single audit device on a full disk takes Vault down entirely**, because Vault refuses requests it cannot log.
+> - [**A single audit device on a full disk takes Vault down entirely**]{custom-style="Key"}, because Vault refuses requests it cannot log.
 
 ---
 
@@ -668,13 +668,13 @@ Two rules for the alerts themselves. [Alert on `probe_ssl_last_chain_expiry_time
 
 ### Why the SQLite ledger has to go
 
-`position-keeper` writes its ledger to a SQLite file on a `hostPath` volume. Chapter 1 already explained why that cannot survive: the data is tied to one node, so the pod cannot be rescheduled without losing it. Add a second replica and you have two independent ledgers that disagree. There is no replication, no failover, and no way to read the ledger from anywhere else.
+`position-keeper` writes its ledger to a SQLite file on a `hostPath` volume. Chapter 1 already explained why that cannot survive: the data is tied to one node, so the pod cannot be rescheduled without losing it. [Add a second replica and you have two independent ledgers that disagree]{custom-style="Key"}. There is no replication, no failover, and no way to read the ledger from anywhere else.
 
 The interesting part of the migration is not the storage engine. It is that [**every durability decision in MongoDB turns out to be the same question Chapter 6 asked about `acks`**]{custom-style="Key"} — how many machines had this before you told me yes? Once you see that, most of MongoDB's configuration surface stops being arbitrary.
 
 ### The replication model, and the one gap that matters
 
-A MongoDB replica set holds an election the way Raft does, so Chapter 3's mental model of Redpanda's quorum transfers directly. But the log itself is **pull-based**: secondaries tail the primary's oplog rather than the primary pushing to a quorum before acknowledging.
+A MongoDB replica set holds an election the way Raft does, so Chapter 3's mental model of Redpanda's quorum transfers directly. But [the log itself is **pull-based**: secondaries tail the primary's oplog]{custom-style="Key"} rather than the primary pushing to a quorum before acknowledging.
 
 [**That gap is the only reason `w: 1` can exist**, and it is the whole durability story.]{custom-style="Key"} The primary can say yes before anyone else has the write.
 
@@ -689,7 +689,7 @@ A MongoDB replica set holds an election the way Raft does, so Chapter 3's mental
 | `j: true` | fsync semantics | It is in the on-disk journal, not just memory | — |
 | `wtimeout: N` | `request.timeout.ms` | A time budget for the write concern only | See below — a timeout is not a failure |
 
-One asymmetry is worth saying out loud because it is a point in MongoDB's favour. On Kafka, `acks=all` means "all *in-sync* replicas," and the in-sync set can shrink to just the leader. **MongoDB's `"majority"` is computed from the configured voting membership, not from a shrinkable set** — which puts it on the Redpanda side of the line Chapter 6 drew, and makes it a genuinely stronger guarantee than Kafka's default.
+One asymmetry is worth saying out loud because it is a point in MongoDB's favour. On Kafka, `acks=all` means "all *in-sync* replicas," and the in-sync set can shrink to just the leader. [**MongoDB's `"majority"` is computed from the configured voting membership, not from a shrinkable set**]{custom-style="Key"} — which puts it on the Redpanda side of the line Chapter 6 drew, and makes it a genuinely stronger guarantee than Kafka's default.
 
 **The arbiter trap is the one to remember.** Since MongoDB 5.0 the default write concern is `w: "majority"` — *unless* the set contains an arbiter, in which case it silently drops to `w: 1`. That is exactly `acks=all` with `min.insync.replicas=1`: a configuration that reads as safe in every document and is not. It is the reason to run three data-bearing members rather than two plus an arbiter.
 
@@ -697,7 +697,7 @@ One asymmetry is worth saying out loud because it is a point in MongoDB's favour
 
 The artefact is a BSON file under `<dbPath>/rollback/`. [**Nothing replays it** — there is no `mongorollback`, and the documented recovery is to `bsondump` the file]{custom-style="Key"} and work out by hand what those writes were. Worse, with `w: 1` the rollback directory may *exclude* writes submitted after an oplog hole if the primary restarted mid-write, so [**you can lose the data and the evidence**. Any file appearing in that directory is a page]{custom-style="Key"}, and most shops never alert on it.
 
-There is a redeeming detail specific to our architecture: **the Kafka topic is the recovery mechanism for a MongoDB rollback.** The event still exists in `orders`, so a replay restores the lost state. That is an argument about retention policy, not just about write concern.
+There is a redeeming detail specific to our architecture: [**the Kafka topic is the recovery mechanism for a MongoDB rollback.**]{custom-style="Key"} The event still exists in `orders`, so a replay restores the lost state. That is an argument about retention policy, not just about write concern.
 
 **And the trap Chapter 6 already taught in a different costume:** a `wtimeout` error does **not** mean the write failed. The write is applied on the primary and in its oplog; all you learned is that it had not reached a majority within your budget. It may commit a millisecond later, or it may roll back. [A timeout is an ambiguous outcome, not a negative acknowledgement]{custom-style="Key"} — which is survivable only because the retry is idempotent.
 
@@ -730,7 +730,7 @@ The related trap: [**`upsert: true` without a unique index on the filter fields 
 
 ### The `$inc` bug
 
-This is the best teaching moment in the whole migration, because it is one character away from correct and it passes review.
+This is the best teaching moment in the whole migration, because [it is one character away from correct and it passes review]{custom-style="Key"}.
 
 [A running position maintained with `$inc` **double-counts on replay**.]{custom-style="Key"} It is Chapter 5's phantom-shares bug moved inside the database — the same at-least-once delivery, the same non-idempotent operation, just now wearing a database's clothes so it looks safe. The fix is the one Chapter 6 already used: carry the cumulative value on the event and `$set` it, rather than incrementing by a delta.
 
@@ -763,13 +763,13 @@ Then you stop committing offsets to Kafka entirely: set `enable.auto.commit=fals
 
 The architectural point underneath: [**there is no atomic commit spanning Redpanda and MongoDB, and there is not going to be.**]{custom-style="Key"} What you choose is which system holds the offset of record. Kafka Connect sink connectors and Flink's two-phase-commit sinks are making exactly this choice; this is the general form of the trick.
 
-The cost is real — a two-document transaction per event instead of one atomic single-document write, roughly two to three times the per-event latency on a three-node set with majority writes. Batching amortises it to nearly nothing: process N messages, write N event documents plus one offset document in a single transaction.
+The cost is real — a two-document transaction per event instead of one atomic single-document write, [roughly two to three times the per-event latency on a three-node set]{custom-style="Key"} with majority writes. Batching amortises it to nearly nothing: process N messages, write N event documents plus one offset document in a single transaction.
 
 ### Running it on Kubernetes
 
 - **Pin 8.0, not the newest minor.** Minor releases only became available on-premises from 8.2, and they carry lifecycles measured in months — 8.2 reached end of life on 31 July 2026. Version 8.0 is supported to October 2029.
-- **Set `wiredTiger.engineConfig.cacheSizeGB` explicitly in a container.** Cgroup detection is not guaranteed, and the failure mode is an OOM kill that presents as a MongoDB bug. Even when detection works, 50% of (limit − 1GB) leaves nothing for connection buffers unless you budget for it. This is Chapter 2's requests-and-limits lesson with a specific, expensive instance.
-- **A readiness probe must reflect replica-set state, not an open port.** A `tcpSocket` probe happily routes traffic to a `mongod` in `STARTUP2`, `RECOVERING` or `ROLLBACK` — precisely the distinction Chapter 2 drew between "the process is up" and "the service is usable."
+- **Set `wiredTiger.engineConfig.cacheSizeGB` explicitly in a container.** Cgroup detection is not guaranteed, and [the failure mode is an OOM kill that presents as a MongoDB bug]{custom-style="Key"}. Even when detection works, 50% of (limit − 1GB) leaves nothing for connection buffers unless you budget for it. This is Chapter 2's requests-and-limits lesson with a specific, expensive instance.
+- [**A readiness probe must reflect replica-set state, not an open port.**]{custom-style="Key"} A `tcpSocket` probe happily routes traffic to a `mongod` in `STARTUP2`, `RECOVERING` or `ROLLBACK` — precisely the distinction Chapter 2 drew between "the process is up" and "the service is usable."
 - **The headless Service needs `publishNotReadyAddresses: true`**, or members that are catching up vanish from DNS and can never catch up.
 - [**`waitQueueTimeoutMS` left at its default of none turns pool exhaustion into an infinite hang**]{custom-style="Key"} with no error and a passing readiness probe — the Chapter 6 SQLite deadlock, exactly.
 - The Enterprise and Community Kubernetes operators have merged into **MCK** (Apache 2.0, currently 1.10.0); the standalone Community Operator is end-of-life.
@@ -781,7 +781,7 @@ One design note worth knowing so you do not waste time on it: **time-series coll
 > - MongoDB replication is **Raft-shaped for elections and pull-based for the log**, and that gap is the only reason `w: 1` exists.
 > - **`w: 0 / 1 / majority` maps almost exactly onto `acks=0 / 1 / all`**, and MongoDB's majority is computed from configured membership rather than a shrinkable in-sync set.
 > - **An arbiter silently downgrades the default write concern to `w: 1`** — the same trap as `min.insync.replicas=1`.
-> - `w: 1` loses acknowledged writes through **rollback files that nothing replays and nobody alerts on**.
+> - `w: 1` loses acknowledged writes through [**rollback files that nothing replays and nobody alerts on**]{custom-style="Key"}.
 > - **`majority` means durable; `linearizable` means current.** `maxStalenessSeconds` has a 90-second floor, so secondary reads are never read-your-write.
 > - **`$inc` in an event handler is the phantom-shares bug moved inside the database.**
 > - **Putting the Kafka offset in the same transaction gives real exactly-once for the database and changes nothing about the external call.**
@@ -816,11 +816,11 @@ A second maturity note that will catch people: [**the messaging semantic convent
 
 ### The highest-value thing to build
 
-**Trace context propagation across Kafka.** Inject a `traceparent` header into the message on produce, extract it on consume, and one trace spans `order-gateway` → Redpanda → `position-keeper` → the execution gateway. That is the OMS's entire flow in a single waterfall, and no amount of metrics substitutes for it.
+**Trace context propagation across Kafka.** Inject a `traceparent` header into the message on produce, extract it on consume, and one trace spans `order-gateway` → Redpanda → `position-keeper` → the execution gateway. [That is the OMS's entire flow in a single waterfall]{custom-style="Key"}, and no amount of metrics substitutes for it.
 
 There is a real design decision inside this, and it is worth making deliberately rather than inheriting it. The auto-instrumentation library models the consumer span as a **Link** to the producer span. Links give you clean, short traces. [**Parent-child gives you one end-to-end trace per order**, which is what an order investigation actually asks for]{custom-style="Key"} — "show me this order from submission to execution." The cost of parent-child is that a replay produces enormous traces, which is arguably honest, since the order genuinely was eighteen minutes stale. Getting parenting instead of links takes about thirty lines of manual instrumentation.
 
-The related bridge is **exemplars**, which are chronically under-deployed and disproportionately valuable: a dot on the p99 graph that jumps straight to a real slow trace turns a forty-minute correlation exercise into ten seconds.
+The related bridge is **exemplars**, which are chronically under-deployed and disproportionately valuable: [a dot on the p99 graph that jumps straight to a real slow trace]{custom-style="Key"} turns a forty-minute correlation exercise into ten seconds.
 
 ### The Collector, and one silent trap
 
@@ -852,7 +852,7 @@ And there is a consequence with real teeth: **Redpanda exports metrics only for 
 
 ### What to actually alert on
 
-**Alert on staleness in seconds, not lag in records.** Record lag is not a user-facing quantity: 10,000 records is ten seconds at one rate and three hours at another. Seconds are meaningful without any throughput context.
+**Alert on staleness in seconds, not lag in records.** Record lag is not a user-facing quantity: [10,000 records is ten seconds at one rate and three hours at another]{custom-style="Key"}. Seconds are meaningful without any throughput context.
 
 | | Record lag | Staleness in seconds |
 |---|---|---|
@@ -863,7 +863,7 @@ And there is a consequence with real teeth: **Redpanda exports metrics only for 
 
 [**A hung consumer's staleness climbs at exactly one second per second.**]{custom-style="Key"} That is an unmistakable signature, and it is the direct answer to the problem Chapter 6 left open. The consumer already computes this value; it just needs to be exported as a gauge labelled by `topic` and `partition` — bounded label sets, never `order_id`.
 
-One more expression is worth having, because it is the number a human actually wants at three in the morning. "Lag is 40,000" means nothing; **lag divided by the current consumption rate** gives "at this rate it drains in four hours," which is immediately actionable.
+One more expression is worth having, because it is the number a human actually wants at three in the morning. "Lag is 40,000" means nothing; [**lag divided by the current consumption rate**]{custom-style="Key"} gives "at this rate it drains in four hours," which is immediately actionable.
 
 [**Every threshold alert has a blind spot: it cannot fire if the metric stops existing.**]{custom-style="Key"} Given that Redpanda drops the series for a dead consumer group, a `lag > 10000` alert goes silent at precisely the moment it matters most. Pair every threshold alert with `absent()` and `up == 0`:
 
@@ -879,7 +879,7 @@ Keep the paging set small. Event staleness, SLO burn rate, no-data, and a couple
 
 ### OpenSearch, and the retention question
 
-OpenSearch is where the high-cardinality questions get answered: full-text search across logs, span storage, and the long-retention analytics that Prometheus is not built for. **Local Prometheus retention is not durable, not immutable and not a compliance archive** — that is a separate system with separate retention drivers.
+OpenSearch is where the high-cardinality questions get answered: full-text search across logs, span storage, and the long-retention analytics that Prometheus is not built for. [**Local Prometheus retention is not durable, not immutable and not a compliance archive**]{custom-style="Key"} — that is a separate system with separate retention drivers.
 
 On those drivers, a correction worth carrying because the wrong number circulates constantly: [**SEC Rule 17a-4 retention is six years for blotters, ledgers and securities records (the first two years easily accessible), and three years for order tickets, confirmations and communications.**]{custom-style="Key"} It is not seven years; that figure is industry shorthand the rule text does not support.
 
@@ -899,7 +899,7 @@ Everything else in this section is plumbing that exists to make that chain work.
 > - **Trace context across Kafka is the highest-value thing to build**, and parent-child versus Links is a deliberate choice, not a default to inherit.
 > - **`order_id` in a metric label is the canonical cardinality bomb**; identifiers belong in traces and logs.
 > - **Alert on staleness in seconds, not lag in records.** A hung consumer's staleness climbs at exactly 1s/s — the answer to Chapter 6's open problem.
-> - **A threshold alert cannot fire if the metric stops existing**, and Redpanda drops series for dead consumer groups. Pair every threshold with `absent()`.
+> - [**A threshold alert cannot fire if the metric stops existing**]{custom-style="Key"}, and Redpanda drops series for dead consumer groups. Pair every threshold with `absent()`.
 > - **Prometheus and OpenSearch answer different question shapes.** Neither is a compliance archive by default.
 > - The deliverable is the **navigation chain** from metric to exemplar to trace to logs, not a dashboard.
 
@@ -909,23 +909,23 @@ Everything else in this section is plumbing that exists to make that chain work.
 
 Six sections is a list. Here is the system.
 
-A client submits an order at 09:31, thirty seconds into the busiest minute of the day. Follow it, and notice how many of the six it touches before it becomes a position.
+A client submits an order at 09:31, thirty seconds into the busiest minute of the day. Follow it, and [notice how many of the six it touches before it becomes a position]{custom-style="Key"}.
 
 1. **The client authenticates.** A human on the web app has an OIDC session with MFA; an institutional client's system holds an OAuth 2.0 client credential, or a FIX session authenticated at connect time with a client certificate. *(§2)*
 
-2. **The request reaches the edge.** TLS terminates at a nearby point of presence against a **publicly-trusted certificate**, because you cannot make a client install your root. The WAF inspects it. A **per-client** rate limiter checks this client's own budget rather than a shared one, so the algorithmic client having a bad morning three racks over is irrelevant. The edge stamps the **real client IP** into a forwarded header and mints a **request ID**. *(§1, §4)*
+2. **The request reaches the edge.** TLS terminates at a nearby point of presence against a **publicly-trusted certificate**, [because you cannot make a client install your root]{custom-style="Key"}. The WAF inspects it. A **per-client** rate limiter checks this client's own budget rather than a shared one, [so the algorithmic client having a bad morning three racks over is irrelevant]{custom-style="Key"}. The edge stamps the **real client IP** into a forwarded header and mints a **request ID**. *(§1, §4)*
 
-3. **The edge re-originates to the cluster** over a second TLS session, this one against a **privately-issued certificate**, because the origin's name is internal and no public CA could issue for it — and issuing it publicly would publish your topology to Certificate Transparency logs forever. *(§4)*
+3. **The edge re-originates to the cluster** over a second TLS session, this one against a **privately-issued certificate**, because the origin's name is internal and no public CA could issue for it — and [issuing it publicly would publish your topology to Certificate Transparency logs forever]{custom-style="Key"}. *(§4)*
 
-4. **`order-gateway` authorises the order.** Authentication came from the token; **entitlement does not**. Which accounts this user may trade is answered against current state, not a claim that was true when the token was minted. *(§2)*
+4. **`order-gateway` authorises the order.** [Authentication came from the token; **entitlement does not**]{custom-style="Key"}. Which accounts this user may trade is [answered against current state, not a claim that was true when the token was minted]{custom-style="Key"}. *(§2)*
 
-5. **`order-gateway` proves itself to Redpanda** with an mTLS client certificate issued by cert-manager from Vault's PKI. The broker maps the certificate's CN to the principal `order-gateway`, whose ACLs permit `WRITE` and `DESCRIBE` on `orders` and nothing else — it cannot read the order book, cannot delete the topic, and cannot lower `retention.ms`. There is no password anywhere in this step. *(§2, §3, §4)*
+5. **`order-gateway` proves itself to Redpanda** with an mTLS client certificate issued by cert-manager from Vault's PKI. The broker maps the certificate's CN to the principal `order-gateway`, whose ACLs permit `WRITE` and `DESCRIBE` on `orders` and nothing else — [it cannot read the order book, cannot delete the topic, and cannot lower `retention.ms`]{custom-style="Key"}. [There is no password anywhere in this step]{custom-style="Key"}. *(§2, §3, §4)*
 
-6. **The event is produced with `acks=all`**, so a quorum has it before the producer is told yes, and a `traceparent` header rides along in the message. *(Chapter 6, §6)*
+6. **The event is produced with `acks=all`**, [so a quorum has it before the producer is told yes]{custom-style="Key"}, and a `traceparent` header rides along in the message. *(Chapter 6, §6)*
 
-7. **`position-keeper` consumes it**, extracts the trace context, and continues the same trace rather than starting a new one — so the order is one waterfall from the client's click onward. *(§6)*
+7. **`position-keeper` consumes it**, extracts the trace context, and [continues the same trace rather than starting a new one]{custom-style="Key"} — so the order is one waterfall from the client's click onward. *(§6)*
 
-8. **It writes the position and the Kafka offset in a single MongoDB transaction** at `w: "majority"`, using a dynamic credential Vault issued an hour ago and will revoke automatically. The write is idempotent on `(order_id, seq)` as the `_id`, so a redelivery is a no-op that increments a duplicate counter. *(§3, §5)*
+8. **It writes the position and the Kafka offset in a single MongoDB transaction** at `w: "majority"`, [using a dynamic credential Vault issued an hour ago and will revoke automatically]{custom-style="Key"}. The write is idempotent on `(order_id, seq)` as the `_id`, [so a redelivery is a no-op that increments a duplicate counter]{custom-style="Key"}. *(§3, §5)*
 
 9. [**It calls the execution gateway.** And here everything stops helping.]{custom-style="Key"}
 

@@ -264,7 +264,7 @@ arriving before the order it cancels:
 1 ORD-1001 {"event":"PARTIAL_FILL"}
 ```
 
-It is not real. The command ended in `| sort`, and `CANCEL` precedes `NEW` alphabetically. [The log
+It is not real. [The command ended in `| sort`, and `CANCEL` precedes `NEW` alphabetically]{custom-style="Key"}. [The log
 itself was always correct — offsets 0, 1, 2 in the right order. **The display lied, not the data.**]{custom-style="Key"}
 
 > When someone reports "events arrived out of order," the first question is *how are you looking at
@@ -283,7 +283,7 @@ Look at the lower half of Figure 1. With **replication factor 3**, every broker 
 every partition, but each partition has exactly **one leader**. All reads and writes for a partition
 go through its leader; the other two replicate from it.
 
-Leadership is spread deliberately so all three machines share the work instead of one becoming a
+[Leadership is spread deliberately so all three machines share the work]{custom-style="Key"} instead of one becoming a
 bottleneck. "Is leadership balanced?" is a real operational health question, not a cosmetic one —
 and §9 shows a case where the cluster reports itself perfectly healthy while one broker does
 nothing at all.
@@ -374,7 +374,7 @@ A **StatefulSet** provides the three things a broker needs:
 ### 5a. Headless does not mean "no Service"
 
 The most common misconception, and worth correcting precisely: **a headless Service is a normal
-Service that has no IP address of its own.** The object exists, it has a name, a DNS entry, a label
+[Service that has no IP address of its own]{custom-style="Key"}.** The object exists, it has a name, a DNS entry, a label
 selector and EndpointSlices. Only the virtual IP is missing.
 
 Your cluster runs one of each, in the same namespace, from the same Helm release:
@@ -396,7 +396,7 @@ Note the selectors are real chart labels, not the tidy `name=redpanda` you might
 charts label on `app.kubernetes.io/{name,instance}` so that two releases of the same chart in one
 namespace do not select each other's pods. It matters here because if you write a NetworkPolicy or
 a second Service by hand and guess the label, it will select nothing, and a Service that selects
-nothing looks identical to a Service whose pods are all unhealthy. Read the selector, don't assume
+[nothing looks identical to a Service whose pods are all unhealthy]{custom-style="Key"}. Read the selector, don't assume
 it.
 
 `redpanda-external` is the third one, and it is the closest thing this cluster has to an external
@@ -410,8 +410,8 @@ redpanda-console.redpanda.svc.cluster.local  ->  10.43.128.189
                         actual console pod  =   10.42.0.63
 ```
 
-The name resolves to a virtual IP that **belongs to no pod at all**. Nothing listens on it; kube-proxy
-DNATs you to a real pod. The client never learns pod addresses and has no say in which it gets. That
+[The name resolves to a virtual IP that **belongs to no pod at all**]{custom-style="Key"}. Nothing listens on it; kube-proxy
+DNATs you to a real pod. [The client never learns pod addresses and has no say in which it gets]{custom-style="Key"}. That
 is the Chapter 1 §5 machinery, including per-connection rather than per-request balancing.
 
 **Headless — Kubernetes steps aside and shows you the pods:**
@@ -434,7 +434,7 @@ redpanda-2.redpanda.redpanda.svc.cluster.local  ->  10.42.0.73
 ```
 
 One name, one broker, every time. These per-pod records are the "stable network identity"
-StatefulSets are known for, and **a normal ClusterIP Service does not create them.**
+StatefulSets are known for, and [**a normal ClusterIP Service does not create them.**]{custom-style="Key"}
 
 ### 5b. How a client actually connects
 
@@ -455,10 +455,10 @@ The collective name is used only for the **first handshake**:
                 per-pod names and stops using the Service name entirely
 ```
 
-Reaching **any one** broker is sufficient to discover them all — that is what "bootstrap server list"
+[Reaching **any one** broker is sufficient to discover them all]{custom-style="Key"} — that is what "bootstrap server list"
 means, and why the list is not a connection list.
 
-**Why load balancing would be actively wrong.** Writes must go to the *leader* of the target
+[**Why load balancing would be actively wrong.** Writes must go to the *leader* of the target]{custom-style="Key"}
 partition. With leadership spread as `p0→b0, p1→b1, p2→b2, p3→b1 …`, a produce for partition 3 has
 to reach broker 1; broker 0 cannot accept it. [Behind a load-balancing virtual IP, writes would land
 on an arbitrary broker and be rejected as `NOT_LEADER_FOR_PARTITION` roughly two thirds of the time.]{custom-style="Key"}
@@ -466,13 +466,13 @@ The client's whole job is to route **deliberately**, based on leadership it lear
 needs individually addressable brokers.
 
 The Console next door is a plain Deployment behind a plain ClusterIP precisely because any Console
-pod can serve any request. **Same namespace, same release, two Services, two routing models — chosen
-by whether the backends are interchangeable.**
+pod can serve any request. [**Same namespace, same release, two Services, two routing models — chosen
+by whether the backends are interchangeable.**]{custom-style="Key"}
 
 > **One caveat worth knowing.** The chart sets `publishNotReadyAddresses: true` on the headless
 > Service, which StatefulSets generally need so members can discover each other during initial
 > bootstrap, before any of them are ready. The side effect: **DNS will hand you a broker that is not
-> ready yet.** The headless name protects you from a *dead* broker, not an *unready* one — which is
+> ready yet.** [The headless name protects you from a *dead* broker, not an *unready* one]{custom-style="Key"} — which is
 > exactly the race a seeding Job hits at deploy time (Chapter 4).
 
 ---
@@ -684,7 +684,7 @@ sandbox loop it is a trap that confuses you.** Know which situation you are in.
 
 ## 7. Wiring up `rpk`
 
-`rpk` is Redpanda's CLI — the equivalent of `kubectl` for the data plane.
+[`rpk` is Redpanda's CLI — the equivalent of `kubectl` for the data plane]{custom-style="Key"}.
 
 ### 7a. Install the binary
 
@@ -716,7 +716,7 @@ reason it took work is itself the lesson.
 | **Kafka API** | `9093` | data plane — produce, consume, topics |
 | **Admin API** | `9644` | control plane — cluster health, config, broker state |
 
-`rpk cluster health` uses the **Admin** API; `rpk topic produce` uses the **Kafka** API. When one
+[`rpk cluster health` uses the **Admin** API; `rpk topic produce` uses the **Kafka** API]{custom-style="Key"}. When one
 works and the other does not, that is your first clue about which port is misconfigured.
 
 ### 7c. The advertised-listener problem
@@ -748,19 +748,19 @@ unable to dial: dial tcp: lookup redpanda-0.redpanda.redpanda.svc.cluster.local.
 server misbehaving
 ```
 
-Read that error carefully: **we dialled `localhost` and it failed on `redpanda-0...`.** That
+Read that error carefully: [**we dialled `localhost` and it failed on `redpanda-0...`.**]{custom-style="Key"} That
 mismatch *is* the diagnosis.
 
-Every Kafka client connects to a bootstrap address only to ask *"who are the brokers?"* The cluster
+Every Kafka client [connects to a bootstrap address only to ask *"who are the brokers?"*]{custom-style="Key"} The cluster
 replies with its **advertised listeners**, and the client then opens a **new connection to each
 broker directly** — because it must reach the specific leader of each partition. Our brokers
-advertised their internal cluster DNS names, which the host could not resolve.
+[advertised their internal cluster DNS names, which the host could not resolve]{custom-style="Key"}.
 
 > [**The general rule, and the interview answer:** a broker must advertise an address that its
 > clients can both **resolve** and **route to**, *from where the client actually is*. Bootstrap
 > connectivity proves nothing about whether the rest will work.]{custom-style="Key"}
 
-This is the single most common Kafka networking problem in the wild. It bites people behind NAT, in
+[This is the single most common Kafka networking problem in the wild]{custom-style="Key"}. It bites people behind NAT, in
 Docker, across VPCs, and through load balancers — always the same shape.
 
 **The fix we chose:** teach the host to resolve cluster DNS, then talk to brokers directly.
@@ -808,9 +808,9 @@ redpanda-2.redpanda.redpanda.svc.cluster.local:9644
 rpk profile print          # config lives in ~/.config/rpk/rpk.yaml
 ```
 
-**List all three.** The bootstrap list only needs one broker to *answer*, so listing all three means
+**List all three.** [The bootstrap list only needs one broker to *answer*]{custom-style="Key"}, so listing all three means
 `rpk` still works when the first one is down — which matters enormously in §9, where you are
-deliberately killing brokers and do not want your diagnostic tool to be a casualty of the incident.
+deliberately killing brokers and [do not want your diagnostic tool to be a casualty of the incident]{custom-style="Key"}.
 
 **Does this survive pods being replaced?** Yes. Nothing here references a pod IP. The StatefulSet
 guarantees stable names, the headless Service publishes whatever IP the pod currently has, and
@@ -870,14 +870,14 @@ PARTITION  LEADER  EPOCH  REPLICAS  LOG-START-OFFSET  HIGH-WATERMARK
 5          0       1      [0 1 2]   0                 0
 ```
 
-Read this table fluently, because it is the single most useful diagnostic in Redpanda:
+Read this table fluently, because [it is the single most useful diagnostic in Redpanda]{custom-style="Key"}:
 
 - **`REPLICAS [0 1 2]`** — all three brokers hold a copy. This column contains **spaces**, which
-  will wreck naive `awk` parsing; the high-watermark is field **8**, not 6.
+  [will wreck naive `awk` parsing; the high-watermark is field **8**, not 6]{custom-style="Key"}.
 - **`LEADER`** — who serves this partition. It is *not* evenly spread on creation — here broker 0
   took three and broker 2 only one — and the leader balancer evens it out shortly after. **The
   initial assignment varies between runs**, so expect different numbers when you repeat this.
-- **`HIGH-WATERMARK`** — the next offset to be written. It equals the number of committed records
+- **`HIGH-WATERMARK`** — [the next offset to be written. It equals the number of committed records]{custom-style="Key"}
   **only while `LOG-START-OFFSET` is 0**, which is true for every topic in this chapter because none
   of them has yet had a segment expired by retention. Once retention deletes the head of the log,
   the high-watermark keeps counting from the beginning of time while those records are gone, and
@@ -889,7 +889,7 @@ rpk topic describe demo-ticks -p | awk 'NR>1 && NF {s += $8 - $7} END {print s}'
 ```
 
   This is the difference between "how many records has this partition ever held" and "how many can
-  I still read", and on a topic with a seven-day retention those two numbers diverge on day eight.
+  I still read", and [on a topic with a seven-day retention those two numbers diverge on day eight]{custom-style="Key"}.
   The `NF` guard skips the trailing blank line that would otherwise contribute an empty field.
 
 ```bash
@@ -925,7 +925,7 @@ Produced to partition 5 at offset 0 with timestamp 1785178172751.
 ...all six to partition 5, offsets 0-5
 ```
 
-**Not round-robin — all six to one partition.** *Which* partition is arbitrary and changes every
+[**Not round-robin — all six to one partition.**]{custom-style="Key"} *Which* partition is arbitrary and changes every
 run; on an earlier run this same command sent all six to partition 1. Only the **stickiness** is
 guaranteed, not the choice.
 
@@ -964,9 +964,9 @@ printf 'a\nb\nc\n' | rpk topic produce t -k K   # ONE producer, 3 records — re
 for i in a b c; do echo $i | rpk topic produce t -k K; done   # THREE producers
 ```
 
-The loop spawns a fresh producer per record, and each makes an independent sticky choice. If you
+[The loop spawns a fresh producer per record, and each makes an independent sticky choice]{custom-style="Key"}. If you
 demo unkeyed partitioning with a loop you will see records scattered and conclude "unkeyed
-round-robins" — the wrong lesson, from an artefact of your test harness.
+round-robins" — [the wrong lesson, from an artefact of your test harness]{custom-style="Key"}.
 
 ### 8c. Reading a log without hanging your terminal
 
@@ -1173,7 +1173,7 @@ Practical consequences:
 | `Under-replicated partitions` > 0 | replicas lagging; durability reduced | investigate — **lagging and unreliable** |
 | Producer p99 latency spike | often quorum loss presenting as a hang | correlate with the above |
 
-The trap is treating `Under-replicated` as your primary durability alarm. We watched it read `0`
+[The trap is treating `Under-replicated` as your primary durability alarm]{custom-style="Key"}. We watched it read `0`
 both immediately after a broker died (before the leader noticed) and throughout a total quorum
 outage (no leader to compute it). **`Leaderless` is the honest signal.**
 
@@ -1213,7 +1213,7 @@ max by (redpanda_topic, redpanda_partition) (
 )
 ```
 
-Alert on the **max across partitions**, never the sum or the average — Chapter 5 §3 is the whole
+[Alert on the **max across partitions**, never the sum or the average]{custom-style="Key"} — Chapter 5 §3 is the whole
 argument for why. One badly stuck partition is invisible in a total that six partitions contribute
 to, and it is the only one that matters.
 
@@ -1246,12 +1246,12 @@ The naive version is one command:
 kubectl rollout restart sts/redpanda -n redpanda        # DON'T
 ```
 
-It is not enough, and §9d already showed why. A StatefulSet restarts pods one at a time in reverse
+[It is not enough, and §9d already showed why]{custom-style="Key"}. A StatefulSet restarts pods one at a time in reverse
 ordinal order and waits for each to be `Ready` before moving on, which sounds exactly right. But
 [`Ready` is a Kubernetes-level assertion about the pod, and it knows nothing about **Raft leadership**.]{custom-style="Key"}
 Restart a broker that currently leads twenty partitions and those partitions are leaderless — no
 reads, no writes — for as long as it takes the surviving brokers to hold elections. Do it three
-times in a row and you have inflicted three avoidable write outages during a maintenance window.
+times in a row and [you have inflicted three avoidable write outages during a maintenance window]{custom-style="Key"}.
 
 ### Drain leadership first
 
@@ -1318,7 +1318,7 @@ done
 ```
 
 Two things to say about that loop in an interview. It restarts brokers in ascending order while a
-StatefulSet would go descending — the order does not matter as long as it is *one at a time*, and
+StatefulSet would go descending — [the order does not matter as long as it is *one at a time*]{custom-style="Key"}, and
 doing it yourself is the point, because you are not letting the StatefulSet controller decide the
 pace. And there is no `--force` anywhere: every broker gets its full 90-second grace period (Ch1 §7)
 to flush and leave its Raft groups.
@@ -1330,7 +1330,7 @@ Kafka, does not promise that you can skip arbitrary versions. Upgrade one broker
 and the cluster is healthy, and only then continue. A mixed-version cluster running for ten minutes
 is normal; one running for a week because nobody finished is a genuine hazard.
 
-**And the thing people forget**: `rpk cluster maintenance disable` at the end. [A broker left in
+[**And the thing people forget**: `rpk cluster maintenance disable` at the end]{custom-style="Key"}. [A broker left in
 maintenance mode leads no partitions, so the remaining two carry all the work and you have quietly
 reduced a three-broker cluster to two — with no alert anywhere]{custom-style="Key"}, because every pod is `Running` and
 `Healthy: true`. Check `rpk cluster maintenance status` after any maintenance window.
@@ -1363,15 +1363,15 @@ Two of those rows are worth expanding, because they are the ones an interviewer 
 a broker `Pending` forever rather than co-locating it, soft schedules it anyway and logs nothing you
 will ever read. The `topologyKey` is a separate question — `kubernetes.io/hostname` spreads across
 *nodes*, `topology.kubernetes.io/zone` across *availability zones*. You want hard on hostname as the
-minimum, because a soft rule gives you exactly what this sandbox has: three replicas that look
-distributed in `kubectl get pods` and share one kernel, one disk, and one power supply. Zone spread
+minimum, [because a soft rule gives you exactly what this sandbox has]{custom-style="Key"}: three replicas that look
+[distributed in `kubectl get pods` and share one kernel, one disk, and one power supply]{custom-style="Key"}. Zone spread
 on top of that only helps if your nodes are actually labelled with zones, which a bare-metal cluster
-usually is not. **Check what the labels say before claiming a topology guarantee.**
+usually is not. [**Check what the labels say before claiming a topology guarantee.**]{custom-style="Key"}
 
 **"No monitoring stack" is doing a lot of work in that table.** §9f showed the metrics exist and are
 already being exported on `:9644` — what is missing is anything scraping them, storing them, or
 paging on them. That distinction matters in an interview: the gap here is not instrumentation, it is
-the absence of Prometheus, a retention window, alert rules and a route to a human. Every drill in
+[the absence of Prometheus, a retention window, alert rules and a route to a human]{custom-style="Key"}. Every drill in
 §9 was verified by a person typing `rpk cluster health` and reading it, which is precisely the
 practice §9e argues against.
 
@@ -1387,10 +1387,10 @@ consequence is not about this lab at all.*
 > and — the substantive reason — TLS and SASL would put a credential and certificate problem between you
 > and every single command in this chapter, which is not the subject being taught. *In production:* TLS
 > for client and inter-broker traffic, SASL or mTLS for authentication, and ACLs so a compromised producer
-> cannot read every topic. *If you carry the habit:* 🚨 **anyone who can reach the port owns the log** —
+> cannot read every topic. *If you carry the habit:* 🚨 [**anyone who can reach the port owns the log**]{custom-style="Key"} —
 > reads every order, writes forged ones, and deletes topics. There is no second gate. ⚠️ **And note the
 > specific trap this lab sets: `tls.enabled: false` is a single Helm value, so "we'll turn it on later"
-> looks like a one-line change.** It is not — enabling it means a CA, certificate lifecycle, rotation
+> looks like a one-line change.** [It is not — enabling it means a CA, certificate lifecycle, rotation]{custom-style="Key"}
 > without downtime, and every client's trust store, which is why Chapter 7 §4 needs a whole section for
 > it and why it never gets done later. ⚠️ *Unverified prescription:* nothing in the TLS/SASL/ACL path was
 > tested here; §2e of Chapter 7 writes the ACLs as a design and never applies them.
@@ -1398,7 +1398,7 @@ consequence is not about this lab at all.*
 ⭐ **A note on what this section can and cannot claim.** Three of the seven rows above — the single node,
 the shared disk, the soft anti-affinity — are the *same* limitation wearing three hats: **there is one
 piece of hardware.** They are honest to state and impossible to fix here. The TLS row is different in
-kind, because nothing about having one node prevented us from turning encryption on. **It was a
+kind, because [nothing about having one node prevented us from turning encryption on]{custom-style="Key"}. **It was a
 convenience, not a constraint**, and that distinction is the one worth carrying.
 
 ---

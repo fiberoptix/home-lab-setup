@@ -10,19 +10,19 @@
 
 ## What this chapter covers
 
-Swarm schedules **processes** well. It does not move **state**, and it will not tell you when it has
+Swarm schedules **processes** well. [It does not move **state**, and it will not tell you when it has]{custom-style="Key"}
 separated one from the other. Everything here was produced by moving a running database to a node that
 had never held its data, and by rotating a password the way a real operator would:
 
 - why a named volume is **cluster-wide in your manifest and node-scoped in reality**
-- how state becomes **stranded rather than lost**, and why that is the harder incident
-- why the moment your data was *most durable* can be the moment it became *unreachable*
-- why rotating a secret rotates the **client** and never the **server**
+- [how state becomes **stranded rather than lost**, and why that is the harder incident]{custom-style="Key"}
+- [why the moment your data was *most durable* can be the moment it became *unreachable*]{custom-style="Key"}
+- [why rotating a secret rotates the **client** and never the **server**]{custom-style="Key"}
 - how a database can be seeded by a **race between your own application's workers**
 
 The lesson that ties them together: [Swarm's job ends at "a container is running somewhere"; every
 question about *which bytes that container can see* is yours]{custom-style="Key"}. Each section below
-is a signal that stayed green while something important was wrong.
+[is a signal that stayed green while something important was wrong]{custom-style="Key"}.
 
 ---
 
@@ -43,7 +43,7 @@ trusted to a periodic snapshot. That is the durable choice, and it is real: with
 volume contained an `appendonlydir` with a base RDB, an incremental AOF and a manifest.
 
 Then we added a placement constraint to force the service onto a different node — the same thing the
-scheduler does on its own when a node drains, reboots, or runs out of memory:
+[scheduler does on its own when a node drains, reboots, or runs out of memory]{custom-style="Key"}:
 
 ```bash
 docker service update --constraint-add 'node.hostname==docker-swarm-3' \
@@ -77,15 +77,15 @@ docker volume inspect capricorn_redis_data_swarm --format '{{.CreatedAt}}'
 # 2026-08-18T19:06:56-04:00      ← on the NEW node, seconds old and empty
 ```
 
-There is no cluster-wide volume registry behind a `local`-driver volume. `redis_data_swarm` is a
-**name**, resolved independently by the Docker daemon on whichever node the task lands on, and if that
+[There is no cluster-wide volume registry behind a `local`-driver volume]{custom-style="Key"}. `redis_data_swarm` is a
+**name**, [resolved independently by the Docker daemon on whichever node the task lands on]{custom-style="Key"}, and if that
 name does not exist there, the daemon **creates it empty and proceeds**. Two nodes then hold the same
 volume name with different contents, and `docker volume ls` on either one looks completely normal.
 
 > ⭐ **This is the single most transferable idea in the chapter.** Everything else about Swarm is
 > cluster-scoped — service names, secrets, overlay networks, DNS. **Volumes are the exception, and they
 > are the one thing that holds data.** The mental model that gets people into trouble is assuming the
-> volume follows the service, because every *other* noun does.
+> [volume follows the service, because every *other* noun does]{custom-style="Key"}.
 
 ### The data was not destroyed. It was stranded.
 
@@ -104,18 +104,18 @@ On disk, on the original node, the old data had been sitting there the whole tim
 ```
 
 🚨 **Look at that timestamp.** `19:06` is the moment the old task shut down — Redis caught `SIGTERM`,
-flushed its dataset to disk, and exited cleanly. **The data was never more durable than at the instant
+flushed its dataset to disk, and exited cleanly. **[The data was never more durable than at the instant]{custom-style="Key"}
 it became unreachable.**
 
 > ⭐ **Durability and availability are independent properties, and the drill makes the distinction
 > physical.** A backup regime proves the first one. **Nothing in this failure would have been prevented
 > by a better backup**, and nothing in it would have been *detected* by verifying that backups are
-> valid. The bytes were perfect, fsynced, and addressed to a machine nobody was querying.
+> valid. [The bytes were perfect, fsynced, and addressed to a machine nobody was querying]{custom-style="Key"}.
 
 [**At 3am this presents as data loss and is really an addressing problem.**]{custom-style="Key"} The instinct it punishes is
-the good one: you check the application, see an empty dataset, and start looking for what deleted your
+the good one: [you check the application, see an empty dataset, and start looking for what deleted your]{custom-style="Key"}
 data. Nothing deleted it. **The first question is not "what happened to the data", it is "which node am
-I talking to, and which node was I talking to yesterday".**
+[I talking to, and which node was I talking to yesterday]{custom-style="Key"}".**
 
 ```bash
 # The one command that resolves the ambiguity in seconds:
@@ -140,8 +140,8 @@ placement:
 ```
 
 ⭐ **That comment is the whole lesson in one line, and it is why the pin is a *decision* rather than a
-precaution.** A pinned database is **less** available than an unpinned one — if that node is gone, the
-service is down, full stop. What you buy is that it can never come up **wrong**. Two honest options
+precaution.** [A pinned database is **less** available than an unpinned one]{custom-style="Key"} — if that node is gone, the
+service is down, full stop. [What you buy is that it can never come up **wrong**]{custom-style="Key"}. Two honest options
 exist, and they are different sizes:
 
 | Fix | What it buys | What it costs |
@@ -150,17 +150,17 @@ exist, and they are different sizes:
 | Replicated / networked storage (NFS, Ceph, a cloud volume) — ⚠️ *not tested in this lab* | The data follows the task | Real operational surface: a storage system to run, and its failure modes become yours |
 
 ⭐ **And behind both options sits the decision production teams usually make instead: the
-system-of-record database is not a container at all.** A pin solves the *addressing* problem this
+[system-of-record database is not a container at all]{custom-style="Key"}.** A pin solves the *addressing* problem this
 chapter demonstrates; it does nothing about the deeper one, which is that the database's availability is
-now a scheduling decision made by software whose contract ends at "a process is running". Real PG hosts
+[now a scheduling decision made by software whose contract ends at "a process is running"]{custom-style="Key"}. Real PG hosts
 with replication and point-in-time recovery are the production answer our own phase record gives — the
 lab containerises Postgres because studying Swarm is the point here, not because it is a pattern to
 carry out of the lab.
 
-🚨 **What you must not do is leave it unpinned and *believe* you have redundancy.** An unpinned stateful
+🚨 **[What you must not do is leave it unpinned and *believe* you have redundancy]{custom-style="Key"}.** An unpinned stateful
 service on a three-node cluster **looks** more available than a pinned one and is strictly more
 dangerous, because the failure mode is silent instead of loud. **A pinned service that refuses to start
-tells you the truth immediately; an unpinned one comes up empty and reports success.**
+tells you the truth immediately; [an unpinned one comes up empty and reports success]{custom-style="Key"}.**
 
 > **Lab vs PROD — node-local volumes for stateful services.** *In the lab:* both stateful services use
 > `local`-driver named volumes on a single node. Postgres is pinned there; Redis is deliberately left
@@ -171,7 +171,7 @@ tells you the truth immediately; an unpinned one comes up empty and reports succ
 > whatever the scheduler chose. *If you carry the habit:* **one reschedule serves an empty database
 > while every dashboard stays green.** The data is intact on a node nobody is looking at, so the incident
 > presents as data loss, the team reaches for a restore, and **a restore over the top of a
-> healthy-but-stranded volume is how a recoverable incident becomes an unrecoverable one.**
+> [healthy-but-stranded volume is how a recoverable incident becomes an unrecoverable one]{custom-style="Key"}.**
 
 ### The application never noticed
 
@@ -182,7 +182,7 @@ the backend's logs mentioned Redis **zero** times.
 
 The inverse operation — deliberately wiping a volume for a clean experiment — bit us twice, and the
 mechanics are worth exactly three sentences. **`docker stack rm` returns before the container objects
-are reaped**, so the volume stays "in use" for a window after the command succeeds — waiting for the
+are reaped**, [so the volume stays "in use" for a window after the command succeeds]{custom-style="Key"} — waiting for the
 stack's *network* to disappear is not sufficient, measured. **`docker volume rm` is node-scoped like
 everything else here**, so running it on the wrong node returns `no such volume` — which is
 indistinguishable from success if stderr is suppressed, and that exact combination silently voided one
@@ -192,17 +192,17 @@ visible, and then **assert** the volume is absent (`docker volume ls -q | grep -
 rather than trusting the removal.
 
 ⭐ **A cache losing everything is supposed to be survivable, and here it was.** But note what that
-means for detection: **the component whose whole job is to be non-critical is also the component whose
+means for detection: **[the component whose whole job is to be non-critical is also the component whose]{custom-style="Key"}
 failure produces no signal.** If Redis had held sessions, rate-limit counters, or a job queue, the same
 silent wipe would have logged users out, reset quotas, or dropped queued work — and the *only* evidence
 would have been user complaints. Chapter 6 returns to this: **the absence of an error is not evidence
-of correctness, it is the absence of instrumentation.**
+[of correctness, it is the absence of instrumentation]{custom-style="Key"}.**
 
 ---
 
 ## 2. Secrets are state too — and rotating one rotates only half of it
 
-Swarm secrets are immutable by design: you cannot edit `pg_password` in place. A real rotation
+[Swarm secrets are immutable by design: you cannot edit `pg_password` in place]{custom-style="Key"}. A real rotation
 therefore swaps the object underneath an unchanged mount path, which our stack expresses in three
 lines:
 
@@ -220,14 +220,14 @@ secrets:
 > incident. *In production:* secrets originate in a real secrets manager (Vault, cloud KMS/SM) and are
 > *delivered* through the orchestrator — the orchestrator's store is a cache of record, never the
 > system of record (⚠️ *unverified prescription — standard guidance; this lab runs no Vault*). *If you
-> carry the habit:* **the API will not return a secret's value even to an admin, so the day the Raft
-> store is lost or rolled back, the credential is not "somewhere safe" — it is gone**, and everything
+> carry the habit:* **[the API will not return a secret's value even to an admin]{custom-style="Key"}, so the day the Raft
+> [store is lost or rolled back, the credential is not "somewhere safe" — it is gone]{custom-style="Key"}**, and everything
 > that authenticates with it needs an emergency rotation at the worst possible time. We proved the loss
 > mechanism by accident on this very password.
 
 We deployed that with a genuinely new value and **left the database alone** — which is not a contrived
 scenario. It is the everyday one: somebody rotates the credential in the secret store, and the server
-holding the data is a separate system that nobody remembered was separate.
+[holding the data is a separate system that nobody remembered was separate]{custom-style="Key"}.
 
 **What happened, in order:**
 
@@ -250,7 +250,7 @@ the data directory is empty. Our volume already contained a database, so the ent
 initialisation entirely and the password stored inside PostgreSQL's own catalog was never touched.
 
 ⭐ **So the secret is [the client's copy of a credential whose authority lives in the data directory]{custom-style="Key"}.**
-The rotation succeeded perfectly and made the two disagree.
+[The rotation succeeded perfectly and made the two disagree]{custom-style="Key"}.
 
 | | Where the value lives | What the rotation did |
 |---|---|---|
@@ -265,13 +265,13 @@ ALTER USER capricorn WITH PASSWORD '<new>';
 # 2. then create the new secret and redeploy the client
 ```
 
-**Do it in the other order and you have an outage between the two steps.** Do only step 2 and you have
+[**Do it in the other order and you have an outage between the two steps.**]{custom-style="Key"} Do only step 2 and you have
 what we just built.
 
 ### 🚨 The pre-flight guard cannot see this class of failure, and neither can any orchestrator
 
 Chapter 2's deploy script guards against a **missing** secret, and Drill B proved that guard fires —
-the evidence is in Chapter 2 §2. This is the neighbouring failure and the guard is blind to it:
+the evidence is in Chapter 2 §2. [This is the neighbouring failure and the guard is blind to it]{custom-style="Key"}:
 
 | | Secret **absent** | Secret **present but wrong** |
 |---|---|---|
@@ -282,7 +282,7 @@ the evidence is in Chapter 2 §2. This is the neighbouring failure and the guard
 
 ⭐ **[A wrong secret is delivered *successfully*.]{custom-style="Key"}** Every orchestrator-level signal is entitled to be
 green, because from Swarm's point of view nothing failed: it mounted the file it was told to mount. **No
-amount of better orchestration can detect this. Only a request that reaches the database can.**
+amount of better orchestration can detect this. [Only a request that reaches the database can]{custom-style="Key"}.**
 
 ⚠️ **A second-order trap we walked into while building the drill.** With `name:` in play, the stack key
 is `pg_password` while the cluster object is `pg_password_v2`. A pre-flight that greps the stack file for
@@ -316,7 +316,7 @@ host    all   all   all                scram-sha-256
 *(Abridged from the measured dump — the file also carries matching `trust` lines for replication
 connections, which change nothing about the point.)*
 
-Only the last line — the one covering connections from *other containers* — checks a password. **[Anyone
+[Only the last line — the one covering connections from *other containers* — checks a password]{custom-style="Key"}. **[Anyone
 who can get a shell in that container is already inside the database as its owner.]{custom-style="Key"}** On Swarm that means
 **anyone in the `docker` group on that node**, who can also read `/run/secrets/pg_password` directly with
 `docker exec`. Rotating the password changes neither of those facts.
@@ -328,7 +328,7 @@ who can get a shell in that container is already inside the database as its owne
 > loopback (⚠️ *unverified prescription — we measured the default, not the hardened config*), and
 > membership of the `docker` group treated as **equivalent to root on that host** — because it is. *If you carry the habit:* **host access silently becomes data access.** Your password
 > rotation, your secrets manager and your database audit log are all bypassed by one `docker exec`, and
-> nothing in the configuration you *do* review will show it. This is also why "the database only
+> [nothing in the configuration you *do* review will show it]{custom-style="Key"}. This is also why "the database only
 > listens on localhost" is a weaker statement than it sounds: **on a container host, localhost is a
 > shared address space.**
 
@@ -336,7 +336,7 @@ who can get a shell in that container is already inside the database as its owne
 
 ## 3. Your application's startup is state management, whether you designed it that way or not
 
-The last piece of state in this stack is not stored by Swarm at all. Our backend seeds a demo dataset
+[The last piece of state in this stack is not stored by Swarm at all]{custom-style="Key"}. Our backend seeds a demo dataset
 on startup if the database looks empty — a pattern found in nearly every application that ships with a
 "just bring it up" story.
 
@@ -351,28 +351,28 @@ Failed to import demo data, using minimal bootstrap:
 ✅ Bootstrap complete: {… 'total': 682}
 ```
 
-**Eight workers, no coordination, one shared database.** What we measured is narrower and more
-instructive than "everyone raced": the collision happened **among the four workers of the first task to
-start** — three of its four lost — while the second task's workers arrived late enough that the guard
+[**Eight workers, no coordination, one shared database.**]{custom-style="Key"} What we measured is narrower and more
+instructive than "everyone raced": [the collision happened **among the four workers of the first task to
+start**]{custom-style="Key"} — three of its four lost — while the second task's workers arrived late enough that the guard
 saw data and they skipped cleanly. The task that *lost* zero workers did so by scheduling luck, not by
 design. The mechanism generalises:
 
 1. Workers that start close together all check "does data exist?", see empty, and proceed.
 2. The seeding routine **clears leftovers and commits that clear** before inserting.
-3. That commit **publishes an empty state**, so a worker that would otherwise have been saved by the
+3. That commit [**publishes an empty state**, so a worker that would otherwise have been saved by the]{custom-style="Key"}
    guard now passes it too — the window is held open, not merely left ajar.
 4. The racing workers insert rows with explicit primary keys; the losers collide and fail.
 5. Each loser catches the error and falls back to a minimal path — then logs **success**.
 6. Workers that start late enough see the winner's committed data and skip. **Whether a worker races or
-   skips is decided by arrival time, which nothing controls.**
+   [skips is decided by arrival time, which nothing controls]{custom-style="Key"}.**
 
 ⭐ **The defect is step 2, and it is a general rule about guarded initialisation: [a guard that reads
 committed state is worthless if the guarded routine commits an intermediate state.]{custom-style="Key"}** The window it
-opens is not a microsecond; it is however long the import takes.
+[opens is not a microsecond; it is however long the import takes]{custom-style="Key"}.
 
 🚨 **The consequence that matters more than the collision:** if a container restarts between that commit
-and the final one, **the database is left committed-empty** — the delete has landed and the insert never
-will. A crash during seeding is a data-loss event rather than a retry.
+and the final one, [**the database is left committed-empty** — the delete has landed and the insert never]{custom-style="Key"}
+will. [A crash during seeding is a data-loss event rather than a retry]{custom-style="Key"}.
 
 **The correct shape is one transaction and one lock:**
 
@@ -386,8 +386,8 @@ The advisory lock makes it correct at any worker count; the single transaction m
 
 > ⭐ **Why this belongs in a Swarm chapter at all.** `depends_on` does not exist here (Chapter 2), so
 > ordering moved into the application — and **anything the application does at startup now happens
-> concurrently, N replicas × M workers at a time, on a schedule you do not control.** Swarm did not
-> create this bug. It made a single-worker assumption load-bearing and then scaled it out. The same is
+> [concurrently, N replicas × M workers at a time, on a schedule you do not control]{custom-style="Key"}.** Swarm did not
+> create this bug. [It made a single-worker assumption load-bearing and then scaled it out]{custom-style="Key"}. The same is
 > true of a Kubernetes Deployment, an ECS service, and a Compose file with `--workers 4`.
 
 **The fingerprint to grep for across your own environments** is the fallback message. If a log line

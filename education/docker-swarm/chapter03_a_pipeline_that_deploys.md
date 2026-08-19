@@ -11,7 +11,7 @@
 ## What this chapter covers
 
 Wrapping the hand-run deploy from Chapter 2 in a GitLab pipeline. The pipeline is about fifty lines and
-adds no deploy logic whatsoever, which turns out to be the interesting part: everything difficult here is
+[adds no deploy logic whatsoever, which turns out to be the interesting part]{custom-style="Key"}: everything difficult here is
 about **boundaries, credentials, and signals**, not about YAML.
 
 - why the deploy script and the CI job must own **different** things, and the test for whether you drew
@@ -36,11 +36,11 @@ not run** and is marked where it appears: the `.Version.Index` refinement of the
 ## 1. Why this chapter is numbered 3 and written last
 
 Chapters 4, 5 and 6 were written before this one. The gap was deliberate: automating a deploy you have
-never performed by hand produces a pipeline you cannot debug, because every failure has two candidate
+[never performed by hand produces a pipeline you cannot debug]{custom-style="Key"}, because every failure has two candidate
 causes — [the wiring, or the thing being wired — and no way to tell them apart]{custom-style="Key"}.
 
 So Chapter 2 built and ran [`scripts/deploy_swarm.sh`](scripts/deploy_swarm.sh) by hand, repeatedly,
-including through the failure drills of Chapter 5. **By the time CI touched it, the script was the known
+including through the failure drills of Chapter 5. **[By the time CI touched it, the script was the known]{custom-style="Key"}
 quantity** — [which is what made each red pipeline readable rather than ambiguous]{custom-style="Key"}.
 
 ⭐ **And then the interesting exception, which is the better half of the lesson.** Of the two red
@@ -95,13 +95,13 @@ deploy_swarm:
   when: manual
 ```
 
-**Gate 1 decides whether a pipeline is created at all.** `web` means a human clicked *Run pipeline* in
+[**Gate 1 decides whether a pipeline is created at all.**]{custom-style="Key"} `web` means a human clicked *Run pipeline* in
 the UI. [A `git push` matches no rule, so it creates **nothing**]{custom-style="Key"} — not a skipped pipeline, not a blocked
 one, not a row in the list.
 
 That mattered immediately for a reason specific to this repository, and the shape is common: a
 `push_gitlab.sh` script mirrors the working tree to this GitLab project constantly as an off-site backup.
-CI was already enabled on the project. **Without gate 1, every backup push would have started a deploy
+CI was already enabled on the project. **[Without gate 1, every backup push would have started a deploy]{custom-style="Key"}
 pipeline** — and the real damage would not have been the deploys, it would have been [burying the
 deliberate pipelines in a list of accidental ones]{custom-style="Key"}.
 
@@ -110,7 +110,7 @@ commit.** The backup script stages the entire working tree, tracked and ignored,
 live on the remote's `main` the moment it is *saved* — [there is no window between "I wrote it" and "it is
 in effect"]{custom-style="Key"}.
 
-**Gate 2 (`when: manual`) decides whether the job runs inside a pipeline that exists.** It is redundant
+[**Gate 2 (`when: manual`) decides whether the job runs inside a pipeline that exists.**]{custom-style="Key"} It is redundant
 with gate 1 today, and it stays, because [the job's safety must not *depend* on the workflow block
 surviving]{custom-style="Key"}. A `workflow:` stanza is exactly the kind of thing a later session relaxes to "make CI work
 again"; if that happens, the deploy still needs a human to press the button.
@@ -134,10 +134,10 @@ before_script:
 
 The key reaches `ssh-agent` [**through stdin** and is never written to a file]{custom-style="Key"}. So it never appears in
 `argv` — [where `ps` exposes it to every user on the box]{custom-style="Key"} — and leaves nothing in the build workspace for
-the next job to find. The agent signs challenges; the private key never leaves its memory.
+the next job to find. [The agent signs challenges; the private key never leaves its memory]{custom-style="Key"}.
 
 `tr -d '\r'` is not superstition. A key pasted through a browser textarea, or through an editor that has
-met Windows, arrives with CRLF line endings, and `ssh` then rejects it with `error in libcrypto` — a
+met Windows, [arrives with CRLF line endings, and `ssh` then rejects it with `error in libcrypto`]{custom-style="Key"} — a
 message that [names nothing relevant and sends you looking at your OpenSSL install]{custom-style="Key"}.
 
 ### 🚨 The first false green: a `chmod` that silently did nothing
@@ -146,7 +146,7 @@ Before wiring CI we tested the key by hand and it worked. [It worked for the wro
 
 This repository lives on a **CIFS share mounted with `file_mode=0775,nounix`**. Under those options the
 server dictates the permission bits and [**`chmod 600` is a silent no-op**]{custom-style="Key"} — it returns success and
-changes nothing. `ssh -i` then refuses the key outright as world-readable.
+changes nothing. [`ssh -i` then refuses the key outright as world-readable]{custom-style="Key"}.
 
 The generalisable half is not "CIFS is annoying". It is that [**`chmod` reporting success does not mean
 the mode changed**]{custom-style="Key"}, and [a filesystem is perfectly entitled to accept your instruction and ignore it]{custom-style="Key"}.
@@ -224,7 +224,7 @@ nothing" [is measurably wrong, and we had written that down before checking]{cus
 
 ## 5. Getting a token to the node without putting it in `ps`
 
-The deploy needs a read-scoped registry token on the *node*, not in the job. The obvious form is wrong:
+[The deploy needs a read-scoped registry token on the *node*, not in the job]{custom-style="Key"}. The obvious form is wrong:
 
 ```yaml
 # DON'T
@@ -232,7 +232,7 @@ The deploy needs a read-scoped registry token on the *node*, not in the job. The
 ```
 
 That expands the token into the **remote command line**, [where `/proc/<pid>/cmdline` is world-readable]{custom-style="Key"}
-and `ps` shows it to every user on that node for the life of the deploy. What we run instead:
+[and `ps` shows it to every user on that node for the life of the deploy]{custom-style="Key"}. What we run instead:
 
 ```yaml
 - |
@@ -240,7 +240,7 @@ and `ps` shows it to every user on that node for the life of the deploy. What we
     "read -r REG_TOKEN; export REG_TOKEN; export REG_USER='$REG_USER'; export REGISTRY='$REGISTRY'; bash '$REMOTE_DIR/scripts/deploy_swarm.sh'"
 ```
 
-The token crosses on **stdin** and becomes an environment variable on the far side, and
+[The token crosses on **stdin** and becomes an environment variable on the far side]{custom-style="Key"}, and
 `/proc/<pid>/environ` is readable only by the owner and root. The non-secrets — registry hostname, token
 username — are interpolated into the command directly, because [hiding a non-secret costs clarity and buys
 nothing]{custom-style="Key"}.
@@ -261,7 +261,7 @@ variables:
 ```
 
 None of these are secret, so they live in version control rather than in the CI settings screen. A
-non-secret hidden in the settings UI is invisible to code review, invisible to a fresh clone, and
+[non-secret hidden in the settings UI is invisible to code review]{custom-style="Key"}, invisible to a fresh clone, and
 [invisible to whoever is reading the job log at 3am]{custom-style="Key"} trying to work out which host this thing touched.
 
 > **Lab vs PROD — the runner is `privileged` with the host's Docker socket mounted.**
@@ -473,7 +473,7 @@ attached. [**The only service with a problem is the only one the checker cleared
 
 🚨 Now imagine being handed that at 3am. The alarm accuses two healthy services; the evidence beneath it
 exonerates them and indicts a third. The likeliest human response is to distrust the whole output — while
-the correct diagnosis sits in it, in plain text. ⭐ [**A monitoring system that contradicts itself is worse
+the correct diagnosis sits in it, in plain text. ⭐ **[A monitoring system that contradicts itself is worse
 than one that says nothing]{custom-style="Key"}, because it spends [the one resource an incident is short of: your willingness
 to believe the instruments]{custom-style="Key"}.**
 
@@ -570,13 +570,13 @@ tasks had been placed:
 ```
 
 [**The old logic would have spent 300 seconds calling this a failed deploy.**]{custom-style="Key"} And the ground truth is in the
-same output: the smoke gates passed, with real data, on a cluster missing a node — so `converged` is the
+same output: [the smoke gates passed, with real data, on a cluster missing a node]{custom-style="Key"} — so `converged` is the
 *correct* verdict, and the old code would have reported [**a failed deploy on a healthy application**]{custom-style="Key"}, then
 sent someone to investigate rolling back a working system.
 
 🚨 **The mature form of this whole chapter's lesson, and the note to end on: our poll now disagrees with
 `docker service ls` on purpose, and is right to.** After that deploy Docker's own summary column still read
-`3/2` and `5/3`; our poll read `2/2` and `3/3` and passed. [**We built an instrument that contradicts the
+`3/2` and `5/3`; our poll read `2/2` and `3/3` and passed. **[We built an instrument that contradicts the
 vendor's headline number]{custom-style="Key"}, and we can justify the disagreement from first principles** — `Replicas` counts
 tasks Swarm cannot confirm dead, and we count tasks Swarm still wants alive. ⭐ Being able to say *which
 question each number answers* is [the difference between second-guessing your tools and trusting them]{custom-style="Key"}.
@@ -632,7 +632,7 @@ soft state changed, node no longer a leader, resetting and cancelling all waits
 ```
 
 ⭐ [**The whole fault is two numbers moving in opposite directions.**]{custom-style="Key"} While `.193` was powered off it kept
-campaigning into the void, inflating its Raft **term** from 12 to 31 without ever appending a log entry. It
+campaigning into the void, [inflating its Raft **term** from 12 to 31 without ever appending a log entry]{custom-style="Key"}. It
 rebooted holding [*the highest term in the cluster and the most stale log*]{custom-style="Key"}, and Raft treats those two facts
 very differently. **Term is authoritative:** [any node seeing a higher term must stand down]{custom-style="Key"}, so a healthy
 leader was forced into `became follower` — and `cancelling all waits` [**aborts in-flight control-plane work.**]{custom-style="Key"}
@@ -667,7 +667,7 @@ sudo journalctl -u docker --since '2 min ago' \
 
 🚨 [**This is the most expensive lesson in the chapter and it cost nothing.**]{custom-style="Key"} The evidence at the two-minute
 mark was a manager reporting no leader, stuck `Unreachable`, churning six terms a minute. Every instinct
-says intervene, and `docker swarm leave --force` is the standard remediation you will find recommended for a
+[says intervene, and `docker swarm leave --force` is the standard remediation]{custom-style="Key"} you will find recommended for a
 manager that won't rejoin. **It would have destroyed [a cluster that was ninety seconds from fixing itself]{custom-style="Key"},**
 trading a self-healing degradation for a real outage plus a manual rejoin under pressure. ⭐ Waiting was not
 luck or nerve — it was [licensed by knowing the loop terminates by construction]{custom-style="Key"}. *That* is the difference
@@ -716,7 +716,7 @@ teams learn to ignore alerts.
 Four things in this chapter had nothing to do with Swarm. They are properties of pipelines, and each one
 manufactured a wrong conclusion.
 
-**Retrying a job replays the original commit.** We fixed a file, pushed, pressed *Retry*, and the job
+[**Retrying a job replays the original commit.**]{custom-style="Key"} We fixed a file, pushed, pressed *Retry*, and the job
 failed identically. The log said why:
 
 ```
@@ -729,13 +729,13 @@ picking up a fix requires a **new pipeline**. The conclusion this manufactures �
 also `Fetching changes with git depth set to 20`: a shallow clone, so anything that walks history sees a
 truncated repository.
 
-**`Updating service` does not mean anything was updated.** `docker stack deploy` printed it for all four
+[**`Updating service` does not mean anything was updated.**]{custom-style="Key"} `docker stack deploy` printed it for all four
 services against a byte-identical spec. [It describes the API call, not a rollout]{custom-style="Key"}. Read literally it would
 mean an unpinned service with a local volume had been recreated — which would have been silent data loss.
 Nothing had been. [**The evidence that nothing happened is the absence of churn, not the presence of the
 message.**]{custom-style="Key"}
 
-**A login that writes nothing looks like a login that failed.** Checking whether the deploy had
+[**A login that writes nothing looks like a login that failed.**]{custom-style="Key"} Checking whether the deploy had
 authenticated, we compared the timestamp on the node's `~/.docker/config.json` and found it unchanged.
 `docker login` [**skips the write entirely when the stored credentials are already byte-identical.**]{custom-style="Key"} The
 login had succeeded. [**An unchanged file is not evidence of a no-op**]{custom-style="Key"}, and "nothing was written" and
@@ -751,7 +751,7 @@ second is a completely different diagnosis from the `500` the real endpoint retu
 > **And one about us, which belongs here because the failure mode is identical.** Partway through this
 > work, a set of survivor-side observations was written into the working record as though it had been
 > measured. It had not — it came from a *summary* of the session that claimed the output had been
-> provided, and the numbers were plausible reconstructions. It was caught by checking the primary source.
+> provided, and the numbers were plausible reconstructions. [It was caught by checking the primary source]{custom-style="Key"}.
 > ⭐ **A conversation summary, a status page, and a replica count are the same kind of object: [a report
 > generated by a layer that is not the layer that fails]{custom-style="Key"}.** The rule this track keeps rediscovering applies
 > to its own authors — cite the primary source, not a summary of one.

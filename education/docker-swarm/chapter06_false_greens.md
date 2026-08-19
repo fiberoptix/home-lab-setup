@@ -15,9 +15,9 @@ in the tooling we wrote to catch it, and in five of our own experiments:
 
 [a system reports success for a question it was never asked.]{custom-style="Key"}
 
-Nothing here is a bug in Docker. Every green signal in this chapter was **honest about its own
-contract**. The error was ours each time: reading a lower layer's truthful answer as though it settled a
-higher layer's question. That mistake is the most common cause of a long outage that "monitoring didn't
+Nothing here is a bug in Docker. [Every green signal in this chapter was **honest about its own
+contract**]{custom-style="Key"}. The error was ours each time: [reading a lower layer's truthful answer as though it settled a]{custom-style="Key"}
+higher layer's question. That mistake is [the most common cause of a long outage that "monitoring didn't]{custom-style="Key"}
 catch", and it is completely learnable.
 
 ---
@@ -33,7 +33,7 @@ Failed to import demo data, using minimal bootstrap: … Name or service not kno
 INFO:     Application startup complete.
 ```
 
-**"Application startup complete."** With no database in the cluster at all.
+**"Application startup complete."** [With no database in the cluster at all]{custom-style="Key"}.
 
 Here is every signal that was checked during the drill, with what each one said:
 
@@ -49,8 +49,8 @@ Here is every signal that was checked during the drill, with what each one said:
 
 ⭐ **[Six green, one red, and only the red one was asking a useful question.]{custom-style="Key"}** Notice that none of the six
 is wrong. `2/2` is a true statement about replica count. `Running` is a true statement about the task.
-Even the *application's own* health endpoints are truthful — about routing, which is all they test.
-**Every one of them answers a question you did not mean to ask** — and two of them were designed by the
+[Even the *application's own* health endpoints are truthful — about routing, which is all they test]{custom-style="Key"}.
+**[Every one of them answers a question you did not mean to ask]{custom-style="Key"}** — and two of them were designed by the
 application's authors to sound like they answer the big one.
 
 ### Why the application did this, and why it will happen to you
@@ -66,9 +66,9 @@ serve — announcing success rather than refusing to start.
 > must fail loudly at start-up, not serve errors quietly.]{custom-style="Key"}** The choice looks like resilience versus
 > brittleness and is really about **who finds out.** Refuse to start, and your orchestrator sees a failed
 > task, stops the rollout, and rolls back — the machinery in Chapter 5 all works. Start anyway, and the
-> orchestrator has nothing to react to, so **discovery is deferred to a user.**
+> [orchestrator has nothing to react to, so **discovery is deferred to a user.**]{custom-style="Key"}
 
-⚠️ **And notice the dependency failure did not look like a connection error.** With the service scaled to
+⚠️ **And notice [the dependency failure did not look like a connection error]{custom-style="Key"}.** With the service scaled to
 zero it disappeared from Swarm's internal DNS, so the symptom was `Name or service not known` — a *name
 resolution* failure. **In Swarm, "my dependency has no replicas" and "I have a DNS problem" produce the
 same message**, and the first is far more likely.
@@ -92,21 +92,21 @@ Every one of these was observed on the real cluster:
 
 ⭐ **Read down the "actually wrong" column: a missing database, a missing UI, a missing dataset, a
 refused change, missing capacity, a corrupted import, a dead control plane, and a fabricated
-measurement.** There is no category of failure in this phase that did **not** present as green
+measurement.** [There is no category of failure in this phase that did **not** present as green]{custom-style="Key"}
 somewhere.
 
 ### The structural reason: each layer honestly reports its own contract
 
 ![Figure 1 — the ladder of questions: each signal answers only its own rung, and Swarm's contract ends well below the one you care about](images/ch06_fig1_ladder.png)
 
-**Swarm's contract is "a container matching this spec is running somewhere".** It fulfils that contract
+[**Swarm's contract is "a container matching this spec is running somewhere".**]{custom-style="Key"} It fulfils that contract
 with real rigour, which is why it is trustworthy — and it is why it can never answer the question at the
-top. There is no configuration that makes a lower rung report on a higher one.
+top. [There is no configuration that makes a lower rung report on a higher one]{custom-style="Key"}.
 
 > ⭐ **So the discipline is not "distrust the orchestrator". It is: know which rung each signal sits on,
 > and [never accept an answer from a rung below the question]{custom-style="Key"}.** Almost every incident in this phase was
 > an instance of one specific version of that error — accepting a **task-level** signal as an answer to
-> an **application-level** question. `Running` is rung four of the figure's eight. "Can users do what they came to do?" is rung eight, and nothing below it has an opinion.
+> an **application-level** question. `Running` is rung four of the figure's eight. ["Can users do what they came to do?" is rung eight, and nothing below it has an opinion]{custom-style="Key"}.
 
 ---
 
@@ -140,14 +140,14 @@ The stack CONVERGED and is still broken - which is the whole reason this gate ex
 
 ### Three design decisions that turned out to be load-bearing
 
-**A `200` is not enough — check the body.** An error page, a login redirect and a proxy's default page
-are all `200`. C6b is the proof: nginx's welcome page is a perfectly valid `200`.
+[**A `200` is not enough — check the body.**]{custom-style="Key"} An error page, a login redirect and a proxy's default page
+are all `200`. C6b is the proof: [nginx's welcome page is a perfectly valid `200`]{custom-style="Key"}.
 
 **Count rows, and pick a threshold the schema alone cannot reach.** Our first version required *at least
 one* row, which is nearly useless: the database's own initialisation scripts insert reference data, so
-"more than zero rows" is true of a database that has never seen the application. We raised it to **100**
-after measuring what the application's degraded fallback path actually writes: **about one row.** A
-threshold is only a discriminator if it sits between the two states you are distinguishing — so
+["more than zero rows" is true of a database that has never seen the application]{custom-style="Key"}. We raised it to **100**
+after measuring [what the application's degraded fallback path actually writes: **about one row.**]{custom-style="Key"} A
+[threshold is only a discriminator if it sits between the two states you are distinguishing]{custom-style="Key"} — so
 **measure the failure mode before choosing the number.**
 
 **Retry with a timeout, and report the code you actually got.** An early version printed `HTTP 000000`,
@@ -159,15 +159,15 @@ reports a nonsense code trains you to ignore it.
 C6b replaced the frontend with `nginx:alpine`. The gate printed `200, body matched` and `total=682 rows`
 while every user saw *Welcome to nginx!*
 
-**Because the gate polls the backend.** It was written when the *backend* was the liar, so that is what
+**Because the gate polls the backend.** [It was written when the *backend* was the liar, so that is what]{custom-style="Key"}
 it watches. It never had an opinion about the frontend, and its silence was indistinguishable from
 approval.
 
 > ⭐ **The lesson is about verification in general, and it is the one I would keep if I could keep only
 > one from this phase: [verification does not compose.]{custom-style="Key"}** Proving that the backend can reach a correct
 > database is genuinely valuable **and tells you nothing about the frontend.** A healthy dependency is
-> not evidence about its consumer. **Every published entry point needs its own assertion, and each
-> assertion must test something only the correct thing behind it would produce.**
+> not evidence about its consumer. **[Every published entry point needs its own assertion]{custom-style="Key"}, and each
+> [assertion must test something only the correct thing behind it would produce]{custom-style="Key"}.**
 
 ✅ **Status of our own tooling — the gap was closed and then re-tested, which is the only closure that
 counts.** The same evening, the frontend gained a healthcheck that greps the page for something only our
@@ -176,7 +176,7 @@ Then C6b was **run again, identically**: the deploy that had passed green in the
 seconds with `rollback_started`, the nginx task never received a byte of ingress traffic, and sixteen of
 sixteen probes during the failed rollout saw the real application (Chapter 5 §1, "C6b, closed").
 
-⭐ **Note that the two fixes sit on different rungs, and that is the design, not redundancy.** The
+⭐ **Note that [the two fixes sit on different rungs, and that is the design, not redundancy]{custom-style="Key"}.** The
 healthcheck lets *Swarm* refuse the wrong container — the platform acts without an operator. Gate 3 lets
 *the deploy script* refuse a port serving wrong content even if every healthcheck lies — the operator
 verifies from outside. One instrument per rung, which is this chapter's §6 put into practice. **The
@@ -204,14 +204,14 @@ fourth worker's view, at `INFO`, decorated with a check mark — and it is **fac
 
 ⭐ **Three properties made this dangerous, and none of them is "the log was wrong":**
 
-1. **The failure was logged at a lower severity than the success.** The eye goes to the last line.
+1. [**The failure was logged at a lower severity than the success.**]{custom-style="Key"} The eye goes to the last line.
 2. **The success line describes a different scope** — one worker's outcome — than the failures.
-3. 🚨 **The final state was decided by commit ordering.** The full import happened to commit *last*. Had
-   a degraded worker committed last, the same log would have printed with a fraction of the data.
+3. 🚨 [**The final state was decided by commit ordering.**]{custom-style="Key"} The full import happened to commit *last*. Had
+   [a degraded worker committed last, the same log would have printed with a fraction of the data]{custom-style="Key"}.
 
-> ⭐ **The rule this produces: a summary line must describe the outcome of the whole operation, or it must
+> ⭐ **The rule this produces: [a summary line must describe the outcome of the whole operation, or it must]{custom-style="Key"}
 > not be phrased as one.** "Bootstrap complete" is a claim about the system. The worker was only entitled
-> to say "this worker finished". **And any code path that catches an exception and continues owes the
+> to say "this worker finished". **And [any code path that catches an exception and continues owes the]{custom-style="Key"}
 > reader an unmissable statement that it did so** — because the alternative is a log that reads as
 > success and a system that is degraded.
 
@@ -225,7 +225,7 @@ race, and nobody was told.
 
 Five times in this phase, one of our own instruments produced a confident, plausible, **wrong** answer —
 and it is the same phenomenon: a green signal answering a question nobody asked. Three were whole runs
-that were void; two were probes inside a run that measured something other than what they claimed.
+[that were void; two were probes inside a run that measured something other than what they claimed]{custom-style="Key"}.
 
 | The instrument said | What was actually true |
 |---|---|
@@ -236,11 +236,11 @@ that were void; two were probes inside a run that measured something other than 
 | A password "worked" | **Invalid probe** — loopback connections are `trust`, so it never tested the password at all |
 
 ⭐ **A successful-looking run is the most dangerous outcome of a badly instrumented experiment**, because
-it is indistinguishable from a real one and it goes into the notes as a finding. Four practices came out
+[it is indistinguishable from a real one and it goes into the notes as a finding]{custom-style="Key"}. Four practices came out
 of this, and they are cheap:
 
 1. 🚨 **Assert preconditions; do not print them.** Our deploy script *printed* the file it was deploying,
-   on line three. That is not a control — it is a hope that a human reads carefully at the exact moment
+   on line three. [That is not a control — it is a hope that a human reads carefully at the exact moment]{custom-style="Key"}
    they are least likely to.
 2. ⭐ **Never suppress stderr on a step the experiment depends on.** `2>/dev/null || echo "already gone"`
    turned a failed deletion into a reassuring message.
@@ -252,7 +252,7 @@ of this, and they are cheap:
    more than a right one taken on faith.**
 
 **And write the prediction down before running the command.** It is the only instrument that catches the
-failure where you learn nothing because you had no expectation to violate. Our quorum prediction was
+[failure where you learn nothing because you had no expectation to violate]{custom-style="Key"}. Our quorum prediction was
 **wrong**, and that refutation is among the most useful facts in this track; it would not exist if we had
 not committed to a guess we could lose.
 
@@ -275,7 +275,7 @@ not committed to a guess we could lose.
 
 ⭐ **The healthcheck row is the highest-leverage one**, because it is the only rung where a correctness
 signal is visible to the orchestrator. Everything below it is liveness; everything above it is your own
-tooling. **A healthcheck converts "wrong but running" into a failed task — and a failed task is
+tooling. **[A healthcheck converts "wrong but running" into a failed task]{custom-style="Key"} — and a failed task is
 something rollback can act on.**
 
 ### The three questions worth asking of any deploy pipeline
@@ -283,7 +283,7 @@ something rollback can act on.**
 1. **What could be broken and still let this pipeline go green?** For our first version the honest answer
    was: the database, the dataset, the frontend, and the previous version still serving.
 2. **Which of my checks would notice if the thing it watches were replaced by something that merely
-   answers?** If the answer is "none", every check is a liveness check wearing a costume.
+   answers?** If the answer is "none", [every check is a liveness check wearing a costume]{custom-style="Key"}.
 3. **After a reboot, what reads the replica count?** If nothing does, capacity is on an honour system.
 
 > **Lab vs PROD — the deploy script is the only monitoring.** *In the lab:* correctness is checked once,
@@ -292,7 +292,7 @@ something rollback can act on.**
 > change, and drills are the point. *In production:* the same assertions run **continuously** as
 > synthetic checks, and replica counts are alerted on rather than inspected — ⚠️ *an unverified
 > prescription: standard practice, but nothing in this lab has tested it.* *If you carry the habit:*
-> **every failure that begins after a deploy is discovered by a user.** Deploy-time verification only
+> **[every failure that begins after a deploy is discovered by a user]{custom-style="Key"}.** Deploy-time verification only
 > proves the system was correct at one instant — and the reboot that silently cost us three replicas
 > happened at no deploy at all, which is precisely why nothing noticed.
 

@@ -47,7 +47,7 @@ Everything here was run on **`vm-k8-redpanda-1` (192.168.1.186)**, single-node k
 >
 > Your manifest only said `selector: matchLabels: app=web`. Kubernetes silently ADDS `pod-template-hash` to each ReplicaSet's selector and to every pod it creates. Without it, both ReplicaSets above would match all 3 pods on `app=web` alone, each would count 3 and consider itself satisfied, and **the rollout would deadlock**. The hash is what lets each generation say "these are mine, those are not." **Follow the dotted ownerReferences up** and you have garbage collection: delete the Deployment and the ReplicaSets and Pods are collected automatically.
 
-You apply one YAML file and get **three** API objects, each with a different job:
+[You apply one YAML file and get **three** API objects]{custom-style="Key"}, each with a different job:
 
 | Object | Responsibility |
 |---|---|
@@ -55,11 +55,11 @@ You apply one YAML file and get **three** API objects, each with a different job
 | **ReplicaSet** | *How many.* Keeps exactly N pods of **one specific template** alive. |
 | **Pod** | *The thing that runs.* Holds one or more containers. |
 
-A container is a fourth thing, but it is **not an API object** — you cannot `kubectl get containers`.
+A container is a fourth thing, but [it is **not an API object** — you cannot `kubectl get containers`]{custom-style="Key"}.
 It exists only as a field inside a pod spec.
 
 The split exists because "keep 3 copies alive" and "replace v1 with v2 safely" are different
-problems. A ReplicaSet solves the first and is deliberately stupid about versions. The Deployment
+problems. [A ReplicaSet solves the first and is deliberately stupid about versions]{custom-style="Key"}. The Deployment
 solves the second by **creating a second ReplicaSet** and shifting replicas between them.
 
 ### The ownership chain
@@ -105,7 +105,7 @@ selector:
     app: web
 ```
 
-The live ReplicaSet is actually selecting on `app=web` **AND** `pod-template-hash=dbb6fffff`.
+[The live ReplicaSet is actually selecting on `app=web` **AND** `pod-template-hash=dbb6fffff`]{custom-style="Key"}.
 
 > **Why it must exist.** During a rollout two ReplicaSets are alive at once, both matching
 > `app=web`. [Without the hash, each would look at all the pods, count enough, decide it was
@@ -207,7 +207,7 @@ strategy:
     maxUnavailable: 0    # never drop below the desired count
 ```
 
-Read as a pair, they define a window: with `replicas: 3` you may have 3 or 4 pods, and at least 3
+Read as a pair, they define a window: [with `replicas: 3` you may have 3 or 4 pods, and at least 3]{custom-style="Key"}
 must be available. [So the controller must **add before it removes**. For anything serving orders,
 `maxUnavailable: 0` is the setting you want — capacity never dips.]{custom-style="Key"}
 
@@ -236,7 +236,7 @@ Re-applying a file whose **pod template** is byte-identical to what is running:
 deployment.apps/web configured
 ```
 
-...and yet nothing rolled. Same ReplicaSets, same pod ages, no new revision. Only the
+...[and yet nothing rolled. Same ReplicaSets, same pod ages, no new revision]{custom-style="Key"}. Only the
 `last-applied-configuration` annotation changed.
 
 > [**"configured" does not mean "rolled out."** Only pod-template changes cause pod churn.]{custom-style="Key"} Change a
@@ -255,13 +255,13 @@ deployment.apps/web configured
 >
 > [**Readiness gates the rollout. Liveness does not.** A bad readiness probe stops the deploy and protects you. A bad liveness probe ships cleanly, destroys the good pods, and only then starts killing.]{custom-style="Key"}
 >
-> **Debugging heuristic:** CrashLoopBackOff with `Exit Code: 0` means something EXTERNAL killed the container — nearly always the liveness probe. A real app crash gives a non-zero code or a signal.
+> **Debugging heuristic:** CrashLoopBackOff with `Exit Code: 0` [means something EXTERNAL killed the container — nearly always the liveness probe]{custom-style="Key"}. A real app crash gives a non-zero code or a signal.
 >
 > **Never let a liveness probe check a dependency.** If it returns unhealthy because the database is down, Kubernetes kills every replica at once and the restart storm hammers the recovering database. Dependency health belongs in READINESS, which only removes you from the load balancer.
 >
 > **Slow starters need a startupProbe**, or liveness kills the app before it finishes booting.
 
-Without a probe, Kubernetes calls a pod Ready as soon as the container process starts. For most
+Without a probe, [Kubernetes calls a pod Ready as soon as the container process starts]{custom-style="Key"}. For most
 real applications that is a lie — a JVM or a Python service accepts a TCP connection long before it
 can answer a request.
 
@@ -277,7 +277,7 @@ readinessProbe:
 ### Breaking it on purpose
 
 We pointed the probe at `/healthz`, which nginx answers with a 404. An `httpGet` probe counts only
-**200–399** as success, so the pod could never become Ready.
+[**200–399** as success, so the pod could never become Ready]{custom-style="Key"}.
 
 ```
 Readiness probe failed: HTTP probe failed with statuscode: 404   (x25 over 2m31s)
@@ -360,7 +360,7 @@ That condition is what `kubectl rollout status` watches for to decide a rollout 
 is why the distinction is easy to miss — the tooling behaves as if something happened, while in the
 cluster nothing did.
 
-> **Operational consequence:** a CI job that times out and exits red leaves a half-rolled deployment
+> **Operational consequence:** [a CI job that times out and exits red leaves a half-rolled deployment]{custom-style="Key"}
 > still grinding in the cluster. The pipeline says "failed," everyone assumes nothing shipped, and a
 > surge pod sits there. If you want it *stopped*, say so: `kubectl rollout undo` or
 > `kubectl rollout pause`. Automatic rollback is not a Deployment feature — if you want it, it
@@ -382,7 +382,7 @@ livenessProbe:
   failureThreshold: 2
 ```
 
-**The rollout succeeded.** Revision 5 went out cleanly, all three known-good pods were deleted, and
+[**The rollout succeeded.** Revision 5 went out cleanly, all three known-good pods were deleted]{custom-style="Key"}, and
 only then did the killing start:
 
 ```
@@ -400,7 +400,7 @@ Total outage.
 
 > **Readiness gates the rollout. Liveness does not.**
 
-Readiness is consulted *before* a pod is allowed to count as available, so a failure stops the
+[Readiness is consulted *before* a pod is allowed to count as available]{custom-style="Key"}, so a failure stops the
 deploy. Liveness only acts on an already-running pod. The Deployment controller saw readiness pass,
 declared each new pod healthy, deleted an old one, and moved on — completely unaware that a liveness
 probe was about to start killing them. By the time it did, the good pods were gone.
@@ -431,7 +431,7 @@ Container web failed liveness probe, will be restarted
 > almost always the liveness probe.**]{custom-style="Key"} A genuine crash gives a non-zero exit code or a signal. That
 > one rule saves you from reading application logs that show nothing wrong.
 
-Note also that the **pod names never changed** while the restart counter climbed — the same three
+Note also that [the **pod names never changed** while the restart counter climbed]{custom-style="Key"} — the same three
 pods (`8lhkw`, `h6fzl`, `mw2zx`) went from `restarts=2` to `restarts=4` over about a minute. These
 are **container restarts inside surviving pods**, not pod replacements — the Chapter 1 distinction,
 confirmed. A crash-looping pod keeps its identity, and therefore its IP; only its container is
@@ -450,7 +450,7 @@ The classic amplifier, and a strong thing to say in an interview:
 > dependency hiccup into a self-inflicted outage.
 
 Liveness should answer only *"is this process wedged and unrecoverable?"* Dependency health belongs
-in **readiness**, which merely removes you from the load balancer and lets you recover in place.
+in **readiness**, [which merely removes you from the load balancer and lets you recover in place]{custom-style="Key"}.
 
 [For slow-starting applications use a **`startupProbe`**, which suspends liveness until the app
 finishes booting.]{custom-style="Key"} Otherwise liveness kills a healthy JVM halfway through startup, forever.
@@ -490,7 +490,7 @@ REVISION  CHANGE-CAUSE
 Revision 2 **vanished**. The ReplicaSet that *was* revision 2 is now revision 4 — [a ReplicaSet
 carries only its most recent revision number, so rolling back re-tags it.]{custom-style="Key"}
 
-> **Consequence:** if someone in the incident channel says "roll back to revision 2," that revision
+> **Consequence:** [if someone in the incident channel says "roll back to revision 2," that revision]{custom-style="Key"}
 > may no longer exist and `--to-revision=2` will fail. Always re-read `rollout history` before
 > acting on a number somebody quoted earlier.
 
@@ -531,7 +531,7 @@ describe the broken version. The next `apply` — yours, or CI's from an unchang
 re-ships the outage.
 
 > [**`rollout undo` buys you minutes, not a fix. Revert in Git.**]{custom-style="Key"} This is the 3am failure mode: roll
-> back, go to bed, and the morning's first pipeline redeploys the break.
+> [back, go to bed, and the morning's first pipeline redeploys the break]{custom-style="Key"}.
 
 ---
 
@@ -540,14 +540,14 @@ re-ships the outage.
 **No.** This matters because Chapter 3 runs a three-broker Raft cluster.
 
 [`maxUnavailable` is a **capacity** guarantee, not a **consensus** guarantee.]{custom-style="Key"} The Deployment
-controller counts pods reporting Ready. It has no concept of voting, majorities, or Raft. Point one
+controller counts pods reporting Ready. [It has no concept of voting, majorities, or Raft]{custom-style="Key"}. Point one
 at three brokers with `maxUnavailable: 1` and it will take one down, see two Ready, and proceed —
 because two Ready satisfies its arithmetic.
 
 There is a subtler trap, and Chapter 3 §9 demonstrates it: [**a pod reporting Ready is not the same
 as the cluster being healthy.**]{custom-style="Key"} After a broker failure, `Under-replicated partitions` read `0`
 because the metric lagged; after recovery the cluster reported `Healthy: true` while one broker led
-zero partitions. A readiness probe checking "is my port open" would have said yes throughout, and a
+zero partitions. [A readiness probe checking "is my port open" would have said yes throughout]{custom-style="Key"}, and a
 rollout driven by it would have marched straight on to the next broker.
 
 What actually protects a quorum:
@@ -580,7 +580,7 @@ and will only place your pod where the remainder fits. [It is a promise made onc
 and nothing enforces it afterwards]{custom-style="Key"} — a container requesting 64Mi may happily use 200Mi if the node
 has it spare.
 
-The **limit** is a runtime ceiling enforced by the kernel through cgroups, and the two resources
+[The **limit** is a runtime ceiling enforced by the kernel through cgroups]{custom-style="Key"}, and the two resources
 behave completely differently at the ceiling:
 
 | | Over the CPU limit | Over the memory limit |
@@ -595,7 +595,7 @@ of the advice you will hear about resource configuration.
 
 ### The three QoS classes
 
-You never set the QoS class. The kubelet derives it from what you did or did not specify, and it
+You never set the QoS class. [The kubelet derives it from what you did or did not specify]{custom-style="Key"}, and it
 decides who gets evicted when the **node** runs short of memory. All three, on this cluster:
 
 ```
@@ -615,7 +615,7 @@ qos-besteffort   BestEffort      # no requests and no limits at all
 Two consequences worth stating out loud, because they are what interviewers are probing for:
 
 [**Setting no resources does not make a pod modest, it makes it a liability.**]{custom-style="Key"} BestEffort is the
-first thing killed when a node comes under memory pressure, whatever the pod is doing. A
+[first thing killed when a node comes under memory pressure, whatever the pod is doing]{custom-style="Key"}. A
 BestEffort database is evicted before a Burstable batch job that is causing the pressure.
 
 [**Guaranteed costs you utilisation and buys you predictability.**]{custom-style="Key"} Requests equal to limits means the
@@ -624,7 +624,7 @@ the right trade. For a bursty stateless web tier it usually is not.
 
 ### OOMKilled, and how to recognise it
 
-A container that exceeds its memory limit is killed by the kernel, not by Kubernetes, and the
+[A container that exceeds its memory limit is killed by the kernel, not by Kubernetes]{custom-style="Key"}, and the
 evidence is specific. A pod limited to 64Mi, allocating 10MB at a time:
 
 ```
@@ -690,19 +690,19 @@ system actually guarantees.***
 > makes that mechanism visible. *In production:* a purpose-built endpoint that verifies the things the
 > request path actually needs — a database round-trip, a broker connection, a warm cache. *If you carry
 > the habit:* 🚨 **you get the illusion of health checking with none of the protection.** A process that
-> is up but cannot reach its database passes `/` forever, so Kubernetes keeps routing traffic to it and
+> [is up but cannot reach its database passes `/` forever]{custom-style="Key"}, so Kubernetes keeps routing traffic to it and
 > keeps reporting `Ready`. This is precisely the failure Chapter 6 §13 hits from the other direction —
-> **Kubernetes cannot tell a working consumer from a hung one** — and the reason is the same: nothing was
+> [**Kubernetes cannot tell a working consumer from a hung one**]{custom-style="Key"} — and the reason is the same: nothing was
 > asked that the broken state would fail.
 
 > **Lab vs PROD — no PodDisruptionBudget on a quorum workload.** *In the lab:* no PDBs anywhere, including
 > in front of Chapter 3's three-broker Redpanda cluster. *Why it's acceptable here:* with one node there is
 > nowhere to drain *to*, so a PDB would have nothing to protect and could not be exercised honestly. *In
-> production:* a PDB on anything quorum-based, sized so a voluntary disruption can never take out more
+> production:* a PDB on anything quorum-based, [sized so a voluntary disruption can never take out more]{custom-style="Key"}
 > than one member. *If you carry the habit:* 🚨 **`kubectl drain` will cheerfully destroy your quorum.**
 > The critical detail is that §9 of this chapter is not enough on its own — a *Deployment* rolling update
-> respects `maxUnavailable`, but a **node drain is a different code path** and only a PDB constrains it.
-> So a cluster that survives every deploy can still be lost to a routine node patch, which is the version
+> respects `maxUnavailable`, but [a **node drain is a different code path** and only a PDB constrains it]{custom-style="Key"}.
+> So [a cluster that survives every deploy can still be lost to a routine node patch]{custom-style="Key"}, which is the version
 > of this that actually happens. ⚠️ *Unverified prescription:* PDB behaviour under drain was never tested
 > here, for the reason given above.
 

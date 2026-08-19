@@ -207,27 +207,27 @@ acks=all   produced=15000 delivered=15000 failed=0   in topic: 15000 / 15000   2
 acks=0     produced=15000 delivered=15000 failed=0   in topic: 14971 / 15000   27.0s
 ```
 
-**Read those two lines carefully, because they are identical where it matters.** Both runs report
+[**Read those two lines carefully, because they are identical where it matters.**]{custom-style="Key"} Both runs report
 `delivered=15000 failed=0`. [One of them is missing 29 records. There was no exception, no failed
 callback, no retry, no metric, no log line. The application cannot know.]{custom-style="Key"} The only way I detected it
 was by independently counting what was in the topic afterwards.
 
 [**And `acks=0` did not even go faster — it was 0.2 seconds slower.**]{custom-style="Key"} Do not read that as evidence
-that durability is free; read it as evidence that this test could not price durability at all. The
-run was rate-limited at `RATE=600`, so 15,000 records cannot complete in under 25 seconds no matter
+that durability is free; [read it as evidence that this test could not price durability at all]{custom-style="Key"}. The
+run was rate-limited at `RATE=600`, [so 15,000 records cannot complete in under 25 seconds no matter]{custom-style="Key"}
 how little the brokers are asked to do. Both runs sat on that floor, and the 0.2s is scheduling
 noise. To measure what `acks=all` actually costs you would have to remove the rate limit and
 saturate the brokers, at which point the interesting number is not elapsed time but the p99 of the
 delivery callback.
 
-So the finding here is the **29 records**, not the timing. Whatever `acks=0` buys, this run did not
-show it buying anything, and it silently dropped 0.19% of the order flow to get it.
+[So the finding here is the **29 records**, not the timing]{custom-style="Key"}. Whatever `acks=0` buys, this run did not
+show it buying anything, and [it silently dropped 0.19% of the order flow to get it]{custom-style="Key"}.
 
 This is the asymmetry that matters for an order management system:
 
 - A **duplicate is loud.** It shows up as a total that disagrees with reconciliation, and an
   idempotent handler erases it entirely.
-- A **lost record is silent.** There is no artefact to find and no counter to alert on. A missing
+- A **lost record is silent.** [There is no artefact to find and no counter to alert on]{custom-style="Key"}. A missing
   fill is a position you do not know you hold.
 
 `acks=all` is the floor for order flow — and on this workload it was not even the slower option.
@@ -240,8 +240,8 @@ This is the asymmetry that matters for an order management system:
 
 ## 4. Getting the image into k3s with no registry
 
-There is no registry in this lab, and `docker build` alone is not enough. k3s uses **its own
-containerd instance** with its own image store, and it cannot see Docker's. The image must be
+There is no registry in this lab, and `docker build` alone is not enough. k3s uses [**its own
+containerd instance** with its own image store, and it cannot see Docker's]{custom-style="Key"}. The image must be
 exported and imported explicitly:
 
 ```bash
@@ -262,7 +262,7 @@ will try to pull `oms:dev` from Docker Hub, fail, and give you an `ErrImagePull`
 network problem rather than a missing registry.
 
 > **Rebuilds need the import too.** Every code change is `build.sh` again. Forgetting the import
-> step means Kubernetes cheerfully runs the *previous* image and your fix appears not to work. The
+> step [means Kubernetes cheerfully runs the *previous* image and your fix appears not to work]{custom-style="Key"}. The
 > `build.sh` in `education/k8s-k3s-redpanda/app/` does both and verifies, for exactly this reason.
 
 ---
@@ -358,9 +358,9 @@ as the safe one. To show the real failure I had to model the thing that actually
 > **And note the order of the two commits.** State first, offset second → a crash costs a duplicate. Offset first, state second → a crash costs a **lost record**. One is recoverable by design; the other is silent.
 
 The dangerous case is a side effect that **cannot be rolled back**: a POST to an execution venue, an
-email, a payment, a message to another system. So the second ledger became a **separate SQLite file
-on an autocommit connection** — every write durable the instant it runs, no rollback, no
-idempotency key. A stand-in for an HTTP call that has already left the building.
+email, a payment, a message to another system. [So the second ledger became a **separate SQLite file
+on an autocommit connection**]{custom-style="Key"} — every write durable the instant it runs, no rollback, no
+idempotency key. [A stand-in for an HTTP call that has already left the building]{custom-style="Key"}.
 
 ```python
 gw = sqlite3.connect(GATEWAY, isolation_level=None)   # autocommit: no take-backs
@@ -618,7 +618,7 @@ is a genuinely nasty thing to debug.
 | the Java client | `murmur2_random` |
 
 [**The same order id lands on a different partition depending on which client library produced it.**]{custom-style="Key"}
-In a fleet where a Python service and a Java service both write to `orders`, per-key ordering — the
+[In a fleet where a Python service and a Java service both write to `orders`]{custom-style="Key"}, per-key ordering — the
 guarantee this entire chapter is built on — is quietly broken for every key both of them touch, and
 nothing anywhere reports an error. The fix is to pin the partitioner explicitly
 (`partitioner=murmur2_random` in librdkafka) rather than inherit it, in exactly the way you would
@@ -652,10 +652,10 @@ replay window in the first place. [**The window is not carelessness; it is the p
 | No schema | Schema Registry with a compatibility mode (Chapter 7) |
 | No liveness probe on the consumer | A probe that fails when the poll loop stalls — see below |
 
-That last row is worth its own line, because §7 handed me the reason. A consumer stuck on a lock
+[That last row is worth its own line, because §7 handed me the reason]{custom-style="Key"}. A consumer stuck on a lock
 was `1/1 Running` with a clean log and zero restarts. [**Kubernetes cannot tell a working consumer
 from a hung one**, because "the process is alive" is all a default health check knows.]{custom-style="Key"} A liveness
-probe that checks *"have I processed a record, or deliberately idled, in the last N seconds"* would
+probe that checks *"[have I processed a record, or deliberately idled, in the last N seconds]{custom-style="Key"}"* would
 have caught it in 30 seconds. Chapter 2 §6–§7 built the probe machinery; this is the workload that
 actually needs it.
 
@@ -665,9 +665,9 @@ minutes). [If the application does not call `poll()` within that window, the bro
 the group and reassigns its partitions to someone who can make progress — no probe required.]{custom-style="Key"} The
 reason that did not save the §7 hang is that the loop *was* still polling: each event returned
 inside SQLite's 5-second busy timeout, so from the group's point of view the consumer was healthy,
-just slow. It was doing one record at a time, which is a throughput collapse rather than a stall.
+just slow. It was doing one record at a time, [which is a throughput collapse rather than a stall]{custom-style="Key"}.
 
-So the two mechanisms cover different failures, and a good answer names both:
+So [the two mechanisms cover different failures, and a good answer names both]{custom-style="Key"}:
 
 | Failure | Caught by | How long |
 |---|---|---|
@@ -691,16 +691,16 @@ defect that would survive any amount of scaling up**, and it is the one that loo
 > ambiguous in practice. *In production:* immutable tags, and ideally deploy by **digest**, so a given
 > reference can only ever mean one image. *If you carry the habit:* 🚨 **`kubectl rollout undo` becomes a
 > lie.** Chapter 2 §8 showed the old ReplicaSet is a complete snapshot of the pod template — but the
-> template records `oms:dev`, *not* the image that tag pointed at when it was deployed. **Rolling back
+> [template records `oms:dev`, *not* the image that tag pointed at when it was deployed]{custom-style="Key"}. **Rolling back
 > re-pulls whatever `oms:dev` means now, which is the broken build you are trying to escape.** You get a
-> successful-looking rollback that changes nothing, at the worst possible moment, and nothing in the output
+> [successful-looking rollback that changes nothing, at the worst possible moment]{custom-style="Key"}, and nothing in the output
 > tells you it happened.
 
 ⭐ **Why that one and not the others.** The `No TLS, no SASL` row is a genuine security defect, but it is a
 property of the *cluster* rather than of this application — it is called out in Chapter 3 §11, where the
 Helm value that disables it lives, and repeating it here would make it wallpaper. The SQLite-on-`local-path`
 row is the same single-failure-domain limitation described in Chapter 1 §8. **The image tag is the only one
-that originates in this chapter, and the only one that would still be wrong on a fifty-node cluster.**
+[that originates in this chapter, and the only one that would still be wrong on a fifty-node cluster]{custom-style="Key"}.**
 
 > 📌 **Forward note, added Aug 13, 2026:** the Docker Swarm track reaches the same conclusion from the
 > opposite direction. Swarm resolves a tag to a **digest** when it accepts a service spec and stores the
@@ -825,7 +825,7 @@ query, or §12's throughput comparison, which needs a knob to disable the gatewa
 program does not have.
 
 Every block below is written to survive being run twice. That is not tidiness: a runbook you cannot
-re-run is a runbook you cannot practise, and Chapter 4 §6a is the whole argument for why
+[re-run is a runbook you cannot practise]{custom-style="Key"}, and Chapter 4 §6a is the whole argument for why
 `AlreadyExists` on the second pass is a defect and not a nuisance.
 
 ### Build and load
@@ -937,7 +937,7 @@ sleep 60                         # session.timeout.ms ~45s before reassignment
 ```
 
 > `pgrep -af` *lists*; it is safe. The command to avoid is `pkill -9 -f "python consumer.py"`,
-> because that pattern also matches the shell you typed it in and kills your own session. `-af`
+> [because that pattern also matches the shell you typed it in and kills your own session]{custom-style="Key"}. `-af`
 > rather than `-ax` because the bare pattern `python` also matches the producer pod and any other
 > Python on the node.
 
@@ -961,7 +961,7 @@ watch -n5 "rpk group describe position-keeper | grep TOTAL-LAG"   # sticks at 15
 kubectl -n market set env deploy/position-keeper COMMIT_SECONDS=5  # lag drains to 0 and holds
 ```
 
-Note that `kubectl set env` restarts the pod, which replays the uncommitted tail and adds to the
+[Note that `kubectl set env` restarts the pod, which replays the uncommitted tail]{custom-style="Key"} and adds to the
 gateway's duplicate count. Read the ledgers *before* running this demo if you care about Demo B's
 numbers.
 
@@ -1017,7 +1017,7 @@ something is wrong rather than when you are reproducing a demo.
 | `pgrep -af 'python consumer.py'` | Find the process as the **node** sees it, before `kill -9` |
 
 Two of these are worth knowing precisely because their obvious cousins are wrong:
-`rpk group describe` reports **lag** per partition, not records held, so it cannot answer "how is my
+`rpk group describe` [reports **lag** per partition, not records held]{custom-style="Key"}, so it cannot answer "how is my
 data distributed" (use `rpk topic describe -p`), and `pkill -f` with a loose pattern will match and
 kill the shell you typed it in.
 
@@ -1048,43 +1048,43 @@ kill the shell you typed it in.
 ## 17. Interview questions this material answers
 
 **Q: Walk me through what `acks=all` guarantees and what it costs.** (§3)
-It means a quorum of replicas has the record before the producer is told it succeeded — 2 of 3 for
+[It means a quorum of replicas has the record before the producer is told it succeeded]{custom-style="Key"} — 2 of 3 for
 RF 3, since Redpanda uses Raft. On Kafka I'd add a caveat: there `acks=all` means all *in-sync*
-replicas, and with the default `min.insync.replicas=1` that set can shrink to the leader alone, so
+replicas, and [with the default `min.insync.replicas=1` that set can shrink to the leader alone]{custom-style="Key"}, so
 you can lose an acknowledged write. I'd set it to 2 with RF 3. As for cost: killing a broker
 mid-produce with `acks=all` lost zero records, while the identical run with `acks=0` reported
 `delivered=15000 failed=0` and was missing 29 records from the topic. I'll be straight that my test
 did not actually price the durability, because it was rate-limited — `acks=0` came out 0.2s slower,
 which is noise. The cost is a round trip to the followers and it shows up in the p99 of the delivery
 callback under saturation, not in wall-clock on a throttled run. For order flow I treat `acks=all`
-as a floor regardless, because a duplicate is loud and recoverable while a lost fill is silent.
+as a floor regardless, [because a duplicate is loud and recoverable while a lost fill is silent]{custom-style="Key"}.
 
 **Q: A record arrives that your consumer can't parse. What happens?** (§14)
 That depends on a decision someone has to make deliberately, and the default in most code is the
 wrong one. My first version let the exception escape the loop into a `finally` that committed the
-offset — so a single malformed fill was skipped permanently and silently, which is the worst
+offset — [so a single malformed fill was skipped permanently and silently]{custom-style="Key"}, which is the worst
 outcome available. Now it's explicit: the default stops, commits nothing, and exits 75, so the
 record stays at the head of the partition and lag alerts. Everything behind it stalls, which sounds
-bad until you compare it to booking a position you know is wrong. For order flow I'd block; for
+[bad until you compare it to booking a position you know is wrong]{custom-style="Key"}. For order flow I'd block; for
 metrics or clickstream I'd route to a dead-letter table and keep going. If you do skip, write the
 dead letter in the same transaction as the offset advance, or you can lose the only record of the
 record you lost.
 
 **Q: Your consumer crashes. How do you make sure you don't process the same message twice?**
-The honest answer is you don't — you make processing it twice harmless. I'd first ask where the
+[The honest answer is you don't — you make processing it twice harmless]{custom-style="Key"}. I'd first ask where the
 state lives. If it's a single transactional store, write the state and commit the offset *after* the
-transaction; a crash rolls the write back and redelivery re-applies it cleanly. I tested that and
-got zero duplicates across 8,000 records with no dedupe logic at all. The problem is side effects
+transaction; [a crash rolls the write back and redelivery re-applies it cleanly]{custom-style="Key"}. I tested that and
+[got zero duplicates across 8,000 records with no dedupe logic at all]{custom-style="Key"}. The problem is side effects
 that leave the transaction — an HTTP call to a venue. There the only real defence is an idempotency
-key the receiver honours. In my test that path over-executed 11 fills, 1,100 shares, silently.
+key the receiver honours. [In my test that path over-executed 11 fills, 1,100 shares, silently]{custom-style="Key"}.
 
 **Q: Does it matter whether you commit the offset before or after processing?**
-It's the whole decision. State first then offset means a crash costs duplicates, which an idempotent
-handler absorbs. Offset first then state means a crash costs records that are never processed —
+[It's the whole decision. State first then offset means a crash costs duplicates]{custom-style="Key"}, which an idempotent
+handler absorbs. [Offset first then state means a crash costs records that are never processed]{custom-style="Key"} —
 silent and unrecoverable. I'd always take the recoverable failure.
 
 **Q: Lag on one of your consumer groups is stuck at 13 and not moving. Where do you look?**
-A stuck number rather than a growing one usually isn't a slow consumer — a slow consumer's lag
+[A stuck number rather than a growing one usually isn't a slow consumer]{custom-style="Key"} — a slow consumer's lag
 changes. I'd suspect a commit policy that only triggers on record count, so the final partial batch
 never commits on an idle topic. I hit exactly this. The nasty part is it isn't cosmetic: that
 uncommitted tail is replayed on every restart, so duplicates compound — I watched them go 11, then
@@ -1099,22 +1099,22 @@ runs continuously, which is much better than finding out at reconciliation.
 
 **Q: One of your partitions has far more traffic than the others. What do you do?**
 First count distinct keys, because the answer differs. With few keys it's small-numbers hashing
-noise — I measured 42% on one partition with 12 keys, and 9% spread with 2,000 keys, same code.
-That self-corrects. A genuinely hot key is different, and adding partitions won't help, because all
+noise — [I measured 42% on one partition with 12 keys, and 9% spread with 2,000 keys]{custom-style="Key"}, same code.
+That self-corrects. [A genuinely hot key is different, and adding partitions won't help]{custom-style="Key"}, because all
 of that key's events must stay together to preserve its ordering. That needs a composite key or a
 dedicated topic — a data modelling change, not a capacity one.
 
 **Q: How do you test that your service handles a hard kill?**
 Carefully, because it's easy to test the wrong thing. I assumed `kubectl delete pod --force
---grace-period=0` was a SIGKILL; it often still delivers SIGTERM, and my handler shut down cleanly,
+--grace-period=0` was a SIGKILL; [it often still delivers SIGTERM, and my handler shut down cleanly]{custom-style="Key"},
 so I was testing the graceful path while believing I was testing the hard one. `kill -9 1` inside
 the container doesn't work either — the kernel shields PID 1 from unhandleable signals. I killed
 the process from the node and confirmed it with `lastState.terminated.exitCode: 137`, which is also
 what an OOM kill looks like.
 
 **Q: A pod is `1/1 Running` with no restarts but doing no work. How would you catch that?**
-That happened to me — a lock contention bug left the consumer processing one record with a clean
-log and no restarts. Kubernetes only knew the process was alive. The signal was lag not moving. The
+That happened to me — [a lock contention bug left the consumer processing one record with a clean]{custom-style="Key"}
+log and no restarts. [Kubernetes only knew the process was alive. The signal was lag not moving]{custom-style="Key"}. The
 fix is a liveness probe tied to actual progress: fail if no record has been processed and the
 consumer isn't deliberately idle within N seconds. Liveness should assert the work is happening, not
 that the process exists.
@@ -1123,7 +1123,7 @@ that the process exists.
 When the loop stays inside the cluster — consume, transform, produce, commit offsets atomically in
 the same transaction. That's a real guarantee and it's worth using. It stops being available the
 moment a side effect leaves the cluster, which for an OMS is most of the interesting ones. Then it's
-at-least-once plus idempotency, and the guarantee has to live in the receiver.
+[at-least-once plus idempotency, and the guarantee has to live in the receiver]{custom-style="Key"}.
 
 ---
 

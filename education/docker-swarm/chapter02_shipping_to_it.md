@@ -15,20 +15,20 @@ A four-service application — frontend, backend, PostgreSQL, Redis — deployed
 onto the cluster, reachable through the routing mesh. The application itself is incidental. What
 transfers is everything that sat between "I have a compose file" and "it is serving traffic":
 
-- why a compose file is **not** a stack file, and which half of it Swarm silently ignores
+- [why a compose file is **not** a stack file, and which half of it Swarm silently ignores]{custom-style="Key"}
 - how a registry credential actually reaches a node — **and the confident wrong answer**
 - why `docker stack deploy` exiting `0` means almost nothing
 - why "it's converged" is a harder question than counting replicas
 - how a *frontend build* dictated our network topology
 
 Every command here was run. Where our first explanation of a failure was wrong, the chapter says so,
-because the wrong explanation is the one you are likely to arrive at too.
+because [the wrong explanation is the one you are likely to arrive at too]{custom-style="Key"}.
 
 ---
 
 ## 1. A stack file is not a compose file
 
-They use the same syntax. They are read by different things, and each ignores parts of the other.
+They use the same syntax. [They are read by different things, and each ignores parts of the other]{custom-style="Key"}.
 
 | | `docker compose up` | `docker stack deploy` |
 |---|---|---|
@@ -42,13 +42,13 @@ They use the same syntax. They are read by different things, and each ignores pa
 [The dangerous entries are the ones that are ignored rather than rejected]{custom-style="Key"}. A
 compose file full of `depends_on` deploys onto Swarm without a single warning, and then your backend
 starts before the database exists. Nothing in the output mentions it. You find out from the
-application's logs, if the application is kind enough to say so.
+application's logs, [if the application is kind enough to say so]{custom-style="Key"}.
 
 > **Why `depends_on` cannot work here, conceptually.** On one host, "start B after A" is a meaningful
 > instruction because there is one scheduler and one machine. In a cluster, A might be starting on a
 > different node, or be rescheduled mid-deploy, or be temporarily down while its node is drained. There
-> is no moment at which "A has started" is a stable global fact. **So the responsibility moves into
-> the application: services must tolerate their dependencies being absent and retry.** This is not
+> [is no moment at which "A has started" is a stable global fact]{custom-style="Key"}. **So the responsibility moves into
+> the application: [services must tolerate their dependencies being absent and retry]{custom-style="Key"}.** This is not
 > Swarm being primitive — Kubernetes takes the same position, which is why readiness probes and
 > init containers exist rather than a `depends_on` field.
 
@@ -56,7 +56,7 @@ application's logs, if the application is kind enough to say so.
 
 [`manifests/capricorn.stack.yml`](manifests/capricorn.stack.yml) was written here and the application's
 own repository was never touched. That was a hard rule for the phase, and the reasoning generalises:
-**the lab is a consumer of the application's images, not a contributor to it.** Editing the app's
+**[the lab is a consumer of the application's images, not a contributor to it]{custom-style="Key"}.** Editing the app's
 repository to make a lab work is how experiments become someone else's maintenance burden, and how
 lab-only credentials end up in a production compose file.
 
@@ -70,7 +70,7 @@ printf '<password>' | docker secret create pg_password -
 
 Our stack declares the secret as `external: true`, meaning "this must already exist; I will not create
 it". The deploy fails immediately and clearly if it doesn't, which is the desired behaviour — the
-alternative is a database that starts and then refuses every connection for a reason you have to go
+alternative is [a database that starts and then refuses every connection]{custom-style="Key"} for a reason you have to go
 digging for.
 
 ✅ **Proved by drill (Aug 18, Drill B).** With the secret deleted, `deploy_swarm.sh` refused before
@@ -81,14 +81,14 @@ FAILED: secret 'pg_password' does not exist - create it first: …
 EXIT=1        # and docker stack ls stayed empty
 ```
 
-And the registry login never ran — the secret check sits **above** the login on purpose, so the
-cheapest, most-likely-wrong precondition fails free of cost and without exposing a credential.
-⚠️ **What this guard cannot do is notice a secret that exists but holds the wrong value** — that one
-sails through everything and is caught only at the very end. Chapter 4 §2 runs that failure in full.
+And the registry login never ran — [the secret check sits **above** the login on purpose]{custom-style="Key"}, so the
+[cheapest, most-likely-wrong precondition fails free of cost]{custom-style="Key"} and without exposing a credential.
+⚠️ **What this guard cannot do is [notice a secret that exists but holds the wrong value]{custom-style="Key"}** — that one
+[sails through everything and is caught only at the very end]{custom-style="Key"}. Chapter 4 §2 runs that failure in full.
 
-Note `printf`, not `echo`. **`echo` appends a newline and the newline becomes part of the secret.** The
+Note `printf`, not `echo`. **[`echo` appends a newline and the newline becomes part of the secret]{custom-style="Key"}.** The
 resulting authentication failures are entirely invisible: the password looks right everywhere you can
-inspect it, and the file on disk is one byte longer than you think.
+inspect it, and [the file on disk is one byte longer than you think]{custom-style="Key"}.
 
 ### Secrets are delivered as files, and the general problem that creates
 
@@ -96,10 +96,10 @@ A Swarm secret appears inside the container as a file at `/run/secrets/<name>`. 
 in-memory filesystem, never written to the container's disk, and never appears in `docker inspect` or
 the service spec — which is exactly why you use them instead of environment variables.
 
-⭐ **But almost no application wants a file.** Ours wanted a single `DATABASE_URL` with the password
+⭐ **[But almost no application wants a file]{custom-style="Key"}.** Ours wanted a single `DATABASE_URL` with the password
 embedded in the middle of a connection string. That mismatch — **secret-as-file versus
 config-as-string** — is generic. It recurs with Kubernetes secrets, Vault, and every cloud secrets
-manager, and it is the point where teams give up and go back to a plaintext environment variable.
+manager, and [it is the point where teams give up and go back to a plaintext environment variable]{custom-style="Key"}.
 
 The resolution is to compose the value at container start:
 
@@ -112,22 +112,22 @@ command:
 
 Two details in that line are not decoration:
 
-- **`$$` and not `$`.** Compose interpolates `$` itself before the container ever sees the string. A
+- **`$$` and not `$`.** [Compose interpolates `$` itself before the container ever sees the string]{custom-style="Key"}. A
   single `$` means Compose tries to expand `$(cat ...)` at deploy time, on your workstation.
 - 🚨 **`exec` is load-bearing.** Without it the shell stays as PID 1 and your application is a child
-  process. **PID 1 receives `SIGTERM` on a rolling update; a plain `sh` does not forward it.** So the
-  application never learns it is being shut down, Swarm waits out its grace period, and then
+  process. **[PID 1 receives `SIGTERM` on a rolling update; a plain `sh` does not forward it]{custom-style="Key"}.** So the
+  [application never learns it is being shut down]{custom-style="Key"}, Swarm waits out its grace period, and then
   `SIGKILL`s it. Every update degrades into a ten-second stall and an ungraceful kill, and it will
-  look like a slow application rather than a missing keyword.
+  [look like a slow application rather than a missing keyword]{custom-style="Key"}.
 
 Similarly, the PostgreSQL image supports `POSTGRES_PASSWORD_FILE`, but it is **mutually exclusive**
 with `POSTGRES_PASSWORD` — and that variable was baked into the image. Setting `POSTGRES_PASSWORD: ""`
 explicitly is what lets the `_FILE` path win.
 
 ⭐ **That baked-in variable is worth pausing on as a general lesson: a credential compiled into an
-image layer cannot be removed by editing a file.** Anyone who can pull the image has it, including any
-read-only registry token you hand out for deployments. Rotation at the source is the only remedy, and
-"we fixed the Dockerfile" fixes nothing about the images already published.
+[image layer cannot be removed by editing a file]{custom-style="Key"}.** Anyone who can pull the image has it, including any
+[read-only registry token you hand out for deployments]{custom-style="Key"}. Rotation at the source is the only remedy, and
+["we fixed the Dockerfile" fixes nothing about the images already published]{custom-style="Key"}.
 
 ---
 
@@ -144,8 +144,8 @@ docker login gitlab.gothamtechnologies.com:5050 -u <deploy-token-user>
 > registry under `insecure-registries`, so pulls and `docker login` cross the LAN over HTTP. *Why it's
 > acceptable here:* an isolated home network, and the credentials are lab-only by rule. *In production:*
 > the registry gets a real TLS certificate and `insecure-registries` is never set. *If you carry the
-> habit:* **you have put a registry credential on the wire in cleartext** — and `insecure-registries` is
-> precisely the knob people reach for to make a TLS error "go away", silencing a warning that was
+> habit:* **[you have put a registry credential on the wire in cleartext]{custom-style="Key"}** — and `insecure-registries` is
+> [precisely the knob people reach for to make a TLS error "go away"]{custom-style="Key"}, silencing a warning that was
 > correct.
 
 That writes a credential to `~/.docker/config.json` on the machine you ran it on. Now deploy the stack
@@ -161,12 +161,12 @@ capricorn_frontend.1   docker-swarm-3   Shutdown   Rejected   "access forbidden"
 
 *"The manager has credentials, the workers don't."* It is plausible, it fits a partial reading of the
 symptoms, and it is false. Look again at that output: **the frontend was rejected on `docker-swarm-1`
-too — the very node holding a working credential, where `docker pull` succeeds by hand.**
+too — [the very node holding a working credential, where `docker pull` succeeds by hand]{custom-style="Key"}.**
 
 ![Figure 1 — how a registry credential reaches a node, and where it does not](images/ch02_fig1_registry_auth.png)
 
-⭐ **A node's daemon does not read the CLI's `config.json` when it runs a task.** Only the *client*
-does. The agent authenticates **solely** with a credential embedded in the service spec, which is what
+⭐ **[A node's daemon does not read the CLI's `config.json` when it runs a task]{custom-style="Key"}.** Only the *client*
+does. [The agent authenticates **solely** with a credential embedded in the service spec]{custom-style="Key"}, which is what
 `--with-registry-auth` puts there:
 
 ```bash
@@ -175,24 +175,24 @@ docker stack deploy -c capricorn.stack.yml --with-registry-auth capricorn
 
 Two consequences follow, and both are the kind of thing that costs an afternoon:
 
-1. **A manager has no more pull privilege than a worker.** The node you deploy from is not special.
+1. **[A manager has no more pull privilege than a worker]{custom-style="Key"}.** The node you deploy from is not special.
 2. [Being able to `docker pull` an image by hand on a host tells you nothing about whether a task can
    pull it on that same host.]{custom-style="Key"} It is the most natural diagnostic step available and
-   it tests a different code path than the one that is failing.
+   [it tests a different code path than the one that is failing]{custom-style="Key"}.
 
 ### Our own debugging manufactured the confusing symptom
 
 Two of the four services *appeared* to work on the manager. They did not have credentials — **their
-images were already in that node's local image cache**, from the `docker pull` commands we had just run
-while investigating. A task whose image is already local never contacts the registry, so it cannot be
+[images were already in that node's local image cache]{custom-style="Key"}**, from the `docker pull` commands we had just run
+while investigating. [A task whose image is already local never contacts the registry]{custom-style="Key"}, so it cannot be
 refused.
 
 The frontend was the only service we had never pulled by hand, so it was the only one that failed
 honestly — and it therefore looked like the odd one out, as though the problem were specific to it.
 
 > ⭐ **The methodological lesson, which is bigger than Swarm: the commands you run to investigate a
-> failure change the state of the thing you are investigating.** A pull warms a cache. A restart clears
-> a bad connection. A `docker exec` creates the file whose absence was the bug. When a test depends on
+> [failure change the state of the thing you are investigating]{custom-style="Key"}.** A pull warms a cache. A restart clears
+> a bad connection. [A `docker exec` creates the file whose absence was the bug]{custom-style="Key"}. When a test depends on
 > a cold start, it has to run **before** you go poking, or from a restored snapshot afterwards.
 
 ### The retry budget is visible, and it runs out
@@ -201,7 +201,7 @@ There were **exactly three** `Rejected` rows per task slot. That was `restart_po
 being consumed — the manifest carried that setting when this failure was recorded on August 13. After
 the third refusal, **Swarm stopped trying, permanently**: `docker stack deploy` had exited `0` half a
 minute earlier, the retries quietly exhausted themselves, and the service sat at zero replicas
-indefinitely with nothing surfaced anywhere you would normally look.
+[indefinitely with nothing surfaced anywhere you would normally look]{custom-style="Key"}.
 
 ⚠️ **That setting is gone, and the story now has two branches — worth reading precisely, because the
 "exactly three" only ever applied to one of them.** `max_attempts` was removed on August 18, together
@@ -209,7 +209,7 @@ with `condition: on-failure`, after a reboot silently ate replicas (Chapter 5 §
 established (P24, Chapter 5 §1):
 
 - On an **update** of an existing service, `max_attempts` was never the thing limiting retries anyway —
-  `failure_action: rollback` ends the attempt after **one** failed task.
+  [`failure_action: rollback` ends the attempt after **one** failed task]{custom-style="Key"}.
 - The "exactly three, then stop forever" behaviour belongs to the **create** path — a first deploy,
   where there is no previous version to roll back to. That is exactly what this section's failure was.
   **With `max_attempts` now removed, the create-path retry behaviour is uncapped and has not been
@@ -217,10 +217,10 @@ established (P24, Chapter 5 §1):
 
 ### ⚠️ The delayed failure mode — recorded, not yet verified
 
-The credential is stored **in the service spec, in the Raft log.** It is a *latch*, not a live lookup.
+The credential is stored **in the service spec, in the Raft log.** [It is a *latch*, not a live lookup]{custom-style="Key"}.
 
 So when the token expires, tasks that are rescheduled **after** that date should fail to pull, while
-nothing has changed and every configuration file still reads correctly. The trigger is a node
+[nothing has changed and every configuration file still reads correctly]{custom-style="Key"}. The trigger is a node
 restarting or a task moving — weeks after the actual cause. Redeploying refreshes it.
 
 ⚠️ **We have not tested this.** It follows from the mechanism and is written down as a claim to
@@ -232,16 +232,16 @@ falsify, not as something to teach as fact.
 > scope on a lab registry. *In production:* short-lived workload-scoped credentials — federated
 > identity for the CI job, nothing static on disk, pull credentials issued per deployment. *If you
 > carry the habit:* one leaked token grants registry access for a year, **and revoking it does not fail
-> loudly — it breaks the next task reschedule, silently, whenever that happens to occur.** ⚠️
+> [loudly — it breaks the next task reschedule, silently]{custom-style="Key"}, whenever that happens to occur.** ⚠️
 > *Unverified prescription:* standard practice as we understand it; not tested here.
 
 > **Lab vs PROD — `docker login` stores credentials in recoverable form.** *In the lab:* the token sits
-> in `~/.docker/config.json` as **base64, which is an encoding and not encryption** — reversible with
+> in `~/.docker/config.json` as **[base64, which is an encoding and not encryption]{custom-style="Key"}** — reversible with
 > no key, in one command. Docker prints a warning saying so. *Why it's acceptable here:* lab-only token,
 > read-only scope. *In production:* a credential helper backed by the OS keystore, so the token never
 > exists on disk in recoverable form. *If you carry the habit:* any process running as that user, any
-> backup, and **every VM snapshot** contains a working registry credential. ⭐ *The tool told us it had
-> just done something substandard and the near-universal response is to scroll past it* — that is the
+> backup, and [**every VM snapshot** contains a working registry credential]{custom-style="Key"}. ⭐ *The tool told us it had
+> [just done something substandard and the near-universal response is to scroll past it]{custom-style="Key"}* — that is the
 > real lesson here, and "it looks like an opaque blob" is why people assume it is safe.
 
 ---
@@ -261,10 +261,10 @@ when anything is running]{custom-style="Key"}, and possibly forever before, if t
 pulled. In the failure above, it exited `0` while the frontend had zero replicas and was already out of
 retries.
 
-**A deployment job that stops at that exit code reports green while your application is down.** This
+**[A deployment job that stops at that exit code reports green while your application is down]{custom-style="Key"}.** This
 is the single most common defect in a hand-written deploy pipeline, and it is why
 [`scripts/deploy_swarm.sh`](scripts/deploy_swarm.sh) polls — and why, since the failure drills, it no
-longer stops at convergence either: a converged stack can still be unable to do business, so the script
+longer stops at convergence either: [a converged stack can still be unable to do business]{custom-style="Key"}, so the script
 ends with a smoke gate that transacts against the application (the full story is Chapter 6 §3).
 
 ### Counting replicas is not enough either
@@ -275,11 +275,11 @@ ways, and both are worth understanding because the check *looks* obviously corre
 **First, `order: start-first`.** This setting brings the replacement task up before retiring the old
 one, precisely so there is no gap in capacity. Which means running/desired can read `3/3`
 *continuously* through an entire rolling replacement. A deploy that swapped every container for a
-broken image can satisfy a count-only check on the very first poll.
+broken image [can satisfy a count-only check on the very first poll]{custom-style="Key"}.
 
 **Second, and worse — `failure_action: rollback`.** When a rollout fails, Swarm restores the previous
 version, and the service settles back at **full replicas**. A count-only check sees `3/3` and reports a
-successful deployment. 🚨 **The truth is the opposite: your new code was rejected and the cluster is
+successful deployment. 🚨 **The truth is the opposite: [your new code was rejected and the cluster is]{custom-style="Key"}
 running the old code.** That is the most misleading green a deploy job can produce, and it is what a
 correctly-configured service is *designed* to do. ✅ *Written here as reasoning on Aug 13; **proved by
 drill on Aug 18** — a deploy of an unpullable image ended at `3/3` on the old digest with nothing in
@@ -298,7 +298,7 @@ updated the field does not exist, and the naive template `{{.UpdateStatus.State}
 returning an empty string. A check that crashes on a freshly created service will be discovered at the
 worst possible moment.
 
-Treat `rollback_*` as a **hard failure**, not a success. ✅ *The rollback-detection half was proved on
+[Treat `rollback_*` as a **hard failure**, not a success]{custom-style="Key"}. ✅ *The rollback-detection half was proved on
 Aug 18: the deploy script caught `rollback_started` and failed in 1.3 seconds (Chapter 5 §1).* ⚠️ *The
 latch half remains open: `rollback_completed` persists until the next update begins, so a stale value
 could fail a healthy cluster. The script mitigates by comparing against the state observed before
@@ -309,12 +309,12 @@ deploying rather than trusting the field absolutely — mitigated, not settled.*
 Re-deploying with the auth flag added recreated three services and **left Redis completely untouched** —
 its task ran for thirty minutes across two subsequent deploys with no restart at all.
 
-⭐ **`--with-registry-auth` attaches a credential only for images whose registry requires one.** So it
+⭐ **`--with-registry-auth` [attaches a credential only for images whose registry requires one]{custom-style="Key"}.** So it
 changed the spec of the three services on the private registry and did nothing to the public
-`redis:7.2.4-alpine`. **PostgreSQL was working correctly and got bounced anyway, purely because it
+`redis:7.2.4-alpine`. **[PostgreSQL was working correctly and got bounced anyway]{custom-style="Key"}, purely because it
 shares a registry with the services that were broken.**
 
-Nothing in the command you type tells you which services are in scope. And a *third* run, with an
+[Nothing in the command you type tells you which services are in scope]{custom-style="Key"}. And a *third* run, with an
 unchanged file, recreated nothing at all — which is the declarative model working exactly as designed.
 
 [The rule is: a service is recreated when its spec changes. The hard part is that "spec" includes
@@ -330,14 +330,14 @@ capricorn_redis     redis:7.2.4-alpine@sha256:c8bb255c3559b3e458766db810aa7b3c7a
 ```
 
 Swarm resolves each tag to a **digest** when it accepts the spec and stores *that*. Services therefore
-do **not** follow a moving tag the way `docker compose pull` does.
+[do **not** follow a moving tag the way `docker compose pull` does]{custom-style="Key"}.
 
 This cuts both ways, and both matter:
 
-- **Good:** your deployment is reproducible. A rebuild of `:latest` cannot change what is running
+- **Good:** your deployment is reproducible. [A rebuild of `:latest` cannot change what is running]{custom-style="Key"}
   underneath you **between deploys**.
 - 🚨 **Surprising:** "I pushed a fix and production is still running the old code" is a Swarm classic.
-  Redeploying the same tag may legitimately do nothing at all.
+  [Redeploying the same tag may legitimately do nothing at all]{custom-style="Key"}.
 - 🚨 **And the third edge, which happened to us on Aug 18:** the *next* deploy of `:latest` resolves the
   tag **again** — so if someone pushed in the meantime, a redeploy you intended as a no-op is an
   unannounced upgrade. The digest above is stale for exactly this reason: the tag moved under us
@@ -345,7 +345,7 @@ This cuts both ways, and both matter:
   redeploy. Only deploying by digest protects both.**
 
 Even the deliberately-pinned `redis:7.2.4-alpine` got a digest recorded. **A tag — however specific it
-looks — is a mutable pointer that whoever controls the registry can move. The digest is the image.**
+looks — [is a mutable pointer that whoever controls the registry can move]{custom-style="Key"}. The digest is the image.**
 
 ---
 
@@ -353,7 +353,7 @@ looks — is a mutable pointer that whoever controls the registry can move. The 
 
 ![Figure 2 — the routing mesh](images/ch02_fig2_routing_mesh.png)
 
-With `mode: ingress` on a published port, **every node in the cluster listens on that port**, whether or
+With `mode: ingress` on a published port, **[every node in the cluster listens on that port]{custom-style="Key"}**, whether or
 not it is running a task for that service. A request arriving at a node with no local task is
 load-balanced across the nodes that do have one.
 
@@ -362,8 +362,8 @@ Verified directly: the backend runs two replicas, on nodes 2 and 3, and `curl` a
 
 The operational payoff is that you can put any node — or all of them — behind a load balancer and stop
 caring where tasks are scheduled. The catch worth knowing: **a node answering on a published port is
-not evidence that the node is healthy**, only that the cluster is. A naive health check that hits one
-node's port will pass while that node runs nothing at all.
+[not evidence that the node is healthy]{custom-style="Key"}**, only that the cluster is. A naive health check that hits one
+node's port [will pass while that node runs nothing at all]{custom-style="Key"}.
 
 > **Lab vs PROD — published over plain HTTP with nothing in front.** *In the lab:* the application is
 > published directly on `:5001` and `:5002`, no reverse proxy, no TLS. *Why it's acceptable here:* the
@@ -371,7 +371,7 @@ node's port will pass while that node runs nothing at all.
 > studied. *In production:* TLS terminated at an ingress proxy, and the application's own ports never
 > published to any network a user can reach. *If you carry the habit:* session cookies and every API
 > payload cross the network in cleartext. ⚠️ **Note how this decision actually arrived** — see §6. It
-> was not chosen on merit; it fell out of how an image was built, which is the more insidious way a
+> [was not chosen on merit; it fell out of how an image was built]{custom-style="Key"}, which is the more insidious way a
 > production environment ends up without TLS.
 
 ---
@@ -387,17 +387,17 @@ The frontend resolves its API base **in the browser, at runtime**:
 3. page served over **HTTP** → `http://<current-hostname>:5002`
 
 We serve plain HTTP, so branch three applies and **`:5002` is compiled into the JavaScript bundle.**
-Publish the backend on any other port and every API call in the UI breaks — while `curl` against the
+Publish the backend on any other port and [every API call in the UI breaks]{custom-style="Key"} — while `curl` against the
 backend keeps working perfectly, so it presents as a frontend bug.
 
 🚨 **The general lesson: `VITE_*` variables — and their equivalents in every other frontend
-build tool — are substituted at BUILD time.** Setting one in a stack file, a `.env`, or a service spec
+build tool — [are substituted at BUILD time]{custom-style="Key"}.** Setting one in a stack file, a `.env`, or a service spec
 does absolutely nothing; the value is already inside the bundle. [Configuration that feels like runtime
 configuration, but isn't, is a category of bug that produces no error message at
 all]{custom-style="Key"} — just an application quietly talking to the wrong address.
 
 ⭐ And note the direction of causation, which is the part worth carrying: **the image dictated the
-network topology, not the reverse.** A decision made months earlier in someone's Dockerfile constrained
+network topology, not the reverse.** [A decision made months earlier in someone's Dockerfile constrained]{custom-style="Key"}
 what we were permitted to do with ports and, by extension, kept us on HTTP.
 
 ---
@@ -438,7 +438,7 @@ curl -s http://<any-node>:5002/health
 ```
 
 `docker service ps` and `docker stack ps` are the two to reach for first. **`docker service ls` shows
-only current state; the `ps` commands show task *history*, including the rejected attempts** — which is
+only current state; [the `ps` commands show task *history*, including the rejected attempts]{custom-style="Key"}** — which is
 where the actual error message lives, and the only reason we could disprove the "managers have
 credentials" theory.
 

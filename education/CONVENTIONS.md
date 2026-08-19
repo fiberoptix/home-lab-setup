@@ -303,10 +303,36 @@ structurally perfect footer that Word silently ignores would look identical from
 
 ## The highlight pass
 
-Roughly **15 % of each chapter is highlighted** so the material can be revised from the marks alone.
+Roughly **20 % of each chapter is highlighted** so the material can be revised from the marks alone.
 It is a character style named `Key`, filled `#FFF3B0` — a ~31 % tint of yellow, chosen because Word's
 built-in highlighter is a closed set of 15 full-strength colours that lay down a wet band of ink on
 an inkjet. The tint is obvious on screen, cheap to print, and still legible as grey in greyscale.
+
+⚠️ **The figure was 15 % until Aug 19, 2026**, when it was raised to 20 % after a trial: chapter 5 of
+the Swarm track was marked at 20.9 % and the same passage rendered at both densities for comparison.
+**They were nearly indistinguishable** — one clause per screen. So the number is the *least*
+important part of this section, and two rules that came out of the trial matter far more than it does:
+
+- **Mark operative clauses of roughly 5–12 words, never whole sentences.** This is what makes 20 %
+  survivable. The trial's worst section ran **26 % locally** (chapter density is an average, and
+  argumentative sections run well above it) and still read as selective, purely because the marks
+  were clauses. At sentence granularity the same percentage becomes a wall of yellow.
+- **A well-chosen 15 % beats a badly-chosen 20 %.** If a candidate mark does not survive the question
+  *"would I want exactly these words back in six months?"*, dropping it improves the chapter.
+
+- **Measure per section, not per chapter, before writing a top-up list.** Both tracks were brought to
+  20 % on Aug 19, 2026, and the k3s track made the case for this rule: chapter 3 read 14 % overall
+  while §5 sat at 7.2 %, §7 at 6.2 % and §8 at 4.9 %, because the marks written at drafting time had
+  clustered in the argumentative sections and skipped the walkthroughs. A list aimed at the chapter
+  average would have pushed the already-dense sections to 30 % and left the thin ones untouched. **A
+  chapter that averages 20 % with a 5 % stretch in the middle is not a 20 % chapter.**
+- **`Lab vs PROD` callouts are the exception, and are left at roughly half density.** They already
+  carry bold labels and 🚨/⭐/⚠️ markers of their own; highlight stacked on top competes with that
+  emphasis instead of adding to it. Across both tracks these sections settle around 10–15 %.
+
+Both tracks are now at 19.5–21 % per chapter. A new chapter should be written at 20 % rather than
+drafted light and topped up, which costs roughly three times as much effort for a worse result — a
+top-up can only mark what the first pass left over, not what it should have chosen.
 
 Marks live **in the Markdown, not in the `.docx`**, as `[text]{custom-style="Key"}`, so they survive
 every rebuild. This requires `bracketed_spans` in pandoc's `--from` (already set).

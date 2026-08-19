@@ -10,10 +10,10 @@
 ## What this chapter covers
 
 We installed a Kubernetes cluster with a single command. This chapter explains what that command
-actually did, what is now running on the machine, and — most importantly — *why each piece exists*.
+actually did, [what is now running on the machine, and — most importantly — *why each piece exists*]{custom-style="Key"}.
 
 By the end you should be able to sketch the diagrams in this chapter from memory and explain them
-out loud. That is the real test, not whether the pods are running.
+out loud. [That is the real test, not whether the pods are running]{custom-style="Key"}.
 
 ---
 
@@ -55,7 +55,7 @@ virtual machine and manages *containers* within it.]{custom-style="Key"}
 
 Here is the single idea that everything else hangs from:
 
-> **You declare the state you want. Kubernetes continuously works to make reality match it.**
+> **[You declare the state you want. Kubernetes continuously works to make reality match it.]{custom-style="Key"}**
 
 You do not say "start a container." You say "I want three copies of this container running, each
 with 2 GB of memory, reachable at this name." Kubernetes then takes responsibility for making that
@@ -66,7 +66,7 @@ reschedules the work elsewhere.
 you will see a pod you deleted come back]{custom-style="Key"}: you never told Kubernetes you wanted fewer copies, you
 just destroyed one, and the loop faithfully repaired the damage.
 
-Everything in the rest of this document is machinery in service of that one idea.
+[Everything in the rest of this document is machinery in service of that one idea]{custom-style="Key"}.
 
 **Why a financial institution cares:** market-data infrastructure cannot go down while someone SSHes in to
 restart a process. Self-healing and declarative deployment are the point.
@@ -96,12 +96,12 @@ never stops checking.**]{custom-style="Key"}
 
 ### Two kinds of death
 
-Two events look nearly identical in `kubectl get pods` and are debugged completely differently. Get
-this one distinction wrong and you will spend an afternoon looking in the wrong place, so it comes
+[Two events look nearly identical in `kubectl get pods` and are debugged completely differently]{custom-style="Key"}. Get
+this one distinction wrong and [you will spend an afternoon looking in the wrong place]{custom-style="Key"}, so it comes
 this early on purpose.
 
-> **A container dies** → it is restarted **inside the same pod**. Same pod name, same UID, same IP.
-> Only the **RESTARTS** counter climbs. Your application is crashing; the pod is fine.
+> **A container dies** → [it is restarted **inside the same pod**. Same pod name, same UID, same IP]{custom-style="Key"}.
+> Only the **RESTARTS** counter climbs. [Your application is crashing; the pod is fine]{custom-style="Key"}.
 >
 > **A pod dies** (deleted, evicted, or its node is lost) → an **entirely new pod** is created. New
 > name, new UID, new IP, RESTARTS back to 0. Nothing is carried over, and nothing is moved.
@@ -116,7 +116,7 @@ demo2-8d894f964-4vv4m   uid 2125afc0-...   10.42.0.15   RESTARTS 2
 ```
 
 Same pod name, same UID, same IP throughout — only `RESTARTS` climbs. The container ID changed each
-cycle, so it genuinely was a new container every time. **The pod never died.**
+cycle, [so it genuinely was a new container every time]{custom-style="Key"}. **The pod never died.**
 
 **A pod dies — a replacement is created.** The pod is deleted, evicted, or the node it was on is
 lost. Nothing is preserved:
@@ -126,7 +126,7 @@ demo-7c6d4f4799-m5hvt   uid 1fa44916-...   10.42.0.13    ← before
 demo-7c6d4f4799-4gsfn   uid 9bf0944b-...   10.42.0.14    ← after
 ```
 
-New name, new UID, new IP, restart counter back to zero. [**Pods are never relocated, restored, or
+[New name, new UID, new IP, restart counter back to zero]{custom-style="Key"}. [**Pods are never relocated, restored, or
 resumed. They are replaced.**]{custom-style="Key"}
 
 **Why this matters in practice.** [A climbing `RESTARTS` count means your *application* is crashing
@@ -142,19 +142,19 @@ into a confidently wrong answer under pressure, and each is picked up properly l
 
 - **A pod is never moved.** "Kubernetes reschedules the work elsewhere" is how everyone describes a
   node failure, and it is misleading. The pod is not relocated, migrated or resumed — it is
-  destroyed, and a *different* pod with a new name, new UID and new IP is created, possibly on
+  [destroyed, and a *different* pod with a new name, new UID and new IP is created]{custom-style="Key"}, possibly on
   another node. [There is no live migration anywhere in Kubernetes.]{custom-style="Key"}
-- **A restarted container is not a resumed one.** The image is run again from scratch, with no
+- **A restarted container is not a resumed one.** [The image is run again from scratch, with no]{custom-style="Key"}
   memory of the previous run. [Anything written to the container's own filesystem is gone; only a
   mounted volume survives.]{custom-style="Key"} A container that "restarted successfully" may have lost state.
 - **Containers in a pod share less than you would think.** They share a network namespace — so they
   reach each other on `localhost` — and can share mounted volumes. They do **not** share a
-  filesystem or a process namespace by default. Each has its own root filesystem and its own PID 1.
+  filesystem or a process namespace by default. [Each has its own root filesystem and its own PID 1]{custom-style="Key"}.
 - **The Service does not route anything.** It is a record, not a proxy. The control plane keeps its
   list of healthy pod IPs accurate, and the actual redirection happens in kernel packet-filtering
   rules on each node. [Nothing is listening on a Service IP, which is why you cannot ping one]{custom-style="Key"} (§5).
 - **A volume can be pinned to one specific node.** With `local-path`, the default storage in this
-  cluster, a volume is a directory on the node where it was first created. Lose that node and the
+  cluster, [a volume is a directory on the node where it was first created]{custom-style="Key"}. Lose that node and the
   replacement pod is not scheduled elsewhere — it stays `Pending` indefinitely, because the only
   node it is permitted to run on is gone (§6).
 
@@ -163,14 +163,14 @@ into a confidently wrong answer under pressure, and each is picked up properly l
 ## 3. What is k3s, and why did we use it?
 
 [**k3s is Kubernetes.** Not a clone, not a subset — it is a certified, fully conformant distribution.]{custom-style="Key"}
-Same API, same `kubectl`, same YAML files, same Helm charts. What differs is *packaging*.
+[Same API, same `kubectl`, same YAML files, same Helm charts]{custom-style="Key"}. What differs is *packaging*.
 
 Standard Kubernetes is roughly five separate server components plus an etcd cluster, and setting it
-up properly is a day's work. k3s compiles those components into a **single 81 MB binary**, bundles
+up properly is a day's work. [k3s compiles those components into a **single 81 MB binary**]{custom-style="Key"}, bundles
 sensible defaults, and starts in about ten seconds.
 
 For learning under a deadline that trade is obviously right: you spend your week on concepts rather
-than on cluster bootstrapping. But **be ready to name what you gave up** — see section 8.
+than on cluster bootstrapping. But [**be ready to name what you gave up**]{custom-style="Key"} — see section 8.
 
 ---
 
@@ -198,7 +198,7 @@ Every fragment earns its place:
 
 ### The three parts worth dwelling on
 
-**Why `-f` matters.** The pattern `curl … | sh` executes whatever comes back from the network with
+**Why `-f` matters.** The pattern `curl … | sh` [executes whatever comes back from the network with]{custom-style="Key"}
 whatever privileges you have. [If the download fails and you did not use `-f`, curl helpfully writes
 the error page to stdout and the shell dutifully tries to execute an HTML document.]{custom-style="Key"} It usually just
 errors out — but it is exactly the class of accident that `-f` exists to prevent.
@@ -218,12 +218,12 @@ ExecStart=/usr/local/bin/k3s server '--write-kubeconfig-mode' '644'
 later, edit that unit and `systemctl daemon-reload`, or re-run the installer.
 
 **What `--write-kubeconfig-mode 644` actually buys.** k3s writes its kubeconfig to
-`/etc/rancher/k3s/k3s.yaml`. By default that file is mode `600`, readable only by root, so every
+`/etc/rancher/k3s/k3s.yaml`. [By default that file is mode `600`, readable only by root]{custom-style="Key"}, so every
 `kubectl` command would need `sudo`. Mode `644` makes it world-readable so a normal user can use it.
 
 That convenience has a real cost, and you should be able to say so: [**that file contains an admin
 client certificate.** Anyone who can read it has complete control of the cluster.]{custom-style="Key"} On a single-user
-sandbox that is an acceptable trade; on a shared or production machine it would not be. The stricter
+sandbox that is an acceptable trade; [on a shared or production machine it would not be]{custom-style="Key"}. The stricter
 alternative is to leave it at `600` and copy it to your home directory with `sudo`, which is close to
 what we did anyway.
 
@@ -282,7 +282,7 @@ chmod 600 ~/.kube/config
 | `chmod 600` | Only you can read it. It holds admin credentials — treat it like a private key. |
 
 **A small correctness note.** You will often see `sudo chown $USER ~/.kube/config` written instead.
-That sets the owning *user* but leaves the *group* as root, and it breaks entirely if `$USER` happens
+[That sets the owning *user* but leaves the *group* as root]{custom-style="Key"}, and it breaks entirely if `$USER` happens
 to be unset — which it can be in a non-interactive SSH command or a cron job. Using
 `$(id -u):$(id -g)` sets both, numerically, and always works. Minor, but it is the kind of detail
 that quietly costs you an hour someday.
@@ -311,7 +311,7 @@ The first should show one node, `Ready`, with role `control-plane`. The second i
 interesting one, and section 4 is devoted to explaining what it shows you.
 
 Do not skip past `kubectl get pods -A` as noise. Everything listed there was installed on your
-behalf, and being able to say why each item exists is the difference between having run an installer
+behalf, and [being able to say why each item exists is the difference between having run an installer]{custom-style="Key"}
 and understanding a cluster.
 
 ---
@@ -355,7 +355,7 @@ these itself.
 > [k3s is packaging, not a different Kubernetes.]{custom-style="Key"} Same API, same kubectl, same YAML, same Helm charts. It bundles Part A into one binary and swaps etcd for SQLite. Everything you write here would deploy unchanged to EKS — you would just swap local-path storage for a real CSI driver.
 
 The install produced **two distinct categories of components** (Parts A and B in the illustration
-above), and keeping them straight is what makes `kubectl get pods -A` stop looking like noise. Some
+above), and [keeping them straight is what makes `kubectl get pods -A` stop looking like noise]{custom-style="Key"}. Some
 of what k3s installed runs *inside the single k3s process*; the rest runs *as ordinary pods* you can
 list, inspect, and delete.
 
@@ -389,7 +389,7 @@ coredns 73Mi · local-path-provisioner 49Mi · metrics-server 79Mi · traefik 12
 
 Read those three carefully, because they measure different things and only one of them is "what
 Kubernetes costs you". The **794 MB** is the k3s server process — API server, scheduler, controllers
-and kubelet, all in one. The **2,344 MB** cgroup figure is much larger because `k3s.service`
+and kubelet, all in one. [The **2,344 MB** cgroup figure is much larger because `k3s.service`]{custom-style="Key"}
 supervises containerd, and therefore every container on the node, *including the three Redpanda
 brokers*; quoting it as k3s overhead would be wrong by a factor of three. The add-on pods add
 roughly 325 MB on top of the server process.
@@ -411,9 +411,9 @@ reconciling exactly.
 
 The subtlety worth carrying into an interview is **why it could not go smaller than that**. The
 pods on this node *request* 7.7 GB and 3.25 cores, mostly the three brokers reserving a whole core
-and 2,560 MiB each. The scheduler places pods by comparing **requests** against what the node
+and 2,560 MiB each. [The scheduler places pods by comparing **requests** against what the node]{custom-style="Key"}
 advertises — it never looks at what pods are really using. So a node sized at 4 GB would have had
-plenty of free memory and still refused to schedule the cluster.
+[plenty of free memory and still refused to schedule the cluster]{custom-style="Key"}.
 
 [Requests are what you must provision for; usage is what you actually spend. Size the node for the
 first number, and you will look wasteful — right up until the scheduler proves you weren't.]{custom-style="Key"}
@@ -421,7 +421,7 @@ first number, and you will look wasteful — right up until the scheduler proves
 > **The corollary, which is the more common failure:** requests that are set far *above* real usage
 > silently shrink how much you can pack onto a node, and requests set far *below* it get you pods
 > that are scheduled and then throttled or OOM-killed under load. Both are the same mistake —
-> guessing instead of measuring — and only the second one pages you at 3am.
+> [guessing instead of measuring — and only the second one pages you at 3am]{custom-style="Key"}.
 
 ### Part B — the add-ons, running as ordinary pods
 
@@ -666,12 +666,12 @@ Written by writer
 
 ### 6c. The capacity you request is a fiction
 
-The claim above asked for `1Gi`. It did not get 1 GiB. It got a directory, on a filesystem with
-286 GB free, **with no quota of any kind**. Nothing stops that pod from writing 200 GB, nothing
+The claim above asked for `1Gi`. [It did not get 1 GiB. It got a directory, on a filesystem with]{custom-style="Key"}
+286 GB free, [**with no quota of any kind**. Nothing stops that pod from writing 200 GB]{custom-style="Key"}, nothing
 reports the volume as full, and nothing protects the other volumes on the node — or the node
 itself — when it happens.
 
-Real CSI drivers carve an actual block device and the request is enforced. With `local-path`, the
+[Real CSI drivers carve an actual block device and the request is enforced]{custom-style="Key"}. With `local-path`, the
 size field is documentation. Combined with `ALLOWVOLUMEEXPANSION=false`, the practical rule is:
 [**the number is advisory, and you cannot change it later anyway.**]{custom-style="Key"}
 
@@ -680,14 +680,14 @@ takes effect immediately and asks no questions.]{custom-style="Key"}
 
 ### 6d. The honest framing for an interview
 
-Node-local storage means a pod cannot move to another node and keep its data. In production you
+[Node-local storage means a pod cannot move to another node and keep its data]{custom-style="Key"}. In production you
 would use a CSI driver backed by networked storage (EBS, Ceph, a SAN) so that a rescheduled pod
 reattaches its volume anywhere in the cluster.
 
 This has a specific consequence for what we build next. Three Redpanda brokers will get three
-PVCs — which on this cluster means **three directories on the same filesystem, on the same virtual
-disk, on the same physical host.** The Raft quorum will be genuine, and killing a broker to watch
-leadership move teaches exactly what it should. The *durability* is theatre: a single disk failure
+PVCs — which on this cluster means [**three directories on the same filesystem, on the same virtual
+disk, on the same physical host.**]{custom-style="Key"} The Raft quorum will be genuine, and killing a broker to watch
+leadership move teaches exactly what it should. [The *durability* is theatre: a single disk failure]{custom-style="Key"}
 loses all three replicas simultaneously.
 
 Say that out loud rather than hoping nobody asks:
@@ -696,7 +696,7 @@ Say that out loud rather than hoping nobody asks:
 > failure domain. In production each broker needs its own node and its own device, with
 > podAntiAffinity to enforce the spread."*
 
-Knowing *why* your sandbox differs from production is a much stronger signal than not having
+[Knowing *why* your sandbox differs from production is a much stronger signal]{custom-style="Key"} than not having
 noticed.
 
 ---
@@ -706,11 +706,11 @@ noticed.
 Two of these already bit us during the install, and both are common interview stumbles.
 
 [**`Completed` is not a failure.**]{custom-style="Key"} The `helm-install-traefik` pod shows `0/1  Completed`. A **Job** is
-a workload designed to run once and exit; when it finishes successfully it stops, and `0/1` simply
+[a workload designed to run once and exit]{custom-style="Key"}; when it finishes successfully it stops, and `0/1` simply
 means no container is running *now*. k3s installs its own bundled add-ons by running Helm inside a
 Job. If it had failed you would see `Error` or `CrashLoopBackOff`.
 
-**A delete that hangs for 30 seconds is usually working correctly.** `kubectl delete pod` is not a
+[**A delete that hangs for 30 seconds is usually working correctly.**]{custom-style="Key"} `kubectl delete pod` is not a
 kill. The API server stamps a `deletionTimestamp`, the pod is removed from any Service endpoints,
 the kubelet sends **SIGTERM** to PID 1, and Kubernetes then waits up to
 `terminationGracePeriodSeconds` — **default 30** — before sending SIGKILL. `kubectl` blocks for the
@@ -727,8 +727,8 @@ Measured on this cluster, all with the same busybox image:
 
 The cause is the same PID 1 rule that makes `kill -9 1` behave oddly inside a container:
 [**PID 1 in a PID namespace only receives signals for which it has installed a handler**]{custom-style="Key"}, and that
-holds even for signals sent from outside the namespace, where the kubelet lives. Plain `sh` has no
-SIGTERM handler, so the signal is discarded and the pod simply waits out the clock until SIGKILL.
+[holds even for signals sent from outside the namespace]{custom-style="Key"}, where the kubelet lives. Plain `sh` has no
+SIGTERM handler, [so the signal is discarded and the pod simply waits out the clock until SIGKILL]{custom-style="Key"}.
 Only SIGKILL and SIGSTOP are delivered forcibly.
 
 This matters beyond tidiness. [A container that ignores SIGTERM pays the full grace period on *every*
@@ -736,17 +736,17 @@ stop — rolling updates crawl, and node drains take minutes per pod.]{custom-st
 short a grace period means SIGKILL lands mid-write. Redpanda's chart deliberately sets a long one so
 a broker can flush and leave its Raft group cleanly.
 
-> **Never `--grace-period=0 --force` a broker.** It drops the object from the API without waiting
+> **Never `--grace-period=0 --force` a broker.** [It drops the object from the API without waiting]{custom-style="Key"}
 > for the kubelet to confirm the container died, [so a StatefulSet can start the replacement while
 > the original still holds the volume. Two processes, one data directory.]{custom-style="Key"}
 
 The Redpanda chart sets `terminationGracePeriodSeconds: 90` on the broker StatefulSet, three times
 the 30-second default — you can confirm it with
 `kubectl -n redpanda get sts redpanda -o jsonpath='{.spec.template.spec.terminationGracePeriodSeconds}'`.
-That number is the budget a broker has to flush and leave its Raft group, and force-deleting is
+[That number is the budget a broker has to flush and leave its Raft group]{custom-style="Key"}, and force-deleting is
 precisely the act of refusing to honour it.
 
-**A pod that never becomes `Ready` may be correct.** During the install I ran
+[**A pod that never becomes `Ready` may be correct.**]{custom-style="Key"} During the install I ran
 `kubectl wait --for=condition=Ready pods --all`, and it reported a timeout. The cluster was fine —
 [Job pods never reach `Ready`, because `Ready` means "able to serve traffic," which a finished batch
 task never will be.]{custom-style="Key"} The command was wrong, not the cluster.
@@ -790,7 +790,7 @@ unchanged — I'd swap local-path for a CSI storage class and use a real ingress
 *Added Aug 13, 2026, retrofitting a convention introduced with the Docker Swarm track. Everything in the
 table above is a difference of **scale or packaging** — one node instead of many, SQLite instead of etcd
 — and none of it would be a mistake in production, only a different size. **The three below are
-different in kind: each would be an actual defect if it followed you to work.***
+[different in kind: each would be an actual defect if it followed you to work]{custom-style="Key"}.***
 
 > **Lab vs PROD — a world-readable cluster-admin credential.** *In the lab:* k3s writes
 > `/etc/rancher/k3s/k3s.yaml` mode **`644`**, and §3c leaves it that way so `kubectl` works without
@@ -815,7 +815,7 @@ different in kind: each would be an actual defect if it followed you to work.***
 > production:* a CSI driver with one real device per node, plus hard `podAntiAffinity` so replicas cannot
 > be co-scheduled. *If you carry the habit:* 🚨 **you will believe replication factor 3 has bought you
 > durability when it has bought you none.** One disk failure loses all three copies simultaneously, and
-> every dashboard will have shown three healthy replicas right up to the moment they all vanished. ⚠️
+> [every dashboard will have shown three healthy replicas right up to the moment they all vanished]{custom-style="Key"}. ⚠️
 > *Unverified prescription:* the CSI and anti-affinity fix is described, not tested — this lab has one
 > node and cannot demonstrate it.
 
@@ -862,7 +862,7 @@ Error from server (NotFound): pods "kube-system" not found
 ```
 
 `kube-system` is a namespace, but here it landed in the *name* position, so kubectl looked for a pod
-literally called `kube-system`. The trap is that the same word is perfectly valid one command
+literally called `kube-system`. [The trap is that the same word is perfectly valid one command]{custom-style="Key"}
 earlier, in `kubectl get pods -n kube-system`, because there it follows the `-n` flag. Two different
 slots, same word. What was meant was
 `kubectl describe pod -n kube-system <podname>` — and note that `describe` defaults to the
@@ -896,12 +896,12 @@ kubectl apply -f file.yaml --dry-run=client    # local YAML parse only; never co
 kubectl apply -f file.yaml --dry-run=server    # full validation, admission and defaulting; writes nothing
 ```
 
-**Those two are not the same check, and the difference is the one that bites.** `--dry-run=client`
+[**Those two are not the same check, and the difference is the one that bites.**]{custom-style="Key"} `--dry-run=client`
 parses the YAML locally and decodes it against kubectl's built-in schema, which is enough to catch
 the `name:web` error above. It cannot catch anything that only the API server knows: an unknown
-CRD, a field your cluster's version does not have, a validating webhook, a quota, or a Pod Security
+CRD, [a field your cluster's version does not have]{custom-style="Key"}, a validating webhook, a quota, or a Pod Security
 Admission rule like the `restricted` profile. `--dry-run=server` sends the object through the whole
-admission path and discards it at the last moment, so it catches all of those.
+[admission path and discards it at the last moment]{custom-style="Key"}, so it catches all of those.
 
 [Use client for a quick syntax check in an editor loop, and server before you believe a manifest is
 deployable.]{custom-style="Key"}

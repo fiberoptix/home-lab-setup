@@ -12,7 +12,7 @@
 
 Ten failures — eight provoked deliberately, two that arrived on their own — each with a prediction
 written down **before** the command was run, where there was a command to run at all. The
-predictions matter more than the outcomes: a prediction that survives contact taught you nothing, and
+predictions matter more than the outcomes: [a prediction that survives contact taught you nothing]{custom-style="Key"}, and
 [the ones that were wrong are where the real material came from]{custom-style="Key"}.
 
 | Drill | What we broke | Prediction held? |
@@ -37,7 +37,7 @@ too.
 ## 1. Two ways to ship a broken image, and only one of them is caught
 
 This is the drill that Chapter 2 promised would settle whether Swarm's rollback machinery is worth
-trusting. The answer is yes — for exactly one of the two failure modes, and the other one is more
+trusting. The answer is yes — [for exactly one of the two failure modes]{custom-style="Key"}, and the other one is more
 common.
 
 ### C6a — a tag that cannot be pulled
@@ -60,7 +60,7 @@ capricorn_frontend.3   Accepted   less than a second ago
  \_ capricorn_frontend.3   Running    26 minutes ago          ← the OLD task, never stopped
 ```
 
-**Swarm tried to start the new task before stopping the old one, the new one never reached `Running`, so
+**[Swarm tried to start the new task before stopping the old one]{custom-style="Key"}, the new one never reached `Running`, so
 the old one was never asked to stop.** Users saw nothing. That behaviour is a direct consequence of two
 settings, and neither is a default:
 
@@ -71,9 +71,9 @@ update_config:
 ```
 
 ⚠️ **With the defaults**, this same deploy would have removed one of three replicas, failed to replace
-it, and then **paused** — leaving the service permanently at `2/3` with no further action, no rollback,
+it, and then **paused** — [leaving the service permanently at `2/3` with no further action, no rollback]{custom-style="Key"},
 and a deploy command that has already exited. *(Reasoned from the documented defaults; we ran the drill
-only with our settings, so the default path itself was not measured here.)*
+only with our settings, so [the default path itself was not measured here]{custom-style="Key"}.)*
 
 ### 🎯 The finding: a rejected deploy is indistinguishable from a good one by replica count
 
@@ -83,13 +83,13 @@ NAME                 REPLICAS   IMAGE
 capricorn_frontend   3/3        …/frontend:latest
 ```
 
-**That is the output *after* a deploy that was rejected and rolled back.** `3/3`. The right image
-reference. Nothing anywhere in that line records that the last thing you asked for was refused.
+**[That is the output *after* a deploy that was rejected and rolled back.]{custom-style="Key"}** `3/3`. The right image
+reference. [Nothing anywhere in that line records that the last thing you asked for was refused]{custom-style="Key"}.
 
-⭐ **So "count the replicas" is not a deploy check — it is a *steady-state* check, and it cannot
+⭐ **So "count the replicas" [is not a deploy check — it is a *steady-state* check]{custom-style="Key"}, and it cannot
 distinguish "your change is live" from "your change was rejected and the previous version was
-restored".** Both are healthy clusters. Only one of them is running your code. The distinguishing
-signal is the one field that speaks about the *update* rather than the *service*:
+restored".** [Both are healthy clusters. Only one of them is running your code.]{custom-style="Key"} The distinguishing
+signal is [the one field that speaks about the *update* rather than the *service*]{custom-style="Key"}:
 
 ```bash
 docker service inspect <svc> \
@@ -103,13 +103,13 @@ docker service inspect <svc> \
 | `completed` | The update you asked for is live. |
 | `rollback_started` / `rollback_completed` | 🚨 **Your deploy was refused. The old version is serving.** |
 
-⚠️ **The `<absent>` case is the trap for tooling.** A template like `{{.UpdateStatus.State}}` does not
-return empty on a never-updated service; it **errors**. A check that treats that error as "unknown, keep
+⚠️ **[The `<absent>` case is the trap for tooling]{custom-style="Key"}.** A template like `{{.UpdateStatus.State}}` does not
+[return empty on a never-updated service; it **errors**]{custom-style="Key"}. A check that treats that error as "unknown, keep
 going" is fine; one that treats it as "no rollback, so we're good" is fine too — but a check that
-crashes on a freshly created service will be discovered at the worst possible time.
+crashes on a freshly created service [will be discovered at the worst possible time]{custom-style="Key"}.
 
 ⚠️ **One caveat we could not close.** `rollback_completed` **persists** until the next update, so a
-stale value can fail a deploy of a cluster that is actually healthy. Our script compares against the
+stale value can fail [a deploy of a cluster that is actually healthy]{custom-style="Key"}. Our script compares against the
 state observed *before* deploying rather than trusting the field absolutely.
 
 ### An unresolvable tag also silently disables digest pinning
@@ -119,10 +119,10 @@ Swarm printed this, unprompted, and then deployed anyway:
 > `image …:does-not-exist-c6 could not be accessed on a registry to record its digest. Each node will`
 > `access … independently, possibly leading to different nodes running different versions of the image.`
 
-⭐ **Digest pinning is best-effort.** When the manager can reach the registry it resolves the tag to a
-digest and every node runs identical bytes. When it cannot, it **degrades to per-node resolution** and
-reduces the guarantee to a warning in scrollback. **A registry outage during a deploy does not just delay
-you — it can strip the mechanism that keeps your cluster homogeneous.**
+⭐ **[Digest pinning is best-effort]{custom-style="Key"}.** When the manager can reach the registry it resolves the tag to a
+digest and every node runs identical bytes. When it cannot, it **[degrades to per-node resolution]{custom-style="Key"}** and
+[reduces the guarantee to a warning in scrollback]{custom-style="Key"}. **A registry outage during a deploy does not just delay
+you — [it can strip the mechanism that keeps your cluster homogeneous]{custom-style="Key"}.**
 
 ### C6b — an image that starts perfectly and is the wrong application
 
@@ -138,8 +138,8 @@ was rewritten the same evening, when the omission became a fix — see below):
 ```
 
 ⭐ **Worth noticing as a practice, separately from the result: the prediction was written into the
-artefact, next to the omission that makes it testable.** A comment saying *do not fix this, and here is
-what it will demonstrate* is the difference between a gap and an experiment — and it survives the months
+[artefact, next to the omission that makes it testable]{custom-style="Key"}.** A comment saying *do not fix this, and here is
+what it will demonstrate* [is the difference between a gap and an experiment]{custom-style="Key"} — and it survives the months
 between writing the manifest and running the drill.
 
 We pointed the frontend at `nginx:alpine`. It pulls. It starts. It answers `200`.
@@ -159,13 +159,13 @@ We pointed the frontend at `nginx:alpine`. It pulls. It starts. It answers `200`
 <title>Welcome to nginx!</title>
 ```
 
-A `grep -ci capricorn` on the served page returned **0**. The entire user-facing application was gone
-and **every single signal was green, including the gate we built specifically to catch false greens.**
+A `grep -ci capricorn` on the served page returned **0**. [The entire user-facing application was gone]{custom-style="Key"}
+and **[every single signal was green, including the gate we built specifically to catch false greens]{custom-style="Key"}.**
 
 🚨 **Two independent lessons, and they are the most important pair in the track:**
 
 **(1) [Swarm's rollback is driven by task failure, not by correctness.]{custom-style="Key"}** There is nothing here for
-rollback to react to — the container is running, so the task succeeded. The only way to give Swarm an
+rollback to react to — [the container is running, so the task succeeded]{custom-style="Key"}. The only way to give Swarm an
 opinion about *correctness* is a healthcheck, at which point the wrong image fails its check, the task
 is marked unhealthy, and the rollback machinery from C6a works again:
 
@@ -178,16 +178,16 @@ healthcheck:
 ```
 
 ⭐ **A healthcheck that only proves "something is listening on port 80" would have passed here too.** The
-check has to test something *only your application* would answer.
+check has to [test something *only your application* would answer]{custom-style="Key"}.
 
-**(2) A gate only defends the endpoint it actually calls.** Our smoke gate polls the backend, because it
+**(2) [A gate only defends the endpoint it actually calls]{custom-style="Key"}.** Our smoke gate polls the backend, because it
 was written after a drill in which the *backend* was the liar. It has no opinion about the frontend, and
 so a total frontend failure passed it in `200`-shaped silence.
 
-> ⭐ **The generalisation is uncomfortable and worth sitting with: verification does not compose.** A
-> healthy dependency tells you nothing about its consumer. Our gate proved the database was reachable
+> ⭐ **The generalisation is uncomfortable and worth sitting with: [verification does not compose]{custom-style="Key"}.** A
+> [healthy dependency tells you nothing about its consumer]{custom-style="Key"}. Our gate proved the database was reachable
 > and correct *through the backend* — which is genuinely valuable, and was completely irrelevant to what
-> had broken. **Every published port needs its own check, and each check must assert something specific
+> had broken. **[Every published port needs its own check]{custom-style="Key"}, and each check must assert something specific
 > to the thing behind it.**
 
 > **Lab vs PROD — no healthcheck on the application images.** *In the lab:* at drill time none of the
@@ -195,8 +195,8 @@ so a total frontend failure passed it in `200`-shaped silence.
 > frontend gained one the same evening — next section). *Why it's acceptable here:* we are studying
 > orchestrator behaviour, and running without checks is exactly what exposed C6b. *In production:* every service carries a healthcheck that exercises the thing the service exists
 > to do — and it is treated as part of the deliverable, not deployment configuration. *If you carry the
-> habit:* **any image that starts becomes a successful deploy.** Rollback is disarmed precisely in the
-> wrong-but-running case, which is the one no human notices, and you will find out from a customer.
+> habit:* **[any image that starts becomes a successful deploy]{custom-style="Key"}.** Rollback is disarmed precisely in the
+> wrong-but-running case, [which is the one no human notices, and you will find out from a customer]{custom-style="Key"}.
 
 ### C6b, closed: the same drill re-run against the fix
 
@@ -215,9 +215,9 @@ the new version was rejected and the previous one restored - this is a FAILED de
 FAILED: deploy rolled back: capricorn_frontend        EXIT=1   (47.5s)
 ```
 
-The morning's silent success is the evening's loud failure. The nginx task never left `starting`: the
+[The morning's silent success is the evening's loud failure]{custom-style="Key"}. The nginx task never left `starting`: the
 probe ran *inside* it (busybox `wget` and `grep` exist in `nginx:alpine` — verified before relying on
-it), failed on content, and Swarm shut the task down — its final state is `Complete`, **and it never
+it), [failed on content, and Swarm shut the task down]{custom-style="Key"} — its final state is `Complete`, **and it never
 entered the ingress rotation.** A probe on `:5001` every three seconds through the whole 48-second
 rollout returned `200` with the real application's body, sixteen out of sixteen times (P34).
 ⭐ **[A failed deploy with zero user-visible seconds is the entire promise of `start-first` +
@@ -225,7 +225,7 @@ healthcheck + rollback, and it was cashed on the first try.]{custom-style="Key"}
 
 ⭐ **The recovery redeploy answered an open question by accident.** The rollback had left
 `UpdateStatus: rollback_completed` — the stale latch §1 worries about — and redeploying the canonical
-file (an identical spec, so no new update) did not leave it there: **it reset the field to `<absent>`.**
+file (an identical spec, so no new update) did not leave it there: **[it reset the field to `<absent>`]{custom-style="Key"}.**
 Measured on both sides of the deploy. So the latch is real *between* deploys but a `docker stack deploy`
 clears it, changed spec or not; the script's pre-deploy snapshot remains as defence for the window in
 between.
@@ -233,11 +233,11 @@ between.
 ### Also unplanned: `:latest` moved underneath a redeploy
 
 Midway through the drills a redeploy produced a **different backend digest** than the run 40 minutes
-earlier. Nobody had asked for an upgrade. Someone had pushed to the same mutable tag.
+earlier. [Nobody had asked for an upgrade. Someone had pushed to the same mutable tag.]{custom-style="Key"}
 
-⭐ **This corrupted a drill in progress** — we were comparing behaviour between two runs and the binary
+⭐ **[This corrupted a drill in progress]{custom-style="Key"}** — we were comparing behaviour between two runs and the binary
 changed between them. **The reason to record resolved digests on every deploy is not audit tidiness; it
-is so that you can tell a behaviour change from a code change.** Without that line in the log we would
+is [so that you can tell a behaviour change from a code change]{custom-style="Key"}.** Without that line in the log we would
 have attributed a new symptom to our own configuration.
 
 ---
@@ -267,7 +267,7 @@ From the survivor:
 | `docker ps` | ✅ three containers `Up` |
 | `curl :5001` and `:5002/api/v1/…` | ✅ **`200`, with real data** |
 
-**The application was completely unaffected.** Its containers were already running, the local daemon was
+**[The application was completely unaffected]{custom-style="Key"}.** Its containers were already running, the local daemon was
 healthy, and the database happened to be on the surviving node. **100 % of the workload, 0 % of the
 orchestration.**
 
@@ -276,12 +276,12 @@ orchestration.**
 We predicted `docker service ls` would still answer from the local Raft store, and reasoned that this
 would be dangerous — an operator seeing a normal service list would conclude the cluster was fine.
 
-**Wrong.** Reads fail with `DeadlineExceeded`. Swarm will not serve a possibly-stale answer from a
-follower; it insists on the leader and times out instead.
+**Wrong.** [Reads fail with `DeadlineExceeded`]{custom-style="Key"}. Swarm will not serve a possibly-stale answer from a
+follower; [it insists on the leader and times out instead]{custom-style="Key"}.
 
-⭐ **Correct for consistency, and it inverts the operational consequence.** You do not get a misleading
-answer — you get **no answer at all**, which means total loss of cluster visibility while the workload
-is untouched. During a real quorum loss, **`docker ps` on each node individually is the only inventory
+⭐ **Correct for consistency, and [it inverts the operational consequence]{custom-style="Key"}.** You do not get a misleading
+answer — you get **no answer at all**, [which means total loss of cluster visibility while the workload]{custom-style="Key"}
+is untouched. During a real quorum loss, **`docker ps` [on each node individually is the only inventory]{custom-style="Key"}
 you have**, and it is per-node, so you must visit all of them. Practise that before you need it.
 
 ### 🚨 And the one genuinely misleading display
@@ -294,7 +294,7 @@ docker info --format '{{.Swarm.Managers}} {{.Swarm.Nodes}} {{.Swarm.ControlAvail
 **`managers=0 nodes=0`** — which reads as *"this cluster is empty"* at exactly the moment you can least
 afford to misread something. And `ControlAvailable` is still **`true`**, because that field means "this
 node was configured as a manager", not "management works". **Monitoring that asks "am I a manager with
-control available?" answers yes while every management operation is failing.**
+control available?" [answers yes while every management operation is failing]{custom-style="Key"}.**
 
 ### The refused writes really were refused
 
@@ -306,22 +306,22 @@ frontend replicas in spec: 3      ← the scale=4 never landed
 backend labels: []                ← the label-add never landed
 ```
 
-⭐ **Raft refused to commit, and refused honestly.** That is the property that makes a quorum-based
-control plane trustworthy: an operation either commits to a majority or does not exist. **The
+⭐ **[Raft refused to commit, and refused honestly]{custom-style="Key"}.** That is the property that makes a quorum-based
+control plane trustworthy: [an operation either commits to a majority or does not exist]{custom-style="Key"}. **The
 alternative — a cluster that accepts writes without quorum — is one that silently diverges and then has
 to pick a winner.**
 
 ### Recovery, and where the danger actually is
 
 Starting both daemons restored quorum within a minute. **Leadership moved to the surviving node** — the
-second time in this phase that we observed leadership is not sticky. Every service returned to full
+[second time in this phase that we observed leadership is not sticky]{custom-style="Key"}. Every service returned to full
 strength and the smoke gate passed.
 
 > 🚨 **The instinct this drill exists to correct.** A cluster with no leader is not "down"; it is
-> **serving traffic with the steering wheel disconnected**, and every symptom you can see from the CLI
+> **[serving traffic with the steering wheel disconnected]{custom-style="Key"}**, and every symptom you can see from the CLI
 > screams outage. The reflex is to restart Docker on the node that still works, or to reboot it, or to
 > run `docker swarm init --force-new-cluster`. **[All three of those convert a fully-serving application
-> into a real outage.]{custom-style="Key"}** The correct action is boring: **bring a manager back.** Quorum is arithmetic —
+> into a real outage.]{custom-style="Key"}** [The correct action is boring]{custom-style="Key"}: **bring a manager back.** Quorum is arithmetic —
 > nothing else fixes it, and nothing needs to.
 
 > **Lab vs PROD — managers that also carry the workload.** *In the lab:* all three nodes are managers
@@ -329,7 +329,7 @@ strength and the smoke gate passed.
 > demonstrate quorum at all, and co-locating is what makes a three-node lab useful. *In production:*
 > managers are dedicated nodes that schedule work but do not run it (⚠️ *unverified prescription —
 > standard guidance, not something this lab has tested*). *If you carry the habit:* **manager work and
-> application work share the same CPU, memory and disk, so a workload spike can make a manager slow
+> application work share the same CPU, memory and disk, [so a workload spike can make a manager slow]{custom-style="Key"}
 > enough to miss heartbeats and be considered failed — an application problem escalating into a
 > control-plane problem.** Chapter 1's callout covers the sibling risk: co-located managers mean a
 > workload-driven reboot is also a quorum event.
@@ -348,7 +348,7 @@ capricorn_postgres   1/1      ← intact, and NOT for a reassuring reason (below
 capricorn_redis      0/1      ← gone entirely
 ```
 
-The task history explained it, and the explanation is a single word in the manifest:
+The task history explained it, and [the explanation is a single word in the manifest]{custom-style="Key"}:
 
 ```yaml
 restart_policy:
@@ -356,7 +356,7 @@ restart_policy:
 ```
 
 A reboot sends `SIGTERM`. The containers shut down **cleanly**, exiting `0`. Swarm recorded them as
-`Complete`, not `Failed` — and `on-failure` means *restart when the task fails*. **A clean exit is not a
+`Complete`, not `Failed` — [and `on-failure` means *restart when the task fails*]{custom-style="Key"}. **A clean exit is not a
 failure, so the tasks were never restarted.** The replicas simply stopped existing.
 
 | Task state | Exit | `on-failure` restarts it? | `any` restarts it? |
@@ -364,10 +364,10 @@ failure, so the tasks were never restarted.** The replicas simply stopped existi
 | `Failed` | non-zero | ✅ | ✅ |
 | `Complete` | `0` | 🚨 **No** | ✅ |
 
-🚨 **And the database came back only by luck.** Postgres had the same `on-failure` policy. Its container
+🚨 **[And the database came back only by luck]{custom-style="Key"}.** Postgres had the same `on-failure` policy. Its container
 did not exit cleanly — it *vanished*, so the task was recorded as `Failed`, so it **was** replaced. **Had
-it shut down as gracefully as the others, the database would simply not have come back**, and the same
-reboot would have been an outage instead of a capacity loss. The policy was equally wrong for all four
+[it shut down as gracefully as the others, the database would simply not have come back]{custom-style="Key"}**, and the same
+reboot would have been [an outage instead of a capacity loss]{custom-style="Key"}. The policy was equally wrong for all four
 services; only the manner of dying differed.
 
 The discriminator, when a service is under-replicated for no visible reason:
@@ -382,22 +382,22 @@ it is the fingerprint of a replica that will never come back.
 
 **Why this is the most valuable finding in the phase:** every other failure here was provoked. This one
 was produced by *the most ordinary operation in infrastructure*, it degraded capacity rather than
-availability, and **it announced itself nowhere.** The services were serving. Nothing alerted. The
+availability, and **[it announced itself nowhere]{custom-style="Key"}.** The services were serving. Nothing alerted. The
 backend was at half strength, the frontend at a third, Redis **gone entirely** — and the only evidence
-was a column of numbers nobody was reading.
+[was a column of numbers nobody was reading]{custom-style="Key"}.
 
 The fix is one word — `condition: any` — and the reasoning generalises: **in a cluster, "the process
-exited cleanly" is not a reason to stop running the service.** You asked for three replicas. The desired
+exited cleanly" [is not a reason to stop running the service]{custom-style="Key"}.** You asked for three replicas. The desired
 state does not care *why* there are two.
 
 ### The drill that later confirmed the fix, by accident
 
 The quorum drill in §2 stopped Docker daemons, which `SIGTERM`s their containers — **the identical
-mechanism** that ate replicas here. Under `condition: any`, every service returned to full strength.
+mechanism** that ate replicas here. [Under `condition: any`, every service returned to full strength]{custom-style="Key"}.
 
-⭐ **Same failure input, opposite outcome, one variable changed.** That is a controlled experiment we did
+⭐ **[Same failure input, opposite outcome, one variable changed]{custom-style="Key"}.** That is a controlled experiment we did
 not plan, and it is stronger evidence than the original fix had. It is also a lesson about drills in
-general: **a later drill can validate an earlier fix for free, if you record the earlier one precisely
+general: **[a later drill can validate an earlier fix for free]{custom-style="Key"}, if you record the earlier one precisely
 enough to recognise the repeat.**
 
 > **Lab vs PROD — `on-failure` on long-running services.** *In the lab:* the first manifest used
@@ -405,8 +405,8 @@ enough to recognise the repeat.**
 > not — this was simply a mistake, and it is in the chapter because finding it was worth more than the
 > drills we had planned. *In production:* `condition: any` for anything that should always be running;
 > `on-failure` belongs to batch jobs where completion is meaningful. *If you carry the habit:* **capacity
-> erodes silently across every maintenance window.** Each reboot costs replicas, the service never goes
-> down, and you discover the shortfall during a traffic peak — the one moment the missing capacity
+> [erodes silently across every maintenance window]{custom-style="Key"}.** Each reboot costs replicas, the service never goes
+> down, and [you discover the shortfall during a traffic peak]{custom-style="Key"} — the one moment the missing capacity
 > matters and the one moment you cannot safely investigate.
 
 ---
@@ -427,7 +427,7 @@ other chapters.
 
 ## 5. How to run a drill so that it means something
 
-Five of the runs in this phase produced confident, plausible, **void** results. That is a high enough
+Five of the runs in this phase produced [confident, plausible, **void** results]{custom-style="Key"}. That is a high enough
 rate to be a subject rather than an embarrassment, and the causes were always the same shape.
 
 | What went wrong | The rule it produced |
@@ -443,9 +443,9 @@ badly instrumented experiment]{custom-style="Key"}**, because it is indistinguis
 your notes as one. This is the same failure mode the whole chapter is about — a green signal that means
 nothing — with the experimenter in the role of the orchestrator.
 
-**Write the prediction down first.** It is the cheapest instrument available and it is the only one that
-detects the failure where you learn nothing because you had no expectation to violate. Our C5 prediction
-was **wrong**, and that refutation is one of the most useful facts in this track — it would not exist if
+**[Write the prediction down first]{custom-style="Key"}.** It is the cheapest instrument available and it is the only one that
+detects the failure where you learn nothing [because you had no expectation to violate]{custom-style="Key"}. Our C5 prediction
+was **wrong**, and that refutation is [one of the most useful facts in this track]{custom-style="Key"} — it would not exist if
 we had not committed to a guess.
 
 ---

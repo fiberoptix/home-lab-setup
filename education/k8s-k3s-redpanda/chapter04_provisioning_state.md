@@ -57,7 +57,7 @@ speaks the Kafka admin protocol to a broker, which writes the definition into th
 group**]{custom-style="Key"} — the `redpanda/controller/0_0` directory on each broker's PVC. It is replicated by Raft like
 any other data.
 
-So in this cluster `kubectl get topics` returns nothing, because no such object exists.
+[So in this cluster `kubectl get topics` returns nothing, because no such object exists]{custom-style="Key"}.
 
 ![Figure 1 — two control planes, and the gap between them](images/ch04_fig1_control_planes.png)
 
@@ -91,7 +91,7 @@ install on 27 July, when recovery required `kubectl -n redpanda delete pvc --all
 
 ## 2. The gap, proved
 
-A deployment where every Kubernetes signal is green and the service cannot serve a request.
+[A deployment where every Kubernetes signal is green and the service cannot serve a request]{custom-style="Key"}.
 
 ```bash
 rpk cluster config get auto_create_topics_enabled
@@ -123,13 +123,13 @@ Both directions fail identically, both exit **1**. Meanwhile:
 > [**"Infrastructure green" and "service usable" are different assertions, and only one of them is
 > being monitored.**]{custom-style="Key"} A pipeline that stops at `helm install` + `rollout status` will report success
 > on a cluster no application can use. This is the same shape as Chapter 2's `Available=True` while
-> a rollout was broken: the signal is true, it just isn't answering the question you care about.
+> a rollout was broken: [the signal is true, it just isn't answering the question you care about]{custom-style="Key"}.
 
 ---
 
 ## 3. Why the broker config cannot hold topics
 
-The natural first instinct is to put topics in a startup config file. It doesn't work, and the reason
+[The natural first instinct is to put topics in a startup config file]{custom-style="Key"}. It doesn't work, and the reason
 is worth understanding.
 
 Redpanda's cluster config can be seeded at bootstrap, but it only holds **cluster properties**:
@@ -143,7 +143,7 @@ log_segment_size              134217728
 Those are defaults applied to topics created *later*. There is no field anywhere in the broker config
 that says "a topic named `orders` with 6 partitions." [Topics are not configuration — they are data in
 the controller Raft group, so they can only be created by talking to a **running** cluster]{custom-style="Key"} over the
-admin API. That ordering constraint is what forces everything else in this chapter.
+admin API. [That ordering constraint is what forces everything else in this chapter]{custom-style="Key"}.
 
 ### The shortcut, and why to reject it
 
@@ -151,7 +151,7 @@ admin API. That ordering constraint is what forces everything else in this chapt
 auto_create_topics_enabled    false
 ```
 
-Set that to `true` and topics spring into existence the moment any client produces to a name that
+Set that to `true` and [topics spring into existence the moment any client produces to a name that]{custom-style="Key"}
 doesn't exist. It removes the seeding problem entirely, and you should still not do it:
 
 - [New topics inherit `default_topic_partitions`, which is **1** here. One partition means no
@@ -169,7 +169,7 @@ is a good sentence in an interview.]{custom-style="Key"}
 
 ## 4. The seeding Job, written the way everyone writes it first
 
-Since topics require a running cluster, seeding is a **post-deploy step**. In Kubernetes that's a
+[Since topics require a running cluster, seeding is a **post-deploy step**]{custom-style="Key"}. In Kubernetes that's a
 `Job`. The chart already demonstrates the pattern — `redpanda-configuration` is a post-install Job
 that configured cluster properties once the brokers were reachable.
 
@@ -204,7 +204,7 @@ Job `Complete`, exit 0, both topics created. This is why the pattern survives co
 
 ### The second deploy
 
-Nothing changed. Same manifest, re-applied — exactly what a pipeline does on the next release:
+Nothing changed. [Same manifest, re-applied — exactly what a pipeline does on the next release]{custom-style="Key"}:
 
 ```
 NAME                READY   STATUS   RESTARTS   AGE
@@ -218,14 +218,14 @@ orders  TOPIC_ALREADY_EXISTS: The topic has already been created
 Warning  BackoffLimitExceeded  job-controller  Job has reached the specified backoff limit
 ```
 
-**`rpk topic create` is not idempotent.** Measured exit codes:
+[**`rpk topic create` is not idempotent.** Measured exit codes]{custom-style="Key"}:
 
 | Command | Topic exists | Topic missing |
 |---|---|---|
 | `rpk topic create` | **exit 1** | exit 0 |
 | `rpk topic describe` | exit 0 | exit 1 |
 
-Three pods, because `backoffLimit: 2` means one attempt plus two retries. Then the Job fails
+Three pods, [because `backoffLimit: 2` means one attempt plus two retries]{custom-style="Key"}. Then the Job fails
 permanently. [Nothing is actually wrong — the topics are correct, the cluster is healthy, the
 application works — and **the pipeline goes red anyway.**]{custom-style="Key"}
 
@@ -309,7 +309,7 @@ Same manifest, run twice, exit 0 both times. That is what §4's version could no
 ### 5a. Two things worth stealing from the implementation
 
 **`set -uo pipefail`, deliberately without `-e`.** The reflex is `set -euo pipefail`, but here `-e`
-is actively wrong: it aborts on the first problem, so a run with three drifted topics reports one
+is actively wrong: [it aborts on the first problem, so a run with three drifted topics reports one]{custom-style="Key"}
 and hides the other two. You then fix it, re-run, and discover the next one — a slow serial reveal
 during a deploy window. Without `-e` the script collects every problem in a `drift` counter, prints
 them all, and fails once at the end. [**A checker should report everything it found, not the first
@@ -324,7 +324,7 @@ have_p=$(awk '/^PARTITIONS/{print $2}' <<<"$summary")
 have_rf=$(awk '/^REPLICAS/{print $2}'  <<<"$summary")
 ```
 
-Slightly less robust in principle, and zero supply chain in practice. Using the broker's own image
+[Slightly less robust in principle, and zero supply chain in practice]{custom-style="Key"}. Using the broker's own image
 also guarantees the `rpk` client version always matches the cluster.
 
 ---
@@ -355,7 +355,7 @@ kubectl -n redpanda scale sts redpanda --replicas=3
 The naive Job cannot survive this, and the reason is arithmetic rather than bad luck. [Its retry
 budget is `backoffLimit: 2` — three pods, with backoff between them, **about 32 seconds total**. Broker
 startup took between 21 seconds and roughly 2 minutes]{custom-style="Key"} depending on image cache. The Job frequently
-exhausts its entire budget before the cluster has finished starting, and is then marked `Failed`
+[exhausts its entire budget before the cluster has finished starting]{custom-style="Key"}, and is then marked `Failed`
 permanently even though the cluster becomes perfectly healthy moments later.
 
 ### 6b. Pod-Ready is not cluster-ready
@@ -383,8 +383,8 @@ Leaderless partitions (11):       [kafka/executions/0 kafka/orders/0 kafka/order
 Under-replicated partitions (0):  []
 ```
 
-All three brokers up and registered, nothing down, and 11 of 18 partitions unable to accept a write.
-The processes had started and joined the cluster before Raft had elected leaders.
+[All three brokers up and registered, nothing down, and 11 of 18 partitions unable to accept a write]{custom-style="Key"}.
+[The processes had started and joined the cluster before Raft had elected leaders]{custom-style="Key"}.
 
 It was 11 and not 18 for a reason worth internalising: [**each partition is its own independent Raft
 group** (Ch3 §3). They elect independently and finish at different times, so seven had completed and
@@ -400,9 +400,9 @@ Ch3 §9b. [**Alert on `Leaderless`. Never on `Under-replicated` alone.**]{custom
 
 > **Why every simpler gate fails**
 >
-> **Wait for DNS?** The chart sets `publishNotReadyAddresses: true`, so the headless Service hands out brokers that are not yet accepting connections. Resolution is not a readiness signal.
+> **Wait for DNS?** The chart sets `publishNotReadyAddresses: true`, [so the headless Service hands out brokers that are not yet accepting connections]{custom-style="Key"}. Resolution is not a readiness signal.
 >
-> **Wait for pods Ready?** Measured above: 9 seconds early. Each partition is its own Raft group and elects independently — 7 of 18 had finished, 11 had not. There is no instant when "the cluster" becomes ready.
+> **Wait for pods Ready?** Measured above: 9 seconds early. Each partition is its own Raft group and elects independently — 7 of 18 had finished, 11 had not. [There is no instant when "the cluster" becomes ready]{custom-style="Key"}.
 >
 > **Just sleep?** Scheduled→Ready was **21s** here and closer to **2 minutes** with cold images. `sleep 60` would pass today and fail that run; `sleep 180` is safe and wastes 3 minutes on every deploy forever.
 >
@@ -628,7 +628,7 @@ What that buys you over a Job:
 Be precise about that middle pair, because it is the row people wave at to justify an operator and
 it is not as one-sided as "Job: undetected". §7 is the section where the Job *does* detect drift —
 it fixes retention in place and fails the deploy on partition and replication drift. The real
-difference is **when**, not whether: [the Job only looks when you deploy, so drift introduced at
+difference is **when**, not whether: [[the Job only looks when you deploy, so drift introduced at]{custom-style="Key"}
 11 a.m. on a Tuesday sits undiscovered until the next release.]{custom-style="Key"} And [an operator does not magically
 fix Tier 3 either — you cannot reduce a partition count by reconciling harder.]{custom-style="Key"}
 
@@ -669,7 +669,7 @@ decisions are all about *where the gates go* and *what turns the build red*.
 
 Points worth being able to defend:
 
-**The topic spec is a reviewed artefact, not shell history.** The declared list lives in
+[**The topic spec is a reviewed artefact, not shell history.**]{custom-style="Key"} The declared list lives in
 `seed-topics.sh` in Git, mounted into the Job from a ConfigMap. [Changing a partition count is a pull
 request with a diff, which is the only control that reliably stops Tier 3 mistakes.]{custom-style="Key"}
 
@@ -682,8 +682,8 @@ kubectl -n redpanda create configmap topic-spec \
 an infrastructure assertion. Stage 2 and 3 are the service assertions. The mistake is stopping after
 stage 1 and calling the deploy verified.
 
-**Stage 3 exists because stages 1 and 2 can both pass on a broken system.** Stage 2 proves the
-metadata is right; only an actual round-trip proves a client can use it.
+[**Stage 3 exists because stages 1 and 2 can both pass on a broken system.**]{custom-style="Key"} Stage 2 proves the
+metadata is right; [only an actual round-trip proves a client can use it]{custom-style="Key"}.
 
 **`ttlSecondsAfterFinished: 3600`.** Without it, every deploy leaves dead pods behind and
 `kubectl get pods` becomes unreadable exactly when you need it during an incident.
@@ -694,7 +694,7 @@ these are precisely the two categories that get more expensive the longer they g
 
 ### 9a. The `kubectl wait` trap, restated
 
-From §4: `kubectl wait --for=condition=complete` only ever watches for success, so on failure it
+From §4: `kubectl wait --for=condition=complete` [only ever watches for success, so on failure it]{custom-style="Key"}
 burns the full timeout and then reports a *timeout* instead of the actual error. Run both conditions
 concurrently and take whichever fires first, so a genuine failure surfaces immediately with the right
 message:
@@ -759,7 +759,7 @@ operator in §8, and it is the honest answer to "why would you ever run a contro
 
 *Added Aug 13, 2026, retrofitting a convention introduced with the Docker Swarm track. Most of the table
 above is about **maturity of tooling** — a bash array instead of an operator — and none of it would be
-wrong at small scale. Two rows are different, and they compound each other.*
+wrong at small scale. [Two rows are different, and they compound each other]{custom-style="Key"}.*
 
 > **Lab vs PROD — an unauthenticated Admin API and topics with no owner.** *In the lab:* the seeding Job
 > talks to `admin.hosts` over **plaintext**, with no credential, and creates topics with **no ACLs and no
@@ -768,8 +768,8 @@ wrong at small scale. Two rows are different, and they compound each other.*
 > Kubernetes and application state. *In production:* mTLS to the Admin API with credentials from a Secret,
 > and every topic created with an owning principal plus ACLs **in the same step that creates it.** *If you
 > carry the habit:* 🚨 **any pod that can reach the Admin API can delete any topic**, and a topic created
-> without an owner is a topic nobody can be prevented from reading. ⭐ **The sequencing detail is the part
-> worth stealing: ACLs applied later are ACLs applied never**, because by then something is already
+> [without an owner is a topic nobody can be prevented from reading]{custom-style="Key"}. ⭐ **The sequencing detail is the part
+> worth stealing: [ACLs applied later are ACLs applied never]{custom-style="Key"}**, because by then something is already
 > connecting without them and tightening the rule means breaking a working consumer. The only moment it is
 > cheap is the moment of creation. ⚠️ *Unverified prescription:* neither mTLS nor ACLs were configured here;
 > Chapter 7 §2e writes the ACL manifests as a design and never applies them.
@@ -777,9 +777,9 @@ wrong at small scale. Two rows are different, and they compound each other.*
 ⭐ **Why the drift row is a lab limitation and not a production sin.** The fourth row deserves the emphasis
 it already has, but note what kind of gap it is: **deploy-time-only reconciliation is a perfectly
 defensible production choice** for a small, slow-changing set of topics — plenty of real systems do exactly
-this. It becomes wrong when the number of topics or the rate of change outgrows the release cadence, which
+this. [It becomes wrong when the number of topics or the rate of change outgrows the release cadence]{custom-style="Key"}, which
 is a *scale* threshold rather than a correctness one. **That is why it gets a table row and not a callout**;
-the ACL row gets a callout because no amount of smallness makes an unowned topic acceptable.
+[the ACL row gets a callout because no amount of smallness makes an unowned topic acceptable]{custom-style="Key"}.
 
 ---
 
@@ -894,14 +894,14 @@ cluster.
 
 **"You find a topic with the wrong partition count. Fix it."**
 I don't, not automatically. Growing a partition count changes `hash(key) % n` for about half the keys,
-so an order's history splits across two partitions and ordering breaks retroactively. Shrinking isn't
+[so an order's history splits across two partitions and ordering breaks retroactively]{custom-style="Key"}. Shrinking isn't
 possible at all. The correct move is to fail the pipeline loudly and treat it as a migration —
 typically a new correctly-shaped topic and a controlled cutover. That's why I sort drift into fix
 in place / schedule as an operation / never auto-fix.
 
 **"What would you alert on for this cluster?"**
 `Leaderless partitions` and `Nodes down`. Explicitly **not** `Under-replicated` on its own — I've
-watched it read 0 twice while the cluster was badly degraded, because with no leader there's nobody
+[watched it read 0 twice while the cluster was badly degraded]{custom-style="Key"}, because with no leader there's nobody
 to compute it.
 
 **"Would you use the operator?"**
