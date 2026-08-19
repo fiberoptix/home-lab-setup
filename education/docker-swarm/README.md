@@ -34,10 +34,16 @@ assumes. `COMMANDS.md` is a reference, not a chapter; keep it beside you from Ch
 | 04 | [State: what the cluster will not carry for you](chapter04_state.md) | Named volumes are node-scoped, so state gets **stranded rather than lost**; durability ≠ availability; rotating a secret rotates only the client; `trust` on loopback; concurrent workers racing to seed one database | ✅ Written |
 | 05 | [Breaking it on purpose](chapter05_breaking_it.md) | The failure drills, predictions written first: unpullable images and rollback; **an image that starts and is the wrong application — first passing every signal, then re-run against the fix and caught in 47 seconds**; quorum loss (writes *and* reads); the reboot that silently cost three replicas; how to run a drill that means something | ✅ Written |
 | 06 | [False greens](chapter06_false_greens.md) | ⭐ The unplanned capstone: eight ways this cluster reported success for a question nobody asked, why every one of those signals was *honest*, the ladder of questions, and the smoke gate we built — including the failure it missed and how the gap was closed | ✅ Written |
+| 07 | [The tag that lies](chapter07_the_tag_that_lies.md) | 🤖 **AI-executed — declared in the chapter, and one step weaker than its siblings.** Why the `:latest` trap **could not fire**, and the two mechanisms that stranded old code anyway: a rolling update that reports `3/3` + `update in progress` **forever** because `start-first` and a per-node cap cannot both be satisfied, and `--force` restarting the old build while printing `converged`. Then 🚨 **two builds served from one URL at once** after a registry blip stripped the digest — and the same pin **protecting** a rescheduled task | ✅ Written |
 
 Chapters are written after the work they describe, so the table fills in behind the build rather than
 ahead of it. **Chapter 6 was not planned** — the same phenomenon appeared in every drill, in our own
 tooling, and in five of our own experiments, which made it a subject rather than a footnote.
+
+🤖 **Chapter 7 is the one exception to how this track was produced, and it says so in its own opening.**
+Chapters 1–6 were driven by Andrew at the keyboard; chapter 7's commands were executed by the AI at his
+written instruction. Every output in it is real, but the operator judgement behind it was not earned by
+hand — so it is deliberately marked as weaker rather than quietly shelved alongside the others.
 
 ---
 
@@ -95,7 +101,7 @@ maps each row to where it is taught:
 | L5 | Unattended upgrades masked | Ch 1 §6 |
 | L6 | Snapshots instead of backups | Ch 1 §6, Ch 4 §1 |
 | L7 | Password SSH still enabled | phase file only — lab ops, not Swarm |
-| L8 | Deploying `:latest` | Ch 2 §4, Ch 5 (the tag that moved mid-drill) |
+| L8 | Deploying `:latest` | Ch 2 §4, Ch 5 (the tag that moved mid-drill), **Ch 7 (tested end to end — and the failure mode was not the predicted one)** |
 | L9 | Registry credential as base64 in `~/.docker/config.json` | Ch 2 §3 |
 | L10 | The system-of-record database as a container task | Ch 4 §1 |
 | L11 | Plain HTTP, no reverse proxy, no TLS | Ch 2 §5 |
@@ -148,7 +154,7 @@ exercise are marked recited. The full comparison is a planned Part 7 working ses
 | Question | Swarm (this track) | Kubernetes (k3s track) |
 |---|---|---|
 | Deploy unit | `stack` of `service`s from compose syntax; tasks, not pods | `Deployment` → ReplicaSet → Pods, template-hash mechanics (k3s ch 2) |
-| What a tag means | Resolved to a digest **once, at accept time** — services never follow a moving tag; the *next* deploy re-resolves (Ch 2 §4) | Kubelet-side `imagePullPolicy`; `:latest` defaults to pull-always — opposite default, same class of surprise (recited) |
+| What a tag means | Resolved to a digest **once, at accept time** — services never follow a moving tag; the *next* deploy re-resolves (Ch 2 §4). ⚠️ **And if that re-resolution FAILS, the pin is dropped and each node resolves alone — measured, two builds served from one URL (Ch 7 §5–6)** | Kubelet-side `imagePullPolicy`; `:latest` defaults to pull-always — opposite default, same class of surprise (recited) |
 | Correctness signal the platform can act on | Container `healthcheck` — added here only after C6b was felt (Ch 5 §1) | Liveness + readiness probes, first-class; the k3s track ran both, including "the probe that causes outages" (k3s ch 2) |
 | Rolling update failure | `failure_action: rollback`, automatic, and **silent in the exit code** — proved by drill (Ch 5 §1) | Rollout halts at `maxUnavailable`; `kubectl rollout status` blocks and reports; undo is manual |
 | Secrets | **Immutable objects**; rotation = new object + redeploy, and the value is unrecoverable via API (Ch 4 §2) | Secret objects are editable in place; consumers still need a restart to notice — different mechanics, same client-side blindness |

@@ -1,0 +1,33 @@
+// Chapter 7, figure 1 - how a registry blip during a deploy leaves two versions serving at once.
+// THREE ranks, terse labels. Two earlier drafts rendered 2603px and 1766px wide, giving ~5pt and
+// ~8.5pt type on the page; width is set by the longest label LINE, so the wording is deliberately
+// clipped rather than the font reduced. Prose belongs in the chapter (CONVENTIONS.md).
+// Render: dot -Tpng -Gdpi=150 ch07_fig1_two_versions.dot -o ../images/ch07_fig1_two_versions.png
+digraph two_versions {
+    rankdir=LR;
+    bgcolor="white";
+    nodesep=0.28;
+    ranksep=0.38;
+    node [shape=box, style="rounded,filled", fontname="Helvetica", fontsize=13,
+          margin="0.12,0.10", fillcolor="#eef2f7", color="#5b6b7f"];
+    edge [fontname="Helvetica", fontsize=12, color="#5b6b7f"];
+
+    strip [label="stack deploy :latest\lleader cannot reach\lthe registry\l\l\"could not record\lits digest\"\l\lSUCCEEDS\lpin STRIPPED\l",
+           fillcolor="#fff3d6", color="#b8860b"];
+
+    n1 [label="swarm-1\lregistry blocked\lcached :latest = v3\l(STALE)\l\lserves v3\l",
+        fillcolor="#fdeaea", color="#c0392b"];
+
+    n3 [label="swarm-3\lregistry reachable\lpulls :latest -> v4\l\lserves v4\l",
+        fillcolor="#eaf4ea", color="#2e7d32"];
+
+    mesh [label="ONE URL :8081\l30 requests:\l10 x v3   20 x v4\l\lservice ls:  3/3\lUpdate: completed\l",
+          fillcolor="#f0e6f6", color="#6a3d9a"];
+
+    strip -> n1;
+    strip -> n3;
+    n1 -> mesh;
+    n3 -> mesh;
+
+    { rank=same; n1; n3; }
+}

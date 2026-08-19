@@ -73,12 +73,13 @@ house failure mode. Do not do it.**
 
 | Touching this | Read this FIRST | You will be WRONG without it |
 |---|---|---|
-| 🔵 **Docker Swarm** (VMs .191–.193), the swarm CI pipeline, `education/docker-swarm/` | `phases/phase16_docker_swarm.md` (3066 ln — **grep it**) | **Hard rule B1: NEVER retag/push production Capricorn images.** ~8 traps are planted ON PURPOSE — "fixing" one destroys the drill. Also holds the P-numbered prediction log, ledger L1–L22 (lab-vs-PROD compromises), and `s01→s06` snapshot chain (⚠️ **s06 predates the C4 fix**) |
+| 🔵 **Docker Swarm** (VMs .191–.193), the swarm CI pipeline, `education/docker-swarm/` | `phases/phase16_docker_swarm.md` (3234 ln — **grep it**) | **Hard rule B1: NEVER retag/push production Capricorn images.** All 7 planted traps are now CLOSED (C7 last, Aug 19) — do NOT "re-fix" them; the drills are spent and their write-ups are the value. Also holds the P-numbered prediction log **P1–P61**, ledger **L1–L23** (lab-vs-PROD compromises), and the `s01→s07` snapshot chain (⭐ **s07 is the first with the C4 fix; s06 predates it**) |
 | 🔵 **Any education track / chapter / diagram / docx** | `education/CONVENTIONS.md` + `education/METHOD.md` + that track's `README.md` | Figures must clear a **10pt** floor (`figcheck.py`) and raw aspect ratio sets rendered font size; the highlight pass targets ~15% and ⚠️ **`highlight.py` must NEVER be re-run on an already-highlighted file**; chapter H1 format is fixed. Inventing a format per track is explicitly forbidden |
 | **k3s / Redpanda / OpenSearch** (VM 186) | `phases/phase14_k8s_redpanda_poc.md` (878 ln) | Phase CLOSED. Paths moved to `education/k8s-k3s-redpanda/` Aug 12 — older references are stale. Holds the quorum/leaderless alerting findings |
 | **The `/education` tree itself** (moving, renaming, restructuring) | `phases/phase15_education_program.md` (379 ln) | ⚠️ That file is a **RECORD, not a plan** — §3 is already executed and §1 describes the *pre-move* tree. **Re-running it would undo the current layout** |
 | **vm-www-1 (.184), Traefik, PROD Capricorn hosting** | `phases/phase7_local_www.md` (1508 ln) | Network architecture is load-bearing and marked CRITICAL in that file; `.184` deliberately **never contacts the registry** (images arrive via `docker load`) |
 | **Proxmox host config, kernels, ZFS pools, backups** | `phases/phase13_fable_proxmox_audit.md` (551 ln) + `phases/phase1b_*` | Kernel pinning is deliberate; a 50G thick zvol with refreservation sits on `vm-critical`. See also the BACKUP DIRECTIVE in `CURSOR_RULES` — **backups go to NAS, never NVMe** |
+| 🔧 **Physical hardware — RAM/DIMMs, drives, serials, part numbers** (either workstation) | `phases/phase0_hardware.md` → **Memory Configuration** | **Both boxes are at 4-of-6 memory channels** (Z6 *and* Z8, both verified Aug 19 2026) — ⛔ **the Z8 is NOT a DIMM donor.** ⚠️ `phase13` PERF-3's slot numbers were **wrong** (free slots are `CPU0-DIMM3/4`, not 5/6) and its price is **~10x stale** (32GB DDR4 ≈ **$300**, so the "$50–80" fix is ~$600). **Buy nothing before capping `zfs_arc_max` — still unmeasured.** Also: the Z8's DIMMs are readable **only from the Windows host**, never the dev VM |
 | **Firewall, port-forwards, public exposure** | `phases/phase12_network_segmentation.md` (200 ln) | Perimeter is deliberately closed to everything but the WWW box; open ports listed there include ones flagged for removal |
 | **GitLab / runner / CI** | `phases/phase3_gitlab_server.md`, `phase4_gitlab_runner.md`, `phase5_ci_cd_pipelines.md` | The runner is **privileged with the host Docker socket mounted** — any job on it is effectively root on the runner host (ledger L19) |
 | **SonarQube** | `phases/phase6_sonarqube.md` (625 ln) | — |
@@ -1137,7 +1138,9 @@ session. The rest is history the phase files also carry.
     credential**, since CIFS never re-authenticates an existing mount.
   - **Audit discoveries:** host runs Tailscale (100.108.209.77, `pve` on tailnet); idle Quadro
     P2000 GPU (nouveau, passthrough candidate); SNC enabled in BIOS → 2 NUMA nodes (64G each);
-    only 4/6 memory channels populated; fallback kernel 6.17.2-1 no longer on ESPs.
+    only 4/6 memory channels populated (⚠️ **slot numbers in that audit are wrong — corrected in
+    `phase0_hardware.md`; the free slots are `CPU0-DIMM3/4`**); fallback kernel 6.17.2-1 no longer
+    on ESPs.
   - **✅ Console visit DONE (Jul 9, 12:53 PM):** SNC disabled in BIOS (host is now 1 flat
     NUMA node / 128GB) AND kernel **7.0.14-4-pve pin-tested + made PERMANENT pin** (booted
     clean 1st try: 6/6 NVMe, 0 errors, pools ONLINE, VMs up, public site 200). Fallbacks on
@@ -1158,7 +1161,11 @@ session. The rest is history the phase files also carry.
     GitLab last). All answer `qm agent ping`. Restarts also put every VM on the **new QEMU
     11.0.2** binary (upgrade loose end closed). All services verified healthy after.
     185 (dormant) skipped — add agent if ever revived.
-  - **Still open/optional:** 2x32GB DIMMs for 6-channel bandwidth; tailscaled NetInfo log
+  - **Still open/optional:** ~~2x32GB DIMMs for 6-channel bandwidth~~ ⏸️ **ON HOLD Aug 19, 2026 —
+    now ~$600 (32GB DDR4 ≈ $300 each, DDR4 is EOL), the gain is still UNMEASURED, and the free
+    levers come first: cap `zfs_arc_max` (unmeasured) + measure VM working sets. Slots are
+    `CPU0-DIMM3/4`. The Z8 is also 4-of-6 per socket, so it is NOT a donor — `phase0_hardware.md`**;
+    tailscaled NetInfo log
     noise (G3100 UPnP flapping; fix = TS_DEBUG_DISABLE_PORTMAPPER override if it bothers);
     delete 184 snapshot `pre_phase12_firewall` ~mid-July.
   - **Dev workstation (Z8) side quest:** Ubuntu VMware VM resized 32→24 vCPUs **as 2 sockets
@@ -1899,7 +1906,7 @@ All pools feature-flag current (zpool upgrade Jul 9).
 | 14 | Kubernetes + Redpanda POC (was interview prep) | ✅ **CLOSED Aug 12, 2026 — goal met: the interviews happened Aug 6/7 and Andrew got the job.** Parts 1–6 done, 7 chapters written. VM 186 right-sized to 8 vCPU / 16 GB and left at snapshot `s05-app-running`. **Do not extend it**; Ch8–10 are track-1 education work, not phase 14. |
 | 11 | OpenClaw AI Agent | ✅ COMPLETE (vm-openclaw-1 @ .185, Feb 20, 2026) |
 | 15 | Education program — multi-track study repo | ✅ **Parts A–D COMPLETE Aug 12, 2026.** `education/` is now a shelf: one folder per track, shared `tools/`, `CONVENTIONS.md`. One item open — the `docker-swarm` row in `education/README.md`'s track table, held until the folder exists. |
-| 16 | Docker Swarm (education track 2) | 🔵 **IN PROGRESS — Parts 1–4 COMPLETE Aug 19, 2026; all 6 chapters written.** VMs 191/192/193 from template 9000; three-manager swarm, quorum 2 of 3; snapshots `s01-base-clean` → **`s06-ci-wired`** (⚠️ `s06` PREDATES the C4 fix, so rolling back loses it; `s07` was declined). CI deploys the stack from GitLab; traps C1–C5 fired; **C4 fixed and VERIFIED against a degraded cluster (P48+P50)**; chapter 3 complete with highlight pass. **Next: trap C7 (digest freezing, rescoped to a LAB-ONLY image — hard rule B1 forbids touching production Capricorn tags), drill D (rotate `pg_password`), Part 7 Swarm↔K8s crib sheet.** 🙋 Andrew drives (`education/METHOD.md` → "Who does the work"). Re-walk the `📌 READ THIS FIRST` pre-flight list in `phases/phase16_docker_swarm.md` each session. |
+| 16 | Docker Swarm (education track 2) | 🔵 **IN PROGRESS — Parts 1–6 COMPLETE, ALL 7 TRAPS CLOSED (Aug 19, 2026); 7 chapters written.** VMs 191/192/193 from template 9000; three-manager swarm, quorum 2 of 3; snapshots `s01-base-clean` → **`s07-c4-fixed-verified`** (⭐ **`s07` is the FIRST snapshot containing the C4 fix — `s06` predates it**). CI deploys the stack from GitLab; **C1–C5 fired, C6/C6b closed, C7 run Aug 19**; C4 fixed and VERIFIED against a degraded cluster (P48+P50). 🤖 **C7 + chapter 7 were AI-EXECUTED at Andrew's written instruction — declared in the chapter and the README, and deliberately marked WEAKER than chapters 1–6, which he drove.** **Remaining: Part 7 Swarm↔K8s crib sheet (the last real deliverable), drill D (rotate `pg_password`), and a highlight pass on chapters 1/2/4/5/6 (5–6 marks each vs ~40 in track 1).** 🙋 Andrew drives by default (`education/METHOD.md` → "Who does the work"). Re-walk the `📌 READ THIS FIRST` pre-flight list in `phases/phase16_docker_swarm.md` each session. |
 | 17 | Jenkins (education track 3) | 📋 **CONFIRMED NEXT after Phase 16** — Jenkins is named explicitly on the study list (`education/fin_tech_stack.txt`), so this is no longer provisional. Phase 16 Part 3 deliberately keeps deploy logic in a shell script, so this track is largely "write a different wrapper". |
 | 18+ | Remaining study list | 💭 **Backlog, worked STEP-BY-STEP in its stated order** after Jenkins: OpenSearch + Dashboards → Prometheus + Grafana → Redpanda Connect + Debezium CDC → MongoDB + Postgres → SAML/OIDC (authentik) → Ansible. Source of truth is `education/fin_tech_stack.txt`; do not re-derive priorities. |
 

@@ -182,13 +182,36 @@ vzdump), destroy + recreate the pool with `-o ashift=12` + lz4, move disks back.
 
 ### PERF-3 — Only 4 of 6 memory channels populated (MEDIUM — hardware $$)
 
-dmidecode: 4x 32GB DDR4-2666 in CPU0-DIMM1..4; DIMM5/6 empty. Skylake-SP has **6 memory
+dmidecode: 4x 32GB DDR4-2666 in ~~CPU0-DIMM1..4; DIMM5/6 empty~~. Skylake-SP has **6 memory
 channels per socket** — the current layout gives ~2/3 of the platform's memory bandwidth.
 With 24 cores and multiple VMs doing I/O, memory bandwidth is a real ceiling.
 
-**Recommendation (optional, costs money):** add 2x 32GB DDR4-2666 ECC RDIMMs (~$50–80 used)
+~~**Recommendation (optional, costs money):** add 2x 32GB DDR4-2666 ECC RDIMMs (~$50–80 used)
 → 192 GB *and* full 6-channel bandwidth. Purely optional; noted because it's the single
-biggest hardware perf lever available.
+biggest hardware perf lever available.~~
+
+🚨 **CORRECTED + SUPERSEDED Aug 19, 2026 — re-verified from live `dmidecode` on `.150`. Two errors
+above; see `phases/phase0_hardware.md` → Memory Configuration for the full record.**
+
+1. ⚠️ **The slot numbers were WRONG (struck through).** Populated are **`CPU0-DIMM1`, `DIMM2`,
+   `DIMM5`, `DIMM6`**; the **free slots are `CPU0-DIMM3` and `CPU0-DIMM4`.** Channel count (4 of 6)
+   was right. Acting on the old text means opening the case and finding the "empty" slots occupied.
+   Parts: Hynix `HMA84GR7AFR4N-VK`, 32GB, 2 ranks, all running at full rated 2666.
+2. 💰 **The price is stale by ~10x.** 32GB DDR4-2666 ECC RDIMM is **~$300 each** as of Aug 19, 2026
+   (Andrew), not $25–40 — DDR4 is EOL and DRAM output has moved to DDR5, so the trend is upward.
+   The 2-stick fix is **~$600, not $50–80.**
+
+**The recommendation therefore changes: do NOT buy yet.** At $600 this is no longer "the single
+biggest hardware perf lever" — because 🚨 **the bandwidth gain has never actually been measured**
+(the sysbench numbers in this file are CPU; "2/3 of bandwidth" is channel-count arithmetic), while
+the host's *real* symptom is capacity (91 of 125 GiB used, 33 GiB available, swap 0) which may be
+recoverable for **$0**. Free levers first, in order:
+**(a) check `zfs_arc_max`** — still UNMEASURED; an uncapped ARC on an older PVE default is up to
+~64GB here and could beat the purchase outright; **(b) item #8's VM working-set measurement**
+(GitLab 24GB, SonarQube 12GB allocated); **(c) then measure with `mbw`/STREAM before spending.**
+
+⛔ **And do not solve it by moving DIMMs from the Z8** — that box was verified the same day at
+**4 of 6 channels per socket too**, so it is not a surplus donor. Full reasoning in `phase0_hardware.md`.
 
 ### PERF-4 — Sub-NUMA Clustering is ON; docs assume single NUMA node (INFO/LOW) — ✅ FIXED Jul 9
 *(12:48–12:54 PM maintenance window, Andrew at console: staged kernel 7.0.14-4 as one-shot
@@ -443,7 +466,7 @@ vGPU-style sharing. No action needed now — just inventory awareness; not previ
 | 14 | ~~Rebuild vm-ephemeral with ashift=12~~ ✅ DONE Jul 9 (~10 min downtime, verified) | PERF-2 | — | — | — |
 | 15 | host.fw for the Proxmox node (console at hand) | SEC-3 | 1 h | none | medium (lockout) |
 | 16 | ~~lm-sensors install~~ ✅ DONE Jul 9 (+ nvme-cli, numactl; coretemp persisted) | OPS-2 | — | — | — |
-| 17 | (Optional $) 2x 32GB DIMMs → 6-channel bandwidth | PERF-3 | purchase | brief | none |
+| 17 | ~~(Optional $) 2x 32GB DIMMs → 6-channel bandwidth~~ ⏸️ **ON HOLD Aug 19, 2026 — price is now ~$600, gain still unmeasured. Free levers (ARC cap, VM working sets) come first. Slots are DIMM3+DIMM4, not 5/6** | PERF-3 | purchase | brief | none |
 | 18 | Update MEMORY.md (Tailscale-on-host, kernel fallbacks, VM185 cores) | MISC-7 | 15 min | none | none |
 
 Items 1–10 are a comfortable single session. Items 12–14 want a planned maintenance window
@@ -473,7 +496,8 @@ All changes verified: system `running`, no failed units, production VMs healthy
 | 12:56 | Subscription nag re-disabled (widget-toolkit 5.2.6 broke old patch); update script fixed with new pattern | Nag gone; future updates auto-re-patch |
 | 13:08 | **GitLab backup test-restore drill** (procedure below) | ✅ PASSED — backup provably restorable end-to-end; VM 999 + bridge destroyed; pool back to 203G; live 181 untouched (200 throughout) |
 
-**Still open after today:** host.fw (on hold per Andrew), RAM purchase (optional #17),
+**Still open after today:** host.fw (on hold per Andrew), RAM purchase (optional #17 — ⏸️ **now
+explicitly ON HOLD as of Aug 19, 2026**, see the corrected PERF-3),
 deferred SEC-1/SEC-2, tailscaled NetInfo log noise (G3100 UPnP flapping — Andrew hasn't
 picked ignore vs disable-portmapper), delete 184's `pre_phase12_firewall` snapshot in
 ~1-2 weeks, qemu-guest-agent install on VM 181 (guest-phase item, found during drill).
@@ -529,8 +553,16 @@ dev VM (VMware Workstation on Windows, HP Z8 G4 = 2x Xeon 8168, 256GB):
   **1x24 co-locates the VM with Windows on PROC0; 2x12 lands it on idle PROC1.** So 2x12 is
   kept deliberately: VM gets a whole physical socket, Windows keeps the other, zero contention.
 - **Z8 BIOS checklist for a future console visit:** SNC → Disable; HT → Enabled; Turbo →
-  Enabled; power mgmt → OS/max-perf; verify DIMM population (6 channels/socket ideal —
-  same 4-of-6 concern as the Z6).
+  Enabled; power mgmt → OS/max-perf; ~~verify DIMM population (6 channels/socket ideal —
+  same 4-of-6 concern as the Z6)~~.
+  ✅ **DIMM population VERIFIED Aug 19, 2026 — and the suspicion was right.** 8x 32GB Hynix
+  `HMA84GR7JJR4N-VK` at `DIMM1/3/10/12` on **each** CPU = **4 of 6 channels per socket**, with
+  `DIMM5` + `DIMM8` empty on both. Needs **4** more sticks (~$1,200 now) for 6/6 per socket → 384GB.
+  Read via PowerShell on the **Windows host** — ⚠️ a VMware guest sees virtual memory only, and
+  `.115` has no SSH/WinRM, so this cannot be checked from the dev VM or remotely. Full record:
+  `phases/phase0_hardware.md` → Memory Configuration.
+  ⛔ **Consequence: the Z8 is NOT a DIMM donor for the Z6.** Pulling a pair would drop a socket to
+  3 (or 2) channels and directly undermine the 2x12/PROC1 placement win measured above.
 
 ---
 

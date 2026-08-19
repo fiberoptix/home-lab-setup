@@ -243,10 +243,16 @@ them — while nominally running a controlled experiment.
 
 Two separate lessons, and the second is the one that stings:
 
-1. **Mutable tags mean every redeploy is an upgrade you did not authorise.** A `docker service update
-   --force` intended to restart a stuck service will silently ship whatever `:latest` now points at.
-   This is why the digest print exists in `deploy_swarm.sh`, and it is the argument for deploying by
-   digest — the finding arrived on its own, before the chapter that was going to teach it.
+1. **Mutable tags mean every `docker stack deploy` is an upgrade you did not authorise.** This is why
+   the digest print exists in `deploy_swarm.sh`, and it is the argument for deploying by digest — the
+   finding arrived on its own, before the chapter that was going to teach it.
+   ⚠️ **CORRECTED Aug 19, 2026 — this entry originally continued "a `docker service update --force`
+   intended to restart a stuck service will silently ship whatever `:latest` now points at." That is
+   FALSE, and trap C7 measured it:** `--force` recreates tasks from the **existing spec**, which holds
+   a **digest**, so it restarts the **OLD** build and prints `converged` while doing so. The dangerous
+   command is `stack deploy` (which re-resolves), not `--force` (which cannot). ⭐ **Recorded rather
+   than silently edited, because the wrong version was the more intuitive one** — and anyone who
+   learned it here would have reached for `--force` expecting an upgrade and got a restart.
 2. ⭐ **It confounded the experiment.** Two variables changed between the Aug 13 observation and the
    Aug 18 result, so the drill's null result cannot yet be attributed to the worker count. **Print the
    digests before scoring any drill**, and if they moved, the comparison is not a comparison.
@@ -258,6 +264,63 @@ for s in backend frontend postgres redis; do
     "$(docker service inspect capricorn_$s --format '{{.Spec.TaskTemplate.ContainerSpec.Image}}')"
 done
 ```
+
+### 🚨 Which command changes the image, and which only *looks* like it does (trap C7, Aug 19, 2026)
+
+Measured on a throwaway stack with five builds pushed to one `:latest`. **The spec digest is the thing
+being watched in every row.** 🤖 AI-executed — see chapter 7's declaration.
+
+| What you run | Registry consulted? | Spec digest | What the replicas end up running | ✅ |
+|---|---|---|---|---|
+| `docker stack deploy` (default `--resolve-image always`) | yes | re-resolved to newest | the new build | ✅ |
+| `docker stack deploy --resolve-image never` | **no** | **preserved** | unchanged | ✅ |
+| `docker service update --force` | **no** | **preserved** | 🚨 **the OLD build, restarted** — and it prints `converged` | ✅ |
+| `docker stack deploy` while the **registry is unreachable** | attempted, **fails** | 🚨 **REMOVED** | whatever each node resolves **independently** | ✅ |
+| a task dies and reschedules, no deploy | no — uses the stored digest | preserved | matches its siblings | ✅ |
+
+⭐ **A pin is stripped by a resolution that is ATTEMPTED AND FAILS — never by one that is skipped.**
+`--resolve-image never` is the *safest* mode, which is the opposite of what the name suggests.
+
+```bash
+# Is this service still PINNED, or is it now resolving per-node? (the question that matters)
+docker service inspect <svc> --format '{{.Spec.TaskTemplate.ContainerSpec.Image}}' \
+  | grep -q '@sha256:' && echo PINNED || echo 'NOT PINNED — each node resolves alone'
+
+# Do all replicas actually agree? `3/3` does NOT answer this. Run per node.
+docker exec "$(docker ps -q --filter name=<svc> | head -1)" cat /VERSION
+
+# What do USERS get? One request proves nothing about a fleet.
+for i in $(seq 30); do curl -s http://<node>:<port>/; done | sort | uniq -c
+```
+
+⚠️ **When the pin is gone, a bare tag does NOT mean "use the local cache."** Each node performs its own
+registry lookup and the cache is only the **fallback** — so an unpinned service converges on whatever
+the tag means *at task start time*, and two deploys minutes apart can produce different fleets from
+identical YAML. Divergence needs **two** simultaneous faults: the pin stripped, **and** a node holding a
+stale tag while unable to reach the registry. Measured result: `3/3`, `UpdateStatus: completed`, and
+**10 of 30 requests served the old build.**
+
+### ⚠️ A rolling update that says `update in progress` forever
+
+```bash
+docker service ps <svc> --no-trunc \
+  --format '{{.Name}} | {{.Node}} | {{.DesiredState}} | {{.CurrentState}} | {{.Error}}'
+docker service inspect <svc> \
+  --format 'maxPerNode={{.Spec.TaskTemplate.Placement.MaxReplicas}} order={{.Spec.UpdateConfig.Order}}'
+```
+
+If the pending task reads `"no suitable node (max replicas per node limit exceed)"`, the service is
+**deadlocked, not slow**: `order: start-first` wants the replacement Running *before* the old task
+stops, and `max_replicas_per_node` has no room for it. With `replicas == node count` there is nowhere
+to put it, **ever** — while `docker service ls` reads a healthy `3/3` and the old build keeps serving.
+
+```bash
+docker service update --replicas-max-per-node 0 <svc>   # releases it in ~25s
+```
+
+⚠️ **Flag is `--replicas-max-per-node`; the compose key is `max_replicas_per_node`.** ⚠️ **And this is an
+imperative fix — the manifest still holds the cap, so the next `stack deploy` re-imposes it.** Lifting
+the cap also forfeits the spread it was buying (observed: 2 replicas on one node, 0 on another).
 
 ---
 

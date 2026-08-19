@@ -1,20 +1,74 @@
 # Current Phase
 
-**Updated:** August 19, 2026 - 3:21 PM EDT
+**Updated:** August 19, 2026 - 4:50 PM EDT
 
 ---
 
-## ▶️ RESUME HERE — Part 4 DONE and VERIFIED, chapter 3 COMPLETE. Next: trap C7 (lab-only image).
+## ▶️ RESUME HERE — ALL 7 TRAPS CLOSED. Remaining: Part 7 crib sheet, drill D, highlight pass on ch 1/2/4/5/6.
 
-**Phase 16 (Docker Swarm), Part 4 is COMPLETE** (Aug 19, ~10:00 AM – 3:21 PM, 🙋 Andrew driving). CI
-deploys the stack, **trap C4 was fired, felt, fixed, and the fix is now PROVEN**, an **unplanned Raft
-incident** was diagnosed and written up, and **chapter 3 is finished** — prose, figure 2, highlight pass,
-docx. Every chapter in the track exists.
+**Phase 16 (Docker Swarm): trap C7 is CLOSED, and with it the whole planted-traps table.** Seven chapters
+exist. Parts 1–6 are complete. ⚠️ **What is NOT done, so it does not get lost:**
 
-✅ **Cluster state at handoff: HEALTHY.** `.193` restarted; all three `Leader/Reachable/Reachable`, churn
-count `0`, services `2/2 3/3 1/1 1/1`, smoke gates green at `total=682`.
-⚠️ **`.191` still holds the PRE-FIX `deploy_swarm.sh`** — the P4-F7 wording fix and the P4-F8 control-plane
-advisory are in the repo but not yet on the node. The next pipeline run `scp`s them over.
+1. **Part 7 — the Swarm↔Kubernetes crib sheet.** The last real deliverable. The track README's own words
+   are *"the full crib sheet is a planned Part 7 session"*, and the phase plan calls the comparison **half
+   the value** of running the same app on both orchestrators.
+2. **Drill D** — rotate `pg_password` (chapter 5 material, outlined but never run).
+3. **Highlight pass on chapters 1, 2, 4, 5 and 6** — they carry **5–6 marks each** against ~40 per chapter
+   in track 1. Chapter 3 (113) and chapter 7 (57) are the only ones that got a real pass.
+
+✅ **Cluster state at handoff: HEALTHY, and re-verified AFTER C7's cleanup** — not assumed. All three
+`Leader/Reachable/Reachable`, raft churn `0`, services `2/2 3/3 1/1 1/1`, all three smoke gates green at
+`total=682` (**identical to the pre-C7 baseline**), `docker stack ls` shows `capricorn` only.
+
+⚠️ **OBSERVED, not caused by C7, and NOT "fixed": `docker-swarm-3` hosts ZERO Capricorn tasks.**
+Placement is `swarm-1: 4, swarm-2: 3, swarm-3: 0`, with task ages of 2–5 hours — so this predates the
+C7 session and dates from `qm stop 193` during the P48/P50 tests. ⭐ **Swarm does not rebalance when a
+node comes back.** Every service still reads its desired count, so **`2/2 3/3 1/1 1/1` is true while a
+third of the cluster sits idle** — the same family as chapter 5's "reboot that silently cost three
+replicas". 🙋 **Left alone deliberately:** the only remedy is `docker service update --force`, which
+restarts tasks (and, per C7 P55, restarts them on the *pinned* image) — that is Andrew's call, not a
+cleanup step. **Chapter 5 / Part 7 material: capacity is not replica count.**
+
+⭐ **`s07-c4-fixed-verified` taken on all three nodes** (rule B3) before C7 started. **It is the first
+snapshot in the chain that contains the C4 fix** — `s06` predates it, which was a standing rollback hazard.
+
+✅ **CORRECTED — the previous handoff claimed "`.191` still holds the PRE-FIX `deploy_swarm.sh`". That is
+FALSE as of Aug 19 4:15 PM:** the node's copy and the repo copy are **md5-identical** (`0bf970b7`), and the
+P4-F8 advisory string is present on the node. ⚠️ **A recorded claim about live state went stale within
+hours, and the fix was to go and look** (`md5sum` on both sides) rather than to trust the handoff. Same
+failure family as the P48 row that stayed "NOT TESTED" for hours after passing.
+
+### ✅ CLOSED — trap C7, and the trap could not fire (🤖 AI-EXECUTED, 4:10–4:50 PM)
+
+🤖 **Andrew's written instruction, 4:07 PM: run it and document it without him.** So C7 is the ONE part of
+this track the AI drove. **Declared in chapter 7's opening, in the track README, and in `MEMORY.md`** —
+`CURSOR_RULES` rule 3 and `METHOD.md` → "Who does the work" both apply, and the material is deliberately
+marked **weaker** than the six chapters Andrew drove.
+
+**The planted trap was unfireable** (P60 ✅): `docker stack deploy` re-resolves by default, so the spec
+followed the moved tag every time. **But "I pushed a fix and prod is still running the old code" happened
+twice anyway**, by mechanisms the plan never considered:
+
+- 🚨 **The deadlock (unplanned, the session's best finding).** `order: start-first` + `max_replicas_per_node: 1`
+  + `replicas == node count` **cannot make progress** — the replacement task has nowhere to go. Sat
+  `updating` / `update in progress` for **4.5+ minutes** at a healthy-looking `3/3` while serving the old
+  build. ⭐ **Exact mirror of C6a**, which read `4/3` because the cap was unset. ⚠️ Capricorn is NOT exposed
+  (all four services measured at `maxPerNode=0`).
+- **`docker service update --force` restarts the OLD build and prints `converged`** (P55 ✅). This also
+  **corrected a FALSE claim in `COMMANDS.md`**, which said `--force` would ship whatever `:latest` points at.
+- 🚨 **Two builds served from one URL** (P58 ✅): a registry blip during a deploy **strips the digest**
+  (P57 ✅), after which each node resolves alone. Measured `3/3`, `UpdateStatus: completed`, and **10 of 30
+  requests served v3 while 20 served v4**.
+- **P56 ❌ REFUTED:** `--resolve-image never` **preserves** the pin. ⭐ A pin is stripped by a resolution
+  that is **attempted and fails**, never by one that is skipped.
+- **P59 ✅** the protective face: with the pin intact, a killed task's replacement came up **v4, not the v5
+  in the registry**. Same mechanism as P55, opposite consequence.
+
+**Scored P54–P61 (2 wrong, and the wrong ones taught more), 10 findings C7-F1–F10, ledger L23.** Cleanup
+done and verified: stack/images/rig/`/etc/hosts` removed, `.191`'s registry credential **restored and
+confirmed to belong to `swarm-lab-pull`** (root login had overwritten it — one credential per registry host
+per node), and the throwaway GitLab container repository **destroyed** (0 remaining).
+Raw evidence: `education/docker-swarm/scratch/c7_evidence.txt`; rig in `scratch/c7/`.
 
 ### ✅ CLOSED — the C4 fix is verified, not recited (P48 + P50, 2:40–2:48 PM)
 

@@ -1,9 +1,14 @@
 # Phase 16 — Docker Swarm: build it, wire a pipeline to it, then break it
 
-**Status:** 🔵 **IN PROGRESS — Parts 1 & 2 COMPLETE (Aug 13, 2026).** Three nodes built and
-personalized (`s01-base-clean`), then formed into a **three-manager cluster, quorum 2 of 3**
-(`s02-swarm-up`); see the [implementation log](#implementation-log) at the bottom.
-**Next up: Part 3 — stack file, `docker secret`, first deploy, and trap C1.**
+**Status:** 🔵 **IN PROGRESS — Parts 1–6 COMPLETE and ALL SEVEN PLANTED TRAPS CLOSED (Aug 19, 2026).**
+Three nodes (`s01-base-clean`) → three-manager cluster, quorum 2 of 3 (`s02-swarm-up`) → Capricorn
+deployed → CI pipeline (Part 4) → state and failure drills (Parts 5–6) → **trap C7 closed last**.
+Snapshot chain runs to **`s07-c4-fixed-verified`**, the first one containing the C4 fix.
+**Next up: Part 7 — the Swarm↔Kubernetes crib sheet** (the last real deliverable), plus drill D
+(rotate `pg_password`) and a highlight pass on chapters 1/2/4/5/6.
+⚠️ **This header read "Parts 1 & 2 COMPLETE … Next up: Part 3" until Aug 19** — six days and four Parts
+out of date, while the log at the bottom was current. **A status line at the top of a long file is the
+first thing read and the last thing updated;** treat it as a claim to re-verify, not as state.
 🙋 **Part 2 onward is HANDS-ON: Andrew runs the commands** — see
 [`education/METHOD.md`](../education/METHOD.md) → "Who does the work". Part 1 was AI-driven and is the
 last part that will be.
@@ -2122,7 +2127,7 @@ opinion until proven.** Do not let them wear the authority of the tested ones.
 | L5 | **`unattended-upgrades` and `apt-daily` masked.** | Deliberate: package churn mid-study manufactures failures that teach nothing and make real ones ambiguous. | Staged patching with maintenance windows and a rollback path. | 🚨 **Unpatched CVEs.** This one is not merely suboptimal in production, it is negligent — and it is the row most likely to be copied without thinking, because it *feels* like tidiness. | ✅ deliberate |
 | L6 | **No backups — snapshots only.** | Nodes are rebuildable from template 9000 in minutes; nothing here is authoritative. | Back up the Raft state and every named volume; snapshots are not backups. | **A snapshot is a rollback, not a recovery.** Lose the host and you lose every snapshot on it. | ✅ policy |
 | L7 | **Password SSH auth still enabled** (observed during the `.192` join). | Template default; LAN-only. | Keys only, `PasswordAuthentication no`, ideally certificate-based with a bastion. | Cluster managers exposed to credential-stuffing, and no per-human audit trail. | ✅ observed |
-| L8 | **Images published and deployed as `:latest`.** | It is what Capricorn actually does — inherited, not chosen. | Immutable tags or digests; `:latest` never referenced by a deployed service. | "I pushed a fix and prod is still running the old code." **Trap C7 exists to make this happen on purpose.** | 🔲 will test (C7) |
+| L8 | **Images published and deployed as `:latest`.** | It is what Capricorn actually does — inherited, not chosen. | Immutable tags or digests; `:latest` never referenced by a deployed service. | "I pushed a fix and prod is still running the old code." **Trap C7 exists to make this happen on purpose.** | ✅ **TESTED (C7, Aug 19) — and the result is not the one this row assumed.** `:latest` alone did **not** strand old code: `stack deploy` re-resolves, so the tag was followed every time. Stale code arrived by **two other routes** (a `start-first`/`max-per-node` deadlock, and `service update --force`), and a **registry blip during a deploy stripped the digest and left two versions serving from one URL simultaneously.** The shortcut is real but the failure mode was mis-predicted — see "Trap C7". |
 | L9 | **`docker login` writes the registry credential to `~/.docker/config.json` as base64** — an encoding, not encryption, reversible with no key. | Lab-only deploy token, `read_registry` scope, ~30-day expiry. | A **credential helper** backed by the OS keystore (`docker-credential-secretservice`, `pass`, or the cloud provider's helper), so the token never sits on disk in recoverable form. | Any process running as that user, any backup, **and every one of our VM snapshots** contains a working registry credential. ⚠️ In a CI context it also means a leaked build artefact or a debug `cat` in a pipeline log hands the token over. | ✅ **VERIFIED** — Docker printed the warning itself, and we decoded the blob back to `swarm-lab-pull` in one line. ⚠️ **Amended Aug 19 (P4-F3): the warning is WRITE-TIME ONLY.** An identical re-login prints `Login Succeeded` and nothing else — measured, with `config.json` untouched to the nanosecond. So **the one signal that made this row verifiable fires once per credential change**, and a reviewer auditing repeated CI deploys for it sees clean logs while the credential sits on disk exactly as readable as before. 🚨 *A security warning you only get on the first occurrence is a warning you will not get during the audit.* |
 | L10 | **The system-of-record database runs as a container task on a node-local volume**, pinned to one node so it cannot move. | Capricorn self-bootstraps demo data, so the lab's data is worth nothing and losing it costs nothing. The pin is what keeps it from silently moving. | 🚨 **Not a container at all.** Real PG hosts or a managed cluster: streaming replication, PITR, a *tested* restore path, and an upgrade story that does not involve a scheduler. | **You have made your database's availability a function of your orchestrator's scheduling decisions** — and given it a single point of failure with no replica, no backup and no restore rehearsal. ⚠️ Note the pin is *also* a lab compromise: it trades availability for durability, which is the wrong trade to make deliberately in production. | ✅ **Andrew's call, Aug 13** — and the narrow claim only: Redis, OpenSearch, MongoDB and Redpanda *are* routinely run on orchestrators in production |
 | L11 | **The application is published over plain HTTP on `:5001`/`:5002`, with no reverse proxy and no TLS.** | Deliberately QA-shaped: the lab's job is to teach the routing mesh, and a proxy in front would hide it. | TLS terminated at an ingress proxy; the app's own ports never published to a network a user can reach. | Session cookies and every API payload cross the network in cleartext. ⚠️ **And the shape of the lab quietly justified it** — see the note under this table: the *frontend build* is what forced the HTTP path, so "no TLS" arrived as a consequence of an image, not as a decision anyone made. | ✅ deliberate |
@@ -3063,4 +3068,157 @@ there. Both come from the same root error — **trusting a signal without knowin
 the false red is the more expensive one in an incident, because it sends people to roll back a system
 that was fine.
 | P40 | Trap **C4**: with `.191` stopped, the job fails at the first `ssh` while `docker node ls` on `.192` still shows quorum and the app keeps serving on `:5001` from the surviving nodes. | 3 managers, quorum 2 — losing one is the *designed* failure for the control plane. The delivery path has no redundancy at all: one IP, hardcoded. | ⚠️ **HALF REFUTED (Aug 19)** — clauses 1 and 2 ✅ (`Host is unreachable`, exit 255; quorum held, leader moved to `.193`). Clause 3 ❌: the **UI** kept serving (`ui:200`, `grep → 2`) but the **API** did not (`{"detail":"Internal server error"}`), because `postgres` is pinned to the node I stopped. 🙋 **Andrew's prediction beat mine** — he read the manifest and called the pin. Full write-up in the Part 4 log |
-| P41–P49 | Scored in the **Part 4 implementation log** above (trap C4 section) rather than duplicated here: P41 ✅, P42 ✅ (worse than predicted — 5 tasks), P43 ✅, P44 ✅, P45 ✅, P46 ✅, P47 ✅, P49 ✅. | — | ⚠️ **P48 ➖ NOT TESTED** — the degraded-cluster precondition's failure branch has never executed. **The single open experiment in Phase 16's CI work.** |
+| P41–P49 | Scored in the **Part 4 implementation log** above (trap C4 section) rather than duplicated here: P41 ✅, P42 ✅ (worse than predicted — 5 tasks), P43 ✅, P44 ✅, P45 ✅, P46 ✅, P47 ✅, P49 ✅. | — | ✅ **P48 CONFIRMED** at 2:43 PM Aug 19 with `.193` stopped — see "P48 ✅ CONFIRMED (run #4)" above. ⚠️ **This row previously read "NOT TESTED", and stayed wrong for hours after the test passed** — the correction pass that fixed chapter 3, the track README, `MEMORY.md` and `current_phase.md` missed the summary table in this file. A claim duplicated into a summary has to be corrected in BOTH places, and the summary is the one that gets read cold. |
+
+---
+
+## Trap C7 — digest freezing (Aug 19, 2026, from ~4:10 PM)
+
+🤖 **AI-EXECUTED, and that is a departure from `METHOD.md` that must be declared, not buried.** Andrew's
+instruction, in writing, 4:07 PM: *"I would like you to run all these tests yourself and document them
+without me. create whatever you want and cleanup after."* Every other trap in this phase was driven by
+Andrew. `CURSOR_RULES` rule 3 and `METHOD.md` → "Who does the work" therefore both apply: **the chapter
+material from C7 may NOT claim "Andrew ran this"**, and it must declare itself the way track 1 chapter 7
+declares itself research-only. Recorded here because an undeclared deviation is how a method decays —
+`METHOD.md` line 41 already documents this exact decay happening in Part 1.
+
+### Why the trap as written probably cannot fire
+
+The 🅒 table describes C7 as *"push a new image under the same `:latest` tag, redeploy, and see whether
+anything actually changes."* But this file already recorded the mechanism at line 492: **`docker stack
+deploy` re-resolves by default (`--resolve-image always`)**. So the naive form of the trap is expected to
+show a service that updates perfectly — the same shape as **C2, which "did not fire, and WHY is the whole
+lesson."**
+
+⭐ **So the question is relocated, and this is the design decision of the session: not "does a tag
+freeze" but "which paths freeze it, and which paths STRIP the pinning that protects you."** Digest
+pinning has two faces, and the interesting material is that they are the same mechanism:
+
+- it **betrays** you when you expect a restart to pick up new code (scenario 2)
+- it **protects** you when a task is rescheduled and you need the fleet to stay homogeneous (scenario 5)
+- and the paths that **remove** it (scenarios 3, 4) are the genuine hazard, because they convert a
+  guarantee into per-node cache roulette — which is the composition already half-observed under C6 at
+  line 1860.
+
+### Rig
+
+| Thing | Value | Why |
+|---|---|---|
+| Image | `gitlab.gothamtechnologies.com:5050/production/home-lab-setup/c7demo` | **Lab-only, in THIS repo's own GitLab project.** Hard rule **B1** forbids retagging a production Capricorn image, which also makes the C7 baseline digest recorded at line 2149 unusable. |
+| Versions | `v1` then `v2`, both pushed to `:latest` | The moving pointer is the whole subject. |
+| Marker | Version visible in the **served HTTP body**, in an image **label**, and in a **file** | ⭐ **One instrument per question.** The spec's digest says what Swarm INTENDS to run; the HTTP body says what is ACTUALLY serving. C6b is the reason this is not optional: an image that starts perfectly and serves the wrong application passed every signal we had. |
+| Stack | `c7lab`, separate from `capricorn` | Cannot perturb the verified 4-service baseline or its 3 smoke gates. Removable with `docker stack rm`. |
+| Replicas | 3, one per node | Divergence between replicas is only observable if replicas are spread. |
+| Port | `8081` | `8080` is the frontend (A4). |
+
+### Predictions — written BEFORE anything ran
+
+| # | Prediction | Reasoning | Result |
+|---|---|---|---|
+| **P54** | Scenario 1, plain `docker stack deploy` after `:latest` moves to v2: the service **DOES update**. Spec digest changes `D1→D2`, rolling update runs, all 3 replicas serve v2. | `--resolve-image always` is the default. | ⚠️ **HALF REFUTED.** The spec re-resolved `D1→D2` on the spot, exactly as predicted — but the rolling update **never completed on its own.** It sat `updating` for **4.5+ minutes** with the replacement task `Pending`, while all three replicas kept serving **v1**. See **C7-F1**. |
+| **P55** | Scenario 2, `docker service update --force` with **no `--image`**: tasks are all recreated, the spec digest **stays `D1`**, and all 3 replicas still serve **v1**. | `--force` recreates tasks from the *existing* spec. The spec holds a digest, not a tag. **This is the "I restarted it and it is still running the old code" classic.** | ✅ **CONFIRMED, verbatim.** Spec stayed `D2`; all three replicas stayed **v2** while the registry's `:latest` was **v3**; and the CLI printed `verify: Service c7lab_web converged`. **A green convergence message for an operation that could not possibly have picked up the new code.** |
+| **P56** | Scenario 3, `docker stack deploy --resolve-image never`: the spec **LOSES its digest** and becomes a bare `:latest`, yet the replicas **still serve v1**. | No registry query, so the manifest string is stored as written. Nothing re-pulls because `c7demo:latest` is already in each node's local cache. ⚠️ **The dangerous part is silent: version unchanged, guarantee gone.** | ❌ **REFUTED.** `never` **PRESERVED** the stored digest instead of dropping to a bare tag. The mechanism I had backwards: `never` means *do not query the registry*, so the existing pin survives untouched. ⭐ **Stripping a pin requires a resolution that is ATTEMPTED AND FAILS (P57), not one that is skipped.** |
+| **P57** | Scenario 4, leader cannot reach the registry while `:latest` points at v2: the deploy **still succeeds**, emits `could not be accessed on a registry to record its digest`, stores a bare tag, and replicas keep serving cached v1. | Exactly the degradation observed under C6 (line 1860), now composed with a tag that has actually moved. | ✅ **CONFIRMED.** Deploy **succeeded**, emitted `could not be accessed on a registry to record its digest … possibly leading to different nodes running different versions` verbatim, and the spec became a **bare tag with the digest gone**. |
+| **P58** | Scenario 4b, with the pin stripped, delete the local image on **one** node and force its task to restart: that node pulls `:latest` and gets **v2 while the other two serve v1** — one service, two versions, `docker service ls` still reading `3/3`. | The warning's own words are *"possibly leading to different nodes running different versions."* This turns that sentence into an observation. ⭐ **Predicted to be the most valuable result of the session.** | ✅ **CONFIRMED — the result of the session**, though by a different route than predicted (see **C7-F3/F4**). One service, `3/3`, `UpdateStatus: completed`: **`.191` served v3 and `.193` served v4**, and 30 requests to one URL returned **10 v3 / 20 v4**. |
+| **P59** | Scenario 5, spec pinned to `D1`, kill a task: the replacement pulls **by digest** and comes up **v1**, identical to its siblings. No divergence. | Same mechanism as P55, opposite consequence. **Pinning is what keeps a rescheduled task from silently becoming a different build.** | ✅ **CONFIRMED.** Task killed (`non-zero exit (137)`); the replacement pulled **by digest** and came up **v4** while the registry's `:latest` was already **v5**. Fleet stayed homogeneous. |
+| **P60** | Meta: **the trap as written in the 🅒 table does not fire.** | See above. If confirmed, C7 joins C2 as a trap whose lesson is why it *cannot* happen the way the plan assumed. | ✅ **CONFIRMED, and then subverted.** A plain redeploy *did* move the spec, so the trap **as written cannot fire**. And yet *"I pushed a fix and prod is still running the old code"* **happened twice anyway** — via the deadlock (P54) and via `--force` (P55). ⭐ **The plan named the right symptom and the wrong cause.** |
+
+**P61 (written mid-session, before the fix): ✅ CONFIRMED.** Lifting the per-node cap released the
+`Pending` task and the update completed within ~25 s.
+
+### C7-F1 ⭐ The deadlock: `start-first` + `max_replicas_per_node: 1` + `replicas == nodes`
+
+**This is the most useful thing C7 produced, and it was not on the plan.** Scenario 1's rolling update
+could never finish:
+
+```
+c7lab_web.3 |               | Pending | "no suitable node (max replicas per node limit exceed)"
+c7lab_web.3 | docker-swarm-2 | Running | Running 2 minutes ago
+```
+
+`order: start-first` requires the replacement task to be **Running before** the old one stops.
+`max_replicas_per_node: 1` forbids two replicas of the service on one node. With **3 replicas on 3
+nodes every node is already at its cap**, so the replacement can never be placed — and Swarm waits
+forever rather than failing.
+
+🚨 **What an operator sees while this is happening:**
+
+| Signal | Reads | Truth |
+|---|---|---|
+| `docker service ls` REPLICAS | `3/3` | healthy — and true! the OLD tasks are all up |
+| `docker service ls` IMAGE | `…/c7demo:latest` | the tag you asked for. **Never shows the digest** (C7-F2) |
+| `UpdateStatus.State` | `updating` | permanent, not transient — **4.5 min and counting** |
+| `UpdateStatus.Message` | `update in progress` | it is not progressing |
+| Spec digest | `D2` (v2) | what Swarm INTENDS |
+| Served to users | **v1** | what they ACTUALLY get, indefinitely |
+
+⭐ **It is the exact mirror of C6a.** C6a recorded `4/3` because `maxPerNode` was `0`, so start-first's
+extra task was allowed. Here that same fourth task is *forbidden*, so instead of an over-count you get
+a silent permanent stall. **Same mechanism, opposite symptom, and `replicas == node count` is the
+condition that turns one into the other.**
+
+⚠️ **Capricorn is NOT exposed** — measured, not assumed: all four services run `maxPerNode=0`
+(`frontend` 3/3 and `backend` 2/2 both `start-first`). But the combination is a *plausible* one to
+reach: `max_replicas_per_node: 1` is the ordinary anti-affinity idiom, `start-first` is the ordinary
+zero-downtime idiom, and **nothing warns you that together they cannot make progress.**
+
+⚠️ **The fix has a cost that is easy to miss.** Lifting the cap unstuck it — and immediately cost the
+spread: tasks re-placed **2 on `docker-swarm-3`, 1 on `docker-swarm-1`, 0 on `docker-swarm-2`**. The
+cap was doing a real job. The honest resolution is `order: stop-first` (accept a gap) **or** replicas
+below node count — not simply deleting the constraint.
+
+### C7-F3 ⭐ A bare tag does NOT mean "use the local cache" — it means "each node asks the registry"
+
+**This corrects the assumption underneath P56 and P58.** When the pin was stripped and tasks rotated,
+`.192` and `.193` did **not** keep their locally-tagged v2: they **pulled `:latest` and got v3**. Only
+`.191`, where the registry was blackholed, fell back to its local tag.
+
+⭐ **So "each node will access the image independently" means each node performs its own registry
+lookup — and the local cache is the FALLBACK, not the first choice.** That is a materially different
+risk model from the one I predicted: unpinned nodes converge on whatever the tag means *at task start
+time*, which is why two deploys minutes apart can produce different fleets from identical YAML.
+
+### C7-F4 Divergence needs TWO faults, and that is why it is rare and awful
+
+Producing genuine heterogeneity took a deliberate construction, which is the finding: **it is not a
+single-fault condition.** It required, simultaneously:
+
+1. the pin **stripped** (registry unresolvable at deploy time — C7-F1's cousin, P57), **and**
+2. at least one node **holding a stale `:latest`** while **unable to reach the registry**, so its
+   fallback disagrees with what its peers freshly pull
+
+⚠️ **Neither fault alone is visible, and their combination is reported as `converged`.** A registry
+blip during a deploy is normally shrugged off; this is what it can leave behind.
+
+### Smaller findings
+
+| # | Finding |
+|---|---|
+| **C7-F2** | `docker service ls`'s **IMAGE column prints the tag, never the resolved digest.** The one command an operator reflexively runs cannot answer "which build is running". Only `docker service inspect --format '{{.Spec.TaskTemplate.ContainerSpec.Image}}'` shows the digest. |
+| **C7-F5** | 🔁 **Every `docker push` to this registry FAILED on its first attempt** with `error from registry: blob unknown to registry - sha256:…`, and **succeeded on the retry — 4 out of 4 times.** It reads like a permissions or existence problem and is neither. Recorded because a CI job with no retry would fail ~100% of the time here and send you chasing the wrong cause. |
+| **C7-F6** | ⚠️ **FALSE RED of my own making:** `docker manifest inspect` against this plain-HTTP registry (ledger L1) fails without `--insecure`, and my probe printed `manifest NOT in registry` **about a manifest whose push had just succeeded.** The push output was the reliable instrument; the fancier command was the wrong one. |
+| **C7-F7** | An **imperative fix does not survive a declarative deploy.** `docker service update --replicas-max-per-node 0` cleared the deadlock, but the manifest still carried the cap, so the *next* `docker stack deploy` would have re-imposed it. Fixed in the YAML, not just on the running service. |
+| **C7-F8** | Flag name is `--replicas-max-per-node`, **not** `--max-replicas-per-node` (which is how the compose key `max_replicas_per_node` reads). The CLI and the YAML spell the same concept differently. |
+| **C7-F9** | ✅ **L9 re-confirmed live:** `docker login` printed `WARNING! Your credentials are stored unencrypted` — because the credential **changed** (`swarm-lab-pull` → `root`). Consistent with the Aug 19 finding that this warning fires per credential *change*, not per login. |
+| **C7-F10** | ✅ **`deploy_swarm.sh` was already right.** `UpdateStatus` came back **`null`** after one deploy, which broke my ad-hoc `{{.UpdateStatus.State}}` probe — the script guards this with `{{if .UpdateStatus}}` and documents it as verified on Aug 18. **The tooling was correct and the throwaway command was not.** |
+
+### Ledger addition
+
+| # | Shortcut | Why acceptable here | PROD instead | If the habit follows you | Status |
+|---|---|---|---|---|---|
+| **L23** | **The GitLab `root` account was used for a manual registry push**, and because Docker stores **one credential per registry host**, that login **overwrote the node's `swarm-lab-pull` credential** in `~/.docker/config.json`. | One throwaway image, one node, backed up before and restored after — verified by decoding the restored credential's username (`swarm-lab-pull`), not by trusting the file. `read_registry` (B6) cannot push, and a second project would have needed a second token for the same host. | A **push-scoped deploy token per project**, delivered to a build job that never touches a manager; managers hold a **pull-only** credential and nothing else. | An admin credential ends up on a production manager, and the pull-only guarantee of B6 is silently void — **the node cannot hold both tokens at once.** | ✅ restored + verified |
+
+### Cleanup — done and verified
+
+`docker stack rm c7lab`; `c7demo` images purged from all three nodes (0 remaining each); `~/c7lab`
+removed; the `/etc/hosts` blackhole removed; `~/.docker/config.json` restored and **confirmed to
+belong to `swarm-lab-pull`**; and the throwaway **container repository destroyed** on the GitLab VM
+(`ContainerRepository` id 5, `delete_tags! => true`, project now has **0** container repositories).
+
+**Baseline re-verified afterwards, not assumed:** services `2/2 3/3 1/1 1/1`; gate 1 `:5002` → `200`;
+gate 2 `total = 682` (**identical to the pre-C7 baseline**); gate 3 `:5001` → `200` with
+`grep -ci capricorn = 2`; nodes `Leader/Reachable/Reachable`; raft churn `0`; `docker stack ls` shows
+`capricorn` only.
+
+⚠️ **`s07-c4-fixed-verified` was taken on all three nodes BEFORE any of this** (rule B3), and it is
+the first snapshot in the chain that contains the C4 fix — `s06` predates it.
