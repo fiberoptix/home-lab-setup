@@ -377,3 +377,104 @@ Per CURSOR_RULES: **ask before any commit or push, and ask GitHub / GitLab / bot
 A rename-only commit should be its own commit (`git mv` + `.gitignore`), separate from the doc
 rewrites, so the diff stays reviewable — otherwise GitHub renders 69 renames and a rewrite as one
 unreadable blob.
+
+---
+
+## 8. The highlight programme — both tracks to 20 % (Aug 19, 2026, evening)
+
+**Ran by me, not Andrew** — he asked for the density change and then for the k3s track, and reviewed
+the rendered page. Recorded here rather than in a track README because it spans both tracks and
+changed the shared tooling.
+
+### 8a. Why the number moved, and why the number is the least interesting part
+
+Andrew's call: *"we can set highlighting to 20 % from now on."* Offered a trial first, and he chose to
+**decide from the printed page rather than from the number** — Swarm ch5 was marked to 20.9 %, one
+dense passage rendered at both ~16 % and ~21 %, and the two were nearly indistinguishable (one clause
+per screen). He then said 20 % everywhere, including k3s. `CONVENTIONS.md` §"The highlight pass" now
+carries the target plus the rules below; that file, not this one, is canonical.
+
+### 8b. Before and after, all 15 chapters
+
+| Track | Chapter | Before | After |
+|---|---|---|---|
+| Swarm | 01 building the cluster | 3.6 % | 20.1 % |
+| Swarm | 02 shipping to it | 2.8 % | 19.8 % |
+| Swarm | 03 a pipeline that deploys | 16.7 % | 20.2 % |
+| Swarm | 04 state | 2.8 % | 19.9 % |
+| Swarm | 05 breaking it | 2.7 % | 20.9 % |
+| Swarm | 06 false greens | 2.3 % | 19.5 % |
+| Swarm | 07 the tag that lies | 14.3 % | 20.5 % |
+| Swarm | 08 swarm vs kubernetes | 14.5 % | 19.9 % |
+| k3s | 01 kubernetes & k3s | 12.6 % | 21.2 % |
+| k3s | 02 object model | 12.8 % | 21.1 % |
+| k3s | 03 redpanda | 14.1 % | 19.7 % |
+| k3s | 04 provisioning state | 14.5 % | 20.9 % |
+| k3s | 05 consumer groups | 13.8 % | 20.3 % |
+| k3s | 06 the application | 13.6 % | 20.2 % |
+| k3s | 07 additional infra stack | 14.9 % | 19.8 % |
+
+⚠️ **Note what the Swarm "before" column says:** chapters 1, 2, 4, 5 and 6 were at **2.3–3.6 %**, i.e.
+5–6 marks each, not the ~40 a real pass produces. `current_phase.md` had recorded this correctly as an
+open item, but the *assumption in conversation* was that those chapters had already been passed. **The
+figure was checked before agreeing.** Anchor lists are in each track's gitignored `scratch/`.
+
+### 8c. The finding worth keeping: chapter averages hide 5 % sections
+
+Measured density **per `##` section** before writing each anchor list, and the distribution was badly
+skewed on the k3s track, because marks written at drafting time cluster wherever the argument is:
+
+| k3s ch3 section | Density before |
+|---|---|
+| §1 what Redpanda is | 32.3 % |
+| §4 quorum | 27.3 % |
+| §2 topics/partitions | 21.1 % |
+| §5 StatefulSet + headless Service | **7.2 %** |
+| §7 wiring up `rpk` | **6.2 %** |
+| §8 verified demos | **4.9 %** |
+
+The chapter read 14.1 % overall. **A list sized to the chapter average would have driven §1/§2/§4 past
+30 % and left the three walkthrough sections untouched.** Same shape in ch6: §5 was at 59.7 % while the
+**1,045-word interview-answers section had never been marked at all**, despite being the densest
+revision material in the chapter. ⭐ **A chapter that averages 20 % with a 5 % stretch in the middle is
+not a 20 % chapter.** Rule is now in `CONVENTIONS.md`.
+
+`Lab vs PROD` callouts are the deliberate exception, left near **10–15 %**: they already carry bold
+labels and 🚨/⭐/⚠️ markers, so highlight on top competes with that emphasis rather than adding to it.
+
+### 8d. 🚨 The rendering bug this pass exposed — and the guards that now prevent it
+
+**15 marks straddled one half of a `**bold**` pair.** Pandoc cannot close emphasis across a span
+boundary, so the asterisks rendered **literally in the Word output**:
+
+```
+# what the printed .docx actually said
+means **three directories on the same filesystem, on the same virtual
+the collision happened **among the four workers of the first task to start**
+```
+
+11 were in the Swarm chapters passed earlier the same day, 4 in k3s. Separately, **one anchor in k3s
+ch4 landed inside an existing mark** whose text wrapped across source lines, nesting one highlight
+inside another. Both were tool gaps, so `education/tools/highlight.py` was fixed rather than only the
+output — two new refusals, `splits a '**' pair` and `inside an existing mark`, verified on a synthetic
+case (both fire; valid anchors still pass). All 15 `.docx` rebuilt and confirmed to contain **zero**
+literal `**`.
+
+⭐ **The lesson generalises past highlighting.** The Markdown passed every check that existed, and the
+defect lived **only in the built artefact**. Same family as the Aug 19 morning failure of trusting a
+conversation summary as evidence: **verify the thing you ship.** With no LibreOffice on the Z8 that
+means `unzip -p x.docx word/document.xml`, strip tags, and grep the rendered text — searching for
+literal `**` is what exposed this, and nothing at the Markdown layer could have.
+
+### 8e. How to verify any of the above from a cold start
+
+```bash
+# per-chapter and per-section density (regex must be multiline: marks wrap across source lines)
+cd education && python3 tools/highlight.py <chapter.md> <anchors.py> --check   # never writes
+
+# the check that found the bug — expect no output
+unzip -p <chapter.docx> word/document.xml | python3 -c "import sys,re;print(re.sub(r'<[^>]+>','',sys.stdin.read()).count('**'))"
+
+# the Key style really landed (run counts exceed mark counts: bold/code split a mark into runs)
+unzip -p <chapter.docx> word/document.xml | grep -c 'w:rStyle w:val="Key"'
+```

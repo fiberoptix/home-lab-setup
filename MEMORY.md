@@ -73,13 +73,13 @@ house failure mode. Do not do it.**
 
 | Touching this | Read this FIRST | You will be WRONG without it |
 |---|---|---|
-| 🔵 **Docker Swarm** (VMs .191–.193), the swarm CI pipeline, `education/docker-swarm/` | `phases/phase16_docker_swarm.md` (3234 ln — **grep it**) | **Hard rule B1: NEVER retag/push production Capricorn images.** All 7 planted traps are now CLOSED (C7 last, Aug 19) — do NOT "re-fix" them; the drills are spent and their write-ups are the value. Also holds the P-numbered prediction log **P1–P61**, ledger **L1–L23** (lab-vs-PROD compromises), and the `s01→s07` snapshot chain (⭐ **s07 is the first with the C4 fix; s06 predates it**) |
-| 🔵 **Any education track / chapter / diagram / docx** | `education/CONVENTIONS.md` + `education/METHOD.md` + that track's `README.md` | Figures must clear a **10pt** floor (`figcheck.py`) and raw aspect ratio sets rendered font size; the highlight pass targets ~15% and ⚠️ **`highlight.py` must NEVER be re-run on an already-highlighted file**; chapter H1 format is fixed. Inventing a format per track is explicitly forbidden |
+| 🟢 **Docker Swarm** (VMs .191–.193), the swarm CI pipeline, `education/docker-swarm/` | `phases/phase16_docker_swarm.md` (3272 ln — **grep it**) | **Hard rule B1: NEVER retag/push production Capricorn images.** All 7 parts done and all 7 planted traps CLOSED (C7 last, Aug 19) — do NOT "re-fix" them; the drills are spent and their write-ups are the value. **8 chapters**, the last being the Swarm↔k8s crib sheet, whose per-row **provenance marks (S / K / 🤖 / recited)** are the device to reuse for any future cross-track writing. Also holds the P-numbered prediction log **P1–P61**, ledger **L1–L23** (lab-vs-PROD compromises), and the `s01→s07` snapshot chain (⭐ **s07 is the first with the C4 fix; s06 predates it**) |
+| 🔵 **Any education track / chapter / diagram / docx** | `education/CONVENTIONS.md` + `education/METHOD.md` + that track's `README.md` | Figures must clear a **10pt** floor (`figcheck.py`) and raw aspect ratio sets rendered font size; the highlight pass targets **~20%** (raised from 15% Aug 19, 2026) measured **per section, not per chapter**, and a **top-up pass with a list of only-unmarked phrases is the normal workflow** — the old "never re-run `highlight.py`" rule applies solely to re-running the SAME list; chapter H1 format is fixed. Inventing a format per track is explicitly forbidden |
 | **k3s / Redpanda / OpenSearch** (VM 186) | `phases/phase14_k8s_redpanda_poc.md` (878 ln) | Phase CLOSED. Paths moved to `education/k8s-k3s-redpanda/` Aug 12 — older references are stale. Holds the quorum/leaderless alerting findings |
-| **The `/education` tree itself** (moving, renaming, restructuring) | `phases/phase15_education_program.md` (379 ln) | ⚠️ That file is a **RECORD, not a plan** — §3 is already executed and §1 describes the *pre-move* tree. **Re-running it would undo the current layout** |
+| **The `/education` tree itself** (moving, renaming, restructuring) **or any highlight pass** | `phases/phase15_education_program.md` (480 ln) | ⚠️ That file is a **RECORD, not a plan** — §3 is already executed and §1 describes the *pre-move* tree. **Re-running it would undo the current layout.** ⛔ **§8 is the highlight-pass method** and is not optional reading before marking a chapter: it holds the per-section measurement rule and the `**`-straddle bug that prints literal asterisks in the `.docx`. Marking from instinct reproduces both |
 | **vm-www-1 (.184), Traefik, PROD Capricorn hosting** | `phases/phase7_local_www.md` (1508 ln) | Network architecture is load-bearing and marked CRITICAL in that file; `.184` deliberately **never contacts the registry** (images arrive via `docker load`) |
 | **Proxmox host config, kernels, ZFS pools, backups** | `phases/phase13_fable_proxmox_audit.md` (551 ln) + `phases/phase1b_*` | Kernel pinning is deliberate; a 50G thick zvol with refreservation sits on `vm-critical`. See also the BACKUP DIRECTIVE in `CURSOR_RULES` — **backups go to NAS, never NVMe** |
-| 🔧 **Physical hardware — RAM/DIMMs, drives, serials, part numbers** (either workstation) | `phases/phase0_hardware.md` → **Memory Configuration** | **Both boxes are at 4-of-6 memory channels** (Z6 *and* Z8, both verified Aug 19 2026) — ⛔ **the Z8 is NOT a DIMM donor.** ⚠️ `phase13` PERF-3's slot numbers were **wrong** (free slots are `CPU0-DIMM3/4`, not 5/6) and its price is **~10x stale** (32GB DDR4 ≈ **$300**, so the "$50–80" fix is ~$600). **Buy nothing before capping `zfs_arc_max` — still unmeasured.** Also: the Z8's DIMMs are readable **only from the Windows host**, never the dev VM |
+| 🔧 **Physical hardware — RAM/DIMMs, drives, serials, part numbers, storage capacity, PCIe slots** (either workstation) | `phases/phase0_hardware.md` → **Memory Configuration** + **Storage Capacity Audit** | **RAM:** both boxes are at 4-of-6 channels (Z6 *and* Z8, verified Aug 19 2026) — ⛔ **the Z8 is NOT a DIMM donor.** `phase13` PERF-3's slot numbers were **wrong** (free = `CPU0-DIMM3/4`) and its price is **~10x stale** (32GB DDR4 ≈ **$300** → the "$50–80" fix is ~$600). **STORAGE: no purchase needed — only 137 GiB is written across 3.24 TiB (4%).** ⭐ `vm-critical`'s scary **70.9% is `refreservation`, not data — `zpool alloc` is 7.5%**; both VM pools are thick (`sparse` unset/0). ⚠️ **`nvmeXn1` names in the docs DRIFT — identify drives by serial.** Bigger risk than capacity: the **Swarm cluster + its `s01–s06` snapshots sit on a no-redundancy stripe**, and **only VM 181 has a scheduled backup** |
 | **Firewall, port-forwards, public exposure** | `phases/phase12_network_segmentation.md` (200 ln) | Perimeter is deliberately closed to everything but the WWW box; open ports listed there include ones flagged for removal |
 | **GitLab / runner / CI** | `phases/phase3_gitlab_server.md`, `phase4_gitlab_runner.md`, `phase5_ci_cd_pipelines.md` | The runner is **privileged with the host Docker socket mounted** — any job on it is effectively root on the runner host (ledger L19) |
 | **SonarQube** | `phases/phase6_sonarqube.md` (625 ln) | — |
@@ -176,7 +176,12 @@ session. The rest is history the phase files also carry.
     touches education content.
   - **New `=== EDUCATION PROGRAM (/education) ===` section**, 7 rules (now 8 + `1b` after Aug 13).
 
-- **🔵 IN PROGRESS — Phase 16: Docker Swarm** (`phases/phase16_docker_swarm.md`).
+- **🟢 COMPLETE — Phase 16: Docker Swarm** (`phases/phase16_docker_swarm.md`) — all 7 parts, all 7
+  traps, 8 chapters, closed Aug 19, 2026 with the Swarm↔Kubernetes crib sheet (chapter 8). Only two
+  optional items were left on the floor: **drill D (rotate `pg_password`) is the only one still open** —
+  the highlight pass on chapters 1/2/4/5/6 was done the same evening, along with the k3s track (see the
+  education section). The narrative below is the Part 4 detail, kept because the CI wiring is the part
+  most likely to be needed again.
   🎯 **PART 4 COMPLETE — CI DEPLOYS THE STACK, TRAP C4 FIRED AND FIXED, CHAPTER 3 WRITTEN (Aug 19, 2026,
   ~10:00 AM – 2:26 PM). 🙋 Andrew drove it, one step at a time.** GitLab CI now deploys the swarm stack. **A2 RESOLVED: yes, this repo has a `.gitlab-ci.yml`**,
   with **two independent gates** — `workflow: rules:` restricts pipeline *creation* to
@@ -814,7 +819,12 @@ session. The rest is history the phase files also carry.
   - **Yellow highlighting for review passes (Aug 3).** Andrew's ask: read the ~125 pages once, then
     revise from the highlights alone. Implemented as a **Word character style `Key` with shading
     `#FFF3B0`** — a deliberately low-saturation yellow he chose so the ink does not bleed when
-    printed. **Target density ~15 % of prose words** (his number, from an estimate I gave him).
+    printed. **Target density ~20 % of prose words — raised from 15 % on Aug 19, 2026**, and **all 15
+    chapters of both tracks now sit at 19.5–21.2 %.** ⛔ **Before any highlight work read
+    `phases/phase15_education_program.md` §8** — it holds the two rules you cannot infer from the tool:
+    **mark operative clauses of 5–12 words, never sentences**, and **measure density per SECTION, not
+    per chapter** (a chapter can read 14 % while three of its sections sit under 7 %, and a list sized
+    to the average makes that worse, not better).
     - Marks live **in the Markdown, not the `.docx`**, as `[text]{custom-style="Key"}`, so they
       survive every rebuild. Needs `bracketed_spans` in pandoc's `--from`.
     - `education/tools/highlight.py` (tracked) applies a list of verbatim anchors and **refuses to
@@ -822,9 +832,20 @@ session. The rest is history the phase files also carry.
       you would never notice. `--check` validates and reports density without writing.
     - ⚠️ **Anchor lists live in `education/k8s-k3s-redpanda/scratch/anchors_ch0*.py`, which is GITIGNORED.** The
       highlights themselves are safe (they are in the committed Markdown); the anchor lists are not.
-    - ⚠️ **Never re-run `highlight.py` against an already-highlighted file** — every existing anchor
-      reports "already highlighted", which masks whether the *new* ones are valid. Strip with
-      `re.sub(r'\[([^\[\]]*)\]\{custom-style="Key"\}', r'\1', text)`, then re-apply the full list.
+    - ⚠️ **Re-running the SAME anchor list against an already-highlighted file is refused**, and every
+      anchor reports "already highlighted", which masks whether any *new* ones are valid. To redo a
+      whole pass, strip first: `re.sub(r'\[([^\[\]]*)\]\{custom-style="Key"\}', r'\1', text)`.
+      ✅ **But a TOP-UP pass with a list of only-unmarked phrases is safe, and is now the normal
+      workflow** — that is how both tracks reached 20 %. The blanket rule, read literally, would have
+      forbidden the whole job. Candidate finder: `<track>/scratch/unmarked.py <chapter.md>` (gitignored).
+    - 🚨 **Two refusals added Aug 19, 2026 (`highlight.py`), after both failures happened for real:** a
+      mark may not **split an inline-formatting pair** (pandoc cannot close emphasis across a span, so
+      the asterisks print **literally in the `.docx`** — 15 marks were doing this) and may not **open
+      inside an already-open mark**. Detail and the fix pattern: `phases/phase15_education_program.md` §8d.
+      ⭐ **The transferable lesson, which is not about highlighting: the Markdown passed every check that
+      existed and the defect lived ONLY in the built artefact.** Same family as trusting a conversation
+      summary as evidence — **verify the thing you ship.** No LibreOffice here, so that means
+      `unzip -p x.docx word/document.xml`, strip tags, grep the rendered text.
     - **By design it skips code blocks and tables**, so load-bearing facts sitting in table cells
       cannot be marked and a highlights-only reader loses them. The fix that worked was to **restate
       the strongest ones in prose**; done for 11 facts in Ch7. Watch for this in any new chapter.
@@ -1906,7 +1927,7 @@ All pools feature-flag current (zpool upgrade Jul 9).
 | 14 | Kubernetes + Redpanda POC (was interview prep) | ✅ **CLOSED Aug 12, 2026 — goal met: the interviews happened Aug 6/7 and Andrew got the job.** Parts 1–6 done, 7 chapters written. VM 186 right-sized to 8 vCPU / 16 GB and left at snapshot `s05-app-running`. **Do not extend it**; Ch8–10 are track-1 education work, not phase 14. |
 | 11 | OpenClaw AI Agent | ✅ COMPLETE (vm-openclaw-1 @ .185, Feb 20, 2026) |
 | 15 | Education program — multi-track study repo | ✅ **Parts A–D COMPLETE Aug 12, 2026.** `education/` is now a shelf: one folder per track, shared `tools/`, `CONVENTIONS.md`. One item open — the `docker-swarm` row in `education/README.md`'s track table, held until the folder exists. |
-| 16 | Docker Swarm (education track 2) | 🔵 **IN PROGRESS — Parts 1–6 COMPLETE, ALL 7 TRAPS CLOSED (Aug 19, 2026); 7 chapters written.** VMs 191/192/193 from template 9000; three-manager swarm, quorum 2 of 3; snapshots `s01-base-clean` → **`s07-c4-fixed-verified`** (⭐ **`s07` is the FIRST snapshot containing the C4 fix — `s06` predates it**). CI deploys the stack from GitLab; **C1–C5 fired, C6/C6b closed, C7 run Aug 19**; C4 fixed and VERIFIED against a degraded cluster (P48+P50). 🤖 **C7 + chapter 7 were AI-EXECUTED at Andrew's written instruction — declared in the chapter and the README, and deliberately marked WEAKER than chapters 1–6, which he drove.** **Remaining: Part 7 Swarm↔K8s crib sheet (the last real deliverable), drill D (rotate `pg_password`), and a highlight pass on chapters 1/2/4/5/6 (5–6 marks each vs ~40 in track 1).** 🙋 Andrew drives by default (`education/METHOD.md` → "Who does the work"). Re-walk the `📌 READ THIS FIRST` pre-flight list in `phases/phase16_docker_swarm.md` each session. |
+| 16 | Docker Swarm (education track 2) | 🟢 **COMPLETE — ALL 7 PARTS, ALL 7 TRAPS CLOSED (Aug 19, 2026); 8 chapters written.** VMs 191/192/193 from template 9000; three-manager swarm, quorum 2 of 3; snapshots `s01-base-clean` → **`s07-c4-fixed-verified`** (⭐ **`s07` is the FIRST snapshot containing the C4 fix — `s06` predates it**). CI deploys the stack from GitLab; **C1–C5 fired, C6/C6b closed, C7 run Aug 19**; C4 fixed and VERIFIED against a degraded cluster (P48+P50). 🤖 **C7 + chapter 7 were AI-EXECUTED at Andrew's written instruction — declared in the chapter and the README, and deliberately marked WEAKER than chapters 1–6, which he drove.** **Part 7 closed as chapter 8 — the Swarm↔Kubernetes crib sheet, every row marked S / K / 🤖 / ⚠️ recited so nothing recited can be quoted as experience.** ⭐ Its two non-obvious conclusions: **the PVC abstraction is not what protects data** (the k3s lab's `local-path` strands it identically — the value is the driver ecosystem, not the object), and **Swarm's digest-pinning default is the SAFER of the two image models.** **Remaining, both optional: drill D (rotate `pg_password`) and a highlight pass on chapters 1/2/4/5/6 (5–6 marks each vs ~40 in track 1).** 🙋 Andrew drives by default (`education/METHOD.md` → "Who does the work"). Re-walk the `📌 READ THIS FIRST` pre-flight list in `phases/phase16_docker_swarm.md` each session. |
 | 17 | Jenkins (education track 3) | 📋 **CONFIRMED NEXT after Phase 16** — Jenkins is named explicitly on the study list (`education/fin_tech_stack.txt`), so this is no longer provisional. Phase 16 Part 3 deliberately keeps deploy logic in a shell script, so this track is largely "write a different wrapper". |
 | 18+ | Remaining study list | 💭 **Backlog, worked STEP-BY-STEP in its stated order** after Jenkins: OpenSearch + Dashboards → Prometheus + Grafana → Redpanda Connect + Debezium CDC → MongoDB + Postgres → SAML/OIDC (authentik) → Ansible. Source of truth is `education/fin_tech_stack.txt`; do not re-derive priorities. |
 

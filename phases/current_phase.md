@@ -1,20 +1,47 @@
 # Current Phase
 
-**Updated:** August 19, 2026 - 4:50 PM EDT
+**Updated:** August 19, 2026 - 6:35 PM EDT
 
 ---
 
-## ▶️ RESUME HERE — ALL 7 TRAPS CLOSED. Remaining: Part 7 crib sheet, drill D, highlight pass on ch 1/2/4/5/6.
+## ▶️ RESUME HERE — 🟢 PHASE 16 COMPLETE. Next phase is 17 (Jenkins). Two optional items left on the floor.
 
-**Phase 16 (Docker Swarm): trap C7 is CLOSED, and with it the whole planted-traps table.** Seven chapters
-exist. Parts 1–6 are complete. ⚠️ **What is NOT done, so it does not get lost:**
+**Phase 16 (Docker Swarm) is DONE: all 7 parts, all 7 planted traps, 8 chapters.** Part 7 closed on
+Aug 19 as `education/docker-swarm/chapter08_swarm_vs_kubernetes.md` — the Swarm↔Kubernetes crib sheet
+the whole two-track comparison was for.
 
-1. **Part 7 — the Swarm↔Kubernetes crib sheet.** The last real deliverable. The track README's own words
-   are *"the full crib sheet is a planned Part 7 session"*, and the phase plan calls the comparison **half
-   the value** of running the same app on both orchestrators.
-2. **Drill D** — rotate `pg_password` (chapter 5 material, outlined but never run).
-3. **Highlight pass on chapters 1, 2, 4, 5 and 6** — they carry **5–6 marks each** against ~40 per chapter
-   in track 1. Chapter 3 (113) and chapter 7 (57) are the only ones that got a real pass.
+**What chapter 8 is, in one line:** every claim carries a provenance mark — **S** (measured on the
+three-node Swarm), **K** (measured on single-node k3s), 🤖 (measured only in AI-executed chapter 7), or
+⚠️ **recited** (neither lab ran it, so it must never be quoted as experience). ⭐ **Reuse that device
+for any future cross-track writing;** without it a synthesis chapter launders textbook claims into
+apparent experience. Its two non-obvious conclusions: **the PVC abstraction is not what protects your
+data** (the k3s lab's `local-path` strands it on the same nail as a Swarm named volume — the value is
+the driver ecosystem, not the object), and **Swarm's digest-pinning default is the safer of the two
+image models**, which is the opposite of the usual narrative. It also caught one flattering falsehood
+in its own first draft (see the phase file, Part 7 → C1): "encrypted Raft log by default" is **wrong**,
+and chapter 1's own Lab-vs-PROD callout says so.
+
+⚠️ **Left on the floor deliberately, optional and not blocking Phase 17:**
+
+1. **Drill D** — rotate `pg_password` (chapter 5 material, outlined but never run). **This is now the
+   only open item from Phase 16.**
+
+✅ **DONE the same evening — the highlight programme, both tracks (Aug 19, ~5:30–6:30 PM).** Andrew
+raised the target to **20 %** after a trial he judged from the printed page, not the number. **All 15
+chapters now sit at 19.5–21.2 %** (Swarm ch1/2/4/5/6 were at 2.3–3.6 %, i.e. 5–6 marks each; the k3s
+track was at 12.6–14.9 %). Full before/after table and method: **`phases/phase15_education_program.md`
+§8** — that section is the one to read before any future highlight work, for two reasons:
+
+- ⭐ **Measure density PER SECTION, not per chapter.** k3s ch3 read 14 % overall while §5/§7/§8 sat at
+  7.2/6.2/4.9 % — drafting-time marks cluster where the argument is and skip walkthroughs. A list aimed
+  at the chapter average would have pushed the dense sections past 30 % and left the thin ones alone.
+- 🚨 **A mark that swallows one half of a `**bold**` pair renders the asterisks LITERALLY in the
+  `.docx`.** 15 marks were doing this across both tracks. `education/tools/highlight.py` now **refuses**
+  that, and also refuses a mark opening inside an already-open mark (which had nested one in k3s ch4).
+  ⭐ The Markdown passed every check that existed; the defect existed **only in the built artefact** —
+  so verify the artefact (`unzip -p x.docx word/document.xml`, grep for literal `**`), not the source.
+  ⚠️ The old blanket rule "never re-run `highlight.py` on a highlighted file" applies only to re-running
+  the **same** list; a **top-up with a list of only-unmarked phrases is now the normal workflow.**
 
 ✅ **Cluster state at handoff: HEALTHY, and re-verified AFTER C7's cleanup** — not assumed. All three
 `Leader/Reachable/Reachable`, raft churn `0`, services `2/2 3/3 1/1 1/1`, all three smoke gates green at
