@@ -4,7 +4,7 @@
 > **Built and verified:** August 13, 2026 on the three-manager cluster from Chapter 1
 > **Versions at time of writing:** Docker 29.7.2 · Compose file format 3.8 · private GitLab registry on `:5050`
 > **Read this before:** Chapter 4 (state), Chapter 5 (breaking it on purpose), Chapter 6 (false greens).
-> Chapter 3 (a pipeline that deploys) is planned but unwritten — it waits on a design decision.
+> Chapter 3 (a pipeline that deploys) automates this chapter's deploy, and was written after it.
 > **Read this after:** Chapter 1 — the cluster, quorum, and what `swarm init` created
 
 ---

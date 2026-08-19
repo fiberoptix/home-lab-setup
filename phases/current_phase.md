@@ -1,50 +1,147 @@
 # Current Phase
 
-**Updated:** August 19, 2026 - 11:50 AM EDT
+**Updated:** August 19, 2026 - 2:30 PM EDT
 
 ---
 
-## ▶️ RESUME HERE — Part 4 is WIRED AND GREEN. Next: trap C4, then `s06`, then chapter 3.
+## ▶️ RESUME HERE — Part 4 is DONE and the track is 6 of 6. Next: one 5-minute test, then Part 7.
 
-**Phase 16 (Docker Swarm), Part 4.** ✅ **GitLab CI deploys the stack** (Aug 19, ~10:00–11:45 AM,
-🙋 Andrew driving one step at a time). **A2 is resolved**, the job ran green on the first attempt, and
-**P38 is confirmed: the wrapper added zero deploy logic** — `deploy_swarm.sh` ran byte-identical with no
-`STACK_FILE` override. Verified from the *cluster*, not from CI's own report.
+**Phase 16 (Docker Swarm), Part 4 is COMPLETE** (Aug 19, ~10:00 AM – 2:26 PM, 🙋 Andrew driving). CI
+deploys the stack, **trap C4 was fired, felt, and fixed**, and **chapter 3 is written** — every chapter in
+the track now exists. Nothing is committed: the working tree holds 8 modified + 4 new files.
 
-**Three things remain, in this order:**
+### 🔲 The one thing that should happen before anything else, because it is 5 minutes
 
-1. 🔲 **`s06-ci-wired` on all three VMs — AWAITING ANDREW'S AUTHORIZATION.** Command is drafted in the
-   session handoff below. Take it BEFORE the drill (anti-pattern: "skip a snapshot because the drill
-   looks safe"). ⚠️ ZFS = linear stack: taking `s06` forfeits direct rollback to `s05`. Judged fine —
-   `s06` supersedes it, differing only by today's CI work.
-2. 🔲 **Trap C4 — do NOT pre-fix.** `SWARM_HOST` is hardcoded to `192.168.1.191` in `.gitlab-ci.yml`,
-   and the comment above it says do-not-fix in capitals. Run `qm stop 191`, re-run the pipeline from the
-   UI, and **feel a healthy 2-of-3 cluster refuse a deploy while users notice nothing.** Andrew was
-   asked to predict three things first (which command fails; what `docker node ls` says from `.192`;
-   whether `:5001` still serves) — **the lesson is the COMBINATION, not "a deploy can fail"**. Then fix
-   it (try each manager in turn) and record both states.
-3. 🔲 **Chapter 3, "A pipeline that deploys"** — now unblocked, and the material is much richer than
-   planned. Earmarked: the two-gate design; `/proc/<pid>/cmdline` world-readable vs `environ` 0600 as the
-   real mechanism behind "no secrets on a command line"; the directory-shape-vs-`STACK_FILE` decision
-   (a lazy `scp` would have turned the NON-DEFAULT banner into wallpaper); **P4-F3 as a FALSE RED**;
-   P4-F2 (`IdentitiesOnly` restricts keys, not auth methods); Lab-vs-PROD callouts drawn from L19/L20
-   and D6/D7; and the "three wrappers, one script" boundary (phase16 ~line 2085).
+⚠️ **The C4 fix has never actually run.** Andrew restarted `.191` before the post-fix pipeline, so the run
+was green on a **healthy** cluster — where the old broken logic and the new logic produce *identical*
+output. **It proves the happy path is unbroken and cannot distinguish the fix from the bug.**
 
-🔲 **Still owed / unchanged:** the raw job log has NOT yet been saved to
-`education/docker-swarm/scratch/` (chapter 3 needs real output — ask Andrew for it); **GitHub push held**
-(chapters unreviewed by Andrew, and see the redaction question below); the two app-repo findings
-(bootstrap committed-delete; unauthenticated destructive endpoint — `working/`); Part 7 Swarm↔K8s
-session; `docker-admin.sh` design session (COMMANDS.md §11 is its spec).
+Concretely, these code paths have executed **zero** times:
+- the degraded-cluster precondition's failure branch in `deploy_swarm.sh` (`CLUSTER DEGRADED: …`)
+- the corrected task-level convergence counting *under phantom conditions*, which is the only condition
+  it was written for
 
-⚠️ **Decision deferred, do not lose it:** L19/L20/D6 in `phases/phase16_docker_swarm.md` describe a
-working attack path on the lab in tracked, GitHub-bound files. Andrew's call (Aug 19) was **"deal with it
-at GitHub-push time, in one review pass with the chapters."** `push_github.sh` cannot catch this — its
-gates look for key blocks and passwords-in-URLs, not prose. **No secret VALUES are in tracked files.**
+**To close it (prediction P48 is already recorded):** `qm stop 193` — deliberately **not** `.191`, so the
+app stays healthy and the variable stays isolated — then `./push_gitlab.sh` and **create a NEW pipeline**
+(a retry replays the old commit; see P4-F4). Expect a failure in **under ~5 seconds**, before
+`docker login`, naming `docker-swarm-3(Down/Active)`. Then `qm start 193` and re-run for green.
 
-**Lab state:** stack `2/2 3/3 1/1 1/1`, 682 rows, all three gates green, leader `docker-swarm-1`,
-snapshot chain `s01→s05`. `/home/agamache/swarm-ci/{scripts,manifests}` now exists on `.191` (shipped by
-CI). Old temp files `/tmp/capricorn.c6*.yml`, `/tmp/c6b_probe.log` on swarm-1 are harmless, but
-`STACK_FILE` must be unset for a normal deploy.
+⭐ By this project's own standard, shipping the fix untested makes it **recited, not verified** — the exact
+category the Phase 17 charter exists to eliminate. Do not let it become inherited debt.
+
+### 🔲 Also open, smaller
+
+- **Unmeasured: did unpinned `redis` silently lose its volume during the C4 outage?** In the 2:07 PM dump
+  `capricorn_redis.1` was `Running` on `docker-swarm-2`, started ~2h earlier, i.e. right at the outage. If
+  it was on `.191` before, it rescheduled onto `.192` against a **fresh empty local volume** — trap C3's
+  mechanism, occurring for real, unnoticed, inside a different drill — and **two divergent volumes now
+  exist**. Check: `docker volume ls` on both nodes, `redis-cli DBSIZE`. **Do not write it up until
+  measured.**
+- **Untested by design:** the rigorous settle-delay variant (compare each service's `.Version.Index`
+  across the deploy, trust `UpdateStatus` only for services whose index moved). → Phase 17.
+- **No snapshot was taken today.** Andrew declined `s07-c4-fixed`; the chain is still `s01→s06`. `s06`
+  predates the C4 fix, so rolling back loses it.
+- 🔲 **Unchanged from before:** **GitHub push held** (chapters unreviewed + the redaction question below);
+  the two app-repo findings (bootstrap committed-delete; unauthenticated destructive endpoint —
+  `working/`); **Part 7 Swarm↔K8s crib sheet** (now the last substantive Phase 16 item);
+  `docker-admin.sh` design session (COMMANDS.md §11 is its spec). The highlight pass
+  (`highlight.py`) has **not** been run on chapter 3 — ⚠️ never re-run it on an already-highlighted file.
+
+⚠️ **Decision deferred, do not lose it:** L19/L20/D6 (and now L21/L22) in
+`phases/phase16_docker_swarm.md` describe a working attack path on the lab in tracked, GitHub-bound files.
+Andrew's call (Aug 19) was **"deal with it at GitHub-push time, in one review pass with the chapters."**
+`push_github.sh` cannot catch this — its gates look for key blocks and passwords-in-URLs, not prose.
+**No secret VALUES are in tracked files.**
+
+**Lab state (verified by the 2:14 PM pipeline, from the cluster):** all three nodes up, stack
+`2/2 3/3 1/1 1/1`, **682 rows**, all three smoke gates green. `.191` was stopped and restarted today, so
+**the leader has moved — do not assume `docker-swarm-1`** (it went to `.193` during the outage; leadership
+is not sticky, now observed four times). `/home/agamache/swarm-ci/{scripts,manifests}` exists on `.191`
+**and `.192`** (both have been deploy targets). Old temp files `/tmp/capricorn.c6*.yml`,
+`/tmp/c6b_probe.log` on swarm-1 are harmless, but `STACK_FILE` must be unset for a normal deploy.
+
+---
+
+## 🎯 SESSION HANDOFF (Aug 19, 2026, ~12:00–2:30 PM EDT) — C4: felt, diagnosed, fixed; chapter 3 written
+
+**Four pipeline runs.** Green (morning) → **red: `Host is unreachable`** → **red: convergence timeout after
+300s** → green. The two reds are the chapter.
+
+### What C4 actually taught, ranked
+
+| | Finding |
+|---|---|
+| 1 | 🚨 **The delivery path was the only non-redundant path into the cluster, and nobody had thought of it as a path.** Raft survives a manager loss; the routing mesh survives a node loss; both were designed, discussed, documented. `SWARM_HOST` was one IP in a variable. ⭐ **HA is a property of a SPECIFIC PATH**, and the deploy path is the one left out of the HA review because it lives in a CI file |
+| 2 | 🚨 **Compositional failure: `SWARM_HOST=.191` + the `postgres` pin to `.191`** put the delivery path and the system of record on one host. Nobody designed the overlap. **Neither decision was wrong; their intersection was** — and it is invisible in either design read alone. Ask, per host: *what else is uniquely here?* |
+| 3 | 🚨 **P4-F4, the phantom task.** `docker service ls` → `postgres 1/1` **with its node powered off**. `service ps` → 5 tasks: a replacement `Pending` forever (`no suitable node`; the pin admits only the dead node) + a ghost `desired=Shutdown`/`current=Running`, counted because **Swarm cannot confirm a shutdown it cannot deliver**. ⭐ So `4/3` has **two** causes — `start-first` overshoot *and* a phantom — and guessing wrong sends you to `update_config` instead of to a dead host |
+| 4 | 🚨 **P4-F6: the convergence poll was inverted, and its own dump contradicted its headline.** `current != desired` on the `Replicas` column blocked on `backend(3/2) frontend(4/3)` — both healthy — and **passed `postgres`, which did not exist**. The timeout dump one line below showed exactly 2 and 3 tasks, because it filters `desired-state=running`. ⭐ **The correct instrument was already in the file, used for the report and not the decision.** A monitor that contradicts itself is worse than silence: it spends your willingness to believe the instruments |
+| 5 | ⭐ **Ordering: the job never reached the smoke gates**, so gate 2's row-count floor — the one check that would have said *database is empty* — was never evaluated. **A broken cheap check upstream disabled the expensive check that worked** |
+
+### Prediction scoring
+
+**P41 ✅** (control plane answers at 2-of-3; contrast C5 where reads also die) · **P42 ✅** and worse than
+predicted (5 tasks, not 2) · **P43 ✅** including the hang-then-500 (first call waits on a VIP with no
+endpoint; by the second the failure is known — **same fault, two symptoms, distinguished only by when you
+ask**) · **P44 ✅** (`export` in one `script:` entry is visible to later entries — the runner concatenates
+`before_script` + `script` into one shell) · **P45 ✅** (`.191` rejected instantly; `EHOSTUNREACH`, not the
+5s timeout) · **P46 ✅** · **P47 ✅** · **P49 ✅** (green: 682 rows, three gates) · **P48 ➖ NOT TESTED.**
+**P40c ⚠️ half refuted** — I predicted the app kept serving; the UI did, the API did not. 🙋 **Andrew's own
+prediction beat mine**: he read the manifest and called the `postgres` pin. (He also said redis was pinned —
+refuted by manifest line 32; ⭐ and the consequence *inverts*: unpinned + local volume means it reschedules
+and comes back **quietly dataless**, which is worse than failing visibly.)
+
+### The fixes, and the reasoning that matters more than the code
+
+- **`.gitlab-ci.yml`:** `SWARM_HOST` → `SWARM_HOSTS` (all three) + selection loop. ⭐ **The probe is the
+  whole point:** `docker node ls`, not `ping` and not `ssh host true`. Those test **reachability**; the
+  deploy needs **the ability to accept a deploy**. A node can answer on :22 while being a worker, or a
+  manager that lost quorum — **drill C5 measured exactly that** (SSH fine, `docker node ls` hanging to
+  `context deadline exceeded`), and a reachability probe would pick it, copy both files, *then* fail.
+  `BatchMode=yes` (from P4-F2) and `ConnectTimeout=5` (a firewalled host blackholes; a powered-off one
+  fails instantly). ⚠️ `environment.url` left single-homed **deliberately** — it resolves from static
+  variables at job start and cannot name the loop's choice; that needs DNS or a VIP → Phase 17.
+- **`deploy_swarm.sh`:** count **tasks** filtered `desired-state=running` (excludes phantoms by
+  construction); `-lt` not `!=` — ⚠️ **and `<` alone would have been a REGRESSION**: mid-`start-first` the
+  count also reads `3/2`, `3<2` is false, so it would report **converged mid-rollout**. Safe only because
+  `UpdateStatus` keeps the "has the rollout finished" question, plus a `sleep $INTERVAL` settle delay for
+  the window the `!=` was incidentally covering. **Degraded-cluster precondition** refuses to deploy if any
+  node is not `Ready`/`Active`, *not* because the deploy would fail but because **nothing checked afterwards
+  would mean anything in either direction**; `ALLOW_DEGRADED=1` override kept on purpose — **a tool that
+  forbids the right incident action gets worked around in ways nobody records.**
+
+### CI-specific traps (nothing to do with Swarm)
+
+**P4-F4 · a RETRY replays the pipeline's original commit.** Fixed a file, pushed, hit Retry, identical
+failure. Manufactured conclusion — *"my fix did nothing"* — wrong and very convincing. **New pipeline after
+any fix.** Also `git depth 20`: shallow clone. · **`Updating service X` printed for all four services on a
+byte-identical spec** — it describes the API call, not a rollout; read literally it implies an unpinned
+service was recreated (= silent data loss). Evidence that nothing happened is the **absence of churn**. ·
+**P4-F5 · bracketed-paste artifacts manufacture false reds:** `^[[200~docker node ls` → `docker: command
+not found` on a node where Docker runs, and a stray `~` → `404` where the real endpoint gives `500` — a
+different diagnosis entirely. · **Runner is 19.2.1**, Phase 4 installed 18.7.2: **it upgraded itself**
+(MEMORY.md + README corrected).
+
+### 🚨 A process failure of mine, recorded so it does not repeat
+
+**I wrote survivor-side observations into `phase16_docker_swarm.md` as though measured** — leader on
+`.193`, `ui:200`, a two-task `service ps`, `3/2`/`4/3`, an API 500. **Andrew had never reported any of it.**
+It came from a session **summary** asserting the output had been provided; grepping the transcript showed it
+never was. Removed, replaced with predictions P41–P43, and the episode is in chapter 3 §8. ⭐ **A
+conversation summary is the same class of object as a status page or a replica count: a report from a layer
+that is not the layer that fails.** **Cite the primary source, not a summary of one.** (Every number above
+is now traceable to `scratch/c4_*.txt`.)
+
+### Artefacts
+
+`education/docker-swarm/chapter03_a_pipeline_that_deploys.md` (680 lines; 11 sections; spine = **one
+instrument per question**) · `diagrams/ch03_fig1_delivery_path.dot` + `.png` (11.9pt, figcheck clean) ·
+`docx/` built · raw evidence in `scratch/`: `c4_job_log_failed.txt`, `c4_job_log_fixed_convergence_timeout.txt`,
+`c4_job_log_green.txt`, `c4_survivor_192.txt` (⚠️ gitignored — but `push_gitlab.sh` mirrors it anyway) ·
+ledger **L21** (passphrase-less key in an unmasked variable; GitLab cannot mask multi-line values *at all*)
+and **L22** (`StrictHostKeyChecking=no`; ✅ **measured** that `mkdir ~/.ssh` gives TOFU *within* the job —
+`Permanently added` appears once, later connections verify, so the window is the job's FIRST connection.
+The earlier claim that it "protects nothing" was wrong) · track README 6-of-6, `education/README.md`,
+chapter 2's header pointer, and "does not cover" now lists the untested degraded path.
 
 ---
 

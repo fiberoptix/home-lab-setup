@@ -75,6 +75,42 @@ say() { printf '\n\033[1m==> %s\033[0m\n' "$*"; }
 # docker node ls only succeeds on a manager, which makes it a free "am I in the right place" test.
 docker node ls >/dev/null 2>&1 || die "not a swarm manager (or swarm is inactive) - run this on a manager"
 
+# Is the CLUSTER healthy, not just "am I a manager"? Added Aug 19 2026 after trap C4 burned 300
+# seconds arriving at a wrong answer.
+#
+# ⭐ The lesson: a deploy into a degraded cluster produces a result that CANNOT BE TRUSTED IN EITHER
+# DIRECTION. With docker-swarm-1 powered off, this script deployed, then declared "did not converge"
+# and named capricorn_backend and capricorn_frontend - both of which were completely healthy - while
+# capricorn_postgres, which had ceased to exist, passed the check. Green or red, the verdict was
+# uninformative, and it took five minutes to produce.
+#
+# So ask the cheap question FIRST and answer it accurately: a node that is not Ready means tasks may
+# be unschedulable and phantom tasks on the unreachable node will corrupt every replica count taken
+# afterwards. Two seconds, and it names the actual fault.
+degraded="$(docker node ls --format '{{.Hostname}} {{.Status}} {{.Availability}}' \
+    | awk '$2 != "Ready" || $3 != "Active" { printf " %s(%s/%s)", $1, $2, $3 }')"
+if [ -n "$degraded" ]; then
+    printf '\n\033[31mCLUSTER DEGRADED:\033[0m%s\n' "$degraded" >&2
+    echo "Refusing to deploy. Not because the deploy would necessarily fail - it might well" >&2
+    echo "succeed - but because NOTHING THIS SCRIPT CHECKS AFTERWARDS WOULD MEAN ANYTHING:" >&2
+    echo "  * tasks on an unreachable node still count as Running (Swarm cannot confirm a" >&2
+    echo "    shutdown it cannot deliver), so replica counts read high and hide real failures" >&2
+    echo "  * a service pinned to the missing node can never schedule, and reports the phantom" >&2
+    echo "    as its healthy replica" >&2
+    echo >&2
+    echo "  docker node ls" >&2
+    echo "  docker service ps <service> --no-trunc     # the only view that stays honest" >&2
+    echo >&2
+    # An escape hatch, on purpose. During a real incident, deploying into a degraded cluster is
+    # sometimes exactly the right call, and a tool that makes the correct action impossible gets
+    # worked around in ways nobody records. Make it deliberate and make it LOUD, not impossible.
+    if [ "${ALLOW_DEGRADED:-0}" = "1" ]; then
+        printf '\033[33m  ALLOW_DEGRADED=1 - proceeding anyway. Treat every check below as ADVISORY.\033[0m\n' >&2
+    else
+        die "cluster degraded:$degraded (override with ALLOW_DEGRADED=1 if this is deliberate)"
+    fi
+fi
+
 # The stack references an external secret. Creating it here would mean inventing a password in a
 # script; requiring it means the deploy fails fast with a clear reason instead of a confused
 # postgres that cannot authenticate.
@@ -146,9 +182,36 @@ docker stack deploy -c "$STACK_FILE" --with-registry-auth "$STACK"
 # Replica count alone is NOT a sufficient test, and this is easy to get wrong. Two of these
 # services (frontend and backend) use `order: start-first`, which starts the replacement task
 # BEFORE stopping the old one, so running/desired can read 3/3 continuously through an entire
-# rolling replacement - and can briefly read 4/3, which is why current != desired below means
-# PENDING, never failed. A deploy that swapped every container for a broken image could satisfy
-# a count-only check on the first poll.
+# rolling replacement - and can briefly read 4/3. A deploy that swapped every container for a
+# broken image could satisfy a count-only check on the first poll.
+#
+# 🚨 REWRITTEN Aug 19 2026, after trap C4 proved the previous version INVERTED. It read the
+# `Replicas` column of `docker stack services` and tested `current != desired`. With
+# docker-swarm-1 powered off, that produced, for five minutes:
+#
+#   still pending: capricorn_backend(3/2) capricorn_frontend(4/3)     <- both perfectly healthy
+#   ...and capricorn_postgres silently PASSING, having ceased to exist
+#
+# Two separate defects, one root cause - the WRONG INSTRUMENT:
+#
+#   1. `Replicas` counts a task whose desired state is Shutdown but whose current state is still
+#      Running, which is exactly what a task on an UNREACHABLE node looks like forever, because
+#      Swarm cannot confirm a shutdown it cannot deliver. One phantom inflated backend to 3/2.
+#   2. For postgres, the phantom was the ONLY thing counted: one unconfirmable ghost on the dead
+#      node plus one replacement stuck Pending on an unsatisfiable pin summed to a green 1/1.
+#
+# So count TASKS, filtered to `desired-state=running`, which excludes phantoms by construction -
+# the same filter the failure dump below has always used, which is why that dump printed the
+# CORRECT task list directly underneath a wrong headline. ⭐ Ask the layer that knows.
+#
+# ⚠️ And note what the `!=` test was incidentally protecting, because replacing it with `<` on its
+# own would have been a REGRESSION: the equality test also blocked the window between
+# `docker stack deploy` returning and the manager setting UpdateStatus, during which a stale
+# `completed` from a previous rollout could be read as this rollout finishing. That window is now
+# covered explicitly by the settle delay below.
+# ⚠️ OPEN CLAIM for Phase 17: the settle delay is a mitigation, not a proof. The rigorous version
+# compares each service's `.Version.Index` across the deploy and only trusts UpdateStatus for
+# services whose index actually moved. Untested here, so not claimed as done.
 #
 # So also require UpdateStatus.State. Swarm sets it to `updating` while a rollout is in flight and
 # `completed` when it finishes - and crucially to `rollback_started` / `rollback_completed` when
@@ -175,13 +238,31 @@ docker stack deploy -c "$STACK_FILE" --with-registry-auth "$STACK"
 # deploy's failure.
 say "waiting for convergence (timeout ${TIMEOUT}s)"
 
+# Settle delay: see the UpdateStatus window noted above. `docker stack deploy` returns when the
+# manager has ACCEPTED the spec, and UpdateStatus flips to `updating` a moment later. Polling inside
+# that gap can read the PREVIOUS rollout's `completed` and call a brand-new deploy converged.
+sleep "$INTERVAL"
+
 deadline=$(( $(date +%s) + TIMEOUT ))
 while :; do
     pending=""
     rolled_back=""
-    while read -r name replicas; do
-        current="${replicas%%/*}"
-        desired="${replicas##*/}"
+    while read -r name; do
+        # Desired count from the SPEC, not from a formatted column. Replicated services carry it
+        # directly; a global service has none, so fall back to the number of tasks Swarm wants.
+        desired="$(docker service inspect "$name" \
+            --format '{{if .Spec.Mode.Replicated}}{{.Spec.Mode.Replicated.Replicas}}{{end}}' 2>/dev/null || true)"
+        if [ -z "$desired" ]; then
+            desired="$( { docker service ps "$name" --filter desired-state=running \
+                --format '{{.ID}}' 2>/dev/null || true; } | awk 'END {print NR+0}')"
+        fi
+
+        # Running count from TASKS Swarm still wants alive. `desired-state=running` is what excludes
+        # the phantom on an unreachable node: its desired state is Shutdown, so it is not counted
+        # here even though `docker stack services` reports it as a live replica.
+        running="$( { docker service ps "$name" --filter desired-state=running \
+            --format '{{.CurrentState}}' 2>/dev/null || true; } | awk '/^Running/ {n++} END {print n+0}')"
+
         state="$(docker service inspect "$name" --format '{{.UpdateStatus.State}}' 2>/dev/null || true)"
 
         case "$state" in
@@ -196,12 +277,16 @@ while :; do
                 ;;
         esac
 
-        if [ "$current" != "$desired" ] || [ "$desired" = "0" ]; then
-            pending="$pending $name($replicas)"
+        # `-lt`, not `!=`: an OVERSHOOT is not a failure. start-first legitimately runs desired+1
+        # for part of a rollout, and blocking on that is what produced C4's five-minute wrong
+        # answer. Whether a rollout has FINISHED is UpdateStatus's job, tested immediately below -
+        # one instrument per question.
+        if [ "$running" -lt "$desired" ] || [ "$desired" = "0" ]; then
+            pending="$pending $name($running/$desired)"
         elif [ -n "$state" ] && [ "$state" != "completed" ]; then
             pending="$pending $name($state)"
         fi
-    done < <(docker stack services "$STACK" --format '{{.Name}} {{.Replicas}}')
+    done < <(docker stack services "$STACK" --format '{{.Name}}')
 
     # A completed rollback is a converged cluster running the OLD code. Never report that as green.
     if [ -n "$rolled_back" ]; then

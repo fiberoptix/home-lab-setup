@@ -141,8 +141,8 @@ editing `CURSOR_RULES`:
   - **New `=== EDUCATION PROGRAM (/education) ===` section**, 7 rules (now 8 + `1b` after Aug 13).
 
 - **🔵 IN PROGRESS — Phase 16: Docker Swarm** (`phases/phase16_docker_swarm.md`).
-  🎯 **PART 4 IS WIRED AND WORKING (Aug 19, 2026, ~10:00–11:45 AM). 🙋 Andrew drove it, one step at a
-  time.** GitLab CI now deploys the swarm stack. **A2 RESOLVED: yes, this repo has a `.gitlab-ci.yml`**,
+  🎯 **PART 4 COMPLETE — CI DEPLOYS THE STACK, TRAP C4 FIRED AND FIXED, CHAPTER 3 WRITTEN (Aug 19, 2026,
+  ~10:00 AM – 2:26 PM). 🙋 Andrew drove it, one step at a time.** GitLab CI now deploys the swarm stack. **A2 RESOLVED: yes, this repo has a `.gitlab-ci.yml`**,
   with **two independent gates** — `workflow: rules:` restricts pipeline *creation* to
   `$CI_PIPELINE_SOURCE == "web" && $CI_COMMIT_BRANCH == "main"` (because `push_gitlab.sh` pushes
   constantly), and the job stays `when: manual` so its safety does not depend on that guard surviving a
@@ -180,8 +180,59 @@ editing `CURSOR_RULES`:
   `ssh-add -` pattern never writes the key to a file. **P4-F2:** `IdentitiesOnly=yes` restricts *keys*, not
   *auth methods*; the test fell through to a password prompt and one keystroke would have produced a
   convincing false pass. Use `-o PreferredAuthentications=publickey`.
-  🔲 **Still owed on Part 4:** trap **C4** (`SWARM_HOST` is hardcoded to `.191` — stop that manager and
-  the deploy dies while the cluster is healthy; **DO NOT pre-fix**), then `s06-ci-wired`, then chapter 3.
+  ✅ **PART 4 IS COMPLETE (Aug 19, 2:26 PM): trap C4 fired, fixed, and chapter 3 written — the track is
+  6 of 6.** C4: with `SWARM_HOST` hardcoded to `.191` and that VM powered off, the job died on its first
+  command (`Host is unreachable`, **exit 255** — ssh reserves 255 for *its own* failures, so it means "I
+  never ran your command") while quorum held, `.193` took the lead, and the UI kept serving.
+  🚨 **The accident worth remembering: `SWARM_HOST=.191` and the `postgres` pin to `.191` put the DELIVERY
+  PATH and the SYSTEM OF RECORD on one host.** Nobody designed that overlap; neither decision was wrong,
+  their intersection was. Epilogue: the pin that caused the outage **saved the data** (a pinned service
+  cannot reschedule onto an empty local volume — 682 rows intact on recovery).
+  🚨 **P4-F4, the phantom task — the strongest false green in the phase.** `docker service ls` reported
+  `capricorn_postgres 1/1` **while its node was powered off**. `docker service ps` showed 5 tasks: one
+  replacement stuck `Pending` forever (`no suitable node`, the pin admits only `docker-swarm-1`) plus a
+  ghost on the dead node, `desired=Shutdown`/`current=Running`, **counted as Running because Swarm cannot
+  confirm a shutdown it cannot deliver.** ⭐ So an inflated count has **two** unrelated causes — the
+  `start-first` overshoot *and* a phantom — and reading `4/3` as "start-first" sends you to `update_config`
+  when the real story is a dead host.
+  🚨 **P4-F6: `deploy_swarm.sh`'s convergence poll was INVERTED, and its own failure dump contradicted its
+  headline.** Testing `current != desired` on the `Replicas` column, it spent 300s printing
+  `still pending: capricorn_backend(3/2) capricorn_frontend(4/3)` — both perfectly healthy — while
+  `postgres`, which did not exist, **passed**. The dump printed one line below showed exactly 2 and 3
+  tasks, because it filters `desired-state=running` and the `Replicas` column does not. ⭐ **The right
+  instrument was already in the file, used for the report and not for the decision.**
+  ✅ **FIXES SHIPPED.** `.gitlab-ci.yml`: `SWARM_HOST` → **`SWARM_HOSTS`** (all three managers) with a
+  selection loop whose probe is `ssh -o BatchMode=yes -o ConnectTimeout=5 host 'docker node ls'` — ⭐ **not
+  `ping` and not `ssh host true`: probe the CAPABILITY you are about to use, not a proxy that correlates
+  with it** (a node can accept SSH while being a worker, or a manager that lost quorum — drill C5's exact
+  state). `deploy_swarm.sh`: **counts TASKS** filtered to `desired-state=running` (excludes phantoms by
+  construction), `-lt` not `!=` so overshoot no longer blocks, a `sleep $INTERVAL` settle delay covering
+  the window the `!=` was incidentally protecting, and a **degraded-cluster precondition** that refuses to
+  deploy if any node is not `Ready`/`Active` (override `ALLOW_DEGRADED=1`, kept deliberately — a tool that
+  forbids the right incident action gets worked around in ways nobody records).
+  ⚠️ **UNTESTED, and recorded as such in the chapter and the track README: the degraded branch has NEVER
+  EXECUTED.** The post-fix pipeline was green on a *healthy* cluster, where old and new logic agree — so it
+  proves the happy path is unbroken and **cannot** distinguish the fix from the bug. Also untested: the
+  rigorous settle-delay variant (compare `.Version.Index` across the deploy). Also unmeasured: whether
+  unpinned `redis` silently lost its local volume when it rescheduled during the outage (trap C3's
+  mechanism, possibly having occurred for real inside a different drill).
+  ⭐ **Two CI-specific traps worth reloading cold. (1) A job RETRY replays the pipeline's ORIGINAL commit**
+  — we fixed a file, pushed, hit Retry, and the runner checked out the old commit and failed identically;
+  the manufactured conclusion "my fix did nothing" is wrong and extremely convincing. **After a fix, create
+  a NEW pipeline.** **(2) `Updating service X` is printed for every service on a byte-identical spec** — it
+  describes the API call, not a rollout; read literally it implies an unpinned service was recreated, which
+  would be silent data loss. Also: bracketed-paste artifacts manufactured `docker: command not found` on a
+  node where Docker was running, and a `404` where the real endpoint returns `500` (**P4-F5**).
+  ⚠️ **A process failure worth not repeating: survivor-side observations were written into the phase file
+  as though measured, sourced from a session SUMMARY that claimed they had been provided. They had not.**
+  Caught by grepping the transcript. ⭐ A conversation summary is the same class of object as a status page
+  or a replica count — a report from a layer that is not the layer that fails. **Cite the primary source.**
+  📄 **Chapter 3 `chapter03_a_pipeline_that_deploys.md`** (680 lines) + figure
+  `ch03_fig1_delivery_path.dot/.png` (11.9pt, figcheck clean) + docx. Ledger rows **L21** (passphrase-less
+  key in an unmasked CI variable — GitLab cannot mask multi-line values *at all*) and **L22**
+  (`StrictHostKeyChecking=no`; ✅ measured that `mkdir ~/.ssh` makes it TOFU *within* the job — `Permanently
+  added` appears once, later connections verify, so the window is the job's FIRST connection). Spine of the
+  chapter: **one instrument per question.**
   ⭐ **PHASE 17 CHARTER agreed:** its success condition is *"every ⚠️ recited row in the Phase 16 ledger is
   now ✅ verified"* — host keys pinned, a maskable/keystore credential, an unprivileged agent.
   🎯 **FULL TRACK REVIEW DONE (Aug 18, evening): four review agents audited everything; all findings
@@ -1062,7 +1113,10 @@ editing `CURSOR_RULES`:
 - **Jun 18, 2026: kernel fully un-stuck.** Went 6.17.2-1 → 6.17.13-13 → **7.0.6-2-pve** (all NVMe-clean), full host upgrade to PVE 9.2.3, all package holds removed. 7.0.6-2 tested via --next-boot, then made permanent and confirmed it boots autonomously (2 reboots clean). 6.17.13-13 kept as fallback. See current_phase.md + phase1b.
 - Script server running at http://192.168.1.195/scripts/
 - **GitLab CE LIVE at http://192.168.1.181** (root/[See PASSWORDS.md])
-- **GitLab Runner LIVE at 192.168.1.182** (gitlab-runner-1, v18.7.2)
+- **GitLab Runner LIVE at 192.168.1.182** (gitlab-runner-1, **v19.2.1** as of a job log Aug 19, 2026 —
+  Phase 4 installed **v18.7.2**, so the runner has been upgraded underneath us, presumably by apt.
+  ⚠️ Version drift in a CI executor is worth noticing: it is a component whose behaviour our pipelines
+  depend on, upgrading itself without a decision or a record.)
 - **Container Registry OPERATIONAL** on port 5050
 - **CI/CD Pipeline PRODUCTION-READY** - Full automation working!
 - **Test app deployed:** http://192.168.1.180:8080 (via pipeline)

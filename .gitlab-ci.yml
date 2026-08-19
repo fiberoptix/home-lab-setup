@@ -49,12 +49,22 @@ variables:
   REG_USER: swarm-lab-pull
 
   SWARM_USER: agamache
-  # ⚠️⚠️ TRAP C4 — DO NOT "FIX" THIS. ⚠️⚠️
-  # One manager, by IP. The control plane is HA (3 managers, quorum 2) but this delivery
-  # path is not: kill THIS node and the deploy fails while the cluster is perfectly
-  # healthy and serving traffic. That is the best CI lesson in the phase and it has to be
-  # FELT before it is fixed. See phase16 -> planted traps -> C4.
-  SWARM_HOST: 192.168.1.191
+
+  # ✅ TRAP C4 — SPRUNG Aug 19, then fixed here. History, because the before matters:
+  #
+  #     SWARM_HOST: 192.168.1.191      # one manager, by IP
+  #
+  # The control plane was HA (3 managers, quorum 2); this delivery path was not. `qm stop
+  # 191` and the job died on its first command — `Host is unreachable`, exit 255 — while
+  # the cluster held quorum, elected a new leader, and kept serving the UI. ⭐ The lesson
+  # is not "don't hardcode an IP". It is that HA is a property of a SPECIFIC PATH, and the
+  # deploy path is a path nobody thinks to include in the HA review.
+  #
+  # 🚨 And it had a second head nobody designed: `.191` was chosen because it was "the
+  # first manager", and postgres is PINNED to `.191` (decision A3). Two independent single
+  # points of failure landed on the same host, so one `qm stop` took out the deploy path
+  # AND the database. Neither decision was wrong; their INTERSECTION was.
+  SWARM_HOSTS: "192.168.1.191 192.168.1.192 192.168.1.193"
 
   # deploy_swarm.sh resolves the manifest RELATIVE TO ITSELF:
   #   $(dirname $BASH_SOURCE)/../manifests/capricorn.stack.yml
@@ -86,7 +96,14 @@ deploy_swarm:
 
   environment:
     name: swarm-lab
-    url: http://192.168.1.191:5001
+    # ⚠️ KNOWN RESIDUAL, deliberately left: this URL is still single-homed. `environment:`
+    # is resolved when the job STARTS, from static variables, so it cannot name whichever
+    # manager the loop below ends up choosing. Any node serves the app via the routing mesh,
+    # so this link works whenever `.192` is up — and breaks when it isn't, even though the
+    # deploy itself would have succeeded via another node.
+    # ⭐ Same disease as C4 in a place the C4 fix cannot reach. A genuinely single address
+    # that survives node loss needs DNS or a VIP, i.e. infrastructure, not YAML. Phase 17.
+    url: http://192.168.1.192:5001
 
   before_script:
     # The key goes into ssh-agent VIA STDIN and is never written to a file. It therefore
@@ -107,7 +124,55 @@ deploy_swarm:
     - mkdir -p ~/.ssh && chmod 700 ~/.ssh
 
   script:
-    - echo "Deploying to swarm manager $SWARM_HOST (single target — see trap C4)"
+    # ---------------------------------------------------------------------------------
+    # C4 fix — pick a manager that can ACTUALLY ACCEPT A DEPLOY, not merely one that
+    # answers on port 22.
+    #
+    # ⭐ The probe is the whole point, and getting it wrong is the classic mistake.
+    # `ping`, or a bare `ssh host true`, tests REACHABILITY — and reachability is not the
+    # question being asked. A node can accept SSH while being a worker (no `docker node
+    # ls`), or a manager whose cluster has LOST QUORUM, in which case the deploy fails
+    # halfway through having already copied files. Drill C5 measured exactly that state:
+    # SSH fine, `docker node ls` hanging until `context deadline exceeded`.
+    #
+    # `docker node ls` is therefore the honest probe. It returns 0 only from a manager
+    # that can reach a Raft majority — which is precisely the capability the next 5
+    # commands depend on. ⭐ Probe for the capability you are about to use, not for a
+    # proxy that correlates with it.
+    #
+    # -o BatchMode=yes matters more than it looks: without it a key failure makes ssh
+    # PROMPT FOR A PASSWORD, and in a CI job with no tty that either hangs the pipeline
+    # or, worse, silently succeeds via a fallback we did not intend. That is finding
+    # P4-F2, found by watching a local test go green for the wrong reason.
+    #
+    # -o ConnectTimeout=5 bounds each attempt. A powered-off node fails instantly
+    # (EHOSTUNREACH), but a FIREWALLED one blackholes packets and would otherwise sit on
+    # ssh's default ~2min timeout per host before trying the next.
+    # ---------------------------------------------------------------------------------
+    - |
+      echo "==> choosing a deploy target from: $SWARM_HOSTS"
+      SWARM_HOST=""
+      for candidate in $SWARM_HOSTS; do
+        printf '    %-15s ' "$candidate"
+        if ssh -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=5 \
+               "$SWARM_USER@$candidate" 'docker node ls >/dev/null 2>&1'; then
+          echo "USABLE — reachable, a manager, and has quorum"
+          SWARM_HOST="$candidate"
+          break
+        fi
+        echo "unusable — skipping"
+      done
+      if [ -z "$SWARM_HOST" ]; then
+        echo ""
+        echo "FATAL: no manager can accept a deploy."
+        echo "⭐ Read this failure carefully: it is NOT the C4 failure wearing a new hat."
+        echo "   C4 was 'the one host I named is gone' — a wiring bug, fixable in this file."
+        echo "   This is 'all three managers refused' — the CLUSTER is down, or quorum is"
+        echo "   lost, and no amount of retrying the pipeline will change that."
+        exit 1
+      fi
+      export SWARM_HOST
+      echo "==> deploy target: $SWARM_HOST"
 
     # Reproduce the layout deploy_swarm.sh expects, then ship the two artefacts.
     # ⚠️ Deliberately NOT relying on the NAS share being mounted on the node, even though

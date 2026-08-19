@@ -30,7 +30,7 @@ assumes. `COMMANDS.md` is a reference, not a chapter; keep it beside you from Ch
 |---|---|---|---|
 | 01 | [Building the cluster](chapter01_building_the_cluster.md) | Quorum arithmetic and why 2 managers are worse than 1; the manager-vs-worker token trap; idempotent provisioning; the address pool and CA expiry `swarm init` creates without telling you; `Ready` vs `Active` vs `Reachable` | ✅ Written |
 | 02 | [Shipping to it](chapter02_shipping_to_it.md) | Stack vs compose and what Swarm silently ignores; secrets as files; **how registry auth really reaches a node**; why `deploy` exiting 0 means nothing; why replica counts mislead; digests vs tags; the routing mesh | ✅ Written |
-| 03 | A pipeline that deploys | Portable deploy logic, deploy tokens, and why an HA control plane is not an HA delivery path | 🔲 Planned — blocked on a Part 4 design decision (recorded in the phase file), not on missing work |
+| 03 | [A pipeline that deploys](chapter03_a_pipeline_that_deploys.md) | Where the CI/deploy-logic boundary goes and how to test that you drew it right; a key into a runner without ever writing it to disk, and the two false greens found proving it; masking vs `ps` — different surfaces; ⭐ **an HA control plane is not an HA delivery path**; how one dead node makes a replica count report a database that does not exist as `1/1`, and breaks a convergence check in **both directions at once**; the lies a *CI log* tells | ✅ Written |
 | 04 | [State: what the cluster will not carry for you](chapter04_state.md) | Named volumes are node-scoped, so state gets **stranded rather than lost**; durability ≠ availability; rotating a secret rotates only the client; `trust` on loopback; concurrent workers racing to seed one database | ✅ Written |
 | 05 | [Breaking it on purpose](chapter05_breaking_it.md) | The failure drills, predictions written first: unpullable images and rollback; **an image that starts and is the wrong application — first passing every signal, then re-run against the fix and caught in 47 seconds**; quorum loss (writes *and* reads); the reboot that silently cost three replicas; how to run a drill that means something | ✅ Written |
 | 06 | [False greens](chapter06_false_greens.md) | ⭐ The unplanned capstone: eight ways this cluster reported success for a question nobody asked, why every one of those signals was *honest*, the ladder of questions, and the smoke gate we built — including the failure it missed and how the gap was closed | ✅ Written |
@@ -105,6 +105,10 @@ maps each row to where it is taught:
 | L15 | An app that starts anyway when its database is missing | Ch 6 §1 |
 | L16 | `pg_hba.conf` trusts every local connection | Ch 4 §2 |
 | L17 | Stateful service on a node-local volume, unpinned | Ch 4 §1 |
+| L19 | CI runner `privileged` with the host Docker socket mounted | Ch 3 §5 |
+| L20 | The branch CI builds from is a full plaintext secret mirror | Ch 3 §5 |
+| L21 | Passphrase-less SSH deploy key in an unmasked CI variable | Ch 3 §4 |
+| L22 | `StrictHostKeyChecking=no` on every `ssh`/`scp` in the job | Ch 3 §4 |
 
 ---
 
@@ -128,6 +132,11 @@ sentence, so you know to learn it elsewhere:
 - **Resource limits under real pressure** — limits are declared in the manifest; the scheduler was
   never made to enforce them against contention.
 - **Multi-network stacks, non-default logging drivers, log volume at scale** — out of scope.
+- **Deploying into a degraded cluster.** Chapter 3 §7 adds a precondition that refuses to, and a
+  corrected convergence check that counts tasks rather than replicas. Both were written *because* a
+  degraded cluster broke the old check — but the fixed code has only ever run against a **healthy**
+  cluster, where the old and new logic agree. ⚠️ **Its failure branch has never executed**, and the
+  chapter says so where it matters.
 
 ---
 

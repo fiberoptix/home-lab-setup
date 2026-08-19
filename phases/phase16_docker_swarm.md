@@ -2132,6 +2132,8 @@ opinion until proven.** Do not let them wear the authority of the tested ones.
 | L14 | **The `pg_password` value existed ONLY inside Swarm's Raft log** — created out of band, never written down. The `s02` rollback destroyed it, and it is now unrecoverable. | Nothing of value was lost: the postgres volume was destroyed by the same rollback, so the next deploy runs `initdb` fresh and any new password works. | The authoritative copy lives in a real secrets manager (Vault, SSM, Secrets Manager) that the orchestrator *reads from*. The orchestrator is a **delivery mechanism, never the system of record**. | 🚨 **`docker secret` is not a secrets manager, and this is the trap.** The API will not give a secret back — `docker secret inspect` returns metadata, not the value — so a cluster rebuild loses every credential you did not store elsewhere. ⚠️ **But the NODE will:** `docker exec <task> cat /run/secrets/<name>` prints it in cleartext, so **`docker` group membership on any node equals read access to every secret scheduled onto it**, invisibly to any audit trail. Unreadable to operators, readable to anyone on the box — the worst of both. ⚠️ **We only escaped because the data volume died too.** Had the volume survived the Raft loss, postgres would still be authenticating against the OLD password baked into its data directory while the new secret disagreed: **a database you cannot log into, holding data you cannot read, with no copy of the credential anywhere.** | 🚨 **hit it for real, Aug 13** |
 
 | L19 | 🚨 **The shared runner's `docker` executor mounts `/var/run/docker.sock` into every job container AND runs `privileged = true`.** Observed Aug 19 at the start of Part 4 in `/etc/gitlab-runner/config.toml` on `.182`: `executor = "docker"`, `image = "docker:24.0"`, `privileged = true`, `volumes = ["/cache", "/var/run/docker.sock:/var/run/docker.sock"]`. | It is how the existing Capricorn pipeline builds and pushes images, and it was inherited, not chosen. One operator, one LAN. | Rootless build tooling that needs no daemon socket — **Buildah/`kaniko`/BuildKit in rootless mode** — or a dedicated build service the job talks to over an authenticated API. `privileged` is not granted, and the socket is never mounted. Where a daemon socket is genuinely unavoidable, the runner is **single-tenant and disposable**, not shared. | 🚨 **The docker socket is a root shell on the runner host, and there is no smaller way to say it.** Any job can `docker run -v /:/host` and read or write the entire filesystem as root — so **every project that can reach this runner can take over `.182`**, and `.182` is the host that deploys real production. ⚠️ **The part that makes it structural rather than sloppy: a job CANNOT decline it.** `volumes` and `privileged` live in the *runner's* config, so least privilege is not available to the person writing the pipeline — our `deploy_swarm` job inherits root-equivalent access to the runner host whether it wants it or not, and no amount of care in `.gitlab-ci.yml` can give it back. **This is also why "the runner already exists and needs no setup" (A1) was good news about effort and bad news about blast radius.** | ✅ **VERIFIED — read out of the live runner config, Aug 19** |
+| L21 | 🚨 **The CI deploy key is a passphrase-less `ed25519` private key held in an UNMASKED project variable (`SWARM_SSH_KEY`), unprotected.** Generated Aug 19 and authorised for `agamache` on all three managers. | A passphrase is unusable in unattended CI (nothing can type it), and **GitLab cannot mask a multi-line value at all** — so unmasked was not a choice, it was the only option the platform offers for a PEM. Purpose-built for one phase, one unprivileged account, three lab VMs, recorded for destruction at teardown. | The runner holds **no** long-lived key: an OIDC/JWT job identity is exchanged at job start for a **short-lived SSH certificate** (e.g. Vault's SSH-CA or Teleport), or the job calls a broker exposing only a narrow "deploy this artefact" verb and never gets SSH at all. | 🚨 **A credential with no expiry, readable by anyone with Maintainer on the project and by every job that runs in it, and whose compromise is UNDETECTABLE** — nothing about its use distinguishes the pipeline from someone who copied it. Revocation means hand-editing `authorized_keys` on three hosts. ⚠️ **And the masking gap is a platform limit, not an oversight**: any job that echoes the variable prints the whole key, so the usual "we masked our secrets" reassurance is simply false for every PEM in every GitLab project. | ⚠️ recited (PROD answer untested) |
+| L22 | **Every `ssh`/`scp` in the deploy job passes `-o StrictHostKeyChecking=no`.** Mirrored from the pre-existing production pipeline in the same GitLab instance. | Flat isolated LAN, and each job gets a fresh container with an empty `known_hosts`, so a pin would have to be re-established every run regardless. | `known_hosts` pre-seeded from a trusted source, with `StrictHostKeyChecking=accept-new` — which still learns *unknown* hosts but **refuses a host whose key has CHANGED**. | 🚨 **This is the one step in the pipeline where a machine-in-the-middle is HANDED the deploy key and the registry token rather than having to steal them.** ✅ **Measured mitigation, better than first assumed:** the `mkdir -p ~/.ssh` makes it trust-on-first-use *within the job* — the log shows `Permanently added` exactly once, and the four later connections verify against that key. So the window is the job's FIRST connection, not every connection. Still not authentication. | ✅ TOFU behaviour verified Aug 19; PROD variant ⚠️ recited |
 | L20 | 🚨 **The branch CI builds from is the full plaintext secret mirror.** `push_gitlab.sh` exists to put `PASSWORDS.md`, `github_credentials.md`, `proxmox/credentials` and `working/` onto `gitlab/main` (`git add -f -A`, ignore rules bypassed on purpose). GitLab CI clones the branch it builds, so the job's working directory holds every credential in the project. | The mirror's whole purpose is to be a complete plaintext backup of a private repo, and until Aug 19 nothing ever *built* from it. Adding CI is what turned a backup branch into a build source. | Secrets never live in the repository at any layer — not in the working tree, not in a "private mirror", not in history. CI reads them from a secrets manager at job time, and the repo the pipeline checks out contains code only. | ⭐ **A CI job's blast radius is the CONTENT OF THE BRANCH IT CHECKS OUT, not the variables you were careful with.** Masking `REG_TOKEN` and scoping it to `read_registry` (rule B6) is correct and also nearly beside the point while the same job can `cat PASSWORDS.md` — which holds the Proxmox root password, the GitLab root password, and the swarm postgres secret. ⚠️ **The failure is compositional: two individually defensible decisions** (a complete private backup; a manual CI job) **combine into something neither of them was.** That is the general shape worth remembering, because each half will look fine in its own review. Mitigations exist and are cheap — `GIT_STRATEGY: none` or a sparse checkout of only the two files the job needs — but the *reason* to reach for them is this row, not tidiness. | ✅ **VERIFIED — `push_gitlab.sh` line 118 stages tracked + ignored; confirmed by its own `--dry-run` output listing the ignored paths** |
 
 ⭐ **L9 is the best row in this table and it wrote itself.** Docker *volunteered* the warning
@@ -2317,6 +2319,452 @@ operator's own loaded keys. Result: `Identity added: (stdin)`, no prompt, `docke
 exist in production.** Verifying a new credential while your *own* credentials are loaded is the everyday
 form of it — and it is the same family as chapter 6's false greens, one rung lower down, since here the
 instrument itself was misconfigured rather than the system lying.
+
+### Snapshot `s06-ci-wired` — taken Aug 19, 11:53 AM (Andrew authorized)
+
+Hot, guest-agent fsfreeze, all three together per rule B3: **1.490 s / 1.556 s / 1.606 s**. Chain is now
+`s01 → s02 → s03 → s04 → s05 → s06`.
+
+⚠️ **Two caveats that belong WITH the snapshot but are not IN its description** — `qm` offers no way to
+edit a snapshot comment from the CLI, so they live here:
+
+1. 🚨 **`SWARM CA EXPIRES 2026-11-13`.** `s05`'s description carried this warning and `s06`'s does not —
+   an omission by the AI, recorded rather than papered over. **A restore of `s06` after mid-November
+   presents expired Swarm CA certificates, and the symptom reads as a network fault, not a cert problem.**
+   Everything from `s02` onward inherits this clock.
+2. **`s06` contains recoverable secrets**, same as its parents: `pg_password` in the Raft log (Autolock
+   Managers is `false`), the registry token in `~/.docker/config.json`, and now the **public** half of
+   `swarm_deploy_ed25519` in `authorized_keys` on all three nodes (harmless by itself — the private half
+   lives only in `working/` and the GitLab CI variable).
+
+### Trap C4 — fired Aug 19, ~12:10–12:22 PM. 🙋 Andrew predicted first, in writing.
+
+**Setup:** `qm stop 191` with `SWARM_HOST` hardcoded to `192.168.1.191`, then the cluster and app were
+checked from a *survivor* **before** re-running the pipeline — that ordering is what makes the lesson
+legible. Andrew's written predictions are in `education/docker-swarm/scratch/answers` (gitignored).
+
+**The job died on its first command:**
+
+```
+$ ssh -o StrictHostKeyChecking=no "$SWARM_USER@$SWARM_HOST" "mkdir -p '$REMOTE_DIR/scripts' …"
+ssh: connect to host 192.168.1.191 port 22: Host is unreachable
+ERROR: Job failed: exit code 255
+```
+
+#### ⛔ EVIDENCE GAP — closed 12:29 PM, but read this first
+
+**For a while the only evidence was the job log and Andrew's written predictions.** The survivor-side
+sequence was requested, not run, and then *written up as though it had been*. It was collected properly
+afterwards (raw capture: `scratch/c4_survivor_192.txt`), and everything below cites it.
+
+🚨 **An earlier revision of this section asserted specific survivor-side output — leader on
+`docker-swarm-3`, `ui:200`, `grep -ci capricorn → 2`, `postgres 1/1` with a two-task `service ps`,
+`backend 3/2`, `frontend 4/3`, an API returning `Internal server error`. NONE of it was observed. It was
+written from a summary of the session that claimed the output had been provided; the transcript shows it
+never was.** ⭐ **This is exactly the failure the whole track is about — a plausible narrative accepted
+because a reporting layer claimed success, with no check against the layer that would actually fail.**
+Cross-check against a primary source, not a summary of one, before anything enters the permanent record.
+
+Also, from re-reading the manifest: 🚫 **`redis` is NOT pinned** (manifest line 32 — the pin was removed
+after C3 was run). Andrew predicted "PG *and* REDIS are pinned to `.191`", so that half is **refuted by the
+manifest**, no cluster access required. And the consequence runs the *opposite* way from intuition: an
+**unpinned** `redis` reschedules onto a survivor and starts against a **fresh, empty local volume** — it
+comes back looking healthy having silently lost its data, which is trap C3's mechanism. Pinned `postgres`
+fails visibly; unpinned `redis` "recovers" and lies. **Availability and durability are not the same axis.**
+
+#### P41–P43 — recorded before the checks, then measured. All three ✅ CONFIRMED.
+
+**P41 ✅** — the control plane answered normally with one manager gone:
+
+```
+docker-swarm-1   Unknown/Down   Active   Unreachable   29.7.2
+docker-swarm-2 * Ready          Active   Reachable     29.7.2
+docker-swarm-3   Ready          Active   Leader        29.7.2
+```
+
+⭐ **Contrast C5 sharply in the chapter: at 2-of-3 the API answers instantly; at quorum loss even *reads*
+return `DeadlineExceeded`.** "A manager died" and "the control plane died" look nothing alike from the CLI,
+and conflating them wastes the first ten minutes of an incident.
+
+🚨 **Unlogged bonus finding — node status decays in TWO stages, and Andrew caught the intermediate one by
+running the command twice.** First invocation: `STATUS=Unknown`. Seconds later: `STATUS=Down`. But
+`MANAGER STATUS` read **`Unreachable` in both** — so **Raft peer health noticed before node liveness did.**
+Two subsystems with two different timeouts, and only one of them had converged when he first looked. ⭐ This
+is the Phase 14 `Terminating`-but-still-serving hazard again: **a status field mid-transition is not a
+result.** Had he checked once and moved on, he'd have recorded `Unknown` as the steady state.
+
+**P42 ✅ CONFIRMED, and worse than predicted.** `docker service ls` reports a serene green while the node
+is **powered off**:
+
+```
+capricorn_postgres   replicated   1/1     # a lie
+```
+
+I predicted `docker service ps` would show two tasks. It shows **five**:
+
+| Task | Node | Desired | Current | Meaning |
+|---|---|---|---|---|
+| `mi6x3qb…` | `<none>` | Running | **Pending** 17 min | the replacement, **stuck forever** |
+| `uzyvqh9…` | `docker-swarm-1` | Shutdown | **Running** 17h | 🚨 **the phantom — this is the `1`** |
+| `pjlkyrf…`, `0qfabup…` | `docker-swarm-1` | Shutdown | Shutdown 17h | history |
+| `s2fyz7f…` | `docker-swarm-1` | Shutdown | **Failed** 18h | history — `No such container` |
+
+**The arithmetic:** the replica count tallies tasks whose *current* state is `Running`. Exactly one
+qualifies — the task on the **powered-off host**, which Swarm wants shut down and **cannot confirm**,
+because confirmation requires reaching a node that is gone. So an unconfirmable ghost is counted as a
+healthy replica. Meanwhile the real replacement can never start, and the scheduler says so in full:
+
+```
+"no suitable node (scheduling constraints not satisfied on 2 nodes; 1 node not available for new tasks)"
+```
+
+⭐ **Read that message as arithmetic: all three nodes ruled out, for two different reasons.** Two fail the
+`node.hostname == docker-swarm-1` pin; one is unavailable. **Swarm is not being vague — it is telling you
+the pin is the cause, if you read past "no suitable node".**
+
+⭐ **`docker service ps` is the ONLY command here that tells the truth** — which is pointed, because the
+Aug 18 audit found it **missing from chapters 1 and 2** despite being the command that cracked the
+registry-auth mystery. Third time it has been the decisive tool. **It belongs in every chapter.**
+
+⭐ **Confirmed: an inflated replica count has (at least) two unrelated causes.** `backend 3/2` and
+`frontend 4/3` here are **NOT** the start-first overshoot measured in Part 6.5 — they are a live replacement
+on a survivor *plus* a phantom on the dead node. Identical arithmetic, different mechanism. **Reading `4/3`
+as "start-first" sends you to `update_config` when the real story is a dead host.**
+
+⭐ **Minor but useful:** `--no-trunc` shows all five tasks carrying the **same** `@sha256:5f76f30b…` digest.
+`:latest` was resolved to a digest **once**, at deploy time, and frozen into the service spec — so tasks
+created 18 hours apart are byte-identical. That is Swarm quietly protecting you from `:latest` drift
+*within* a service's lifetime, and exactly why a redeploy is what picks up a new `:latest`.
+
+**P43 ✅ CONFIRMED, including the hang.** The routing mesh keeps the UI up from survivors while the data
+layer is gone: `ui:200`, `grep -ci capricorn → 2`. And the API failed **two different ways in sequence**:
+
+```
+$ curl -s .../api/v1/data/summary      →  (hung, ^C)
+$ curl -s .../api/v1/data/summary      →  {"detail":"Internal server error"}
+```
+
+⭐ **First call hangs, second fails fast.** The first waits on a TCP connect to a VIP with no healthy
+endpoint; by the second, the failure is already known and returns immediately. **The same broken dependency
+produces a timeout *or* a clean 500 depending only on when you ask** — which is why "it was slow, now it
+errors" is not evidence of two problems.
+
+🚨 **This is the trap C4 payoff: gate 3 (`ui:200` + `grep`) is FULLY GREEN on a system whose database does
+not exist.** Chapter 6 caught the mirror image — a wrong image passing the smoke gates. Together they bound
+what a frontend check can ever prove: **it certifies HTML, not the application.** Gate 2's row-count floor
+is the only gate here that touches the database, and it is the only one that would have caught this.
+
+#### 🚨 Finding P4-F5 — bracketed-paste artifacts manufacture FALSE REDS
+
+Two failures in this capture were caused by **pasting**, not by the system:
+
+```
+$ ^[[200~docker node ls          →  docker: command not found
+$ curl … /api/v1/data/summary~   →  {"detail":"Not Found"}
+```
+
+The terminal's bracketed-paste marker `^[[200~` leaked into the command line, so the first line ran a
+program named `\e[200~docker`, and a stray `~` landed on the end of a URL path.
+
+⭐ **Both errors are dangerously plausible.** `docker: command not found` on a node where Docker is
+demonstrably running invites "the Docker install is broken". And `{"detail":"Not Found"}` is a **404 from a
+healthy router** — a completely different diagnosis from the `500` the real endpoint returns. **Had that
+been the only API check, the conclusion would have been "the endpoint is missing" rather than "the database
+is gone."** ⭐ **Before believing a `command not found` or a `404`, check what you actually typed** — and
+prefer one command per line over pasted blocks into an SSH session.
+
+#### The design flaw the trap exposed regardless of the missing measurements
+
+🚨 **We accidentally co-located the DELIVERY PATH and the SYSTEM OF RECORD on the same node.** `SWARM_HOST`
+was set to `.191` because it was "the first manager"; `postgres` is pinned to `.191` by decision A3.
+**Nobody designed that overlap** — two independent single points of failure landed on one host, so one
+`qm stop` takes out both the deploy path and the database. ⭐ **This is the shape that turns a survivable
+event into an outage, and it is invisible in either design read on its own.** Neither decision is wrong;
+their *intersection* is. Andrew spotted the `postgres` pin from the manifest before running anything.
+
+⚠️ **Methodological consequence: this run conflates two failures, so the clean C4 claim ("healthy cluster,
+healthy app, dead delivery path") is NOT what was demonstrated.** Say so in the chapter. Isolating the
+variable needs a target whose loss the app survives.
+
+#### 🚨 Finding P4-F4 — RETRYING A JOB REPLAYS THE OLD COMMIT
+
+From the failed job's log:
+
+```
+Checking out 50915645 as detached HEAD (ref is main)...
+```
+
+`5091564` was the *first* snapshot. `e72ecf1` had already been pushed to `gitlab/main` by then. **Andrew
+retried the existing job rather than creating a new pipeline, and a retry replays the pipeline's original
+commit.** Harmless here (only documentation had changed), and 🚨 **a trap waiting for the C4 fix**: edit
+`.gitlab-ci.yml`, push, hit *Retry*, and the job runs the **old** file — producing the identical failure and
+the conclusion *"my fix did nothing"*. **After any fix, create a NEW pipeline.** Also note `git depth set
+to 20`: a shallow fetch, so history-dependent tooling gets a truncated view.
+
+#### The three SSH failure messages, and why the distinction is diagnostic
+
+`exit code 255` is ssh's own signal — ssh reserves 255 for *its* failures and otherwise passes the remote
+command's exit status through. So 255 means **"I never got to run your command."** And the message names
+which of three worlds you are in:
+
+| Message | Means | Speed |
+|---|---|---|
+| **`Host is unreachable`** (what we got — VM powered off, ARP finds nothing, `EHOSTUNREACH`) | nothing exists at that IP | **immediate** |
+| `Connection timed out` | something is silently dropping packets — firewall, wrong subnet | slow, hits a timeout |
+| `Connection refused` | host is up, nothing listening on 22 — sshd down, wrong port | immediate |
+
+⭐ **Read the message before forming a theory.** All three present as "the deploy can't reach the host",
+and they send you to three different teams.
+
+### The C4 fix — Andrew chose "try each manager in turn", proof with `.191` still down
+
+`SWARM_HOST: 192.168.1.191` became `SWARM_HOSTS: "192.168.1.191 192.168.1.192 192.168.1.193"` plus a
+selection loop. **The loop is the boring half.** The half that matters is *what the loop probes with*:
+
+```sh
+ssh -o BatchMode=yes -o ConnectTimeout=5 "$SWARM_USER@$candidate" 'docker node ls >/dev/null 2>&1'
+```
+
+🚨 **`ping`, or `ssh host true`, would have been the wrong probe, and it is the mistake almost everyone
+makes.** Those test **reachability**; the deploy needs **the ability to accept a deploy**. A node can answer
+on port 22 while being a worker, or a manager whose cluster has **lost quorum** — and drill **C5** already
+measured that exact state: SSH fine, `docker node ls` hanging to `context deadline exceeded`. A
+reachability probe would select that node, copy both files, and *then* fail. ⭐ **Probe for the capability
+you are about to use, not for a proxy that correlates with it.** `docker node ls` returns 0 only from a
+manager that can reach a Raft majority, which is precisely what the next five commands require.
+
+Two flags carrying earned weight: `BatchMode=yes` stops ssh **prompting for a password** when key auth
+fails — that is **P4-F2**, found watching a local test go green for the wrong reason — and
+`ConnectTimeout=5` bounds a **firewalled** candidate, which blackholes packets rather than failing fast
+like a powered-off one.
+
+⚠️ **Known residual, left deliberately: `environment.url` is still single-homed.** `environment:` resolves
+from static variables when the job *starts*, so it cannot name whichever manager the loop picks. ⭐ **The
+same disease as C4, in a place the C4 fix cannot reach** — a single address that survives node loss needs
+DNS or a VIP, i.e. infrastructure, not YAML. → Phase 17.
+
+#### Predictions before the fixed pipeline runs — P44–P47
+
+- **P44** — `export SWARM_HOST` inside one `script:` entry is **visible to later entries**, because the
+  runner concatenates all of `before_script` + `script` into **one shell script**. **Cleanly falsifiable:**
+  if each entry got its own shell, `$SWARM_HOST` would be empty and `scp` would target `agamache@:` and
+  fail instantly. (This is also why `eval $(ssh-agent -s)` in `before_script` works at all in `script`.)
+- **P45** — the loop rejects `.191` **instantly**, not after the 5s `ConnectTimeout`: a powered-off host
+  gives `EHOSTUNREACH` immediately. Target selected in ~2–3s.
+- **P46 — the one worth running the experiment for.** `docker stack deploy` succeeds, and the job then
+  **fails at the CONVERGENCE POLL, not at the smoke gate**, timing out after the full `TIMEOUT=300`s. The
+  poll's test is `[ "$current" != "$desired" ]`, so:
+
+  | Service | Replicas | Poll verdict | Reality |
+  |---|---|---|---|
+  | `capricorn_postgres` | `1/1` | ✅ **converged** | 🚨 **does not exist** — phantom on a dead host |
+  | `capricorn_backend` | `3/2` | ❌ pending forever | **fine** — 2 healthy replicas serving |
+  | `capricorn_frontend` | `4/3` | ❌ pending forever | **fine** — 3 healthy replicas serving |
+
+  🚨 **The convergence check is exactly INVERTED. It passes the only genuinely broken service and blocks
+  the two that are healthy.** An equality test on `current/desired` assumes `current` can never *exceed*
+  `desired`, and a phantom task on an unreachable node breaks that assumption in both directions at once.
+  ⭐ **And note where this lands us: the job goes red, for a real problem, via a check that is reasoning
+  wrongly about which problem.** A red for the wrong reason is not a win; next time the wrong reason will
+  point away from the fault.
+- **P47** — the job never reaches the smoke gate, so gate 2's row-count floor — **the only gate that would
+  have caught the missing database** — is never evaluated. The convergence poll shields it.
+
+⚠️ **Judged safe to run with `.191` down:** an identical spec means no service is updated, so `redis` is
+not rescheduled and cannot lose its volume, and the `pre_state` snapshot keeps stale `UpdateStatus`
+latches from being blamed on this deploy.
+
+#### Scored, from the fixed pipeline (new pipeline on `a0822d9f`, 2:00 PM)
+
+**P44 ✅ CONFIRMED.** `export SWARM_HOST` set in one `script:` entry was visible to the three `ssh`/`scp`
+entries after it — the runner concatenates `before_script` + `script` into **one shell**. Falsifiable and
+not falsified: separate shells would have produced `agamache@:` and an instant failure.
+
+**P45 ✅ CONFIRMED.** `.191` was rejected **immediately**, not after the 5s `ConnectTimeout`:
+
+```
+ssh: connect to host 192.168.1.191 port 22: Host is unreachable
+    192.168.1.191   unusable — skipping
+    192.168.1.192   USABLE — reachable, a manager, and has quorum
+==> deploy target: 192.168.1.192
+```
+
+⭐ **The fix is proven by the same event that broke the old pipeline.** Identical cluster state, identical
+`qm stop 191`; last run died here, this one routed around it. **That is what makes the before/after worth
+writing down** — the variable held, only the code changed.
+
+**P46 ✅ CONFIRMED — the inversion is real, in production output:**
+
+```
+==> waiting for convergence (timeout 300s)
+    still pending: capricorn_backend(3/2) capricorn_frontend(4/3)
+```
+
+🚨 **`capricorn_postgres` is absent from that list.** The poll certified as converged the one service that
+**does not exist**, and flagged the two that are serving traffic correctly. Three consecutive polls, no
+variation.
+
+#### ✅ D7 confirmed by observation — the `mkdir ~/.ssh` is NOT vestigial
+
+```
+Warning: Permanently added '192.168.1.192' (ED25519) to the list of known hosts.
+```
+
+**Once, on the probe connection — and never again for the four later connections to the same host.** So the
+pattern really is trust-on-first-use *within the job*: connection 1 learns the key blind, connections 2–5
+**verify against it**. ⭐ That bounds the exposure precisely: an attacker must win the race on the **first**
+connection of a job, not any connection. It is still trust-on-first-use and still not authentication —
+`StrictHostKeyChecking=accept-new` with a pre-seeded `known_hosts` is the PROD answer, Phase 17 — but the
+original reading of D7 ("protects nothing") was **wrong**, and the log says so.
+
+#### ⚠️ Another false signal in the same log: "Updating service" is printed unconditionally
+
+```
+Updating service capricorn_frontend (id: …)
+Updating service capricorn_backend  (id: …)
+Updating service capricorn_postgres (id: …)
+Updating service capricorn_redis    (id: …)
+```
+
+**All four, on a byte-identical spec.** `docker stack deploy` prints `Updating service` for every existing
+service in the manifest — it describes **the API call it made**, not whether anything changed. ⭐ Read as
+"four services were rolled out", it would imply `redis` had been recreated, which for an **unpinned**
+service with a **local** volume would mean silent data loss (trap C3's mechanism). It wasn't: `redis`
+never appears in the pending list and never leaves `1/1`. **The evidence that nothing happened is the
+absence of churn, not the presence of this message.**
+
+#### 🚨🚨 Finding P4-F6 — THE FAILURE MESSAGE AND ITS OWN EVIDENCE CONTRADICT EACH OTHER
+
+The single most instructive artefact of Part 4. The job's final output, verbatim and adjacent:
+
+```
+did not converge: capricorn_backend(3/2) capricorn_frontend(4/3)
+NAME                   NODE             CURRENT STATE         ERROR
+capricorn_backend.1    docker-swarm-3   Running 2 hours ago
+capricorn_backend.2    docker-swarm-2   Running 2 hours ago      <-- TWO backend tasks, not three
+capricorn_frontend.1   docker-swarm-2   Running 2 hours ago
+capricorn_frontend.2   docker-swarm-3   Running 2 hours ago
+capricorn_frontend.3   docker-swarm-3   Running 2 hours ago      <-- THREE frontend tasks, not four
+capricorn_postgres.1                    Pending 2 hours ago   "no suitable node (…)"
+capricorn_redis.1      docker-swarm-2   Running 2 hours ago
+FAILED: convergence timeout after 300s
+```
+
+**The headline says `3/2` and `4/3`. The evidence printed one line below shows exactly 2 and exactly 3,
+all `Running`.** Both numbers are computed correctly; they answer **different questions**, because the
+dump filters `desired-state=running` and the `Replicas` column does not.
+
+⭐ **The dump is right and the headline is wrong — and the dump names the real fault unambiguously**:
+`capricorn_postgres.1`, no node, `Pending`, with the constraint error spelled out. **The only row with a
+problem is the only service the checker cleared.**
+
+🚨 **Think about being handed this at 3am.** The alarm accuses two services that are healthy; the evidence
+under it exonerates them and indicts a third. The most likely human response is to distrust the whole
+output — and the correct diagnosis is sitting in it, in plain text. ⭐ **A monitoring system that
+contradicts itself is worse than one that says nothing, because it spends the one resource an incident is
+short of: your willingness to believe the instruments.**
+
+**P47 ✅ CONFIRMED** — execution never reached the smoke gate, so gate 2's row-count floor, **the only check
+that would have named the missing database**, was never evaluated. ⭐ **A broken cheap check upstream
+disabled the expensive check that worked.** Ordering matters: a gate you never reach protects nothing.
+
+🙋 **Andrew's read of the design question was right on the mechanism:** *"if the extra instance is up then
+current can be > desired in an outage?"* — yes, and that is precisely the phantom. **The half worth adding**
+is why `<` alone would have been a regression: mid-way through a legitimate `start-first` rollout the count
+also reads `3/2`, and `3 < 2` is false, so a naive `<` reports **converged while the rollout is still in
+flight** — a false green in exchange for a false red. **Neither test works, because the count cannot
+distinguish the two situations that produce the identical string.**
+
+### The convergence rewrite (`deploy_swarm.sh`, Aug 19) — one instrument per question
+
+Not a patched comparison. **A change of instrument**, plus a precondition that makes the question moot.
+
+**1. Precondition: refuse to deploy into a degraded cluster.** `docker node ls` is already called to prove
+we are on a manager; it also answers "is every node `Ready`/`Active`". If not, stop — **not because the
+deploy would fail, but because nothing checked afterwards would mean anything**, in either direction. Two
+seconds and an accurate accusation, instead of five minutes and a wrong one. ⚠️ With an `ALLOW_DEGRADED=1`
+escape hatch, deliberately: deploying into a degraded cluster is sometimes the correct incident response,
+and **a tool that forbids the right action gets worked around in ways nobody records.** Loud, not impossible.
+
+**2. Count tasks, not the `Replicas` column.** `docker service ps --filter desired-state=running` excludes
+phantoms by construction — the phantom's desired state is `Shutdown`. ⭐ **This is the same filter the
+failure dump has always used, which is why the dump was right all along.** The fix was already in the file,
+being used for the report and not for the decision.
+
+Re-running the numbers from this outage under the new logic — postgres is now correctly caught:
+
+| Service | old `Replicas` | old verdict | new count | new verdict |
+|---|---|---|---|---|
+| `capricorn_postgres` | `1/1` | ✅ converged 🚨 | **0/1** (the `Pending` task is not `Running`) | ❌ **pending — correct** |
+| `capricorn_backend` | `3/2` | ❌ pending | **2/2** | ✅ converged — correct |
+| `capricorn_frontend` | `4/3` | ❌ pending | **3/3** | ✅ converged — correct |
+| `capricorn_redis` | `1/1` | ✅ converged | **1/1** | ✅ converged |
+
+**3. `-lt` instead of `!=`, and why that is safe only because of what stayed.** Overshoot no longer blocks.
+⚠️ **The `!=` test was doing a second job badly and dropping it alone would have been a regression** — it
+also covered the window between `stack deploy` returning and the manager setting `UpdateStatus`, where a
+stale `completed` can be misread as this rollout finishing. That window now has an explicit `sleep
+$INTERVAL` settle delay, and **whether a rollout has finished is `UpdateStatus`'s job**, which it does
+properly: mid-`start-first` it reads `updating`, so the case that defeats a pure `<` is still caught.
+
+⚠️ **Recorded as OPEN, not solved:** the settle delay is a mitigation, not a proof. The rigorous version
+compares each service's `.Version.Index` across the deploy and trusts `UpdateStatus` only for services
+whose index moved. **Untested, therefore not claimed.** → Phase 17.
+
+#### Predictions P48–P49
+
+- **P48** — re-running with `.191` still down now fails in **under ~5 seconds**, before `docker login` and
+  before `stack deploy`, with `CLUSTER DEGRADED: docker-swarm-1(Down/Active)`. **The same outage, a fifth
+  of a percent of the time, and an accusation that names the right node.**
+- **P49** — after `qm start 191` and reconvergence, a further run goes **fully green**: convergence clean on
+  all four services and all three smoke gates passing, including gate 2 at `total=682`. ⚠️ If gate 2
+  instead reports a total **below 100**, that is not a flake — it is the bootstrap-never-re-ran failure the
+  gate's own error text describes, and the fix is `docker service update --force capricorn_backend`.
+
+#### Scored, run #3 (`cdcad948`, 2:14 PM) — ✅ JOB SUCCEEDED, and that proves less than it looks
+
+`.191` was started before this run, so the pipeline went end-to-end green on a healthy cluster:
+
+```
+    192.168.1.191   USABLE — reachable, a manager, and has quorum
+==> waiting for convergence (timeout 300s)
+    all services converged
+    /api/v1/banking/categories -> 200, body matched
+    /api/v1/data/summary -> total=682 rows
+    5001/ -> 200, body matched 'capricorn'
+==> done
+```
+
+**P49 ✅ CONFIRMED** — 2/2, 3/3, 1/1, 1/1; all three gates; `total=682` exactly as before the outage; no
+`still pending` line at all, so the settle delay did not introduce a stall.
+
+**P48 ➖ NOT TESTED. Recorded as untested, NOT as passed.** `.191` was already back, so the degraded-cluster
+precondition never entered its failure branch.
+
+🚨 **And this is the important entry in this whole section: a green pipeline on a HEALTHY cluster cannot
+distinguish the new convergence logic from the broken one.** With all three nodes up there are no phantom
+tasks, so `Replicas` and the task-level count agree, and the old `!=` test would have printed *exactly this
+same output*. ⭐ **The run that proves the fix is the DEGRADED one. The green run only proves we did not
+break the happy path** — worth knowing, and not what was claimed.
+
+⚠️ **So the degraded branch of the precondition, and the corrected counting, are CODE THAT HAS NEVER
+EXECUTED.** By this project's own standard that makes them *recited*, not verified — the exact category
+Phase 17 was chartered to eliminate. It is a five-second test. Do it rather than inherit it.
+
+#### What the recovery revealed about A3's trade-off
+
+`total=682`, unchanged. ⭐ **The pin that CAUSED the outage is the same pin that preserved the data**:
+`postgres` could not reschedule, so it could not come up on a node holding an empty local volume. Decision
+A3 traded availability for durability and **this outage exercised both halves of that trade in one event** —
+the deploy path died *because* of the pin, and the database survived intact *because* of the pin.
+
+⚠️ **OPEN QUESTION worth chasing, because `redis` is the mirror image — unpinned, with a LOCAL volume.**
+In the 2:07 PM failure dump, `capricorn_redis.1` was `Running` on **docker-swarm-2** having started
+**~2 hours** earlier, i.e. right at the outage. If `redis` was previously on `.191`, then it **rescheduled
+onto `.192` against a fresh, empty `redis_data_swarm`** — trap C3's silent-data-loss mechanism occurring
+for real, unnoticed, in the middle of a different drill. That would also mean **two divergent volumes now
+exist**, one per node. Checkable: `docker volume ls` on both nodes, and `redis-cli DBSIZE`. **Unverified —
+do not write it up as a finding until measured.**
 
 ### CI variables (Andrew, GitLab UI, Aug 19)
 

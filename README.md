@@ -123,7 +123,7 @@ A lot has shipped since the initial CI/CD milestone:
 **Infrastructure Status:**
 - ✅ Proxmox VE **9.2.3** at 192.168.1.150 (kernel **7.0.6-2-pve**, pinned & tested; `6.17.13-13` / `6.17.2-1` kept as fallbacks)
 - ✅ GitLab CE at 192.168.1.181 (source control + CI/CD, auto-start)
-- ✅ GitLab Runner at 192.168.1.182 (Docker executor v18.7.2, auto-start)
+- ✅ GitLab Runner at 192.168.1.182 (Docker executor, v19.2.1 as of Aug 19 2026; installed at v18.7.2)
 - ✅ SonarQube at 192.168.1.183:9000 (v26.1.0, auto-start)
 - ✅ QA Host at 192.168.1.180 (vm-kubernetes-1, auto-start)
 - ✅ WWW/PROD at 192.168.1.184 (Traefik + Let's Encrypt, Capricorn PROD + splash, auto-start)
