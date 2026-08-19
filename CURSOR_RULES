@@ -40,17 +40,26 @@ study material, not a production app. Capricorn is not.
 === STARTUP CHECKLIST ===
 
 1. ✅ Check current date/time including TimeZone using terminal
-2. ✅ Read these files IN ORDER:
-   a. MEMORY.md - Critical decisions & project context
-   b. phases/current_phase.md - Latest work, decisions, and blockers
-   c. PASSWORDS.md - All Passwords and Credentials stored here
-   d. (Optional) /proxmox/Home_Lab_Proxmox_Design.md - Architecture philosophy & dual-access strategy
-   e. (Optional) phases/phaseX_*.md - Read relevant phase files for detailed context on completed work
-   f. education/CONVENTIONS.md - MANDATORY before writing or editing ANY study material in
-      /education. Not optional if the session touches education content.
-   g. education/METHOD.md - MANDATORY before STARTING or RUNNING a track. It is the learning
-      method: plan, build, break, investigate, document. CONVENTIONS governs the ARTEFACT,
-      METHOD governs the WORK that produces it - a build session needs BOTH.
+2. ✅ Load context. ALWAYS these two, and ONLY these two, at boot:
+   a. MEMORY.md - project-wide facts, prohibitions, and the PHASE INDEX
+   b. phases/current_phase.md - read the "▶️ RESUME HERE" block at the top. Do NOT read the whole
+      file at boot; it is a long history that the phase files also carry.
+
+   THEN LOAD-BEFORE-TOUCH. Everything else loads WHEN the work reaches it, not at boot:
+   * The PHASE INDEX in MEMORY.md maps area -> file -> what you get WRONG without it. The FIRST
+     time in a session you touch an area, read its file and SAY IN YOUR MESSAGE which files you
+     read. A claim written down is a claim Andrew can check.
+   * This re-triggers. A session that starts as a 5-minute question and turns into a build must
+     load the build's context AT THAT MOMENT. There is no "I already loaded at boot" exemption.
+   * education/CONVENTIONS.md + education/METHOD.md - MANDATORY before writing, editing or
+     running ANY study material. CONVENTIONS governs the ARTEFACT, METHOD governs the WORK that
+     produces it - a build session needs BOTH.
+   * ⛔ PASSWORDS.md - ON DEMAND ONLY. Do NOT read it at boot. Read it when a task actually needs
+     a credential. Credentials do not belong in context "just in case".
+   * (Optional) /proxmox/Home_Lab_Proxmox_Design.md - architecture philosophy & dual-access strategy
+
+   (Edit of THIS file authorised in writing by Andrew, Aug 19 2026, for the item-2 context-loading
+    rewrite and the closing question below - those two changes only.)
 3. ✅ Git Status Check:
    a. Run `git fetch --all` to update remote tracking branches (GitHub/GitLab)
    b. Run `git status` to check:
@@ -245,4 +254,7 @@ Credentials in .env (not committed to git)
 === IF CONTEXT UNCLEAR ===
 Read MEMORY.md first, then /proxmox/Home_Lab_Proxmox_Build_Plan.md for current phase status.
 
-Ready? Ask Andrew: "What would you like to work on today?" or wait for "Action CURSOR_RULES"
+Ready? Ask Andrew: "What would you like to work on today?" - and if he names a topic or area,
+load that area's PHASE INDEX row BEFORE proposing anything. "Action CURSOR_RULES, pay special
+attention to <topic>" is the supported form: treat <topic> as an instruction to grep phases/ for it
+and read the matching file up front.

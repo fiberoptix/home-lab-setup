@@ -57,6 +57,41 @@ editing `CURSOR_RULES`:
 
 ---
 
+## 🗂️ PHASE INDEX — what is NOT in this file, and when NOT reading it makes you WRONG
+
+**This file holds project-wide facts and prohibitions. The working record — decisions, drills, raw
+evidence, prediction logs — lives in phase files.** ⭐ The whole corpus is only ~13k lines, so
+`rg '<topic>' phases/` is faster than reading any one of them. **Grep first, then read the hit.**
+
+🚨 **The trigger discipline, because a pointer you skip is worse than no pointer at all** (a big
+MEMORY fails safe; a skipped pointer makes you *confidently* wrong): **the first time in a session you
+touch an area, read its file and SAY IN YOUR MESSAGE which files you read.** A claim you have to write
+down is one Andrew can check. ⚠️ **This exact failure happened twice on Aug 19, 2026** — a diagnosis
+built on a log window that had already closed, and observations written up from a *summary* that
+claimed the evidence had been provided. **Treating a reference to evidence as the evidence is the
+house failure mode. Do not do it.**
+
+| Touching this | Read this FIRST | You will be WRONG without it |
+|---|---|---|
+| 🔵 **Docker Swarm** (VMs .191–.193), the swarm CI pipeline, `education/docker-swarm/` | `phases/phase16_docker_swarm.md` (3066 ln — **grep it**) | **Hard rule B1: NEVER retag/push production Capricorn images.** ~8 traps are planted ON PURPOSE — "fixing" one destroys the drill. Also holds the P-numbered prediction log, ledger L1–L22 (lab-vs-PROD compromises), and `s01→s06` snapshot chain (⚠️ **s06 predates the C4 fix**) |
+| 🔵 **Any education track / chapter / diagram / docx** | `education/CONVENTIONS.md` + `education/METHOD.md` + that track's `README.md` | Figures must clear a **10pt** floor (`figcheck.py`) and raw aspect ratio sets rendered font size; the highlight pass targets ~15% and ⚠️ **`highlight.py` must NEVER be re-run on an already-highlighted file**; chapter H1 format is fixed. Inventing a format per track is explicitly forbidden |
+| **k3s / Redpanda / OpenSearch** (VM 186) | `phases/phase14_k8s_redpanda_poc.md` (878 ln) | Phase CLOSED. Paths moved to `education/k8s-k3s-redpanda/` Aug 12 — older references are stale. Holds the quorum/leaderless alerting findings |
+| **The `/education` tree itself** (moving, renaming, restructuring) | `phases/phase15_education_program.md` (379 ln) | ⚠️ That file is a **RECORD, not a plan** — §3 is already executed and §1 describes the *pre-move* tree. **Re-running it would undo the current layout** |
+| **vm-www-1 (.184), Traefik, PROD Capricorn hosting** | `phases/phase7_local_www.md` (1508 ln) | Network architecture is load-bearing and marked CRITICAL in that file; `.184` deliberately **never contacts the registry** (images arrive via `docker load`) |
+| **Proxmox host config, kernels, ZFS pools, backups** | `phases/phase13_fable_proxmox_audit.md` (551 ln) + `phases/phase1b_*` | Kernel pinning is deliberate; a 50G thick zvol with refreservation sits on `vm-critical`. See also the BACKUP DIRECTIVE in `CURSOR_RULES` — **backups go to NAS, never NVMe** |
+| **Firewall, port-forwards, public exposure** | `phases/phase12_network_segmentation.md` (200 ln) | Perimeter is deliberately closed to everything but the WWW box; open ports listed there include ones flagged for removal |
+| **GitLab / runner / CI** | `phases/phase3_gitlab_server.md`, `phase4_gitlab_runner.md`, `phase5_ci_cd_pipelines.md` | The runner is **privileged with the host Docker socket mounted** — any job on it is effectively root on the runner host (ledger L19) |
+| **SonarQube** | `phases/phase6_sonarqube.md` (625 ln) | — |
+| **OpenClaw agent (.185)** | `phases/phase11_openclaw.md` (404 ln) | — |
+
+⚠️ **`phases/current_phase.md` is the session log, and it is LARGE (3505 lines, 8+ stacked handoffs).**
+Read the **`▶️ RESUME HERE` block** for state and next steps — it runs from the top down to the first
+`## 🎯 SESSION HANDOFF` heading (`rg -n '^## ' phases/current_phase.md` locates the boundary; do not
+trust a line count, it drifts). Read below that line ONLY to answer a specific question about a past
+session. The rest is history the phase files also carry.
+
+---
+
 ## CURRENT STATE
 
 - **🎉 ANDREW GOT THE JOB (confirmed Aug 12, 2026).** The interviews happened **Aug 6 and Aug 7** and

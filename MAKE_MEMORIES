@@ -2,22 +2,102 @@ Update AI memory files. These are for YOU (AI) only - no human reads them.
 
 Check current date/time including TimeZone using terminal
 
-MEMORY.md (static reference):
-- IPs, credential file paths, commands, architecture
-- Key decisions and WHY (if you need the context)
-- Update only if infrastructure/config changed
 
-/phases/current_phase.md (session progress):
-- Current phase + goal
-- Done this session
-- Next steps
-- Blockers/issues
+=== 0. MEASURE FIRST (added Aug 19, 2026) ===
+
+Run this BEFORE writing anything, and PUT THE OUTPUT IN YOUR MESSAGE:
+
+  wc -l MEMORY.md phases/current_phase.md
+  git show HEAD:MEMORY.md | wc -l
+  git show HEAD:phases/current_phase.md | wc -l
+
+Report as: "MEMORY.md 2363 (+33 this session) · current_phase.md 3505 (+43)".
+
+WHY THIS EXISTS - the measurement that forced it:
+  MEMORY.md went 1873 -> 2330 lines between Aug 13 and Aug 19, 2026. Fifteen consecutive commits
+  touched it and it NEVER ONCE DECREASED. ~76 lines/day, monotonic.
+  The cause was not careless writing. It was that THIS FILE had an "add" step and no "remove" step,
+  so the process was append-only by construction. No amount of concise writing beats that.
+  There is deliberately NO hard line cap (Andrew's call, Aug 19). The number is not a rule - it is a
+  TRIGGER you cannot avoid seeing, so demotion becomes a decision Andrew makes with data instead of
+  one that silently never happens.
+
+
+=== 1. WHAT GOES WHERE - two tests, applied to every fact ===
+
+TEST 1: "Would I be WRONG, or merely UNINFORMED, without this?"
+  WRONG      -> stays inline in MEMORY.md. Prohibitions, scope, hard rules, credentials PATHS, IPs,
+                the CIFS gotcha, "do not clean this up" warnings. Missing it causes DAMAGE.
+  UNINFORMED -> phase file + a pointer row in MEMORY.md's PHASE INDEX. Missing it only means you
+                have to go read something.
+
+TEST 2: "Does this apply OUTSIDE the phase that produced it?"
+  YES -> the DISTILLED PRINCIPLE goes in MEMORY.md (one or two lines), the 300-line narrative of how
+         it was discovered goes in the phase file. Keep the rule, not the story.
+         Examples: false greens; one instrument per question; reachable is not usable; probe the
+         capability you are about to use, not a proxy; severity should match consequence.
+  NO  -> phase file only.
+
+MEMORY.md (static, project-wide reference):
+- IPs, credential file PATHS (never the credentials themselves), commands, architecture
+- Prohibitions and directives - anything whose absence causes damage
+- Key decisions and WHY
+- The PHASE INDEX (pointer table) - keep it current when a phase is added or closed
+- Distilled cross-phase principles
+- Update only if infrastructure/config/policy changed
+
+phases/current_phase.md (session progress):
+- ONE "▶️ RESUME HERE" block at the top: current phase, goal, state, next steps, blockers
+- ONE current session handoff
 - Include explanations if YOU need them to understand later
 
-Check before writing:
+phases/phaseX_*.md (the working record - where the volume belongs):
+- Drills, predictions and their scoring, raw evidence, per-session narrative, ledgers
+
+
+=== 2. DEMOTION (the step that was missing) ===
+
+Do this whenever EITHER is true: a phase closes, or the size report in step 0 makes you wince.
+
+  a. Pick the largest block in MEMORY.md's CURRENT STATE belonging to a CLOSED or dormant phase.
+  b. Confirm the phase file already covers it:  rg '<a distinctive phrase>' phases/phaseX_*.md
+     If it does NOT, COPY the content there FIRST and verify it landed before deleting anything.
+  c. Replace the block in MEMORY.md with a PHASE INDEX row (see format below).
+  d. VERIFY, from the shell, not from a read-back (this repo is on CIFS - see MEMORY.md gotcha):
+       wc -l MEMORY.md
+       git diff MEMORY.md | rg '^-' | rg -v '^---'     # read EVERY removed line
+     Every deleted line must be one you meant to delete AND must now exist in the phase file.
+  e. COMMIT before demoting the next block, so any loss is one `git show` away.
+
+🚨 Silent loss of a hard-won finding is the worst failure mode this project has. One block at a
+time, verified, committed between steps. Never batch demotions.
+
+Also demote from current_phase.md: when a new session starts, the PREVIOUS session handoff is
+appended to its phase file and removed from current_phase.md. It holds ONE handoff.
+
+
+=== 3. POINTER FORMAT - a pointer must state the COST of skipping it ===
+
+A pointer you skip is WORSE than no pointer, because a big MEMORY.md fails safe while a skipped
+pointer makes you CONFIDENTLY WRONG. So never write "see phaseX for details" - name what breaks.
+
+  BAD:   See phases/phase16_docker_swarm.md for Docker Swarm details.
+
+  GOOD:  ⛔ BEFORE touching the swarm, read phase16 hard rules: B1 forbids retagging production
+         Capricorn images, and ~8 traps are planted ON PURPOSE - "fixing" one destroys the drill.
+         You cannot infer either from the code.
+
+⚠️ Aug 19, 2026 - the house failure mode, twice in one session: a diagnosis built on a log window
+that had already closed, and observations written into a phase file from a SUMMARY that claimed the
+evidence had been provided. TREATING A REFERENCE TO EVIDENCE AS THE EVIDENCE. State which files you
+actually read, so the claim is checkable.
+
+
+=== 4. Check before writing ===
 - /proxmox/credentials
 - /www/scripts/
 - /phases/
+- MEMORY.md PHASE INDEX - is it still accurate after this session?
 
 Write what YOU need to reload context cold. No more, no less.
 
@@ -33,6 +113,9 @@ AFTER updating memory files, ALWAYS follow this workflow:
    b. ASK user: "Memory files updated. Ready to commit AND push changes?"
    c. WAIT for explicit approval ("yes", "commit", "push", etc.)
    d. ONLY THEN: git add, commit, push
+3. ASK WHERE: "Push to GitHub, GitLab, or both?" - see CURSOR_RULES git routing.
+   GitHub is PUBLIC and curated (./push_github.sh); GitLab is the PRIVATE full mirror
+   (./push_gitlab.sh "message"). Never a raw `git push` at either remote.
 
 ❌ NEVER commit and/or push without asking first
 ❌ NEVER assume user wants to commit
