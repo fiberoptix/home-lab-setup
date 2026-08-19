@@ -1,6 +1,45 @@
 # Current Phase
 
-**Updated:** August 18, 2026 - 11:55 PM EDT
+**Updated:** August 18, 2026 - 8:25 PM EDT
+
+---
+
+## ▶️ RESUME HERE — "start on the next learning chapter" means THIS
+
+**Phase 16 (Docker Swarm), Part 4 → Chapter 3.** Chapters 1, 2, 4, 5, 6 are written, reviewed and
+docx-built; the cluster is healthy and snapshotted (`s05-review-c6b-closed`, all three VMs). Chapter 3
+("A pipeline that deploys") is the only gap, and it **cannot be written yet** — house rule: only
+document what was run, and Part 4 has not been run.
+
+**The session therefore starts with Part 4, and 🙋 ANDREW DRIVES IT** (METHOD.md: CI wiring is the
+thing being learned, not lab plumbing). One step at a time, predictions before traps. The design is
+already complete in `phases/phase16_docker_swarm.md` → "Part 4 — Wire a pipeline to the cluster"
+(~line 554). Sequence:
+
+1. 🙋 **Decision A2 first** (the only true blocker): does this repo gain a `.gitlab-ci.yml`?
+   It is ONE decision with the `workflow: rules:` guard (e.g. `$CI_PIPELINE_SOURCE == "web"`) —
+   `push_gitlab.sh` pushes constantly, so the guard must land in the SAME commit as the CI file.
+2. Setup, small: SSH key from the runner (`.182`) to a manager — copy the existing `.182 → .184`
+   pattern; store the `swarm-lab-pull` token (`read_registry`, valid to Dec 2026) as a masked CI
+   variable (hard rule B6). Runner itself needs no work (A1 verified: id=2, shared, untagged ok).
+3. The job: manual-only, thin wrapper, token over **stdin** never inline (ps-visibility — reasoning
+   in the phase file). 🚨 Hard rule B1: never touch Capricorn's `deploy_qa`/`deploy_prod_local`.
+4. ⚠️ **DO NOT PRE-FIX TRAP C4**: target ONE manager by IP first, kill that manager, feel the
+   healthy-cluster-refuses-deploy failure, THEN fix (try managers in turn). Pre-solving it deletes
+   the phase's best CI lesson.
+5. Falsifiable claim to test: the pipeline adds ZERO deploy logic — `deploy_swarm.sh` is invoked
+   **unchanged**. If CI forces a script change, the Part 3 boundary was wrong (that is a finding).
+   The script's three smoke gates come free, so CI green = ready-for-business from day one.
+6. Snapshot after wiring: **`s06-ci-wired`** (chain is s01→s05; ZFS = linear, newest-only rollback).
+7. Then write chapter 3 from what happened: "three wrappers one script" (~line 2085), token
+   handling, P10 pre-flight ordering, trap C4 — all earmarked in the phase file.
+
+**Still open besides this:** GitHub push (chapters unreviewed by Andrew — GitLab only until he says);
+the two app-repo findings (bootstrap committed-delete; unauthenticated destructive endpoint — see
+`working/`); Part 7 Swarm↔K8s session; `docker-admin.sh` design session (COMMANDS.md §11 is its spec).
+**Lab state:** stack 2/2 3/3 1/1 1/1, frontend `(healthy)`, gates green, leader swarm-1; temp files
+`/tmp/capricorn.c6*.yml`, `/tmp/c6b_probe.log` on swarm-1 are harmless but `STACK_FILE` must be unset
+for a normal deploy.
 
 ---
 
