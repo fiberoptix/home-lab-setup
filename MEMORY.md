@@ -191,8 +191,8 @@ editing `CURSOR_RULES`:
   containers exit `0`, the identical mechanism that ate three replicas under `on-failure`; nothing was lost.
   ✅ **Resting state HEALTHY**: 2/2, 3/3, 1/1, 1/1, smoke gate green, quorum restored, **leader moved to
   `docker-swarm-1`** (leadership not sticky — observed twice), C3 constraints removed, `pg_password_v2`
-  deleted. 🔲 **No `s05` snapshot taken** — recommended, left for Andrew; note `s04` still contains the
-  **broken `on-failure` policy**. 🔲 **GitHub push held**; GitLab only.
+  deleted. ✅ **`s05-review-c6b-closed` taken Aug 18 ~8:15 PM (Andrew authorized)** — all three VMs, hot
+  fsfreeze, description warns that `s04` still contains the **broken `on-failure` policy**. 🔲 **GitHub push held**; GitLab only.
   **Previously, Aug 18 (5:00–6:30 PM) — five drills whose findings were about the APPLICATION,
   not Swarm.** Resting state: stack healthy, **1621 DB rows = 939 tax reference (from `initdb`) + 682
   written by the app**, snapshot **`s04-drills-complete`** (all three VMs gracefully shut down first).

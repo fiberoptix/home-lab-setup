@@ -1720,7 +1720,11 @@ task-level view says `Complete` and every health endpoint returns 200.
 
 ⚠️ **Debt: `s04-drills-complete` captures the BROKEN policy**, since the snapshot was taken before this
 was found. A restore to `s04` reintroduces `on-failure` — the redeploy from the corrected manifest is the
-remedy, and the snapshot description does not say so.
+remedy, and the snapshot description does not say so. ✅ **Retired Aug 18 evening:** `s05-review-c6b-closed`
+was taken on all three VMs (hot, fsfreeze, ~1.5 s each) after the review session, and its description
+carries the warning explicitly. `s05` holds the fixed policy, the frontend healthcheck, and the 3-gate
+deploy script; it is now the newest snapshot, which on ZFS means it is also the only direct rollback
+target.
 
 ---
 

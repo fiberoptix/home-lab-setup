@@ -53,8 +53,10 @@ all confirmed — see phase16 Part 6.5).
 - "Chapter 2 is stale on this point and the README now says so" — ✅ **repaired; README note removed.**
 - Temp files on swarm-1: `/tmp/capricorn.c6b-hc.yml` and `/tmp/c6b_probe.log` were added tonight
   (harmless, same caveat: `STACK_FILE` must be unset for a normal deploy).
-- Still Andrew's calls, unchanged: **s05 snapshot** (even more recommended now — s04 predates the
-  healthcheck *and* the fixed restart policy), **GitHub push** (chapters still unreviewed by him),
+- ✅ **s05 taken (Andrew authorized, ~8:15 PM): `s05-review-c6b-closed`** on all three VMs, hot with
+  guest-agent fsfreeze, ~1.5 s each, stack verified healthy before and after. Its description warns
+  that restoring s04 reintroduces `on-failure`. Chain is now s01→s02→s03→s04→**s05**.
+- Still Andrew's calls, unchanged: **GitHub push** (chapters still unreviewed by him),
   **Part 4 CI design** (chapter 3 stays blocked), **docker-admin.sh design session** (its §11 input
   got richer tonight), and the two app-repo findings (bootstrap committed-delete; the unauthenticated
   destructive endpoint).
@@ -78,7 +80,7 @@ keyboard. Everything below was run against the live cluster.
 | Redis | Back on `docker-swarm-2` with its original data; **all C3 placement constraints removed** (`Constraints: []`) |
 | Secrets | Only `pg_password` remains — the drill's `pg_password_v2` was deleted |
 | Temp files left on swarm-1 | `/tmp/capricorn.c6.yml`, `.c6b.yml`, `.d.yml` — harmless, but **`STACK_FILE` must be unset** for a normal deploy |
-| Snapshot chain | `s01-base-clean` → `s02-swarm-up` → `s03-stack-deployed` → `s04-drills-complete` |
+| Snapshot chain | `s01-base-clean` → `s02-swarm-up` → `s03-stack-deployed` → `s04-drills-complete` → `s05-review-c6b-closed` (Aug 18, 8:16 PM) |
 | 🔲 **Decision for Andrew** | **No `s05` was taken.** The resting state has changed a lot since `s04`, and `s04` still carries the **broken `on-failure` policy**. Taking `s05` is recommended, and the AI deliberately did not run an invasive Proxmox operation unattended. |
 
 ### Predictions P20–P31 scored: 10 confirmed, 2 refuted
