@@ -86,12 +86,12 @@ house failure mode. Do not do it.**
 | **SonarQube** | `phases/phase6_sonarqube.md` (625 ln) | — |
 | **OpenClaw agent (.185)** | `phases/phase11_openclaw.md` (935 ln) | ⛔ **VM DESTROYED Aug 19, 2026 — totally gone, no backup, no snapshot. Nothing in that file is actionable.** VMID 185 + `.185` now belong to **Jenkins** (Phase 17), so **any `.185` in it means OpenClaw, not Jenkins.** Its *OPERATIONAL LOG* section (demoted from `current_phase.md` Aug 20) is six months of run-and-repair history; the one transferable pattern is **upgrades that silently reset config files, so the service starts clean and the customisation is what breaks** |
 
-⚠️ **`phases/current_phase.md` is the session log (2062 lines).** Read the **`▶️ RESUME HERE` block**
+⚠️ **`phases/current_phase.md` is the session log (2067 lines).** Read the **`▶️ RESUME HERE` block**
 for state and next steps; `rg -n '^## ' phases/current_phase.md` maps it — **never trust a line number,
 they drift every session.** Read below that block ONLY to answer a specific question about a past
 session. The rest is history the phase files also carry.
 
-📉 **Aug 20, 2026 — three demotions took this file 3797 → 2062 (−1735, the largest reduction yet):**
+📉 **Aug 20, 2026 — three demotions took this file 3797 → 2067 (−1730, the largest reduction yet):**
 
 | Moved | Lines | Into |
 |---|---|---|

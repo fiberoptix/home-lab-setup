@@ -2,7 +2,7 @@
 
 **Updated:** August 20, 2026 - 12:15 PM EDT
 
-📉 **This file was trimmed 3797 → 2062 lines on Aug 20** by demoting three closed-phase blocks
+📉 **This file was trimmed 3797 → 2067 lines on Aug 20** by demoting three closed-phase blocks
 (Phase 16 handoffs → `phase16`, Phase 14 closing record → `phase14`, OpenClaw logs → `phase11`).
 **Nothing was summarised or deleted — each block was copied verbatim and verified line-by-line before
 removal.** Details in `MEMORY.md` → PHASE INDEX footer.
