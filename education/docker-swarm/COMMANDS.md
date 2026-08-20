@@ -174,6 +174,40 @@ The gap between "what the file says" and "what is running" is where outages live
 | `docker service ps <svc> --format '{{.Name}}\t{{.Node}}\t{{.CurrentState}}\t{{.DesiredState}}\t{{.Error}}'` | 🚨 **`Complete` is not a synonym for `Running`, and it is not an error.** A task whose container exited **0** is recorded `Complete`/`Shutdown` — a success. **Under `restart_policy: on-failure` it is never replaced.** See the reboot finding below. | ✅ |
 | `docker service inspect <svc> --format '{{.Spec.TaskTemplate.RestartPolicy.Condition}}'` | ⭐ **Read the policy from the SPEC, not the stack file.** The file is what you asked for; the spec is what Swarm is enforcing. | ✅ |
 
+### 🚨 "How long has this been running?" — `CURRENT STATE` does not answer it
+
+`docker service ps` renders `Running 8 hours ago`. **That age is the last time the manager STAMPED the
+task's status, not the age of the task or the container.** The stamp moves during control-plane churn —
+a leader election, a node rejoining — so **a task that has run untouched for a day can present as freshly
+rescheduled.** Measured on one Swarm task, all three readings taken in the same minute:
+
+| Reading | Value | Answers |
+|---|---|---|
+| `docker service ps` `CURRENT STATE` | `Running 8 hours ago` | *When did the manager last stamp this?* |
+| task `CreatedAt` (`docker inspect <taskID>`) | Aug 18 23:14:24 UTC | **When the task was created** — 24.6 h earlier |
+| `docker inspect <container> --format '{{.State.StartedAt}} {{.RestartCount}}'` | Aug 18 23:14:34 UTC · `0` | **When this container started, and that it never restarted** |
+
+⭐ **This cost us a false incident.** A `Running ~2 hours ago` was read as "this task was just rescheduled,
+so it came from another node and attached a fresh empty volume" — a plausible silent-data-loss event that
+we wrote down as an open question. It never happened: the task was **20 hours old** at that moment.
+**One instrument per question** — for "when did it start" use `.State.StartedAt` and `.RestartCount` on
+the node; for "where did it come from" use the task history, and know that once Swarm prunes those rows
+**the only surviving evidence is the filesystem** (a volume's `CreatedAt`, and Redis' AOF generation
+number, outlived the orchestrator's memory of the move entirely).
+
+```bash
+# the honest uptime of a task's container, on the node running it
+cid=$(docker ps -q -f name=<stack>_<svc>)
+docker inspect $cid --format '{{.State.StartedAt}}  restarts={{.RestartCount}}'
+# and the manager's own three timestamps, which differ by design
+docker inspect $(docker service ps <svc> -q --filter desired-state=running) \
+  --format 'created={{.CreatedAt}} stamped={{.Status.Timestamp}} updated={{.UpdatedAt}}'
+```
+
+⚠️ **Rule out clock skew before believing any of it** — `date -u` on every node, and check
+`timedatectl show -p NTPSynchronized --value`. Ours agreed to within a second, so skew was excluded as an
+explanation rather than assumed away.
+
 ### 🚨 After ANY reboot or maintenance: did every service come back to full strength?
 
 **Measured Aug 18, 2026.** Three VMs were gracefully shut down and restarted. Raft re-formed, all nodes

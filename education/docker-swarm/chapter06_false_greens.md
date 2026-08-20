@@ -1,7 +1,8 @@
 # Docker Swarm · Chapter 6 — False Greens: Why "Converged" Is Not "Working"
 
 > **Series:** Home-Lab Education · Phase 16 (Docker Swarm)
-> **Built and verified:** August 13–18, 2026 on the three-manager cluster from Chapter 1
+> **Built and verified:** August 13–18, 2026 on the three-manager cluster from Chapter 1; §5's sixth
+> case was measured Aug 19 and is marked 🤖 where it appears
 > **Versions at time of writing:** Docker 29.7.2 · Compose file format 3.8
 > **Read this before:** nothing — this is the chapter the others were building toward
 > **Read this after:** Chapters 2, 4 and 5 — the deploys, the state, and the drills
@@ -11,7 +12,7 @@
 ## What this chapter covers
 
 This chapter was not planned. It exists because the same phenomenon appeared in **every** failure drill,
-in the tooling we wrote to catch it, and in five of our own experiments:
+in the tooling we wrote to catch it, and in six of our own experiments:
 
 [a system reports success for a question it was never asked.]{custom-style="Key"}
 
@@ -89,6 +90,7 @@ Every one of these was observed on the real cluster:
 | 6 | `✅ Bootstrap complete` | Three of four workers had failed and fallen back to a degraded path | 4 §3 |
 | 7 | `managers=0 nodes=0` with `ControlAvailable=true` | Quorum was lost; the field means "configured as a manager" | 5 §2 |
 | 8 | A drill that "worked" | The wrong stack file was deployed; the result was void | 5 §5 |
+| 9 | `Running 8 hours ago` — read as "just rescheduled" | **Inverted: nothing was wrong.** The task was 20 hours old; the column renders the manager's last status *stamp* | 6 §5 |
 
 ⭐ **Read down the "actually wrong" column: a missing database, a missing UI, a missing dataset, a
 refused change, missing capacity, a corrupted import, a dead control plane, and a fabricated
@@ -223,9 +225,10 @@ race, and nobody was told.
 
 ## 5. The same failure, with us in the orchestrator's role
 
-Five times in this phase, one of our own instruments produced a confident, plausible, **wrong** answer —
+Six times in this phase, one of our own instruments produced a confident, plausible, **wrong** answer —
 and it is the same phenomenon: a green signal answering a question nobody asked. Three were whole runs
 [that were void; two were probes inside a run that measured something other than what they claimed]{custom-style="Key"}.
+The sixth ran the pattern backwards and invented a disaster.
 
 | The instrument said | What was actually true |
 |---|---|
@@ -234,6 +237,7 @@ and it is the same phenomenon: a green signal answering a question nobody asked.
 | A script ran "on the node" | **Void run** — it ran on the workstation; a shared mount made both look identical |
 | A password was "rejected" | **Invalid probe** — it had actually failed on a database name that does not exist |
 | A password "worked" | **Invalid probe** — loopback connections are `trust`, so it never tested the password at all |
+| A task had "started ~2 hours ago", i.e. right at an outage | **Misread column** — the task was **20 hours old**; the incident inferred from it never happened |
 
 ⭐ **A successful-looking run is the most dangerous outcome of a badly instrumented experiment**, because
 [it is indistinguishable from a real one and it goes into the notes as a finding]{custom-style="Key"}. Four practices came out
@@ -250,6 +254,52 @@ of this, and they are cheap:
    *before* concluding. This is how the `trust` finding surfaced — the two invalid probes above contradicted each other, and
    chasing the disagreement produced a real discovery. **A wrong measurement examined honestly is worth
    more than a right one taken on faith.**
+5. 🚨 **A relative timestamp is a rendering of some underlying field. Find out which field before you
+   reason from it.** [`Running 8 hours ago` looks like an age. It is not.]{custom-style="Key"}
+
+### 🤖 The sixth: a column that reads like an age, and the incident it invented
+
+> **Provenance:** this one was measured by the AI on Aug 19, 2026 at Andrew's instruction, unlike the rest
+> of the chapter, which he drove. Read it as weaker evidence and re-run it yourself — every command is
+> read-only.
+
+[Redis in this stack is deliberately unpinned and keeps a **local** volume]{custom-style="Key"}, which is the exact
+configuration trap C3 exploits (chapter 4 §1). So when a failure dump showed `capricorn_redis.1` running
+on `docker-swarm-2` and `docker service ps` said `Running` **~2 hours ago** — right at an outage two hours
+earlier — [the inference was immediate and, we thought, careful]{custom-style="Key"}: the task had just been rescheduled, so it
+must have come from another node, so it had attached a **fresh empty volume**, so C3's silent-data-loss
+[mechanism had fired for real in the middle of an unrelated drill]{custom-style="Key"}. That was written into the phase file as
+an open question, with the honest caveat *"do not write it up as a finding until measured"*.
+
+[That caveat saved it, because when measured]{custom-style="Key"}, **not one link in the chain held.** [The task had never moved.]{custom-style="Key"}
+
+| Reading, all taken within the same minute | Value | What it actually answers |
+|---|---|---|
+| `docker service ps` → `CURRENT STATE` | `Running 8 hours ago` | *When the manager last **stamped** this task's status* |
+| task `CreatedAt` | Aug 18, 23:14:24 UTC | **When the task was created** — 24.6 h before the reading |
+| task `Status.Timestamp` | Aug 19, 16:11:15 UTC | The field the column renders |
+| container `.State.StartedAt` / `.RestartCount` | Aug 18, 23:14:34 UTC / **`0`** | **This container's real uptime, and that it never restarted** |
+
+⭐ **`CURRENT STATE` is not the task's age. It is the last time the manager wrote down what the task was
+doing** — [and that stamp moves on control-plane churn]{custom-style="Key"}, which this cluster had plenty of that day between a
+CI test sequence and a manager reboot. **So a task that has run untouched for a day presents as freshly
+rescheduled**, and every conclusion drawn from "it started right at the outage" was built on a
+[re-timestamping event that had nothing to do with the task]{custom-style="Key"}.
+
+The volumes settled it. [Two `capricorn_redis_data_swarm` volumes really do exist on this cluster]{custom-style="Key"} — but
+their creation times are Aug 13 and Aug 18 19:06:56, and the second one matches **trap C3's own
+deliberate run** to the second. The live volume [holds C3's two canary keys in a 155-byte snapshot]{custom-style="Key"} whose
+AOF generation number is `2`; the stranded one is 88 bytes with **zero keys** and generation `1`, a
+first-ever start. Nothing had been lost, and [the node the theory required redis to have moved *from* had]{custom-style="Key"}
+never held a redis volume at all.
+
+> 🚨 **Two habits are worth stealing from this.** First, **clock skew was excluded by measuring it**
+> (`date -u` on all three nodes, plus `timedatectl show -p NTPSynchronized`) rather than dismissed as
+> unlikely — [with timestamps from three machines, skew is the competing explanation]{custom-style="Key"}, so it is the
+> [discriminator you owe the reader]{custom-style="Key"}. Second, and more useful: ⭐ **Swarm had already pruned the task rows
+> that would have shown the move, so the orchestrator no longer had any account of it. The evidence that
+> survived was on disk** — a volume's creation time and a Redis AOF generation number. **When the control
+> plane's memory is shorter than your incident, the filesystem is your witness.**
 
 **And write the prediction down before running the command.** It is the only instrument that catches the
 [failure where you learn nothing because you had no expectation to violate]{custom-style="Key"}. Our quorum prediction was
@@ -273,7 +323,7 @@ not committed to a guess we could lose.
 | Is *each* entry point right? | One assertion per published port | 🎯 The rung C6b lives on |
 | Did capacity survive maintenance? | `docker service ls` **read by something** after every window | The thing nobody watches |
 
-⭐ **The healthcheck row is the highest-leverage one**, because it is the only rung where a correctness
+⭐ **The healthcheck row is the highest-leverage one**, [because it is the only rung where a correctness]{custom-style="Key"}
 signal is visible to the orchestrator. Everything below it is liveness; everything above it is your own
 tooling. **[A healthcheck converts "wrong but running" into a failed task]{custom-style="Key"} — and a failed task is
 something rollback can act on.**
@@ -281,10 +331,10 @@ something rollback can act on.**
 ### The three questions worth asking of any deploy pipeline
 
 1. **What could be broken and still let this pipeline go green?** For our first version the honest answer
-   was: the database, the dataset, the frontend, and the previous version still serving.
+   [was: the database, the dataset, the frontend, and the previous version still serving.]{custom-style="Key"}
 2. **Which of my checks would notice if the thing it watches were replaced by something that merely
    answers?** If the answer is "none", [every check is a liveness check wearing a costume]{custom-style="Key"}.
-3. **After a reboot, what reads the replica count?** If nothing does, capacity is on an honour system.
+3. **After a reboot, what reads the replica count?** [If nothing does, capacity is on an honour system]{custom-style="Key"}.
 
 > **Lab vs PROD — the deploy script is the only monitoring.** *In the lab:* correctness is checked once,
 > at deploy time, by `deploy_swarm.sh`. There is no alerting, no dashboard, and nothing watching between
@@ -317,6 +367,13 @@ docker service ls --format '{{.Name}}\t{{.Replicas}}' | awk -F'[\t/]' '$2!=$3'
 
 # Is a dependency actually absent, or is this really DNS? (they look identical)
 docker service ls --filter name=<dependency>
+
+# How long has this container REALLY been up? (not what `service ps` implies)
+cid=$(docker ps -q -f name=<stack>_<svc>)          # on the node running it
+docker inspect $cid --format '{{.State.StartedAt}}  restarts={{.RestartCount}}'
+
+# Before trusting any timestamp from three machines, exclude skew
+for n in <node-ips>; do ssh $n 'date -u; timedatectl show -p NTPSynchronized --value'; done
 ```
 
 The complete ledger for this track, indexed by the question each command answers, is
@@ -334,6 +391,7 @@ The complete ledger for this track, indexed by the question each command answers
 | **Smoke gate** | A post-deploy assertion that exercises the dependency chain and fails the deploy if it does not hold. |
 | **Discriminator** | A probe chosen to separate two competing explanations, rather than to confirm the one you prefer. |
 | **Void run** | An experiment whose preconditions were not asserted. Its danger is proportional to how successful it looks. |
+| **Status stamp** | The time the manager last recorded a task's state — what `docker service ps` renders as `Running N hours ago`. It moves on control-plane churn and is **not** the task's age. |
 
 ---
 
@@ -355,5 +413,10 @@ Answer out loud; the section is given rather than the answer.
    them dangerous? (§4)
 7. Of the five wrong measurements in §5, which would "assert preconditions" have prevented and which
    needed a different practice? Why is printing a precondition not the same as asserting one? (§5)
-8. For a deploy pipeline you actually maintain: what could be broken today and still let it go green?
-   (§6)
+8. `docker service ps` says `Running 8 hours ago`. Name the three different questions that could be
+   asked about that task's history, and the command that answers each. Then say what makes the column
+   move without the container restarting. (§5)
+9. A task's history has been pruned, so Swarm cannot tell you which node a service ran on last week.
+   Where else can the answer be, and what made it survive? (§5)
+10. For a deploy pipeline you actually maintain: what could be broken today and still let it go green?
+    (§6)

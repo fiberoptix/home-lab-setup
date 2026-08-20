@@ -4,7 +4,7 @@
 
 ---
 
-## ▶️ RESUME HERE — 🟢 PHASE 16 COMPLETE. Next phase is 17 (Jenkins). Two optional items left on the floor.
+## ▶️ RESUME HERE — 🟢 PHASE 16 CLOSED (Aug 19, 2026). Nothing outstanding. Next phase is 17 (Jenkins).
 
 **Phase 16 (Docker Swarm) is DONE: all 7 parts, all 7 planted traps, 8 chapters.** Part 7 closed on
 Aug 19 as `education/docker-swarm/chapter08_swarm_vs_kubernetes.md` — the Swarm↔Kubernetes crib sheet
@@ -21,10 +21,32 @@ image models**, which is the opposite of the usual narrative. It also caught one
 in its own first draft (see the phase file, Part 7 → C1): "encrypted Raft log by default" is **wrong**,
 and chapter 1's own Lab-vs-PROD callout says so.
 
-⚠️ **Left on the floor deliberately, optional and not blocking Phase 17:**
+⚠️ **What is actually left — and the claim that was wrong here for a day:**
 
-1. **Drill D** — rotate `pg_password` (chapter 5 material, outlined but never run). **This is now the
-   only open item from Phase 16.**
+1. 🚨 **Drill D is NOT outstanding. It ran Aug 18** (P30 ✅ smoke gate is the only thing that catches a
+   rotated secret, P31 ✅ Postgres keeps the old password, plus the `pg_hba.conf` `trust` discovery and
+   chapter 5's row D). **This block said "outlined but never run" until Aug 19 and the `MAKE_MEMORIES`
+   pass that evening repeated it into `MEMORY.md` as the phase's only open item.** The cause: the
+   drill's planning entry in the phase file still had an unticked `🔲` box, and the summaries were
+   edited without being diffed against the results 1,900 lines below. ⭐ **Re-read what you summarise.**
+2. ✅ **MEASURED AND CLOSED Aug 19, 7:55 PM — the `redis` divergent-volume question. 🤖 AI-executed,
+   read-only, at Andrew's instruction.** The hypothesis was **refuted**: `.191` has never held a redis
+   volume, and the two volumes that do exist (`.192` Aug 13, `.193` Aug 18 19:06:56) are **trap C3's
+   deliberate residue** — the numbers match C3's own write-up. `.192` holds `c3:canary` + `c3:counter`
+   (155 b, AOF generation 2); `.193` is **88 b with zero keys** (AOF generation 1, a fresh start). The
+   live task has run since Aug 18 with `RestartCount 0`. Nothing was lost.
+   🚨 **The real finding is why the question existed: `docker service ps`'s `CURRENT STATE` age is the
+   last time the MANAGER STAMPED the task's status, not the task's age.** Task `CreatedAt` Aug 18
+   23:14:24 UTC vs `Status.Timestamp` Aug 19 16:11:15 UTC — 20 hours apart, and it is the *stamp* that
+   renders as "Running 8 hours ago". The stamp moves on control-plane churn, so **a day-old task can
+   look freshly rescheduled.** Clock skew was excluded by measurement (all three nodes NTP-synced, agreed
+   within 1 s). Now in `COMMANDS.md` as its own section, with the commands that answer each question.
+   ⚠️ **Standing hazard left in place, not fixed:** the empty 88-byte volume still sits on `.193`, so
+   `redis` scheduling there would silently attach an empty cache. Removing it is destructive and it is
+   C3's evidence — Andrew's call, not a cleanup step.
+3. **Deferred to Phase 17 on purpose:** the rigorous convergence check that compares each service's
+   `.Version.Index` across a deploy instead of trusting the settle delay. Recorded as a mitigation, not
+   a proof.
 
 ✅ **DONE the same evening — the highlight programme, both tracks (Aug 19, ~5:30–6:30 PM).** Andrew
 raised the target to **20 %** after a trial he judged from the printed page, not the number. **All 15

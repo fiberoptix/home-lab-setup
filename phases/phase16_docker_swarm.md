@@ -5,11 +5,30 @@ Three nodes (`s01-base-clean`) → three-manager cluster, quorum 2 of 3 (`s02-sw
 deployed → CI pipeline (Part 4) → state and failure drills (Parts 5–6) → **trap C7 closed** → **Part 7
 crib sheet written as chapter 8**. Snapshot chain runs to **`s07-c4-fixed-verified`**, the first one
 containing the C4 fix. Eight chapters written.
-**Remaining, both optional:** drill D (rotate `pg_password`, outlined in chapter 5 but never run) and a
-highlight pass on chapters 1/2/4/5/6, which carry 5–6 marks each against ~40 in track 1.
+**Nothing planned is outstanding.** The highlight pass on chapters 1/2/4/5/6 was done Aug 19 (all 15
+chapters of both tracks now at 19.5–21.2 % — method in `phase15_education_program.md` §8), and **drill D
+was run on Aug 18**: P30/P31 both ✅, the `pg_hba.conf` `trust` finding came out of it, and chapter 5's
+drill table carries it as row D. ✅ **The last open measurement — the `redis` divergent-volume question — was
+MEASURED and CLOSED Aug 19, 7:55 PM (🤖 AI-executed, read-only).** The hypothesis was **refuted**: `.191`
+has never held a redis volume, and the two volumes that do exist are **trap C3's deliberate residue from
+Aug 18 19:06:56**, not an accident. The live task has run since Aug 18 with `RestartCount 0` and both
+canary keys intact. ⭐ **The value is in why the question arose at all: `docker service ps`'s
+`CURRENT STATE` age is the last time the manager stamped the task's status, NOT the task's age** — at the
+2:07 PM dump the task was 20 hours old, not 2. Full evidence in §Part 5 → "CLOSED Aug 19". ⚠️ **Standing
+hazard left in place, not fixed:** an empty 88-byte `capricorn_redis_data_swarm` still sits on `.193`, and
+`redis` scheduling there would silently attach an empty cache.
+**Nothing else is outstanding.** The rigorous `.Version.Index` version of the convergence check is
+deliberately deferred to Phase 17.
 ⚠️ **This header read "Parts 1 & 2 COMPLETE … Next up: Part 3" until Aug 19** — six days and four Parts
 out of date, while the log at the bottom was current. **A status line at the top of a long file is the
 first thing read and the last thing updated;** treat it as a claim to re-verify, not as state.
+🚨 **It then did it again, and the second time is the instructive one.** From Aug 18 to Aug 19 this line
+said drill D was "outlined but never run" while the results sat 1,900 lines below it, scored and
+written up. That false claim was copied into `MEMORY.md`, `current_phase.md` and the roadmap table, and
+survived a `MAKE_MEMORIES` pass on Aug 19 that *cited it as the only open item* — because the pass
+edited the summaries and never diffed them against the detail. ⭐ **A summary is a claim about another
+file; the only way to maintain one is to re-read what it summarises.** The `🔲` box at the drill's
+planning entry was never ticked, and an unticked box outranked measured evidence for a full day.
 🙋 **Part 2 onward is HANDS-ON: Andrew runs the commands** — see
 [`education/METHOD.md`](../education/METHOD.md) → "Who does the work". Part 1 was AI-driven and is the
 last part that will be.
@@ -1240,7 +1259,7 @@ the outcome gets recorded next to them.**
 
 | # | Prediction | Why | Outcome |
 |---|---|---|---|
-| P1 | `deploy_swarm.sh` **refuses before touching the cluster**, naming `pg_password`. | The secret died with the rollback and the pre-flight guard has never actually fired. | ⚠️ **STILL NOT TESTED** — the run landed on the workstation, so the *manager* guard fired first (see below). The secret guard remains unexercised. |
+| P1 | `deploy_swarm.sh` **refuses before touching the cluster**, naming `pg_password`. | The secret died with the rollback and the pre-flight guard has never actually fired. | ➖ **NOT TESTED BY THIS RUN** — it landed on the workstation, so the *manager* guard fired first (see below). ✅ **Since closed by Drill B**, which fired the secret guard deliberately; Drill D then showed the guard's limit — it catches an ABSENT secret, never a WRONG one. ⚠️ This cell read "the secret guard remains unexercised" long after Drill B exercised it. |
 | P2 | With `REG_TOKEN`/`REG_USER` the login branch runs and the deploy proceeds. | `config.json` is gone too, so this is the first real test of the path **CI will take**. | ✅ **CONFIRMED.** `logging in … → login ok`, and the `credentials are stored unencrypted` warning reappeared — fresh evidence for L9. |
 | P3 | 🎯 **The deploy does NOT converge, and `backend` is the service that fails** — not postgres. | `restart_policy` gives backend one start plus `max_attempts: 3` at `delay: 5s` ≈ **20 s of patience**, while a cold postgres must pull its image *and* run `initdb` on an empty volume. There is **no healthcheck** (deliberate, for C6) so nothing makes backend wait. | ❌ **FALSIFIED.** Converged in ~20 s, `EXIT=0`, and `docker service ps` shows **zero failed tasks** on either service. Reasoning below. |
 | P4 | The failure is **visible only on a cold cluster**. Re-running the same script immediately afterwards succeeds, unchanged. | Second run: images cached, postgres already initialised, volume populated. | ⚪ **MOOT** — there was no cold failure to contrast against. |
@@ -1529,7 +1548,11 @@ directory. On an existing volume, initialisation is skipped entirely:
 is a *copy*, and two copies drift. This is the same root cause as L14 from a different direction: the
 orchestrator holds credentials it does not own.
 
-🔲 **Drill D added (chapter 5 material — "secret rotation" is already in its outline):** rotate
+✅ **DONE Aug 18** — results below (P30 ✅, P31 ✅, plus the `pg_hba.conf` `trust` discovery and the
+`name:`-vs-stack-key trap in the guard). ⚠️ **This box stayed `🔲` for a day after the drill ran, and
+the file header quoted it as proof the drill was outstanding.** Tick the box in the same edit that
+writes the result, or the plan silently outranks the evidence.
+**Drill D added (chapter 5 material — "secret rotation" is already in its outline):** rotate
 `pg_password` **without** touching the database, redeploy, and confirm the smoke gate catches what every
 other check misses. **This also tests the gate itself**, which is currently unproven against a real
 failure.
@@ -3031,13 +3054,55 @@ Raw evidence: `scratch/incident_raft_term_inflation.txt`.
 A3 traded availability for durability and **this outage exercised both halves of that trade in one event** —
 the deploy path died *because* of the pin, and the database survived intact *because* of the pin.
 
-⚠️ **OPEN QUESTION worth chasing, because `redis` is the mirror image — unpinned, with a LOCAL volume.**
-In the 2:07 PM failure dump, `capricorn_redis.1` was `Running` on **docker-swarm-2** having started
-**~2 hours** earlier, i.e. right at the outage. If `redis` was previously on `.191`, then it **rescheduled
-onto `.192` against a fresh, empty `redis_data_swarm`** — trap C3's silent-data-loss mechanism occurring
-for real, unnoticed, in the middle of a different drill. That would also mean **two divergent volumes now
-exist**, one per node. Checkable: `docker volume ls` on both nodes, and `redis-cli DBSIZE`. **Unverified —
-do not write it up as a finding until measured.**
+✅ **CLOSED Aug 19, 7:55 PM — MEASURED, and the hypothesis was WRONG. 🤖 AI-executed** at Andrew's
+instruction ("run the commands yourself, update docs as necessary and close this phase"); every command
+below was read-only.
+
+The question as written was: *"`capricorn_redis.1` was `Running` on docker-swarm-2 having started ~2 hours
+earlier, i.e. right at the outage. If `redis` was previously on `.191`, it rescheduled onto `.192` against
+a fresh, empty volume — C3's mechanism occurring for real, unnoticed."* **No part of that happened.**
+
+| What was checked (read-only) | Result |
+|---|---|
+| `docker volume ls` on all three nodes | `.191` **has never held a redis volume**; the volume exists on `.192` and `.193` only |
+| `docker volume inspect … CreatedAt` | `.192` **Aug 13 18:27** (original deploy) · `.193` **Aug 18 19:06:56** |
+| Keys in each volume, by `grep -a` on the RDB as root | `.192` `dump.rdb` **155 b, holds `c3:canary` + `c3:counter`** · `.193` `dump.rdb` **88 b, ZERO keys** |
+| AOF generation number | `.192` `appendonly.aof.**2**.base.rdb` (rewritten twice) · `.193` `appendonly.aof.**1**.base.rdb` (first ever — a fresh start) |
+| Live `redis-cli DBSIZE` / `KEYS *` on `.192` | **2** — `c3:canary`, `c3:counter`, still present five days on |
+| `docker inspect` the live container | **`StartedAt` Aug 18 23:14:34 UTC, `RestartCount` 0**, mounting `capricorn_redis_data_swarm` |
+
+⭐ **So two divergent volumes DO exist — but they are trap C3's own documented residue, created
+deliberately at 19:06:56 on Aug 18, not an accident during the Aug 19 outage.** The numbers match the C3
+write-up in this file exactly (empty volume created 19:06:56, `DBSIZE 0`, both canary keys returned on
+moving the constraint back). Nothing was lost, and nothing needs writing up as a new incident. **The
+`.193` volume is still there: 88 bytes, empty.** Left in place — removing it is destructive, it is C3's
+evidence, and hard rule B1's spirit says do not tidy away a trap's artefacts. ⚠️ **Standing hazard,
+recorded not fixed:** if `redis` ever schedules onto `.193`, it will attach that empty volume and the app
+will silently see an empty cache.
+
+🚨 **The finding is the reasoning error, not the volumes — and it is a false green of a new kind here.**
+The hypothesis rested on reading `docker service ps`'s `CURRENT STATE` column ("`Running 8 hours ago`") as
+**when the task started**. It is not. Measured on the same task, same minute:
+
+```
+task CreatedAt       2026-08-18 23:14:24 UTC   ← task born (matches the container's StartedAt)
+Status.Timestamp     2026-08-19 16:11:15 UTC   ← what "Running 8 hours ago" renders
+UpdatedAt            2026-08-19 18:59:41 UTC
+container RestartCount 0                       ← never restarted in 24.6 h
+```
+
+**`CURRENT STATE` age is the last time the manager STAMPED the task's status, not the task's age.** The
+stamp moves during control-plane churn — this one moved twice on Aug 19, around the C4 tests and the
+manager-reboot incident — so **a task that has run untouched for a day can present as freshly
+rescheduled.** That is exactly the misread that manufactured this open question: at the 2:07 PM dump the
+task was **20 hours old**, not 2. Clock skew was excluded, not assumed: all three nodes are NTP-synced
+and agreed to within one second when checked.
+
+⭐ **The general rule, and it is the phase's spine again — one instrument per question.** "How long has
+this container been up?" is `docker inspect .State.StartedAt` plus `.RestartCount` on the node. "Which
+node did it come from?" is the task history, and once Swarm prunes the old rows **the only surviving
+evidence is on the filesystem** — here, the volume's `CreatedAt` and its AOF generation number outlived
+the orchestrator's memory of the event entirely.
 
 ### CI variables (Andrew, GitLab UI, Aug 19)
 
