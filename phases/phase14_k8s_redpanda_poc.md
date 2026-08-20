@@ -1367,3 +1367,354 @@ via guest-agent fs-freeze, no VM downtime, verified 0 restarts + 33 records read
 
 ---
 
+
+---
+
+## 📦 DEMOTED VERBATIM FROM `MEMORY.md` — Aug 20, 2026
+
+⛔ **Phase 14 is CLOSED and Kubernetes is explicitly OUT OF SCOPE for the active phase.** This was the
+332-line Phase 14 block of `MEMORY.md` — **14 % of an always-loaded file, spent on a closed
+interview-prep phase** — moved here unchanged during a MAKE_MEMORIES demotion.
+
+⚠️ **Copied verbatim and diffed before removal, NOT summarised.** A coverage check found **44
+distinctive strings that existed ONLY in the `MEMORY.md` copy** and nowhere in this file — among them
+`k3s-uninstall.sh`, the local-path PV layout `/var/lib/rancher/k3s/storage/<pv-name>_<ns>_<claim>/`,
+`ALLOWVOLUMEEXPANSION=false`, `ProgressDeadlineExceeded`, `lastState.terminated: Error:137`, the
+`group_new_member_join_timeout=30000` / `session.timeout.ms` consumer-rebalance settings, and
+`statefulset.podAntiAffinity.type: soft`. **Summarising would have destroyed all 44.**
+
+⚠️ **Read it as an Aug 2026 snapshot, not as instructions.** Its internal status markers and any
+`~~strikethrough~~` corrections are preserved exactly as written; editing them would make this copy
+unverifiable against the original.
+
+- **✅ CLOSED — Phase 14: Kubernetes + Redpanda POC (was interview prep).** Plan + learning material
+  in `phases/phase14_k8s_redpanda_poc.md`. The role framing still governs how the material is
+  written: weight everything toward **operational** reasoning (what breaks, what the cluster does
+  about it, what you do at 3am, which reflexes make an incident worse) over application design, and
+  tie every concept back to a consequence for **order/trade processing** (e.g. unkeyed producers →
+  a cancel processed before its order; a degraded cluster → don't rolling-restart it).
+  **Parts 1, 2, 3, 4 and 6 all COMPLETE (July 25 – Aug 3); chapters 1–7 written.** Restore points on
+  VM 186: `s01-base-clean` (pre-k3s) → `s02-k3s-up` (k3s only, **predates Redpanda**) →
+  `s03-redpanda-up` (Jul 27 14:58) → `s04-topics-seeded` (Aug 3 18:34) →
+  **`s05-app-running` (Aug 3 19:13) = the one to roll back to.** All taken live with guest-agent
+  fs-freeze (`s03` took 1.5 s), VM never stopped, 0 pod restarts afterwards.
+  ⚠️ **Do NOT roll back to `s03`** to "get a clean cluster" — it predates `orders-v2`, the OMS app and
+  its PVC, and would silently discard Parts 4–6.
+  **Remaining (optional, unblocked): chapters 8–10 — Schema Registry, OpenSearch + Fluent Bit,
+  failure drills.** ⚠️ **Re-seed topics first:** default `retention.ms` is 7 days and the events were
+  seeded Aug 3, so all four topics are now empty (offsets preserved, `LOG-START == LOG-END`).
+  ⚠️ **Redpanda's trial licence expires ~Aug 25, 2026** with `partition_auto_balancing_continuous`
+  and `core_balancing_continuous` in use from chart defaults — decide to disable or licence.
+  🔻 **VM 186 right-sized Aug 12: 32 GB → 16 GB, 16 → 8 vCPU** (it was provisioned for an OpenSearch
+  install that never happened; measured 3.0 GB / ~1% CPU in use). Verified healthy 3/3 with the Part 6
+  ledger still reconciling to exactly 800,000 shares. OpenSearch would still fit if chapter 9 happens.
+  - **k3s v1.36.2+k3s1 on VM 186.** Installed with
+    `curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="--write-kubeconfig-mode 644" sh -`.
+    Node `Ready`, containerd 2.3.2 (NOT Docker), ~512 MB RSS, survives reboot. `kubectl` and
+    `crictl` in `/usr/local/bin` are **symlinks to the k3s binary**. `k3s-uninstall.sh` removes
+    everything.
+  - **kubeconfig:** `/etc/rancher/k3s/k3s.yaml` (mode 644) copied to `~/.kube/config` (mode 600).
+    ⚠️ It points at **`127.0.0.1:6443`, so it only works ON VM 186** — for the Z8, copy it and
+    change the server to `https://192.168.1.186:6443`.
+  - ⚠️ **`chown $(id -u):$(id -g)`, never `chown $USER`** — `$USER` leaves the group as root and is
+    unset in non-interactive SSH commands.
+  - ⚠️ **`kubectl wait --for=condition=Ready pods --all` times out on a HEALTHY cluster.** Job pods
+    (`helm-install-traefik`) reach `Completed`, never `Ready`. `Completed` is success.
+  - k3s re-applies its add-ons from `/var/lib/rancher/k3s/server/manifests/`, so deleting a whole
+    add-on Deployment gets it rebuilt from there.
+  - **`local-path` PVs carry a hard nodeAffinity** to the node + `WaitForFirstConsumer` binding.
+    Consequence: on node loss a pod is NOT rescheduled elsewhere, it sits `Pending` forever.
+  - **A `local-path` PV is literally a directory** at
+    `/var/lib/rancher/k3s/storage/<pv-name>_<ns>_<claim>/`, on the VM's single `/dev/sda1` ext4
+    root. **The requested capacity is not enforced — there is no quota**, so a runaway pod can
+    fill the node. `ALLOWVOLUMEEXPANSION=false` (can't grow it) and `RECLAIMPOLICY=Delete`
+    (`kubectl delete pvc` destroys the data instantly, no prompt). Proxmox knows nothing below
+    "VM 186 has a 300 GB disk".
+  - ⚠️ **`kubectl delete pod` blocking for ~30 s is normal**, not a hang. Default
+    `terminationGracePeriodSeconds` is 30, and **PID 1 in a container only receives signals it has
+    installed a handler for** — even from the kubelet. Plain `sh`/`sleep` ignores SIGTERM and waits
+    for the SIGKILL. Measured here: `sh -c "sleep 3600"` 31 s, same with a `trap ... TERM` 2 s,
+    nginx 2 s, `--grace-period=5` 7 s. **Never `--grace-period=0 --force` a broker** — the
+    StatefulSet replacement can start while the original still holds the volume.
+  - **Debugging a Service that blackholes: check `kubectl get endpointslices`.** kube-proxy never
+    evaluates label selectors; the EndpointSlice controller does, and writes the pod-IP list that
+    kube-proxy turns into iptables rules. Empty slice = selector matches nothing, even though every
+    pod is healthy. Also: **`curl -w "%{remote_ip}"` cannot identify the backend** — DNAT is
+    transparent, so it always reports the ClusterIP. Read the pods' own logs instead.
+  - **Services load-balance per TCP connection, not per request** → a gRPC/HTTP2 client pins to one
+    pod forever. Fix with a headless Service + client-side LB, or a mesh. Likely interview question
+    given the firm moves market data over gRPC.
+  **Part 4 — Redpanda (July 27, 1:00–2:50 PM). 3 brokers live in ns `redpanda`, healthy 3/3.**
+  Chart `redpanda-26.1.9` / app `v26.1.12`, `rpk v26.1.14`, Helm v3.21.3. PVCs
+  `datadir-redpanda-{0,1,2}` 20Gi local-path. Topic `market-ticks` 6 partitions RF 3. Full runbook =
+  `education/k8s-k3s-redpanda/chapter03_redpanda.md`; the working values file is
+  **`education/k8s-k3s-redpanda/manifests/redpanda-values.yaml`** (verified to reproduce the live release).
+  - ⚠️ **The chart's documented anti-affinity override `statefulset.podAntiAffinity.type: soft` is
+    VESTIGIAL in 26.1.9 — it silently does nothing.** Hard anti-affinity means only 1 broker can
+    schedule on a 1-node cluster. Real path: `statefulset.podTemplate.spec.affinity` — set
+    `requiredDuringSchedulingIgnoredDuringExecution: null` + add a `preferred...` term.
+    **Habit: `helm template … | grep -A14 affinity` BEFORE installing anything you're overriding.**
+  - Failed-install symptom cascade: Helm hangs → pods `Pending` → **PVCs `Pending` are a *symptom***
+    (local-path is WaitForFirstConsumer) → redpanda-0 never Ready (can't quorum alone) → config Job
+    fails → Console crash-loops. **Read events on the earliest stuck thing, not the loudest broken
+    one:** `kubectl -n redpanda describe pod redpanda-1 | tail -20`.
+  - `helm uninstall` **leaves StatefulSet PVCs behind.** `kubectl -n redpanda delete pvc --all` for a
+    truly clean reinstall. A `redpanda-configuration-*` pod in `Error` beside a `Complete` Job is
+    normal Job backoff (post-install raced broker readiness) — judge the Job, not the pod.
+  - **`rpk` = `/usr/local/bin/rpk`, a plain static binary — NOT an alias.** Kafka API `:9093`,
+    Admin API `:9644` (`rpk cluster health` uses Admin). Profile `local` in `~/.config/rpk/rpk.yaml`
+    bootstraps off **all three** internal FQDNs so diagnostics survive a dead broker.
+  - **Advertised-listener fix:** dialling `localhost:31092` failed with an error naming
+    `redpanda-0...` — bootstrap only asks "who are the brokers?", then the client dials the
+    **advertised** addresses directly. Fixed with
+    `/etc/systemd/resolved.conf.d/k3s-cluster-dns.conf` → `DNS=10.43.0.10` (CoreDNS),
+    `Domains=~cluster.local` (`~` = routing-only). Survives pod replacement (nothing references a
+    pod IP). ⚠️ **Works only because the host IS the node** (pod IPs on `cni0`); not LAN-wide.
+    General rule: *a broker must advertise an address clients can resolve AND route to, from where
+    the client is.*
+  - ⚠️ **`rpk topic describe -p`: HIGH-WATERMARK is awk field `$8`, not `$6`** — `REPLICAS [0 1 2]`
+    contains spaces. HWM = committed record count; summing it is the authoritative total.
+  - ⚠️ **`rpk topic consume -n N` HANGS** when fewer than N records exist, and `| wc -l` then shows
+    nothing (no EOF). **`-o :end` = read all and exit.** `-o start:end` silently returns **0** —
+    looks exactly like data loss.
+  - **Unkeyed is NOT round-robin.** Sticky partitioner sent 6 unkeyed → 1 partition and **300
+    unkeyed → still 1 partition**; *which* partition is random per producer session (p1 one run, p5
+    the next). Keys are deterministic and reproduced exactly: AAPL→3, GOOG→3, MSFT→0, TSLA→5,
+    AMZN→5 (5 keys, 3 partitions, 2 collisions, p1/p2/p4 idle). Demo partitioning with **one**
+    producer (`printf 'a\nb\n' | rpk topic produce`), never a shell loop — a loop spawns a producer
+    per record and fakes round-robin.
+  - **Failure drills.** One broker down: failover is surgical but **not load-balanced** (2/2/2 →
+    broker 2 took *both* orphans, leading 4); writes never stopped. After recovery **`Healthy: true`
+    while broker 1 leads 0 partitions** — the leader balancer runs on its own timer, so *healthy ≠
+    balanced*. Quorum loss (scaled to 1): survivor goes `1/2 Running` and steps down,
+    `Leaderless (8)` incl. **`redpanda/controller/0`** (admin dies too), producers **hang rather
+    than error**, and ⚠️ **`Under-replicated` reads 0 because no leader is left to compute it.**
+    **Alert on `Leaderless` + `Nodes down`; `Under-replicated` alone will mislead you.**
+  - **Zero data loss proven:** 32 records, `-o :end` count == Σ HWM. Both writes made while degraded
+    survived; the write that hung during quorum loss never appeared. OMS framing = *never lies about
+    whether an order was accepted*.
+  - **Drill hygiene:** always `kubectl -n redpanda wait --for=delete pod/<name>` before judging.
+    Checking too fast caught a `Terminating`-but-still-serving broker and produced a write that
+    "should" have failed.
+
+  - **Ch1's "ranch" allegory was deleted Aug 3** at Andrew's request ("now unnecessary — use proper
+    terms"). The **table mapping each piece to what it does was kept** (he said that overview is
+    still valuable); the "where the analogy breaks down" section became "Five things the table
+    glosses over". Do not reintroduce farm metaphors anywhere in the series.
+  - **Teaching format that works: Andrew types every command, I verify out-of-band over SSH and
+    explain the output.** Used for Parts 3 & 4 and the Ch2 session. He catches his own anomalies this
+    way (he spotted the 30-second delete himself), and his mistakes turn into the best documentation.
+
+  **Chapter 2 hands-on session (July 27, 3:00–3:30 PM) — Deployments, rollouts, probes.**
+  All in `default` ns on VM 186 with `nginx:1.27-alpine`, `replicas:3`, `maxSurge:1`,
+  `maxUnavailable:0`. Produced 5 revisions across 4 ReplicaSets. **Cleaned up afterwards; Redpanda
+  untouched (Healthy, 33 records).** Findings worth keeping:
+  - **The centrepiece is the readiness-vs-liveness asymmetry, and it demoed perfectly.** Same broken
+    path (`/healthz` → nginx 404) wired two ways. **Readiness broken = fails SAFE:** rollout stalls
+    at 4 pods / 3 Ready, EndpointSlice shows the bad pod `ready=false`, service serves
+    `200 200 200 200 200 200` — the bad build never took a request. **Liveness broken = fails
+    DEADLY:** rollout SUCCEEDS (readiness still passed), all 3 good pods deleted, then every pod
+    hits `CrashLoopBackOff` restarts=4 → `000 000 000 000 000 000`, total outage. One-liner:
+    **"readiness gates the rollout, liveness does not."** This is Fig 2 of Ch2.
+  - **`CrashLoopBackOff` + `Exit Code: 0` = something EXTERNAL killed it, nearly always liveness.**
+    Best single debugging heuristic from the session; nginx caught SIGTERM and exited clean.
+  - **`rollout status --timeout=60s` is CLIENT-side only.** It returned failure while
+    `progressDeadlineSeconds=600` kept the rollout grinding. SRE angle: a red CI job can leave a
+    half-rolled deploy running that everyone assumes never shipped.
+  - **`Available=True` while the deploy was broken** (3 pods serving). Availability ≠ rollout success;
+    monitor `Progressing` too.
+  - **`rollout undo` leaves a landmine.** Measured after a successful rollback: live cluster `/` (good)
+    but **both** the file on disk and `last-applied-configuration` still `/healthz` (broken). Next
+    `apply` re-ships the outage. Andrew got this immediately — it's the strongest GitOps argument
+    we have. Also: **revisions get re-tagged** (history went `1,2,3` → `1,3,4`), so a revision number
+    quoted earlier in an incident may no longer exist.
+  - **Two rollbacks behaved differently and the contrast is the lesson:** after the readiness stall
+    the good pods were *never touched* (RS stayed 3/3, age kept climbing to 8m38s) = zero disruption;
+    after the liveness outage the good pods were already destroyed, so rollback had to create new
+    ones under the same hash = real downtime.
+  - **Andrew's one real misconception, worth re-checking later:** he thought `maxUnavailable` protects
+    Raft quorum. It does not — it is a **capacity** guarantee; the Deployment controller counts Ready
+    pods and knows nothing about consensus. Corrected in Ch2 §9 with the StatefulSet / PDB /
+    cluster-aware-readiness answer, tied back to Ch3's finding that `Healthy: true` can coexist with a
+    broker leading zero partitions.
+  - Also confirmed: `apply` printing `configured` does **not** imply a rollout (only pod-template
+    changes churn pods); scaling creates no new ReplicaSet; labels are per-object (`-l app=web` missed
+    the Deployment until `metadata.labels` was added).
+
+  **Chapter 4 session (Aug 3, ~1:00–5:45 PM) — topic provisioning, idempotency, drift, the readiness
+  race.** Six demos in the `redpanda` ns. Andrew's framing: *"what would I do as a DevOps guy during a
+  pipeline deployment to get the brokers deployed and the topics seeded?"* Findings worth keeping:
+  - **The two control planes.** Kubernetes owns brokers; Redpanda owns topics (controller Raft group
+    on the PVCs). `kubectl get topics` returns nothing. Rebuild from `redpanda-values.yaml` → 3 healthy
+    brokers, **zero topics**; delete every seeding object → **topics survive**. Same fact both ways.
+  - **The gap, proved.** `auto_create_topics_enabled=false` + produce to an unseeded topic =
+    `UNKNOWN_TOPIC_OR_PARTITION` exit 1, while Helm says `deployed`, pods `Running`, health `true`.
+    **`helm install` + `rollout status` is not a sufficient deploy gate.**
+  - **`rpk topic create` is NOT idempotent** — exit 1 on `TOPIC_ALREADY_EXISTS`. Naive Job passes the
+    first deploy and fails every one after. Guard with `rpk topic describe` (exit 0 = exists).
+  - **⭐ THE headline finding — pod-Ready is not cluster-ready.** Andrew caught the state by accident,
+    then we measured it: **21:32:02 all 3 pods `2/2 Ready` → 21:32:11 `Healthy: true`. A 9-second
+    window** with every Kubernetes signal green and **11 of 18 partitions leaderless**. 11 not 18
+    because **each partition is its own Raft group and elects independently** — there is no instant
+    when "the cluster" becomes ready. Gate on cluster health, never on pod readiness.
+  - **`Under-replicated partitions (0)` while 11 were leaderless — SECOND time this metric lied**
+    (first: Jul 27 quorum drill). No leader ⇒ nobody computes it. **Alert on `Leaderless` + `Nodes
+    down`. Never `Under-replicated` alone.**
+  - **⚠️ `rpk cluster health` is an ADMIN API (:9644) call.** `-X brokers=` (Kafka API :9093) is
+    **silently ignored** by it — rpk falls back to `127.0.0.1:9644`, "connection refused". Cost 5 min
+    of a hung guard against a healthy cluster, and testing from inside `redpanda-0` *worked* because
+    there localhost:9644 really is a broker. Use **`-X admin.hosts=`**. General lesson: **a health gate
+    that can't reach its target is indistinguishable from an unhealthy target.**
+  - **Move the retry into an init container.** `backoffLimit` conflates "tolerate a slow dependency"
+    with "retry a real error" (naive budget ≈ **32s** vs broker startup **21s warm / ~2 min cold**).
+    A polling init container decouples them: 600s wait budget, `backoffLimit: 2` failure budget.
+    Measured **0s** on a healthy cluster, **50s** through a full scale-to-zero outage.
+  - **No fixed sleep can be correct** — startup varies 21s→2min with image cache.
+  - **`publishNotReadyAddresses: true`** on the headless Service ⇒ **DNS resolution is not a readiness
+    signal**; it hands out brokers not yet accepting connections.
+  - **Idempotent ≠ reconciling → the three-tier drift model** (all four behaviours captured live on a
+    throwaway `drift-demo` topic): **Tier 1** retention/cleanup → fix in place, exit 0. **Tier 2** RF →
+    report + exit 1, a human schedules the data movement. **Tier 3** partition count → **never**
+    auto-fix, exit 1 (growing changes `hash(key) % n` for ~half the keys, splitting order history;
+    shrinking impossible). Design rule: *fix cheap+reversible, refuse expensive+destructive, loudly.*
+    The failure to design against is **"reported success on a cluster that was wrong."**
+  - **Script craft:** `set -uo pipefail` **without `-e`** so one run reports *every* drift instead of
+    revealing them serially across deploys; `awk` on table output because the broker image ships no
+    `jq` — and using the broker's own image keeps `rpk` version-matched to the cluster.
+  - **`kubectl wait --for=condition=complete` only watches success** — Job died at 34s, wait burned the
+    full 90s then reported a *timeout*, i.e. slower AND wrong about the cause. Race both conditions.
+  - Housekeeping: `market-ticks` records from Jul 27 had **aged out** via `retention.ms=604800000`
+    (`LOG-START-OFFSET` caught `HIGH-WATERMARK`) — expiry, not data loss.
+
+  **Chapter 5 session (Aug 3, 5:50–6:30 PM) — consumer groups, rebalancing, delivery semantics.**
+  Topic `orders`, 6 partitions, 1500 records, 12 keys; group `oms-processor` grown 1 → 7 members → 5.
+  - **Three rules of assignment:** exactly one owner per partition *at any instant*; a consumer may own
+    many; **assignment counts partitions, not records.** At 2 members: 3/3 partitions but
+    **120 vs 60 records** — permanent 2:1 imbalance the protocol will never correct.
+  - **Parallelism ceiling is real and permanent:** 7 consumers on 6 partitions → the 7th got **no
+    assignment, 0 records**. Plus `c1` owned p0 which has never held a record ⇒ **7 consumers, 5
+    working**. **Worst-case lag is set by the hottest partition, not the consumer count** — you cannot
+    add consumers to help a lagging partition because Rule 1 forbids a second owner.
+  - **But idle ≠ useless.** When the p2 owner was SIGKILLed, the surplus `c7` **inherited it instantly**
+    (already connected/authenticated/in-group). A surplus consumer is a **warm standby**; worth it iff
+    consumer startup is expensive. I called it "pure cost" one step earlier — the demo disproved it.
+  - **Skew quantified:** 12 keys → p2 got **5 keys = 42%**, p0 got **zero**. Andrew asked why Redpanda
+    doesn't rebalance. **Two answers:** (a) `hash(key) % n` is computed **client-side in the producer**,
+    so the record arrives pre-addressed and the broker never gets a vote; (b) even if it could, moving
+    a key splits its history across two partitions read by two consumers ⇒ **a cancel could be
+    processed before its order**. Separate **small-numbers skew** (self-corrects at real key
+    cardinality — don't over-learn the demo) from a **genuinely hot key** (needs composite key like
+    `account-shard-N`, or a dedicated topic — **not** more partitions).
+  - **⭐ THE demo — SIGTERM vs SIGKILL, same partition.** p2's ownership relay: `c1 0..74`,
+    `c6 75..137`, `c7 138..395`, `c2 393..624`. **SIGTERM** = committed + left the group ⇒ `137→138`,
+    **zero duplicates, immediate reassignment** (no heartbeat timeout). **SIGKILL** = consumed through
+    395 but last commit was **392** ⇒ successor replayed **393/394/395 (ORD-10, ORD-11, ORD-2)**;
+    **628 processed for 625 written**. OOM kills, `delete pod --force`, node loss and liveness kills
+    (Ch2) are all the SIGKILL case — **graceful is the exception, not the norm.**
+  - **Duplicates = throughput × time since last commit.** Commit-interval tuning changes the odds,
+    never the possibility ⇒ **the fix is an idempotent consumer** (dedupe on event ID, conditional
+    write, upsert by order ID). **Exactly-once only covers read-process-write loops that stay INSIDE
+    the cluster** — an external order gateway puts you back on at-least-once.
+  - **Reading the table:** lag is **per-partition**; `TOTAL-LAG` is only the sum and hides a stalled hot
+    partition ⇒ **alert on max per-partition lag**, not the total. `CURRENT-OFFSET  -` means **never
+    committed**, which is NOT offset 0 — read it with `LOG-END-OFFSET` to tell idle from never-started.
+  - **Rebalances make distribution *less* fair over time** — after two deaths one consumer owned both
+    p2 (hot) and p3. Also: adding 5 members changed almost nothing visible in `describe` because no new
+    data had arrived — **count distinct owners vs `MEMBERS`** to see a rebalance, not offsets.
+  - **`__consumer_offsets`: 16 partitions, RF 3, `cleanup.policy=compact`** (so offsets can't age out
+    the way `market-ticks` did). Group name hashes to one partition (`/7`), whose leader is the
+    **group coordinator**. Explains why the group survived `MEMBERS 0` as `STATE Empty`, and why
+    `-o start` did **not** replay history for a newly joined member (it only applies with no commit).
+  - `group_min_session_timeout_ms=6000`, max `300000`, `group_new_member_join_timeout=30000`.
+  - **Andrew's one misread:** seeing p2 records across several logs he said "everyone got some of his
+    messages." It's a **relay, not sharing** — contiguous non-overlapping ranges over time; a log file
+    is the union of everything that consumer ever owned. He otherwise called every result correctly.
+
+  **Chapter 6 session (Aug 3, 6:40–9:10 PM) — Part 6, our own producer/consumer, built unattended.**
+  Python 3.12 + `confluent-kafka` 2.6.1, image `oms:dev` side-loaded into k3s containerd (no
+  registry), topic `orders-v2` 6p/RF3, group `position-keeper`. Workload: **2000 orders × (1 NEW +
+  4 FILL) = 10,000 events, 8,000 fills, 800,000 shares** — fixed arithmetic so the correct answer is
+  knowable without coordination. Source at `education/k8s-k3s-redpanda/app/`. **The chapter is built around four
+  bugs, three of them mine; they are better material than the working version.**
+  - ⭐ **The demo that "failed" and became the best finding.** Plan: two ledgers (idempotent upsert
+    vs naive accumulate), hard-kill mid-stream, watch naive inflate. Result: **zero duplicates in
+    BOTH.** Cause: both ledgers were in the **same SQLite transaction**, committed immediately
+    before the offset commit. SIGKILL mid-batch ⇒ writes **rolled back**, offset also uncommitted ⇒
+    state and offset back in **lockstep** ⇒ redelivery re-applied cleanly. ⇒ **A transactional state
+    store + commit-after-write is effectively-once for FREE — no dedupe table, no event-ID set, no
+    exactly-once protocol. Most consumers qualify.** This is the cheap answer and it tells you
+    exactly when you need more.
+  - **Duplicates only hurt when the side effect ESCAPES the transaction.** Reworked the second
+    ledger into a separate SQLite file on an **autocommit** connection = a stand-in for a POST to an
+    execution venue. Then the same hard kill gave **8011 gateway calls for 8000 real fills = 11
+    duplicate executions = 1,100 shares executed that nobody ordered**, while the transactional
+    ledger stayed exactly 800,000. **Fix is an idempotency key the RECEIVER honours** — which is why
+    payment APIs make you send one.
+  - **Bug: two SQLite connections to ONE file deadlocked.** The transactional connection holds the
+    write lock from first write until commit, starving the autocommit one on every event ⇒ consumer
+    crawled to **1 record processed**. Pod was **`1/1 Running`, no restarts, clean log** — only lag
+    revealed it. ⇒ **Kubernetes cannot tell a working consumer from a hung one**; needs a liveness
+    probe asserting *progress*, not liveness. Separate files fixed it and models reality better.
+  - **Bug: the tail that never commits.** Commit trigger was record-count only (`>= 50`), so on an
+    idle topic the final partial batch **never commits**. Lag stuck at **13 indefinitely** — and that
+    permanently-uncommitted tail is replayed on **every** restart: duplicates went **11 → 22 → 33,
+    compounding**. Fix: commit on **count OR elapsed seconds**, *including on the idle path when
+    `poll()` returns None*. Lag then hit 0 and held. ⇒ **Lag that is stuck rather than growing is a
+    commit-policy bug, not a slow consumer.**
+  - ⚠️ **`kubectl delete pod --force --grace-period=0` is NOT a reliable SIGKILL.** The runtime may
+    still deliver SIGTERM; our handler committed and left the group cleanly, so I was testing the
+    **graceful** path while believing it was the hard one. `kill -9 1` inside the container also
+    fails (kernel shields PID 1 of a namespace from unhandleable signals). **What works: kill the
+    process from the NODE** (`pgrep -ax python` → `sudo kill -9 <pid>`), confirmed by
+    `lastState.terminated: Error:137` (= 128+9, same as an **OOM kill**). Also: it was a **container
+    restart in place** (restartCount++, same pod/IP/PVC), not a pod replacement.
+    ⚠️ Do **not** `pkill -f "python consumer.py"` — the pattern matches the shell running it and
+    killed my own SSH session.
+  - **Measurement trap:** after a hard kill the group waits out `session.timeout.ms` (**librdkafka
+    default 45s**) before reassigning. I sampled at 35s twice and wrongly concluded the duplicates
+    had stopped compounding. **SIGTERM reassigns instantly; SIGKILL costs a session timeout of
+    downtime** — an availability difference, not just a data one.
+  - **`acks=0` measured: 29 records lost SILENTLY.** Same code, one env var, broker force-deleted
+    mid-produce: `acks=all` → 15000/15000 in topic (26.8s); `acks=0` → producer reported
+    **`delivered=15000 failed=0`** but only **14971** were in the topic (27.0s). **The entire benefit
+    was 0.2 seconds.** ⇒ **a duplicate is loud and recoverable, a lost record is silent** — for an
+    OMS a missing fill is a position you don't know you hold. `acks=all` is the floor.
+  - **Ch5's skew prediction confirmed.** Ch5 got **42% on one partition with 12 keys**; with **2000
+    keys** the spread was 1590–1740, a **9.4% span** (sums to exactly 10,000). ⇒ **key skew is a
+    function of key CARDINALITY, not partitioning** — count distinct keys before treating uneven
+    partitions as a problem.
+  - **Ordering proven, not assumed:** per-order `seq` tracking gave **`seq_gaps=0` across 2000
+    orders**. Cheap continuous ordering check worth stealing for production (one dictionary).
+  - **`BALANCER range`, not `cooperative-sticky`** — `confluent-kafka` defaults differ from `rpk`.
+    `range` is the **eager** protocol (everyone revokes everything on any rebalance). ⇒ **rebalance
+    behaviour is a property of the CLIENTS, not the cluster**; a mixed fleet is nasty to debug.
+  - **A durable side effect per event cost ~8×**: ~1,550 events/s transactional-only vs **~200/s**
+    with a per-event fsync. ⇒ **the commit window isn't carelessness, it's the price of throughput.**
+  - `strategy: Recreate` is mandatory for the consumer — `RollingUpdate` surges a second pod that
+    can never mount the `ReadWriteOnce` PVC, so the rollout hangs to `ProgressDeadlineExceeded`.
+    Ch2's `maxSurge` lesson arriving sideways: **the surge is only free if nothing the pod holds is
+    exclusive.**
+
+  **From the Parts 1 & 2 build (July 25) — still current:**
+  - **The lab now has its first VM template: 9000 `tmpl-ubuntu-2404-cloudinit`** (Ubuntu 24.04
+    cloud image + baked-in `qemu-guest-agent`, cloud-init drive, `--ciupgrade 0`). Clone → fully
+    booted VM in **~30 seconds**. This replaces hand-building from an ISO; see the
+    "CLOUD-INIT TEMPLATE" section below for the exact recipe.
+  - **VM 186 `vm-k8-redpanda-1` @ .186** built from it: 16 vCPU / 32 GB / 300 GB on vm-ephemeral,
+    `host_setup.sh` applied — **right-sized to 8 vCPU / 16 GB on Aug 12, 2026** (see the RAM
+    allocation section below). Snapshots now run `s01-base-clean` → `s02-k3s-up` →
+    `s03-redpanda-up` → `s04-topics-seeded` → **`s05-app-running`** (the current restore point).
+  - **⚠️ Changing a VM's `cores`/`memory` requires a full stop, not a reboot.** QEMU consumes them
+    when the process launches, so `qm reboot` keeps the old topology. Worse, `qm set` on a *running*
+    VM **succeeds silently** and merely stages the change for next boot — easy to mistake for
+    success. Sequence is `qm shutdown <id> --timeout 240` → `qm set …` → `qm start <id>`.
+  - **⚠️ Never use `/root/.ssh/authorized_keys` on the Proxmox host as a cloud-init key source** —
+    it's a symlink to `/etc/pve/priv/authorized_keys` and holds only the PVE cluster RSA key, not
+    Andrew's workstation key. Use **`/root/cloudinit-keys-all.pub`** (both keys) instead.
+  - **`host_setup.sh` installs Chrome + Cursor** (~1.8 GB) — it's a desktop script. On headless
+    VMs, purge them after: `apt-get purge -y google-chrome-stable cursor && apt-get autoremove --purge -y`.
+    It also needs `smb_credentials` downloaded next to it; it does not fetch that itself.
+  - **PVE snapshot names must start with a letter** (they're config IDs). `01-base-clean` fails
+    with `invalid configuration ID`; use `s01-base-clean`.
+  - VM 186 is **excluded from `refresh.sh`** and has `unattended-upgrades` + `apt-daily` timers
+    **disabled** — no package churn while learning on it.

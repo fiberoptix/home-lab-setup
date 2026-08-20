@@ -1,6 +1,12 @@
 # Current Phase
 
-**Updated:** August 20, 2026 - 4:40 PM EDT
+**Updated:** August 20, 2026 - 5:10 PM EDT
+
+📉 **MEMORY.md SHRANK for the first time on record: 2414 → 2099** (Aug 20). The closed Phase 14
+k3s/Redpanda block (331 lines, 14 % of an always-loaded file, subject explicitly out of scope) was
+**copied verbatim** into `phase14_k8s_redpanda_poc.md` and verified line-by-line — **0 removed lines
+missing** — before a single line was deleted. **44 distinctive strings existed only in the MEMORY
+copy**, so summarising would have destroyed them.
 
 📉 **This file was trimmed 3797 → 2067 lines on Aug 20** by demoting three closed-phase blocks
 (Phase 16 handoffs → `phase16`, Phase 14 closing record → `phase14`, OpenClaw logs → `phase11`).
@@ -360,10 +366,21 @@ list problem), **J-P5** (the split, and what the agent can still read). New ledg
    against the **existing `:latest` images**, so the only variable versus Phase 16 is the CI system.
    ⚠️ **Needs `education/jenkins/manifests/capricorn-jenkins.stack.yml` on ports 5011/5012** — the
    Phase 16 manifest's 5001/5002 are `mode: ingress` and two stacks cannot share them.
-7. 🔲 **Then Part 5 — BUILD AND PUSH (this used to be Part 4).** Create GitLab group **`lab`** and
-   project **`lab/capricorn-swarm`**, a token scoped to `lab/` only, **prove the 403 against
-   `production/capricorn`**, then build from a read-only clone of Capricorn and push **git-SHA tags**.
-   **T2** (the `docker` group) fires here.
+7. 🔲 **Then Part 5 — BUILD AND PUSH (this used to be Part 4).** ✅ **Step 1 is ALREADY DONE — built
+   early on Aug 20, harmlessly, because a namespace produces no artifacts.** Group **`lab`** and
+   project **`lab/capricorn-swarm`** exist; push target is
+   `gitlab.gothamtechnologies.com:5050/lab/capricorn-swarm/<image>`; group deploy token
+   `jenkins-lab-push` is in `PASSWORDS.md`, **expires 2026-12-31**.
+   ✅ **B10 is PROVEN, not recited (J-P8)** — measured at the registry's auth service: `push,pull` on
+   `lab/`, **`pull` only** on `production/capricorn`. ⚠️ **The `pull` is not a scope leak:
+   `production/capricorn` is an INTERNAL project, so every authenticated identity can read it —
+   a token scope grants, it does not fence.**
+   ⏳ **Still owed here:** the end-to-end `docker push` denial, `insecure-registries` for
+   `gitlab.gothamtechnologies.com:5050` on `.185` (**it is not set — the push will fail without it**),
+   SHA tagging (B11), the two-job split, a registry cleanup policy, and **T2** (the `docker` group).
+   📌 **Diarised hazard:** `jenkins-lab-push` and `swarm-lab-pull` **expire at the same instant**
+   (2026-12-31 05:00 UTC). Jenkins will fail loudly at build time; the Swarm fails **silently at the
+   next task reschedule**. Correlated expiry = two variables changing at once.
 
 🚨 **The one rule that escapes the lab if you get it wrong: B10.** Everything else in this phase fails
 locally. Pushing a Jenkins-built image over `production/capricorn/<svc>:latest` reaches **PROD `.184`**
