@@ -439,15 +439,29 @@ future misdiagnosis waiting for anyone who configures an inbound agent here). An
 is stored `#jbcrypt:$2a$10$…` — **bcrypt at cost factor 10**. ⭐ **Writing the chapter measured things
 the build did not**, which is the argument for writing while the box is still in the state described.
 
-### Part 3 — wire it to GitLab (🙋 Andrew)
+### Part 3 — wire it to GitLab (🙋 Andrew) — ✅ **BUILD WORK DONE Aug 20, 2026**
 
 Read-only deploy key, webhook, multibranch pipeline pointed at **Script Path
 `education/jenkins/Jenkinsfile`** (A10), and a first `Jenkinsfile` that does nothing but checkout and
-print. **T4** (webhook with no token), **T5** (the workspace that keeps the plaintext mirror) and
-**T8** (the webhook GitLab refuses to send — precondition ✅ verified in J-P1) all fire here, plus
-**T1**, moved down from Part 2 because credential masking needs a pipeline to fire in.
+print.
 
-**Snapshot `j03-gitlab-wired`.** Chapter 3.
+✅ **Clone half done ~5:30 PM** (deploy key `CAN_PUSH=false` verified in the database, host keys
+pinned from `.181`'s own `/etc/ssh/`, first green build) — and 🅒 **T5 fired immediately, bigger than
+planted: J-P9.**
+
+✅ **Trigger half done ~7:10 PM — a `git push` now builds Jenkins unattended.** Full write-up in
+**J-P10**; three green builds, snapshot **`j03-gitlab-wired`** taken 19:12:08 and verified.
+
+**Trap outcomes — two of the four did not go as planned, and that is the material:**
+
+| Trap | Outcome |
+|---|---|
+| **T5** — persistent workspace holds the plaintext mirror | 🅒 **FIRED, and worse than planted** — also in the controller's SCM cache. J-P9 |
+| **T8** — GitLab refuses to send the webhook | 🅒 **FIRED**, at save/test time in a form. ⭐ Plus a **new** asymmetry: GitLab delivers to its *own* private address but not to `.185`. J-P10 |
+| **T4** — a webhook with no token lets anyone trigger a build | ⛔ **CANNOT FIRE** — git plugin 5.10.1 requires a token by default and fails closed. **Second vendor-closed trap this phase**, after J-P6's lockout. Its lesson survives via *the token is in a URL* and *the build cause says `Branch indexing`, not "GitLab"*. J-P10 |
+| **T1** — secret masking is string matching | ⏳ **DEFERRED to Part 4/5 by Andrew** ("no more traps in this section"). It needs a pipeline and now has one. **Moved, not dropped.** |
+
+⏳ **Still owed: Chapter 3.**
 
 ### Part 4 — reach the Swarm and deploy Capricorn (🙋 Andrew) — 🔻 **MOVED AHEAD OF BUILD, Aug 20**
 
@@ -665,6 +679,139 @@ taken on Aug 19, before the build, which is exactly when the honest reason was a
 ## 📓 Execution log
 
 Entries land here as work happens, with `J-P` numbers for findings, as in Phase 16.
+
+### J-P10 — ✅ PART 3 BUILD WORK DONE: the webhook, and four ways a config screen lied (Aug 20, 2026, ~6:20–7:12 PM)
+
+🙋 **Andrew ran every UI step.** 🤖 **Every claim below was checked against `gitlab-psql`, Jenkins'
+REST API, or `JENKINS_HOME` on disk — not read off a screen, which is the point of the entry.**
+
+✅ **End state: a `git push` builds Jenkins, unattended.** Three green builds on `main`
+(#1 17:32 manual scan, #2 19:06 webhook Test, **#3 19:10 triggered by a real push**), all on
+`jenkins-agent-1` as uid 1001. Snapshot **`j03-gitlab-wired`** taken 19:12:08 and verified with
+`qm listsnapshot`.
+
+**The working configuration, for the record:**
+
+| Piece | Value |
+|---|---|
+| Webhook URL | `http://192.168.1.185:8080/git/notifyCommit?url=git@gitlab.gothamtechnologies.com:production/home-lab-setup.git&token=<token>` |
+| GitLab **Secret token** field | **deliberately blank — it does nothing here** (see collision below) |
+| Jenkins token | *Manage Jenkins → Security* → "Git plugin notifyCommit access tokens", named `gitlab-home-lab-setup`, stored **SHA-256 hashed** in `hudson.plugins.git.ApiTokenPropertyConfiguration.xml` |
+| GitLab outbound allow-list | `{192.168.1.185:8080}` — host **and port**, global local-network block left OFF |
+
+⛔ **T4 COULD NOT FIRE AS PLANTED, and T1 was DEFERRED by Andrew** ("let's not do any more traps in
+this section"). T1 needs a pipeline and now has one, so it moves to Part 4/5. **Recorded as moved,
+not dropped.**
+
+#### 🅓 The four findings, all of the same family: a surface that reports is not the surface that decides
+
+**1. A webhook that delivered successfully to entirely the wrong machine.** The first Test returned
+*"Hook executed successfully but returned HTTP 422"* with a polished rejection page. ⚠️ **The page was
+GitLab's own** — `Server: nginx`, `X-Gitlab-Meta`, `/-/error-illustrations/error-422-lg.svg` — because
+the URL field had never received the paste and still held the project's own page URL. ⭐ **"Executed
+successfully" describes the HTTP transaction completing, not the hook achieving anything**, and
+because the wrong URL still pointed at a live server the operator gets a *plausible* error from a
+machine that is not part of the integration at all. **Diagnosing from the 422 sends you to Jenkins,
+where nothing is wrong.** ✅ Settled in one query — `Server:` header, Jetty vs nginx.
+
+**2. A form that redisplays what you typed after refusing to save it.** The corrected URL was typed,
+saved, and **read back off the form as correct** — and the row's `updated_at` was still identical to
+`created_at`. ⚠️ **The save had been rejected and the form was showing form state, not stored state.**
+🚨 **This defeats read-back verification, which is the technique you would reach for**, exactly as
+Chapter 1's `Depends` field defeated "check the dependencies". ⭐ **The authoritative surface is the
+LIST view or the database, never the edit form you just submitted.** Once the fix landed, the same
+column proved it: `created_at 22:21:57` / `updated_at 22:53:13`.
+
+**3. 🅒 T8 fired — and the same setting is asymmetric in TWO independent ways.** `Url is blocked:
+Requests to the local network are not allowed`, raised at **save/test time, in a form**, before any
+request left GitLab (`web_hook_logs_daily` recorded no attempt). ✅ **That is the kind failure mode:
+loud, immediate, in front of you.** Measured settings:
+
+```
+allow_local_requests_from_web_hooks_and_services | f     <- blocked .185
+allow_local_requests_from_system_hooks           | t     <- J-P1's asymmetry, now seen in the UI
+outbound_local_requests_whitelist                | {}
+```
+
+🚨 **NEW, and found by accident from finding 1: GitLab DID deliver a project webhook to
+`192.168.1.181` — also RFC1918 — with that flag off and the allow-list empty, then refused
+`192.168.1.185`.** Same subsystem, same project, both private. ⚠️ **Inferred, not proven from source:
+GitLab's URL blocker exempts the instance's own address.** ⭐ So *"GitLab blocks outbound LAN
+requests"* is false **twice over** — it depends on which subsystem asks (system hook vs project
+webhook) **and on which local address you name.** 📌 **The mistake paid for itself**: the wrong URL
+produced a control case nobody would have thought to run.
+
+✅ **Fixed with the SMALLER tool, deliberately** (Andrew chose it when offered both): allow-list entry
+`192.168.1.185:8080` **including the port**, rather than ticking the global "allow local network"
+box that every guide reaches for. **Same targeted-vs-blunt shape as Chapter 2's break-glass and as
+scoping the deploy token to `lab/`.**
+
+**4. ⛔ T4 could not fire — the vendor closed it, and that is the SECOND time this phase.** T4 was
+planted as *"a webhook with no secret token means anyone who can reach Jenkins can start a build."*
+**Git plugin 5.10.1 requires a `token` query parameter by default** and returns
+`401 An access token is required`, ✅ **naming its own documentation URL in the error body** — close to
+a model failure message. Verified read-only before Andrew ever configured it.
+
+⭐ **The pattern now has two instances and deserves to be a principle: the traps the folklore warns
+about are largely the ones vendors have since fixed** (matrix-auth lockout in J-P6; tokenless
+`notifyCommit` here). **The live hazards are elsewhere, and reciting the old warnings is how you
+miss them.**
+
+⚠️ **T4's LESSON survives, reached from the opposite side, and both halves are worth keeping:**
+- 🚨 **The token rides in a QUERY STRING over plain HTTP** (J1). It therefore lands in GitLab's stored
+  webhook config, GitLab's delivery log, the request line on the wire, and any access or proxy log on
+  the path. ⭐ **A secret in a URL is a secret in a log** — a different exposure class from a password
+  in a form, and it argues for treating this token as low-trust and rotating it freely.
+- **The token authenticates the REQUEST, not the SENDER.** Build #3's recorded cause is
+  **`Branch indexing`** — ⚠️ **Jenkins does not record that GitLab triggered it**, and from inside
+  Jenkins a real push, the Test button, and anyone else holding the token are indistinguishable.
+  **"The pipeline ran" is still not evidence of who ran it.**
+
+#### 📌 FOURTH name collision of the phase — two fields called "token", neither aware of the other
+
+| Field | Sent as | Read by |
+|---|---|---|
+| GitLab webhook **Secret token** | `X-Gitlab-Token` **header** | ⛔ **nothing here** — `notifyCommit` never inspects headers |
+| Git plugin **access token** | `token` **query parameter** | ✅ the git plugin |
+
+🚨 **Filling in GitLab's Secret token field would have secured nothing while appearing to**, which is
+worse than leaving it blank. After `ssh-agent`/`ssh-slaves`, `gitlab-plugin`/`gitlab-oauth` and
+`matrix-project`/`matrix-auth`, the standing rule holds: **assume any two similarly-named things in
+this stack are unrelated until you have checked.**
+
+#### 📌 Two smaller mechanics worth not rediscovering
+
+⚠️ **`gitlab-plugin` cannot receive the webhook for a Multibranch Pipeline.** `POST /project/home-lab-setup`
+returns **404 — identical to a job name that does not exist**, because its trigger is a job-level
+thing and a multibranch job is a folder. ⭐ **A 404 that means "wrong plugin for this job type" is
+indistinguishable from a 404 that means "typo".** So the git plugin's `notifyCommit` is the only
+route available from the installed set — **the standard's plugin list once again does not contain
+what the standard's own requirement needs**, third instance after `ssh-slaves`.
+
+⚠️ **Jenkins' 200 response contains a line that reads like a failure, immediately above the success:**
+
+```
+No git jobs using repository: git@gitlab...home-lab-setup.git and branches:
+Scheduled indexing of home-lab-setup
+```
+
+The first line concerns classic jobs with *Poll SCM*, of which this instance has none. **The second
+line is the one that matters.** ⭐ **Stopping at line one would have you debugging a working system.**
+
+#### ✅ `Jenkinsfile` fix shipped in the same push (commit `9a97f47`)
+
+`git rev-parse --abbrev-ref HEAD` printed **`HEAD`**, because Jenkins checks out by SHA and leaves the
+worktree detached. Replaced with `env.BRANCH_NAME`, **and the git command was kept alongside it** so
+the build log shows both:
+
+```
+branch:     main            <- env.BRANCH_NAME, from the multibranch job
+git says:   HEAD            <- the workspace itself
+```
+
+⭐ **The guard in the original line was against the command FAILING (`|| echo detached`); it never
+fired, because the command SUCCEEDED and returned something useless.** Worth generalising: **a
+fallback on failure does not protect you from a confidently wrong answer.**
 
 ### J-P9 — 🅒 **T5 FIRED — and it is bigger than it was planted** (Aug 20, 2026, ~5:32 PM)
 

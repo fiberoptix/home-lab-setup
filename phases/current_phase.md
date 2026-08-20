@@ -282,7 +282,12 @@ missing five VMs and understates GitLab's RAM. Historical phase files 2/4/5/7 le
 
 ---
 
-## ▶️ RESUME HERE — 🔵 PHASE 17 (JENKINS): **Parts 0, 1 and 2 are DONE (Aug 20, 2026). Next is Part 3 — wire it to GitLab.**
+## ▶️ RESUME HERE — 🔵 PHASE 17 (JENKINS): **Parts 0–3 are DONE (Aug 20, 2026). Next is Part 4 — deploy to the Swarm.**
+
+✅ **A `git push` to `production/home-lab-setup` now builds Jenkins unattended** (Part 3 closed
+~7:12 PM, write-up **J-P10**, snapshot `j03-gitlab-wired` verified). ⏳ **Chapters 1 and 2 are
+written; Chapter 3 is owed.** ⏳ **Trap T1 was deferred out of Part 3 into Part 4/5 — moved, not
+dropped.**
 
 🔻 **AND THE DELIVERY MODEL WAS REPLANNED at ~4:30 PM (log entry J-P7) — read that before Part 3.**
 Parts **4 and 5 are swapped** (deploy now precedes build), and there are two new hard rules, **B10**
@@ -355,7 +360,25 @@ list problem), **J-P5** (the split, and what the agent can still read). New ledg
    16 exercise; Jenkins is the third. **The registry-overwrite hazard is invisible until you count
    three.** Decisions **A9/A10/A11** closed, rules **B10/B11** added, ledger rows **J3/J4** written,
    and **Parts 4 and 5 swapped.**
-5. 🔵 **PART 3 IS UNDER WAY — the clone half is DONE and GREEN (Aug 20, ~5:30 PM).** 🙋 Andrew ran it.
+5. ✅ **PART 3 BUILD WORK IS DONE (Aug 20, ~7:12 PM) — a `git push` now builds Jenkins unattended.**
+   🙋 Andrew ran every step. Snapshot **`j03-gitlab-wired`** taken 19:12:08, ✅ verified with
+   `qm listsnapshot`. **Full write-up: J-P10.** ⏳ **Only Chapter 3 is still owed for this part.**
+   - ✅ **Webhook working:** GitLab project hook →
+     `http://192.168.1.185:8080/git/notifyCommit?url=…&token=…`. Three green builds on `main`
+     (#3 at 19:10 triggered by a real push, not a button).
+   - 🚨 **The Jenkins token is in a QUERY STRING over plain HTTP** — it is in GitLab's stored config,
+     GitLab's delivery log, and every access log on the path. ⭐ **A secret in a URL is a secret in a
+     log.** Value is in `PASSWORDS.md`; rotate it freely, it is low-trust by construction.
+   - ⚠️ **GitLab's webhook "Secret token" field is deliberately BLANK and must stay that way** — it is
+     sent as a *header* and `notifyCommit` only reads a *query parameter*. **Filling it in secures
+     nothing while looking like it does.** Fourth name collision of the phase.
+   - ⚠️ **GitLab outbound allow-list is `{192.168.1.185:8080}` and the global "allow local network"
+     box is still OFF.** ⛔ **Do not tick that box** to fix a future webhook — add the host:port.
+   - ⛔ **T4 could not fire** (git plugin requires a token by default) and ⏳ **T1 was DEFERRED to
+     Part 4/5 at Andrew's request.** Both recorded in J-P10 — T1 is **moved, not dropped.**
+   - ⭐ **Two traps in a row have now been closed by their vendors** (J-P6 matrix lockout, J-P10
+     tokenless `notifyCommit`). **Treat folklore warnings as stale until measured.**
+   **The clone half, done earlier the same day (~5:30 PM) and still the load-bearing detail:**
    - ✅ **Deploy key:** GitLab key id=3 `jenkins-185-readonly` on `production/home-lab-setup`,
      **`CAN_PUSH=false` verified in the database**, not read off the checkbox. Jenkins credential
      **`gitlab-home-lab-setup-readonly`** (username **`git`**), private half deleted from `.185`.
@@ -364,15 +387,12 @@ list problem), **J-P5** (the split, and what the agent can still read). New ledg
      item **L22 paid down early**, and Jenkins' default **failed closed** where Phase 16's script had
      `StrictHostKeyChecking=no` and would have connected to anything.
    - ✅ **Job `home-lab-setup`** — Multibranch, SSH URL, Script Path `education/jenkins/Jenkinsfile`.
-     First build **green on `jenkins-agent-1`** as uid 1001.
    - 🅒 **T5 FIRED and is BIGGER than planted — see J-P9.** ⛔ **DO NOT clean the workspace or the
      controller's git cache** — they are Chapter 3's evidence and a Part 7 input.
-   - ⏳ **Still owed in Part 3:** the **webhook** (**T4** no-token, **T8** GitLab refusing to deliver —
-     precondition verified in J-P1 so it WILL fire), **T1** (masking, moved down from Part 2), and
-     snapshot **`j03-gitlab-wired`**.
-   - 📌 Small fix owed: the `Jenkinsfile` prints `branch: HEAD` because Jenkins checks out by SHA —
-     use `env.BRANCH_NAME`. The guard was against the command *failing*, not against it *succeeding
-     with something useless*.
+   - ✅ **`Jenkinsfile` branch bug fixed** (commit `9a97f47`): `git rev-parse --abbrev-ref HEAD`
+     returned `HEAD` because Jenkins checks out by SHA. Now prints `env.BRANCH_NAME` **and** keeps the
+     git command beside it so the log shows both. ⭐ **The original guard was against the command
+     FAILING; it never fired, because the command SUCCEEDED and returned something useless.**
 6. 🔲 **Then Part 4 — DEPLOY (this used to be Part 5).** Reuse
    `education/docker-swarm/scripts/deploy_swarm.sh` **unchanged** with `STACK=capricorn-jenkins`,
    against the **existing `:latest` images**, so the only variable versus Phase 16 is the CI system.
