@@ -203,8 +203,13 @@ It had been accumulating since Aug 13. **When you write a new handoff, move the 
   the GitLab group `lab`, project `capricorn-swarm`, and NEVER to `production/*`.** Capricorn's own
   pipeline publishes `production/capricorn/<svc>:latest` and **QA `.180` and PROD `.184` pull that exact
   tag**, so a Jenkins push to the natural-looking path **overwrites what PROD runs** — this one escapes
-  the lab. Enforce with a **token scoped to `lab/` only**, and *prove the 403*; do not configure it and
-  assume. All Jenkins images are **git-SHA tagged, never `:latest`** (B11). ⚠️ **THREE delivery paths
+  the lab. Enforce with a **token scoped to `lab/` only**. ✅ **BUILT AND PROVEN Aug 20 (J-P8):** group
+  `lab` + project `lab/capricorn-swarm` exist; push to
+  `gitlab.gothamtechnologies.com:5050/lab/capricorn-swarm/<image>`; group deploy token
+  `jenkins-lab-push` (value in `PASSWORDS.md`, **expires 2026-12-31**) is granted `push,pull` on `lab/`
+  and **`pull` only** on `production/capricorn`. ⚠️ **The `pull` is NOT a scope leak — `production/
+  capricorn` is an INTERNAL project, so every authenticated identity can read it. A deploy-token scope
+  grants; it does not fence. The floor is set by project visibility.** All Jenkins images are **git-SHA tagged, never `:latest`** (B11). ⚠️ **THREE delivery paths
   now coexist and none may touch another's artifacts:** Capricorn's CI → the real app on `.180`/`.184`;
   this repo's `.gitlab-ci.yml` → stack `capricorn`; Jenkins → stack `capricorn-jenkins`.
   ⛔ **Never `git rm` this repo's `.gitlab-ci.yml`** (B1, amended A11) — it is the *control* for the

@@ -139,7 +139,7 @@ skimmed.** Same here. Four kinds of item, and telling them apart is the whole po
 | A4 | How does Jenkins authenticate to GitLab to *clone*? | *AI, as the standard* | ✅ **CLOSED** — a **read-only per-project GitLab deploy key**, never the root wallet. 🔧 |
 | A5 | Controller + agent, or controller only? | *AI, as the standard* | ✅ **CLOSED** — controller with **0 executors** + one agent. 🔧 the split; 📐 the agent lives on the same VM (see Resources). |
 | A6 | Which storage pool for the VM disk, and how big? | *AI, closed by measurement* | ✅ **CLOSED Aug 19 — `vm-critical` (mirrored), 60 GB.** Read from VM 185's config before destroying it: OpenClaw sat on `vm-critical` at 50 GB. Jenkins holds credentials and job definitions, so the mirror is right; 60 GB because build workspaces and Docker images are what fill a CI host. |
-| A7 | Registry credential for Jenkins: reuse `swarm-lab-pull` or issue a Jenkins-specific one? | *AI, as the standard* | ✅ **CLOSED** — **issue a separate one.** Shared credentials cannot be revoked independently, which is half of L12. ⚠️ **AMENDED Aug 20 (A9):** it is no longer a *pull* credential. Jenkins now **pushes**, so it needs write on `lab/` and **must have no access to `production/` at all** — see B10. |
+| A7 | Registry credential for Jenkins: reuse `swarm-lab-pull` or issue a Jenkins-specific one? | *AI, as the standard* | ✅ **CLOSED** — **issue a separate one.** Shared credentials cannot be revoked independently, which is half of L12. ⚠️ **AMENDED Aug 20 (A9):** it is no longer a *pull* credential. Jenkins now **pushes**, so it needs write on `lab/`. ⚠️ **CORRECTED Aug 20 by measurement (J-P8): "no access to `production/` at all" was too strong — it has NO WRITE there, but it DOES get `pull`, because `production/capricorn` is an INTERNAL project.** See B10. |
 | A8 | Does Jenkins login use an external identity provider? | 🙋 **Andrew** | 🔻 **CLOSED Aug 20 — NO OAuth, ever, not "later".** Written up in **J-P6**. Auth is local accounts + matrix authorization. |
 | **A9** | **Who builds the container images, and where do they go?** | 🙋 **Andrew + AI, Aug 20** | ✅ **CLOSED — the Jenkins agent builds them and pushes to a NEW GitLab group `lab`, project `capricorn-swarm`.** Reasoning below. |
 | **A10** | **Where does the `Jenkinsfile` live?** | 🙋 **Andrew** | ✅ **CLOSED — `education/jenkins/Jenkinsfile`, inside `production/home-lab-setup`.** One pipeline per education track, each in its own track folder. **Not** the repo root. |
@@ -225,7 +225,7 @@ removes a planted trap is precisely what section 🅒 exists to prevent.
 | # | Rule | Why |
 |---|---|---|
 | B1 | 🚨 **Do not touch, disable or "clean up" the Phase 16 GitLab CI pipeline.** ⭐ **AMENDED Aug 20 (A11): when Andrew eventually wants it to stop firing, NEUTER it — a `workflow:` rule that matches only a manually-started pipeline — never `git rm` it.** | It is the reference implementation we are comparing against. Andrew chose a separate stack name specifically to keep it alive. **A deleted pipeline is readable in git history but cannot be RUN**, so every later claim of the form "Jenkins does this differently" becomes unfalsifiable. The control has to stay executable. |
-| **B10** | 🚨🚨 **Jenkins NEVER pushes an image into `production/*`. Its registry credential is scoped to `lab/` and must have NO write access to the Capricorn project at all.** Verify by *attempting* a push to `production/capricorn` once and confirming a **403** — B8 rigour: prove the boundary, do not configure it and assume. | Capricorn's real pipeline publishes `production/capricorn/<svc>:latest` and **QA `.180` and PROD `.184` pull that exact tag.** An overwrite here does not stay in the lab; it ships to production on the next pull. **This is the highest-blast-radius mistake available in this phase.** |
+| **B10** | 🚨🚨 **Jenkins NEVER pushes an image into `production/*`. Its registry credential is scoped to `lab/` and must have NO write access to the Capricorn project at all.** ✅ **VERIFIED Aug 20 at the registry's own auth service, not asserted (J-P8):** the `lab`-scoped token is granted `['push','pull']` on `lab/capricorn-swarm` and **`['pull']` only** on `production/capricorn`. **The overwrite is impossible; the read is not.** ⏳ Still owed in Part 5: the same proof through `docker push` end-to-end. | Capricorn's real pipeline publishes `production/capricorn/<svc>:latest` and **QA `.180` and PROD `.184` pull that exact tag.** An overwrite here does not stay in the lab; it ships to production on the next pull. **This is the highest-blast-radius mistake available in this phase.** |
 | **B11** | **Every Jenkins-built image is tagged with the git SHA. Never `:latest`, never a moving tag.** The deploy job takes the tag as a **parameter**. | 🅓 Phase 16 already banked the inherited digest problem — *a moving tag means `docker service rollback` may not go where you think.* SHA tags also make collisions impossible inside `lab/`, and they are what makes D4's roll-back-vs-fix-forward drill a real decision instead of a rebuild. |
 | B2 | 🚨 **Jenkins deploys the stack `capricorn-jenkins`, never `capricorn`.** | Two CI systems deploying one stack name means each deploy fights the other, and the comparison dies. |
 | B3 | **No Jenkins secret, key or `credentials.xml` ever lands in a tracked file.** Verify with `git check-ignore`. | `push_gitlab.sh` stages ignored files too, but `push_github.sh` is what protects us — and it protects by path, so a key in a new path is a key on GitHub. |
@@ -645,6 +645,73 @@ taken on Aug 19, before the build, which is exactly when the honest reason was a
 ## 📓 Execution log
 
 Entries land here as work happens, with `J-P` numbers for findings, as in Phase 16.
+
+### J-P8 — ✅ B10 PROVEN at the auth service, and two corrections it forced (Aug 20, 2026, ~4:55 PM)
+
+🙋 Andrew created group **`lab`**, project **`lab/capricorn-swarm`**, and a **group-level** deploy
+token `jenkins-lab-push` (`read_registry` + `write_registry`). 🤖 AI verified, read-only.
+
+**The measurement — asking the registry's own auth service what the token may do:**
+
+```
+GET /jwt/auth?service=container_registry&scope=repository:<path>:push,pull
+```
+
+| Token | Target | Granted |
+|---|---|---|
+| `swarm-lab-pull` (control, project-scoped, known good) | `production/capricorn` | `['pull']` |
+| **`jenkins-lab-push`** | **`lab/capricorn-swarm`** | ✅ **`['push','pull']`** |
+| **`jenkins-lab-push`** | **`production/capricorn`** | ⚠️ **`['pull']` — NOT denied** |
+
+✅ **B10's actual protection holds, and is now `verified` rather than `recited`:** the token
+**cannot push to `production/*`**, so the catastrophic overwrite of the `:latest` tag that QA `.180`
+and PROD `.184` pull is *impossible*, not merely forbidden.
+
+🚨 **Correction 1 — "a `lab`-scoped token cannot reach `production/` at all" was WRONG, and the reason
+generalises.** It gets `pull`. Cause, measured: **`production/capricorn` is an INTERNAL project**
+(`visibility_level=10`), and INTERNAL means *any authenticated identity on the instance* can read it —
+**the token's group scope never enters into it.** ⭐ **Deploy-token scope constrains what the token
+ADDS, not what everyone already has.** A scope is a grant, not a boundary; the floor is set by
+visibility. 📌 Side-effect worth knowing: `production/capricorn` images are readable by **every**
+credential in this GitLab, including `swarm-lab-pull` and any future one.
+
+🚨 **Correction 2 — the token never expired, and this is the L12 charter item quietly failing in
+real time.** `expires_at = 3000-01-01` (the field was left blank). **We recreated the exact compromise
+the phase is chartered to close, in the same hour we wrote the rule against it** — which is worth
+noticing as a pattern rather than an embarrassment: *a rule about a class of mistake does not prevent
+that mistake; only a check does.*
+
+✅ **FIXED the same session, and the timing was the cheap part.** GitLab **deploy tokens cannot be
+edited**, so adding an expiry means revoke-and-recreate — trivial now, but it would have meant a
+broken pipeline and a credential rotation had we noticed after Jenkins was wired to it. ⭐ **The window
+in which a credential mistake is free is the window before anything consumes it.**
+
+| | id 2 (revoked) | **id 3 (live)** |
+|---|---|---|
+| expires | `3000-01-01` = never | **`2026-12-31 05:00 UTC`** |
+| scopes | `read_registry`, `write_registry` | same — ✅ **re-verified after reissue**, `push,pull` on `lab/`, `pull` only on `production/` |
+| old token after revoke | — | ✅ **`AUTH FAILED`, confirmed** — revocation is effective, not just displayed |
+
+⚠️ **Residual, and it is a genuine finding rather than a nitpick: `jenkins-lab-push` and
+`swarm-lab-pull` now expire at the SAME INSTANT** (2026-12-31 05:00 UTC — midnight EST on New Year's
+Eve). The intent had been to stagger them at Nov 18 so the *loud* failure would arrive first.
+🚨 **Correlated credential expiry is two variables changing at once**, and the two failures have
+opposite signatures: Jenkins dies **loudly at build time**, while the Swarm dies **silently at the
+next task reschedule** (Phase 16's measured behaviour — it does *not* fail at deploy). **The loud one
+will absorb the diagnosis and the silent one will be attributed to it.** 📌 Either stagger them or
+diarise both — this is exactly the shape Part 6 exists to teach.
+
+🧠 **The diagnostic lesson, and it cost two wrong conclusions in five minutes:**
+1. **An unauthenticated API 404 is not evidence of absence.** `GET /api/v4/groups/lab` returned `404`
+   and the AI read it as "the group does not exist." GitLab returns **404 rather than 401 for private
+   resources on purpose**, to avoid confirming they exist. The group existed the whole time.
+   ⭐ *The instrument reported the same symptom for "absent" and "not allowed to know."*
+2. **A length check is not an identity check.** `rg -o 'gldt-[A-Za-z0-9_-]+' PASSWORDS.md | head -1`
+   returned the **first** token in the file — `swarm-lab-pull`'s — which is **also 25 characters**, so
+   the "token length: 25" sanity check passed while the value was the wrong token entirely, paired
+   with the other token's username. **The check that was supposed to catch the error validated it.**
+   ✅ Resolved only by adding a **control** (a known-good token through the identical code path), which
+   is the same move Part 4 makes with `deploy_swarm.sh`.
 
 ### J-P7 — 🔻 THE DELIVERY MODEL REPLANNED, before a single Part 3 command (Aug 20, 2026, ~4:00–4:35 PM)
 
