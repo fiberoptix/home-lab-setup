@@ -84,18 +84,28 @@ house failure mode. Do not do it.**
 | **Firewall, port-forwards, public exposure** | `phases/phase12_network_segmentation.md` (200 ln) | Perimeter is deliberately closed to everything but the WWW box; open ports listed there include ones flagged for removal |
 | **GitLab / runner / CI** | `phases/phase3_gitlab_server.md`, `phase4_gitlab_runner.md`, `phase5_ci_cd_pipelines.md` | The runner is **privileged with the host Docker socket mounted** — any job on it is effectively root on the runner host (ledger L19) |
 | **SonarQube** | `phases/phase6_sonarqube.md` (625 ln) | — |
-| **OpenClaw agent (.185)** | `phases/phase11_openclaw.md` (404 ln) | ⛔ **VM DESTROYED Aug 19, 2026 — totally gone, no backup, no snapshot.** The file is history only; VMID 185 + `.185` now belong to **Jenkins** (Phase 17) |
+| **OpenClaw agent (.185)** | `phases/phase11_openclaw.md` (935 ln) | ⛔ **VM DESTROYED Aug 19, 2026 — totally gone, no backup, no snapshot. Nothing in that file is actionable.** VMID 185 + `.185` now belong to **Jenkins** (Phase 17), so **any `.185` in it means OpenClaw, not Jenkins.** Its *OPERATIONAL LOG* section (demoted from `current_phase.md` Aug 20) is six months of run-and-repair history; the one transferable pattern is **upgrades that silently reset config files, so the service starts clean and the customisation is what breaks** |
 
-⚠️ **`phases/current_phase.md` is the session log (3011 lines).** Read the **`▶️ RESUME HERE` block**
+⚠️ **`phases/current_phase.md` is the session log (2062 lines).** Read the **`▶️ RESUME HERE` block**
 for state and next steps; `rg -n '^## ' phases/current_phase.md` maps it — **never trust a line number,
 they drift every session.** Read below that block ONLY to answer a specific question about a past
 session. The rest is history the phase files also carry.
 
-📉 **Aug 20, 2026 — the eight stacked Phase 16 handoffs (786 lines) were DEMOTED** verbatim into
-`phase16_docker_swarm.md` → *SESSION HANDOFFS*, taking this file **3797 → 3011**. Copy-then-verify-then-
-delete; all 781 removed content lines were confirmed present in the phase file before deletion.
-⭐ **The rule that made it necessary and is easy to let slide: `current_phase.md` holds ONE handoff.**
-It had been accumulating them since Aug 13. **When you write a new handoff, move the old one out.**
+📉 **Aug 20, 2026 — three demotions took this file 3797 → 2062 (−1735, the largest reduction yet):**
+
+| Moved | Lines | Into |
+|---|---|---|
+| Eight stacked Phase 16 session handoffs | 786 | `phase16_docker_swarm.md` → *SESSION HANDOFFS* |
+| Phase 14 closing record | 478 | `phase14_k8s_redpanda_poc.md` → *CLOSING RECORD* |
+| Six OpenClaw run/repair logs + Phase 11 completion | 471 | `phase11_openclaw.md` → *OPERATIONAL LOG* |
+
+⭐ **Every one was copy → verify → delete, one block per commit**, and a line-by-line diff check
+confirmed **0 removed lines missing** from the target each time. ⚠️ **All three were ~0% duplicated —
+`current_phase.md` held the ONLY copy**, so a straight delete would have destroyed them. **Always run
+the duplication check before assuming a phase file "already covers it."**
+
+⭐ **The rule that made this necessary and is easy to let slide: `current_phase.md` holds ONE handoff.**
+It had been accumulating since Aug 13. **When you write a new handoff, move the old one out.**
 
 ---
 
