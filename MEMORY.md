@@ -244,6 +244,19 @@ It had been accumulating since Aug 13. **When you write a new handoff, move the 
   ⚠️ Also **do not "tidy" these**: the `zz-executor-proof` job is a deliberate liveness probe,
   `credentials.xml` being world-readable and the agent having no `docker` access are **Part 5/7**
   material (T2 and the hardening charter), not oversights.
+  🔵 **PART 3 half done (Aug 20): the clone works, the webhook does not exist yet.** Multibranch job
+  **`home-lab-setup`**, Script Path `education/jenkins/Jenkinsfile`, SSH URL, credential
+  `gitlab-home-lab-setup-readonly` (username **`git`** — GitLab authenticates every SSH user as `git`).
+  GitLab deploy key id=3, **`CAN_PUSH=false` verified in the DB**. ✅ **Host keys PINNED via *Manually
+  provided keys*** (ed25519 + RSA, read off `.181`'s own `/etc/ssh/`, **not** trust-on-first-use) —
+  **charter item L22, paid early.**
+  ⛔ **DO NOT DELETE the agent workspace `/home/jenkins-agent/agent/workspace/home-lab-setup_main/` or
+  the controller cache `/var/lib/jenkins/caches/git-*`.** 🅒 **Trap T5 fired there (J-P9) and they are
+  Chapter 3's evidence.** 🚨 **Both hold `PASSWORDS.md` and the plaintext Swarm key
+  `working/phase16/swarm_deploy_ed25519`** — the controller copy exists because **branch indexing is
+  not a build, so 0 executors does not stop it.** ⚠️ **This changes T3 and the Part 8 backup: the
+  `vzdump` of `JENKINS_HOME` will contain a private key IN THE CLEAR**, no `master.key` needed. ⭐ And
+  `cleanWs()` is **not** the fix — the next checkout recreates it and it never touches the cache.
   📐 **Standing policy, Andrew, Aug 20: Jenkins runs the EDUCATION pipelines; GitLab CI runs the REAL
   applications** — *"that way we do not pollute our real GitLab environment."* ⚠️ **This does NOT make
   Jenkins GitLab-free**: it still clones from GitLab and is still webhook-triggered, so T1/T4/T5/T8 all
@@ -262,7 +275,7 @@ It had been accumulating since Aug 13. **When you write a new handoff, move the 
   runs as a **firm-supplied build standard** (Andrew's framing) with every spec line marked 🔧 mechanics
   or 📐 invented convention — a deliberate deviation from `METHOD.md` that gets folded back in **only if
   it proves out.**
-  ⭐ **Six cross-phase rules earned here, worth more than the phase that produced them:**
+  ⭐ **Eight cross-phase rules earned here, worth more than the phase that produced them:**
   1. **Before destroying anything, read its config AND grep the docs for what depended on it.** The
      pre-destroy read of VM 185 caught a **wrong core count** (12, recorded as 8) and two facts it
      silently invalidated: it was the **only VM running Tailscale**, and one of only two with PVE
@@ -296,6 +309,20 @@ It had been accumulating since Aug 13. **When you write a new handoff, move the 
      with separate fixes. ⚠️ Related, same host: `JENKINS_HOME` is `755` and `credentials.xml` is `644`,
      so **every local account can read the encrypted credentials** — the only thing between them and
      plaintext is the `700` on `secrets/`. **One layer, nothing behind it.**
+  7. ⭐ **A BOUNDARY VERIFIED AGAINST ONE CLASS OF WORK SAYS NOTHING ABOUT ANOTHER** (Aug 20). Part 1
+     proved the controller runs no builds — 0 executors, a job that queued forever. Part 3 then found
+     the controller had cloned the whole repo into `/var/lib/jenkins/caches/` anyway, **because branch
+     indexing is not a build.** The proof was sound and the conclusion drawn from it was too wide.
+     ⭐ **"X cannot happen here" is only ever true for the specific mechanism you tested** — ask what
+     *other* kinds of work the component still does. Generalises past CI: a firewall rule proven
+     against TCP, a read-only mount proven against one writer.
+  8. ⭐ **ACCESS CONTROL ON THE PIPELINE IS IRRELEVANT WHEN THE ARTEFACT IT CLONES IS THE VAULT**
+     (Aug 20). A read-only deploy key, scoped to one project, host key pinned, private key deleted
+     from disk so it lived only in an encrypted store — and then the first checkout wrote
+     `PASSWORDS.md` and a **plaintext** Swarm private key into a directory every build can read.
+     **Effort spent on how the pipeline authenticates buys nothing if the repo contains credentials.**
+     ⚠️ The instinctive fix (`cleanWs()`) does not work either: the next checkout recreates them.
+     Real answers are narrow checkout, a repo with no secrets, or an ephemeral agent.
 
 - **🟢 COMPLETE — Phase 16: Docker Swarm** (`phases/phase16_docker_swarm.md`) — all 7 parts, all 7
   traps, 8 chapters, closed Aug 19, 2026 with the Swarm↔Kubernetes crib sheet (chapter 8). Only two

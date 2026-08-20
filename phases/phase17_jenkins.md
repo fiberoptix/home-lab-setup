@@ -419,7 +419,25 @@ distinction.
 It was always the part of Part 2 about *deployment safety* rather than identity, and it needs a
 pipeline to fire in, so **it moves into Part 3** where the first `Jenkinsfile` appears.
 
-Chapter 2. Ledger rows expected here (TLS/A2, session handling).
+📖 **Chapter 2 written Aug 20** — [`education/jenkins/chapter02_identity_authorization_breakglass.md`](../education/jenkins/chapter02_identity_authorization_breakglass.md),
+~3,300 words, one figure (`ch02_fig1_realm_and_strategy` — the two slots and the two recoveries),
+highlight density 16.7 % overall with prose sections at 17–22 %, measured against Chapter 1 as the
+calibration baseline rather than against the nominal 20 %. DOCX built.
+
+✅ **Ledger rows landed: J5** (Jenkins' own user database is the realm — no central offboarding) and
+**J6** (the break-glass runbook is recorded and unrehearsed). ⚠️ **The expected TLS row did not
+materialise as new** — plain HTTP is already **J1** from Chapter 1, so Chapter 2 cites it rather than
+duplicating it. **Session handling did produce something, but smaller than planned:** `config.xml`
+shows `<disableRememberMe>false</disableRememberMe>`, so remember-me is on, which is J1 getting
+slightly worse rather than a row of its own. Recorded in Chapter 2 §5 so it is a decision and not an
+oversight.
+
+📌 **Two facts measured while writing the chapter, neither of which was known during Part 2 itself:**
+`<slaveAgentPort>-1</slaveAgentPort>` — **the inbound/JNLP agent port is disabled**, so Chapter 1's
+"two directions an agent can attach from" is down to one on this box (a real surface reduction, and a
+future misdiagnosis waiting for anyone who configures an inbound agent here). And the local password
+is stored `#jbcrypt:$2a$10$…` — **bcrypt at cost factor 10**. ⭐ **Writing the chapter measured things
+the build did not**, which is the argument for writing while the box is still in the state described.
 
 ### Part 3 — wire it to GitLab (🙋 Andrew)
 
@@ -635,6 +653,8 @@ taken on Aug 19, before the build, which is exactly when the honest reason was a
 
 | # | Compromise | Why acceptable here | What production does | If you carry the habit | Verified? |
 |---|---|---|---|---|---|
+| **J6** | **The break-glass procedure is recorded and has never been rehearsed.** The runbook in J-P6 was written on Aug 20, 2026 and not executed on `.185`. | The VM is snapshotted, a full rebuild costs an evening, and there is no user to be down. Andrew chose to record it and move to Part 3 rather than spend Part 2 on a drill. | Recovery procedures are rehearsed on a schedule against a non-production controller, and **the rehearsal is what converts prose into a procedure**. | ⚠️ **The first time you run it will be during the outage** — at 3am, on the box holding every deployment credential. 🚨 **An untested runbook fails in ways that look like the original incident**, which is how a 30-minute recovery becomes a 4-hour one. ⭐ Note the self-reference: this row is itself the ⚠️/✅ distinction the ledger exists to enforce. | ⚠️ **recited — that is the entire point of the row** |
+| **J5** | **Jenkins' own user database (`HudsonPrivateSecurityRealm`) is the security realm.** One local account, signup disabled, bcrypt cost 10. Decided Aug 20, 2026 (A8 — OAuth dropped). | A single operator who is also the only person with root on the host, so a central directory would add a dependency and remove nothing. ⭐ **And the Jenkins mechanic worth learning — one realm, no form fallback, filesystem recovery — is learnable without any IdP**, which is what made dropping OAuth free. | The realm is the corporate IdP over SAML or OIDC, so that **joining, moving and leaving are handled in one place**, with MFA enforced there and group membership driving authorization. | 🚨 **A local Jenkins account survives the person leaving the company**, because nothing in the offboarding process knows it exists. ⚠️ And a CI system is the worst place for a forgotten account: **it does not merely read data, it ships code to production.** | ⚠️ **recited** (nothing in this lab terminates SAML) |
 | **J4** | **One long-lived build agent, reused by every build.** Workspaces persist, `~/.docker/config.json` persists, and once Part 5 grants the `docker` group the local image cache and the registry push credential persist too. Decided Aug 20, 2026 with A9. | It is the only agent the lab has, and its persistence is *load-bearing for the teaching* — **trap T5 exists precisely because the workspace survives between builds**, which is the concrete difference from Phase 16's fresh-container-per-job runner. | **Ephemeral agents: a fresh container or VM per build**, destroyed afterwards, via the Kubernetes or Docker plugins. The credential is injected for the life of one build and dies with it. | 🚨 **A persistent agent that can push to a registry ACCUMULATES secrets and build residue**, so a single compromised build contaminates every later one. ⚠️ **Do not carry the assumption that a clean `git checkout` means a clean workspace** — it does not remove untracked files unless you make it. | ⚠️ **recited** (no ephemeral agent is built here) |
 | **J3** | **The GitLab Container Registry stands in for Artifactory**, and it runs on `.181` — **the same VM as the git server**, over plain HTTP (🅓 inherited L1). Decided Aug 20, 2026 (A9). | Andrew's firm uses Artifactory, but **both are OCI registries behind auth**, so the pipeline mechanics — login, tag, push, pull-on-deploy, cleanup policy — are identical. Standing one up on its own VM would have cost a VM and taught nothing new. ✅ **The swap is a hostname and a credential.** | A dedicated artifact store on its own infrastructure (Artifactory, Harbor, Nexus, ECR/ACR), TLS everywhere, with retention, vulnerability scanning and provenance/signing attached to it. | ⚠️ **Co-locating the registry with the git server means one VM failure takes out BOTH your source of truth and every artifact you would rebuild it from** — and `.181` also holds the only nightly backup job. ⚠️ Also: **no image scanning and no signing anywhere in this pipeline.** A firm in finance will have both, and they are the two things this lab most conspicuously lacks. | ⚠️ **recited** (the PROD answer is not built here) |
 | **J2** | **The build agent is the controller's own VM.** Jenkins SSHes to `127.0.0.1` as a separate `jenkins-agent` OS user, so the *privilege* boundary is real (different UID, kernel-enforced, cannot read `JENKINS_HOME/secrets/`) but the *isolation* boundary is not: same kernel, same disk, same 4 vCPU / 8 GB. Decided Aug 20, 2026 in Part 1. | One VM's worth of RAM was what the fleet had spare, and the Jenkins-side configuration is byte-for-byte what a remote host would need — only the hostname field differs. Nothing in Parts 1–6 depends on the hosts being distinct. | Agents live on their own hosts, precisely so that whatever privilege a build needs in order to build images does **not** land on the machine holding every credential the CI system owns. Firms with a dozen static build hosts SSH-launch them individually; ephemeral fleets use the Kubernetes/Docker plugins and get a fresh, disposable agent per build. | ⚠️ **The co-location makes the agent's privilege sharper here than in production, not softer** — the host it can reach is the controller. Also: a build that fills the disk or pins the CPU takes the controller down with it, so "the agent is unhealthy" and "Jenkins is unhealthy" are the same event in this lab and are two different events at a firm. Do not carry the reassurance that a compromised agent is contained. | ⚠️ **recited** (a second agent host is not built here) |
@@ -645,6 +665,57 @@ taken on Aug 19, before the build, which is exactly when the honest reason was a
 ## 📓 Execution log
 
 Entries land here as work happens, with `J-P` numbers for findings, as in Phase 16.
+
+### J-P9 — 🅒 **T5 FIRED — and it is bigger than it was planted** (Aug 20, 2026, ~5:32 PM)
+
+🙋 **Andrew diagnosed it** (protocol P2 — prompted with *"there's a trap here and it has already
+fired"*, no symptom named). First guess was the `_main` workspace suffix; second, after one nudge
+about what `push_gitlab.sh` puts on `gitlab/main` that `push_github.sh` keeps off GitHub:
+**"credentials."** ✅ Correct.
+
+**What the first green build left on disk. Measured, not inferred:**
+
+| Where | What | Mode |
+|---|---|---|
+| **Agent** `/home/jenkins-agent/agent/workspace/home-lab-setup_main/` | `PASSWORDS.md` (14,854 B), `github_credentials.md` (3,233 B), **57 files under `working/`** including **`working/phase16/swarm_deploy_ed25519`** — the real Swarm deploy key | `664`, owner `jenkins-agent` |
+| **Controller** `/var/lib/jenkins/caches/git-84449500f7eef9cd…` | **30 MB git cache created by BRANCH INDEXING.** `git show origin/main:working/phase16/swarm_deploy_ed25519` prints `-----BEGIN OPENSSH PRIVATE KEY-----` | `755`, owner `jenkins` |
+
+🚨 **Finding 1 — the trap was planted as an AGENT problem; the CONTROLLER has a copy too, and nobody
+planned that.** Branch indexing is not a build, so **0 executors does not stop it** — the controller
+clones the repo itself to find the `Jenkinsfile`. ⭐ **Part 1 proved 0 executors stops *builds*. It
+does not stop *SCM work*.** A boundary verified against one class of work said nothing about another,
+which is the "prove the negative" lesson meeting its own limits.
+
+🚨 **Finding 2 — this bypasses the credential store completely, and that is the real severity.** We
+did the credential work properly: a **read-only** deploy key, scoped to **one project**, host key
+**pinned** from the server's own disk, private key **deleted** from `.185` so it lives only in
+Jenkins' encrypted store. **Then the first checkout put the Swarm's private key on disk in plaintext,
+in a directory every build can read.** ⭐ **Access control on the pipeline is irrelevant when the
+artefact it clones is the vault.** Any `Jenkinsfile`, on any branch, can now `cat` a key that Jenkins
+was never asked to grant it.
+
+⚠️ **Finding 3 — be precise about the blast radius, because overstating it teaches the wrong thing.**
+The files are `664`, but `/home/jenkins-agent` is `750`, so the readers are **`jenkins-agent` and
+root — not every local account.** ✅ **The parent directory is doing the work**, exactly as `secrets/`
+does for `master.key` in J-P5 — but this time in our favour. **Same one-directory-deep mechanic,
+opposite outcome.** The controller cache at `755` is likewise gated by `/var/lib/jenkins` being `755`
+and its contents needing the `jenkins` uid.
+
+🚨 **Finding 4 — this collides with T3 and makes the Part 8 backup worse than T3 assumed.** T3 says
+`JENKINS_HOME` is secret zero because `credentials.xml` + `secrets/master.key` decrypt everything
+**offline**. That is a story about *encrypted* material and a key. **`JENKINS_HOME` now also holds a
+plaintext private key in a git cache** — no decryption step, no `master.key` needed. ⛔ **The `vzdump`
+to the NAS that rule B7 requires will therefore contain the Swarm deploy key in the clear.** T3 is
+now a two-path finding and the second path is the easy one.
+
+⭐ **The Phase 16 contrast, which is the whole point of running the same delivery twice.** GitLab CI
+got a **fresh container per job**; the secrets existed for the life of the job and died with it. A
+Jenkins agent workspace is **a directory that stays**. ⚠️ **And `cleanWs()` is not the fix people
+assume:** it would empty the workspace between builds, but the next checkout recreates every file,
+and it does **nothing** to the controller's cache. **Real fixes are narrow checkout, a repo that does
+not contain secrets, or ephemeral agents (ledger J4) — all Part 7.**
+
+⛔ **DO NOT clean any of this up yet.** It is the evidence for Chapter 3 and an input to Part 7.
 
 ### J-P8 — ✅ B10 PROVEN at the auth service, and two corrections it forced (Aug 20, 2026, ~4:55 PM)
 

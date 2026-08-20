@@ -1,0 +1,68 @@
+// Jenkins ch02 fig1 — the two security slots, and why the recovery differs per slot.
+// Rendered: dot -Tpng -Gdpi=150 ch02_fig1_realm_and_strategy.dot -o ../images/ch02_fig1_realm_and_strategy.png
+// Keep width <= 1155px at 150dpi and smallest type >= 10pt (education/tools/figcheck.py).
+// TB rather than LR on purpose: an LR draft came out 1989px wide, which scales the type to ~7pt on paper.
+
+digraph realm_and_strategy {
+    rankdir=TB;
+    graph [fontname="Helvetica", fontsize=13, margin=0.12, nodesep=0.45, ranksep=0.50];
+    node  [fontname="Helvetica", fontsize=12, shape=box, style="filled,rounded", penwidth=1.1];
+    edge  [fontname="Helvetica", fontsize=11];
+
+    subgraph cluster_cfg {
+        label=<<B>JENKINS_HOME/config.xml</B> &#8212; exactly ONE of each, ever>;
+        fontsize=13;
+        style="rounded";
+        color="#555555";
+        bgcolor="#F7F7F7";
+        margin=10;
+
+        realm [fillcolor="#DDEBF7", color="#2E75B6", label=<
+<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="2">
+<TR><TD ALIGN="LEFT"><B>&lt;securityRealm&gt;</B></TD></TR>
+<TR><TD ALIGN="LEFT">WHO ARE YOU?</TD></TR>
+<TR><TD ALIGN="LEFT"><FONT POINT-SIZE="11">HudsonPrivateSecurityRealm</FONT></TD></TR>
+<TR><TD ALIGN="LEFT"><FONT POINT-SIZE="11">= Jenkins' own user database</FONT></TD></TR>
+</TABLE>>];
+
+        authz [fillcolor="#E2EFDA", color="#548235", label=<
+<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="2">
+<TR><TD ALIGN="LEFT"><B>&lt;authorizationStrategy&gt;</B></TD></TR>
+<TR><TD ALIGN="LEFT">WHAT MAY YOU DO?</TD></TR>
+<TR><TD ALIGN="LEFT"><FONT POINT-SIZE="11">GlobalMatrixAuthorization</FONT></TD></TR>
+<TR><TD ALIGN="LEFT"><FONT POINT-SIZE="11">agamache = Administer</FONT></TD></TR>
+</TABLE>>];
+
+        { rank=same; realm; authz; }
+    }
+
+    fix_realm [fillcolor="#FCE4E4", color="#C00000", label=<
+<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="2">
+<TR><TD ALIGN="LEFT"><B>BLUNT FIX &#8212; what guides give you</B></TD></TR>
+<TR><TD ALIGN="LEFT"><FONT POINT-SIZE="11">useSecurity=false,</FONT></TD></TR>
+<TR><TD ALIGN="LEFT"><FONT POINT-SIZE="11">delete BOTH blocks</FONT></TD></TR>
+<TR><TD ALIGN="LEFT"><B><FONT POINT-SIZE="11">exposure: fully open, no login,</FONT></B></TD></TR>
+<TR><TD ALIGN="LEFT"><B><FONT POINT-SIZE="11">over plain HTTP</FONT></B></TD></TR>
+</TABLE>>];
+
+    fix_authz [fillcolor="#E2EFDA", color="#548235", label=<
+<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="2">
+<TR><TD ALIGN="LEFT"><B>TARGETED FIX</B></TD></TR>
+<TR><TD ALIGN="LEFT"><FONT POINT-SIZE="11">swap the strategy block for</FONT></TD></TR>
+<TR><TD ALIGN="LEFT"><FONT POINT-SIZE="11">FullControlOnceLoggedIn</FONT></TD></TR>
+<TR><TD ALIGN="LEFT"><B><FONT POINT-SIZE="11">exposure: none,</FONT></B></TD></TR>
+<TR><TD ALIGN="LEFT"><B><FONT POINT-SIZE="11">login still required</FONT></B></TD></TR>
+</TABLE>>];
+
+    root [shape=note, fillcolor="#FFF2CC", color="#BF8F00", label=<
+<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="2">
+<TR><TD ALIGN="LEFT"><B>Break-glass here is root on the host &#8212; not an account, not a rescue login.</B></TD></TR>
+<TR><TD ALIGN="LEFT"><FONT POINT-SIZE="11">Stop jenkins FIRST: it rewrites config.xml on shutdown and will overwrite your edit.</FONT></TD></TR>
+</TABLE>>];
+
+    realm -> fix_realm [label=" IdP dead, LDAP down,\l realm plugin broken\l", color="#C00000"];
+    authz -> fix_authz [label=" rights removed,\l matrix misconfigured\l", color="#548235"];
+
+    fix_realm -> root [style=dashed, color="#BF8F00", arrowhead=none];
+    fix_authz -> root [style=dashed, color="#BF8F00", arrowhead=none];
+}

@@ -7,7 +7,8 @@
 > **Assumed, not re-taught:** cloning VM 185 from the template, `host_setup.sh`, growing the disk,
 > `qm` snapshot mechanics. That plumbing is documented in
 > [`phases/phase2_host_setup_automation.md`](../../phases/phase2_host_setup_automation.md).
-> **Read this before:** Chapter 2 (identity, and the account that survives your identity provider)
+> **Read this before:** [Chapter 2](chapter02_identity_authorization_breakglass.md) — identity,
+> authorization, and why the account you were planning to keep in reserve does not exist
 
 ---
 
@@ -441,7 +442,7 @@ difference between "the field said 0" and "the scheduler has nowhere to put work
 | **Inbound / JNLP agent** | Agent dials the controller with a secret. The controller cannot start it — only wait |
 | **`JENKINS_HOME`** | `/var/lib/jenkins` — jobs, build history, `credentials.xml`, and `secrets/`. The thing worth protecting |
 | **`SYSTEM`** | Jenkins' internal full-permission identity, which builds run as by default. Unrelated to the OS user |
-| **Break-glass account** | A local login that keeps working when the external identity provider does not. Chapter 2 |
+| **Break-glass** | Recovery when normal login fails. On most systems a local account; ⚠️ **on Jenkins there is no such account** — it is root on the host. Chapter 2 |
 | **Host key pinning** | Recording the server's key in advance so an unexpected one fails closed instead of being trusted |
 | **LTS** | Jenkins' stabilised release line, ~12 weeks apart. The weekly line exists and is not what you operate |
 

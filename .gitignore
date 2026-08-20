@@ -55,6 +55,11 @@ $RECYCLE.BIN/
 *.swo
 *.swn
 *.bak
+
+# Word owner-lock files. Word writes ~$<name>.docx beside any open document and deletes
+# it on close, so whether one exists depends on nothing but who happens to have a chapter
+# open at commit time. Caught Aug 20, 2026 while committing a chapter Andrew was reading.
+~$*
 *.tmp
 
 # ------------------------------------------------------------------------------

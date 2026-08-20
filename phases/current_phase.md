@@ -355,12 +355,24 @@ list problem), **J-P5** (the split, and what the agent can still read). New ledg
    16 exercise; Jenkins is the third. **The registry-overwrite hazard is invisible until you count
    three.** Decisions **A9/A10/A11** closed, rules **B10/B11** added, ledger rows **J3/J4** written,
    and **Parts 4 and 5 swapped.**
-5. ▶️ **NEXT — Part 3: wire it to GitLab.** Read-only deploy key, webhook, multibranch pipeline with
-   **Script Path `education/jenkins/Jenkinsfile`**, and a first `Jenkinsfile` that only checks out and
-   prints. Traps **T4** (webhook with no token), **T5** (the workspace that keeps the plaintext mirror)
-   and **T1** (moved down from Part 2 — masking needs a pipeline to fire in) all fire here.
-   ⚠️ **T8 is also waiting:** GitLab blocks webhooks to private addresses by resolved address —
-   **verified true on `.181` (J-P1), so it WILL fire.** Snapshot `j03-gitlab-wired`.
+5. 🔵 **PART 3 IS UNDER WAY — the clone half is DONE and GREEN (Aug 20, ~5:30 PM).** 🙋 Andrew ran it.
+   - ✅ **Deploy key:** GitLab key id=3 `jenkins-185-readonly` on `production/home-lab-setup`,
+     **`CAN_PUSH=false` verified in the database**, not read off the checkbox. Jenkins credential
+     **`gitlab-home-lab-setup-readonly`** (username **`git`**), private half deleted from `.185`.
+   - ✅ **Host keys PINNED** — *Manually provided keys*, both ed25519 and RSA, **read off `.181`'s own
+     `/etc/ssh/` over an already-trusted channel rather than trust-on-first-use.** ⭐ This is charter
+     item **L22 paid down early**, and Jenkins' default **failed closed** where Phase 16's script had
+     `StrictHostKeyChecking=no` and would have connected to anything.
+   - ✅ **Job `home-lab-setup`** — Multibranch, SSH URL, Script Path `education/jenkins/Jenkinsfile`.
+     First build **green on `jenkins-agent-1`** as uid 1001.
+   - 🅒 **T5 FIRED and is BIGGER than planted — see J-P9.** ⛔ **DO NOT clean the workspace or the
+     controller's git cache** — they are Chapter 3's evidence and a Part 7 input.
+   - ⏳ **Still owed in Part 3:** the **webhook** (**T4** no-token, **T8** GitLab refusing to deliver —
+     precondition verified in J-P1 so it WILL fire), **T1** (masking, moved down from Part 2), and
+     snapshot **`j03-gitlab-wired`**.
+   - 📌 Small fix owed: the `Jenkinsfile` prints `branch: HEAD` because Jenkins checks out by SHA —
+     use `env.BRANCH_NAME`. The guard was against the command *failing*, not against it *succeeding
+     with something useless*.
 6. 🔲 **Then Part 4 — DEPLOY (this used to be Part 5).** Reuse
    `education/docker-swarm/scripts/deploy_swarm.sh` **unchanged** with `STACK=capricorn-jenkins`,
    against the **existing `:latest` images**, so the only variable versus Phase 16 is the CI system.
