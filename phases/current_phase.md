@@ -1,10 +1,69 @@
 # Current Phase
 
-**Updated:** August 19, 2026 - 6:35 PM EDT
+**Updated:** August 19, 2026 - 9:25 PM EDT
 
 ---
 
-## ▶️ RESUME HERE — 🟢 PHASE 16 CLOSED (Aug 19, 2026). Nothing outstanding. Next phase is 17 (Jenkins).
+## ▶️ RESUME HERE — 🔵 PHASE 17 (JENKINS) IS OPEN. Plan written; VM 185 already destroyed.
+
+**Read `phases/phase17_jenkins.md` before touching anything Jenkins-related.** Where things stand:
+
+⛔ **ALREADY DONE AND IRREVERSIBLE — VM 185 `vm-openclaw-1` is destroyed.** Andrew ordered it killed
+with **no backup** (declined on purpose) and none existed; no snapshot had ever been taken. Verified
+gone: config file, ZFS volumes, and `/etc/pve/firewall/185.fw`. **Do not look for a way to restore it —
+there isn't one, and that was the decision.** Full record: `phase11_openclaw.md` → "CLOSED". It gave
+back **16 GB and 12 cores** (⚠️ the resource table had said 8 cores). Two facts it invalidated, both
+corrected in `MEMORY.md`: **no VM runs Tailscale any more**, and **only `.184` still has PVE firewall
+rules.**
+
+✅ **A1 and A2 both answered Aug 19: no DNS — bookmark `http://192.168.1.185:8080/` — and no TLS in the
+lab.** Nothing in the plan is open now.
+
+- **No TLS is ledger row J1**, accepted knowingly. It is a real compromise: the session cookie of a CI
+  controller is a credential to everything it can deploy.
+- **No DNS is cosmetic — because the address is static.** The one caveat: if `.185` ever moves, five
+  things need hand-editing (Jenkins URL, webhook URL, OAuth redirect, agent config, bookmark). In the
+  chapter it is a Lab-vs-PROD **table row**, not a callout — smaller, not wrong.
+- 🚨 **Trap T8 is NOT a consequence of skipping DNS**, though this file said so for one revision.
+  **GitLab blocks webhooks by RESOLVED ADDRESS**, so a hostname pointing at `192.168.1.185` is blocked
+  identically. T8 exists because the controller is on a private network at all.
+- ✅ **T8's precondition is now VERIFIED (🤖 AI-executed, read-only) — the trap CAN fire.** Measured on
+  `.181`: `allow_local_requests_from_web_hooks_and_services = false`, allow-list empty. Checked because
+  **Phase 16's C2 could not fire at all** and nobody had looked. ⭐ **Bonus finding worth keeping:
+  system hooks are ALLOWED to reach local addresses while project webhooks are BLOCKED — same instance,
+  same target.** So "GitLab blocks outbound LAN requests" is false as a general statement; it depends on
+  which subsystem asks. Full detail: `phase17_jenkins.md` → log entry **J-P1**.
+
+🔲 **NEXT ACTION — Part 0, steps 2–5** (awaiting Andrew's "go" on the plan as a whole per
+`CURSOR_RULES`): clone template 9000 into VMID 185 as `vm-jenkins-1` at `.185`, **8 GB / 4 vCPU / 60 GB
+on `vm-critical`**, `host_setup.sh`, `qemu-guest-agent`, verify from inside the guest, snapshot
+`j01-base-clean`. **That part is AI-drivable plumbing; everything from Part 1 on is Andrew at the
+keyboard.**
+
+⭐ **The weighting is Andrew's and differs from Phase 16 — do not silently restore the first draft's
+ordering.** *"The most important aspects are that we install, configure Jenkins, we hook it up to
+GitLab and the docker-swarm, and we learn about deploying and fixing bad deployments like we did in
+phase16 with GitLab."* So **Part 6 (bad deployments and recovery) is the centre of gravity**, and the
+Phase 16 hardening charter is **Part 7 — required, but secondary**. The charter is also **scoped on the
+record** to L21 + L22 + L12(partial) + agent privilege; its literal wording ("every recited row")
+covers six rows, three of which are registry/Swarm work Jenkins cannot fix.
+
+🎭 **The phase runs as a firm-supplied build standard**, at Andrew's request — as if the employer handed
+over the spec. 🚨 **The AI does not know their real standard**, so every line is marked 🔧 **MECHANICS**
+(true of Jenkins anywhere, and we test it) or 📐 **CONVENTION** (an AI invention standing in for the
+firm). **Never quote a 📐 item as "what their firm does."** This is a deliberate deviation from
+`METHOD.md` and gets folded back in only if it proves out.
+
+🅒 **Eight planted traps, T1–T8, ⛔ do-not-fix before they fire.** The one worth knowing in advance:
+**T7 fires *after* the deploy looks hardened** — the pinned, keystore-held key still has no `command=`
+restriction, so it grants a full interactive shell on all three managers.
+
+🚨 **Hard rule B2: Jenkins deploys the stack `capricorn-jenkins`, NEVER `capricorn`.** The Phase 16
+GitLab pipeline stays alive and untouched as the comparison — that is why Andrew chose a separate name.
+
+---
+
+## 🟢 PREVIOUS — PHASE 16 CLOSED (Aug 19, 2026). Nothing outstanding.
 
 **Phase 16 (Docker Swarm) is DONE: all 7 parts, all 7 planted traps, 8 chapters.** Part 7 closed on
 Aug 19 as `education/docker-swarm/chapter08_swarm_vs_kubernetes.md` — the Swarm↔Kubernetes crib sheet
@@ -2021,7 +2080,8 @@ Follow-up to the restore-drill finding (181 had no agent). For **181, 182, 183, 
 - Bonus: the stop/start cycled every VM onto the **new QEMU 11.0.2 binary** from this
   morning's PVE 9.2.4 upgrade (verified `running-qemu: 11.0.2` on all 5) — that loose end is closed.
 - Post-checks: GitLab 200, public site https 200, QA 200, SonarQube 200, runner active.
-- VM 185 (dormant OpenClaw) untouched — add the agent if it's ever revived.
+- VM 185 (dormant OpenClaw) untouched — add the agent if it's ever revived. ⛔ **Never revived; destroyed
+  Aug 19, 2026. The agent is now a Part 0 step for the Jenkins VM that replaces it.**
 
 ---
 
@@ -2081,7 +2141,8 @@ Proved the nightly vzdump of VM 181 restores to a **fully working GitLab** (full
 ### Andrew's decisions this session
 - **❎ WON'T-FIX:** vzdump jobs for 183/184 (rebuildable; WWW=vanity demo, Sonar barely used).
   GitLab 181 remains the only backed-up VM (it's the only one with irreplaceable data).
-- **VM 185 (OpenClaw): leave dormant** — don't destroy, don't start.
+- ~~**VM 185 (OpenClaw): leave dormant** — don't destroy, don't start.~~ ⛔ **OBSOLETE — Andrew reversed
+  this on Aug 19, 2026 and the VM was destroyed. Historical directive; do not act on it.**
 - **host.fw: HOLD** (was already pending BIOS/ashift; now explicitly deferred with SEC-1/2).
 
 ### Remaining open items (all optional)

@@ -74,7 +74,8 @@ house failure mode. Do not do it.**
 | Touching this | Read this FIRST | You will be WRONG without it |
 |---|---|---|
 | 🟢 **Docker Swarm** (VMs .191–.193), the swarm CI pipeline, `education/docker-swarm/` | `phases/phase16_docker_swarm.md` (3272 ln — **grep it**) | **Hard rule B1: NEVER retag/push production Capricorn images.** All 7 parts done and all 7 planted traps CLOSED (C7 last, Aug 19) — do NOT "re-fix" them; the drills are spent and their write-ups are the value. **8 chapters**, the last being the Swarm↔k8s crib sheet, whose per-row **provenance marks (S / K / 🤖 / recited)** are the device to reuse for any future cross-track writing. Also holds the P-numbered prediction log **P1–P61**, ledger **L1–L23** (lab-vs-PROD compromises), and the `s01→s07` snapshot chain (⭐ **s07 is the first with the C4 fix; s06 predates it**) |
-| 🔵 **Any education track / chapter / diagram / docx** | `education/CONVENTIONS.md` + `education/METHOD.md` + that track's `README.md` | Figures must clear a **10pt** floor (`figcheck.py`) and raw aspect ratio sets rendered font size; the highlight pass targets **~20%** (raised from 15% Aug 19, 2026) measured **per section, not per chapter**, and a **top-up pass with a list of only-unmarked phrases is the normal workflow** — the old "never re-run `highlight.py`" rule applies solely to re-running the SAME list; chapter H1 format is fixed. Inventing a format per track is explicitly forbidden |
+| 🔵 **Jenkins (VM 185 `.185`), the Jenkins↔GitLab↔Swarm pipeline, `education/jenkins/`** | `phases/phase17_jenkins.md` | ⭐ **Weighting is Andrew's and is NOT Phase 16's:** install + configure + wire it up, and above all **Part 6 — bad deployments and recovery — is the centre of gravity.** The Phase 16 security charter is **Part 7 and secondary**; it is also **scoped** — only L21, L22, L12(partial) and the agent's privilege are in scope, because L1/L2/L3 are registry/Swarm work Jenkins cannot fix. 🎭 The phase is written as a **firm-supplied build standard**, so every spec line is marked 🔧 MECHANICS (rely on it) or 📐 CONVENTION (an AI invention standing in for the firm — **never quote it as what their firm does**). **8 planted traps T1–T8, do-not-fix before they fire**; T7 (a pinned, keystore-held key that still grants a full shell) fires *after* the deploy looks hardened. **A1/A2 settled: bookmark `http://192.168.1.185:8080/`, no DNS, no TLS.** No TLS is ledger row **J1** (accepted knowingly — a CI session cookie is a credential to everything Jenkins can deploy). **No DNS is cosmetic *because the address is static*** — the cost only appears if `.185` moves, when five things need hand-editing (Jenkins URL, webhook, OAuth redirect, agent, bookmark); in a chapter that is a Lab-vs-PROD **table row, not a callout**, per CONVENTIONS' "wrong, not merely smaller" threshold. ⚠️ **T8 is NOT caused by skipping DNS** (the plan misattributed it once): GitLab blocks webhooks by **resolved address**, so a hostname on `192.168.1.185` is blocked identically. Hard rule: **Jenkins deploys the stack `capricorn-jenkins`, NEVER `capricorn`** — the Phase 16 GitLab pipeline stays alive as the comparison |
+| 🔵 **Any education track / chapter / diagram / docx** | `education/CONVENTIONS.md` + `education/METHOD.md` + that track's `README.md` | Figures must clear a **10pt** floor (`figcheck.py`) and raw aspect ratio sets rendered font size; the highlight pass targets **~20%** (raised from 15% Aug 19, 2026) measured **per section, not per chapter**, and a **top-up pass with a list of only-unmarked phrases is the normal workflow** — the old "never re-run `highlight.py`" rule applies solely to re-running the SAME list; chapter H1 format is fixed. Inventing a format per track is explicitly forbidden. 🚨 **Two traps you will otherwise walk into, both now IN `CONVENTIONS.md` (moved out of this file Aug 19, 2026): (a) a rebuild rewrites EVERY `.docx` via zip timestamps, so commit the one you changed and `git checkout` the rest or the track's history becomes unreviewable; (b) the highlight pass SKIPS tables and code blocks, so a load-bearing fact in a table cell is invisible to a highlights-only reader — restate it in prose.** ⚠️ **This row replaced ~200 lines that summarised `CONVENTIONS.md`/`METHOD.md` here.** Do not re-summarise them — read them; `CURSOR_RULES` already makes both mandatory before touching study material |
 | **k3s / Redpanda / OpenSearch** (VM 186) | `phases/phase14_k8s_redpanda_poc.md` (878 ln) | Phase CLOSED. Paths moved to `education/k8s-k3s-redpanda/` Aug 12 — older references are stale. Holds the quorum/leaderless alerting findings |
 | **The `/education` tree itself** (moving, renaming, restructuring) **or any highlight pass** | `phases/phase15_education_program.md` (480 ln) | ⚠️ That file is a **RECORD, not a plan** — §3 is already executed and §1 describes the *pre-move* tree. **Re-running it would undo the current layout.** ⛔ **§8 is the highlight-pass method** and is not optional reading before marking a chapter: it holds the per-section measurement rule and the `**`-straddle bug that prints literal asterisks in the `.docx`. Marking from instinct reproduces both |
 | **vm-www-1 (.184), Traefik, PROD Capricorn hosting** | `phases/phase7_local_www.md` (1508 ln) | Network architecture is load-bearing and marked CRITICAL in that file; `.184` deliberately **never contacts the registry** (images arrive via `docker load`) |
@@ -83,7 +84,7 @@ house failure mode. Do not do it.**
 | **Firewall, port-forwards, public exposure** | `phases/phase12_network_segmentation.md` (200 ln) | Perimeter is deliberately closed to everything but the WWW box; open ports listed there include ones flagged for removal |
 | **GitLab / runner / CI** | `phases/phase3_gitlab_server.md`, `phase4_gitlab_runner.md`, `phase5_ci_cd_pipelines.md` | The runner is **privileged with the host Docker socket mounted** — any job on it is effectively root on the runner host (ledger L19) |
 | **SonarQube** | `phases/phase6_sonarqube.md` (625 ln) | — |
-| **OpenClaw agent (.185)** | `phases/phase11_openclaw.md` (404 ln) | — |
+| **OpenClaw agent (.185)** | `phases/phase11_openclaw.md` (404 ln) | ⛔ **VM DESTROYED Aug 19, 2026 — totally gone, no backup, no snapshot.** The file is history only; VMID 185 + `.185` now belong to **Jenkins** (Phase 17) |
 
 ⚠️ **`phases/current_phase.md` is the session log, and it is LARGE (3505 lines, 8+ stacked handoffs).**
 Read the **`▶️ RESUME HERE` block** for state and next steps — it runs from the top down to the first
@@ -175,6 +176,31 @@ session. The rest is history the phase files also carry.
   - **Startup checklist item 2f** — `education/CONVENTIONS.md` is a mandatory read when the session
     touches education content.
   - **New `=== EDUCATION PROGRAM (/education) ===` section**, 7 rules (now 8 + `1b` after Aug 13).
+
+- **🔵 ACTIVE — Phase 17: Jenkins** (`phases/phase17_jenkins.md`, started Aug 19, 2026). Plan written and
+  awaiting Andrew's sign-off on two open items (**A1** DNS name vs bare IP, **A2** TLS on the web UI).
+  ⛔ **Part 0 step 1 is already DONE and is irreversible: VM 185 `vm-openclaw-1` was destroyed** on
+  Andrew's instruction with **no backup and no snapshot** — see `phase11_openclaw.md` → "CLOSED". VMID
+  185 and `.185` are reassigned to `vm-jenkins-1`. ⭐ **Andrew's weighting: install + configure Jenkins,
+  wire it to GitLab and the Swarm, and above all LEARN TO FIX BAD DEPLOYMENTS** the way Phase 16 did on
+  GitLab CI — that is Part 6 and it is the centre of gravity. The Phase 16 hardening charter is **Part 7,
+  required but secondary**, and **scoped** to L21 + L22 + L12(partial) + agent privilege. 🎭 The phase
+  runs as a **firm-supplied build standard** (Andrew's framing) with every spec line marked 🔧 mechanics
+  or 📐 invented convention — a deliberate deviation from `METHOD.md` that gets folded back in **only if
+  it proves out.**
+  ⭐ **Three cross-phase rules earned on Aug 19, worth more than the phase that produced them:**
+  1. **Before destroying anything, read its config AND grep the docs for what depended on it.** The
+     pre-destroy read of VM 185 caught a **wrong core count** (12, recorded as 8) and two facts it
+     silently invalidated: it was the **only VM running Tailscale**, and one of only two with PVE
+     firewall rules. After the destroy, none of that is recoverable — including from a backup, since
+     there wasn't one. ✅ Also verified: **`qm destroy --purge` deletes the VM's `/etc/pve/firewall/<id>.fw`.**
+  2. 🚨 **A superseded DIRECTIVE left in a history log is more dangerous than a stale fact**, because a
+     future session can *act* on it. `current_phase.md` still held *"VM 185: leave dormant — don't
+     destroy"* after Andrew ordered it destroyed. Strike obsolete directives where they lie; do not
+     rely on the reader inferring the date.
+  3. **Do not generalise a product's policy from one subsystem's behaviour.** Measured on `.181`:
+     GitLab **blocks** project webhooks to private addresses while **allowing** system hooks to the
+     same target. "GitLab blocks LAN egress" is false as stated.
 
 - **🟢 COMPLETE — Phase 16: Docker Swarm** (`phases/phase16_docker_swarm.md`) — all 7 parts, all 7
   traps, 8 chapters, closed Aug 19, 2026 with the Swarm↔Kubernetes crib sheet (chapter 8). Only two
@@ -661,209 +687,6 @@ session. The rest is history the phase files also carry.
     Checking too fast caught a `Terminating`-but-still-serving broker and produced a write that
     "should" have failed.
 
-  - **⚠️ `education/` IS NOW A MULTI-TRACK SHELF, NOT A FLAT SERIES (restructured Aug 12, Phase 15).**
-    Everything below that says "the series" is **track 1**, and it lives at
-    **`education/k8s-k3s-redpanda/`**. Layout now:
-    - `education/README.md` — the hub: track table + how to start a track. **Keep this file at this
-      path** — its GitHub URL was emailed to the hiring team on Aug 5.
-    - **`education/CONVENTIONS.md` — READ THIS BEFORE WRITING OR EDITING ANY STUDY MATERIAL.** All
-      the *how to write* rules (chapter shape, the "only document what Andrew actually ran" rule,
-      Graphviz gotchas, figure legibility, docx spec, highlight pass), lifted out of the old README so
-      every future track inherits them instead of copying them. **Edit conventions HERE, never fork
-      them into a track README.** Andrew's Aug 12 instruction: this is the authority on format, so do
-      not invent a new one per track. **This is now wired into `CURSOR_RULES`** — startup checklist
-      ⭐ **NEW Aug 13 (5:20 PM) — three doc-infrastructure facts worth reloading cold:**
-  **(a) `education/docker-swarm/COMMANDS.md`** is a command ledger **indexed by the QUESTION each command
-  answers, not by chapter**, with a table for *reading* failure states and a ✅ran-here / ⚠️untested marker
-  on every entry. It exists because chapters teach in learning order, which is the wrong order for an
-  incident — and because an audit found **`docker service ps` missing from both swarm chapters** despite
-  being the command that disproved our registry-auth theory. **`METHOD.md` makes maintaining it a duty of
-  the Investigate stage.** It is also the spec for the deferred `docker-admin.sh`.
-  **(b) Chapter H1s must read `# <Topic> · Chapter <N> — <Title>`** (`CONVENTIONS.md`). Chapters are
-  **printed**, numbering restarts per track, and the **footer is a bare page number by Andrew's choice** —
-  so **the H1 is the ONLY place a printed chapter names its subject.** Do not "tidy" the prefix away.
-  **(c) `build_docx.py` now injects a real footer part** (`word/footer99.xml` + relationship +
-  content-type override + `<w:footerReference>`). 🚨 **Footer refs must precede `pgSz` inside `sectPr` or
-  Word rejects the file.** A `PAGE` field is safe where a TOC field is not, because `PAGE` resolves during
-  layout while a TOC needs a Word-only document scan. ⚠️ **Verified structurally, never rendered** — no
-  LibreOffice on this box; Andrew must confirm in Word.
-  ✅ **Both track 1 retrofits are DONE (Aug 13):** all 7 chapters retitled, and **9 Lab-vs-PROD callouts
-  added to ch1–6** (ch7 gets none — research-only, no lab practice to contrast). ⭐ **The reusable lesson:
-  every chapter already had a "differs from production" table, so what was missing was the FOURTH FIELD —
-  the consequence.** `CONVENTIONS.md` now says: **write the fourth field first; if you cannot write a real
-  consequence, it is a table row, not a callout.** ⚠️ Pre-existing and deliberately unfixed: `figcheck.py`
-  flags 4 track-1 figures under 10pt.
-  item 2f makes it a mandatory read, and there is a full `=== EDUCATION PROGRAM (/education) ===`
-      section with 7 rules (Aug 12; 8 + `1b` after Aug 13).
-    - ⭐ **`education/METHOD.md` — READ THIS BEFORE STARTING OR RUNNING A TRACK (added Aug 13, 2026).**
-      The **sibling** of `CONVENTIONS.md` and the answer to "how do we learn a subject", which nothing
-      previously wrote down. **`CONVENTIONS` governs the ARTEFACT; `METHOD` governs the WORK that
-      produces it.** ⚠️ Before this existed, the learning loop survived only as a *shape copied by
-      imitation* from `phase14` into `phase16` — which is exactly how a method drifts. **Wired into
-      `CURSOR_RULES` as checklist item 2g and rules 1b / 2 / 8.** Five stages: **plan** (declare the
-      traps up front and sort caveats into kinds), **build** (scripted and re-runnable, verified from
-      INSIDE the guest), **break** (drills chosen for what they mean at 3am), **investigate** (the
-      surprises ARE the deliverable — almost nothing quotable in track 1 was planned), **document**.
-      Plus an anti-patterns table.
-      🚨 **`METHOD.md` → "Who does the work" is the section to read before ANY build session.**
-      **THIS IS HANDS-ON TRAINING: ANDREW RUNS THE COMMANDS, the AI explains, checks and writes.**
-      The reason is not ceremony — **"only document what Andrew actually ran" is worthless if the AI
-      ran it**, and degrades into "only document what was executed". Added Aug 13 after Andrew caught
-      that **Phase 16 Part 1 had been driven entirely by the AI**. ⚠️ The practice had existed since
-      track 1 (`phase14`'s log: "the **guided** Part 3", "hands-on, **Andrew driving**") but only as a
-      diary entry, never a rule — the same decay as the planted-traps table. The split:
-      - **Andrew drives anything NEW** (the technology being studied and its failure modes).
-        **The AI may drive routine lab plumbing already proven here** — template-9000 clones,
-        `host_setup.sh`, `qm` resize/snapshot. **The test is "is this what we are here to learn",
-        not "is this hard".** Track 1 drew the same line (AI built the VM + k3s; Andrew drove Part 3+).
-      - **Loop:** AI says what and why → **ONE** command → Andrew runs it, pastes output → AI checks
-        and explains what it really means. Not a wall of commands.
-      - 🚨 **When something breaks, Andrew diagnoses FIRST and the AI stays quiet** until asked or
-        until he is burning real time. Critical for the planted traps: narrating the answer when one
-        fires is the same mistake as pre-empting it.
-      - **Repetition:** Andrew does the first node by hand, the AI does the rest — unless the
-        repetition IS the lesson (e.g. writing the re-runnable script), which makes it his.
-      **Chapter scope (also Aug 13, in `CONVENTIONS.md` → "What belongs in a chapter"):** routine lab
-      plumbing is **assumed, not re-taught**; the infrastructure *as it pertains to this build* and the
-      **what and why** are what belong in the chapter (why 3 nodes, why all managers, why
-      `vm-ephemeral`, why the 3.5 GB template disk had to grow).
-      ⭐ **"Lab vs PROD" callouts (Andrew, Aug 13) — `CONVENTIONS.md` for the FORM, `METHOD.md` build
-      stage for the DUTY, and a running ledger in the phase file.** Rationale: Andrew learns in a home
-      lab and works on an enterprise platform, so **the risk is not forgetting a command — it is
-      carrying a lab shortcut into production having never been told it was one.** Four fields, in
-      order: *In the lab* → *Why it's acceptable here* → *In production* → ***If you carry the
-      habit***. **The fourth is the one that matters**; without it the callout is a disclaimer, not
-      operational reasoning. 🚨 **Threshold: a callout earns its place only when the lab choice would
-      be WRONG in production (security/durability/availability/compliance), NOT merely SMALLER** —
-      "3 nodes here, 30 in prod" does not qualify; if every page has one the important ones drown.
-      ⚠️ **Mark whether each "in production you would…" was VERIFIED or is RECITED** — a plausible
-      recitation wearing the authority of a tested fact is the one way this convention misleads.
-      **Format needed no new machinery:** a blockquote with a bold lead label; chapters already use
-      blockquotes heavily and `build_docx.py` styles them as pull-outs. **Phase 16 banked 8 rows (L1–L8)
-      from Parts 1–2 alone.** 📌 **Track 1 is NOT retrofitted — Andrew's call: it is finished and
-      printed, so revisit as a separate deliberate task** (backlog note in `education/README.md`).
-      ⭐ **It is a FLOOR, NOT A CEILING — Andrew's explicit instruction Aug 13.** Deviate for a
-      specific topic whenever it helps, **then fold what worked back into `METHOD.md` in the same
-      session.** The file names two practices invented mid-Phase-16 that would otherwise have been
-      lost: the **planted-traps table** and **sorting caveats into four kinds**.
-    - `education/tools/` — **shared** across all tracks. `build_docx.py` and `figcheck.py` now take
-      the **track name as their first argument** (`build_docx.py k8s-k3s-redpanda 3 6`,
-      `--list` to enumerate tracks). `figcheck.py` was promoted out of the gitignored `scratch/`
-      and is now tracked. `highlight.py` was already argv-driven and unchanged.
-    - `education/docx/README.md` — a **stub only**, kept so the emailed
-      `github.com/.../tree/main/education/docx` link still resolves instead of 404ing. Do not put
-      builds there.
-    - `education/<track>/` — self-contained: chapters, `diagrams/`, `images/`, `docx/`, optional
-      `manifests/` + `app/`, and a gitignored `scratch/`.
-    - `.gitignore` is now **`education/*/scratch/`** (was `education/scratch/`). A new track's
-      scratch is ignored automatically; a file at `education/scratch/` would NOT be.
-    - Chapter numbering **restarts at 01 in every track**, so two tracks can both have a `chapter03`.
-    - The move was 67 `git mv`s; history is preserved (`git log --follow` works).
-    - ⚠️ Verified at the time: rebuilding all 7 chapters after the tooling refactor produced
-      **byte-identical `word/document.xml`** in all seven, so the refactor changed nothing. The
-      committed binaries were restored afterwards to keep the commit a pure rename.
-    - **`figcheck.py k8s-k3s-redpanda` exits 1, and that is ACCEPTED — do not "fix" it unprompted.**
-      4 of 19 figures sit at **9.4–9.9 pt** on the page (`ch02_fig1_ownership`,
-      `ch03_fig1_partitions`, `ch05_fig1_assignment`, `ch05_fig2_skew`), just under the 10 pt floor.
-      Pre-existing, not caused by the move; it only surfaced because promoting `figcheck.py` out of
-      the gitignored `scratch/` meant actually running it. **⭐ Andrew rendered AND PRINTED all seven
-      chapters on Aug 12 and said they look and print fine**, so the 10 pt floor is a *conservative
-      guide, not a hard requirement* — the real-world check passed. If these are ever revisited the
-      fix is a **narrower** diagram, never a bigger `fontsize`. Treat a non-zero `figcheck` exit on
-      track 1 as known, and only act on it for *new* figures.
-
-  - **Track 1 (`education/k8s-k3s-redpanda/`)** — printable study chapters with diagrams (Andrew's
-    idea, originally for the interview). Counts are **post-audit, Aug 3 22:30** — the Aug 3 audit
-    grew every chapter, so the
-    old numbers in this file were stale: **Ch1 (Kubernetes/k3s) 951 lines / 2 figs; Ch2 (object
-    model) 780 / 3; Ch3 (Redpanda) 1485 / 3; Ch4 (provisioning application state) 931 / 3;
-    Ch5 (consumer groups) 624 / 3; Ch6 (the application) 1160 / 3; Ch7 (additional infra stack)
-    981 / 2, 18 questions.** Ch4–Ch6 also carry 9–10 worked interview answers each.
-    ⚠️ **Numbering re-settled Aug 3 (third shift) — Ch7 is NOT Schema Registry.** Chapters are
-    numbered in writing order; the app took **6** because Andrew asked for "chapter 6" when
-    commissioning it. On Aug 3 he commissioned **`chapter07_additional_infra_stack`** from the job
-    description instead, so Schema Registry, OpenSearch and failure drills shift to **8, 9, 10** if
-    they get written at all.
-    ⚠️ **Ch7 deliberately breaks the "only document what Andrew ran" rule** — it is a *research*
-    chapter (edge/Cloudflare, IAM+PAM, Vault, PKI/cert-manager, MongoDB, OTEL+Prometheus+OpenSearch)
-    covering things not in the lab. Andrew asked for research, explicitly **not** for anything to be
-    built. Because every other chapter opens with a verified-facts header, **Ch7 opens by saying it
-    has none and that nothing in it was run** — keep that disclaimer if the chapter is ever edited.
-    Its two corrections to earlier chapters (Redpanda *does* now publish consumer lag behind an
-    opt-in property; Ch6's "undetectable" hung consumer *is* detectable via a staleness gauge) were
-    made **inside Ch7**, not by editing Ch3/Ch6, because Andrew said not to touch existing docs.
-    Ch2–Ch6 are deliberately **replayable runbooks** — Andrew re-runs this
-    material, so where output varies between runs (sticky-partition choice, initial leader assignment,
-    which partition an unkeyed producer picks) the text says so explicitly. `education/k8s-k3s-redpanda/manifests/`
-    holds real tested artefacts: `redpanda-values.yaml`, `web-deployment.yaml` (verified end-to-end
-    apply → rollout → 200s → delete on Jul 27, with both probe failure drills documented inline),
-    plus `seed-topics.sh` + `seed-topics-job.yaml` + `consumer-group-lab.sh` from Aug 3. **Ch6's
-    application is source code, so it lives in `education/k8s-k3s-redpanda/app/` (producer.py, consumer.py, oms.py,
-    Dockerfile, build.sh, k8s/) rather than `manifests/`.**
-    Rule for this series: only document things Andrew actually ran (**Ch7 is the one deliberate
-    exception — see above**). **Diagrams are Graphviz `.dot`
-    sources in `education/k8s-k3s-redpanda/diagrams/`, deliberately NOT AI-generated** (image models garble technical
-    labels); `graphviz` installed on the Z8. Two HTML-label gotchas: newlines render as literal
-    leading spaces (keep each table cell on one source line), and `BALIGN="LEFT"` only affects lines
-    *after* a `<BR/>` — set **both** `ALIGN="LEFT" BALIGN="LEFT"` on the `<TD>`, and use a one-cell
-    `<TABLE>` instead of `shape=box` for callout boxes.
-    ⚠️ **Figure font size is a function of the figure's pixel WIDTH, not its `fontsize=`.** Every
-    image is scaled to the full 7-inch column, so a wide diagram shrinks its own text below the
-    10 pt floor Andrew set. Fix is to make the diagram **narrower** (single column, shorter label
-    lines), not to raise `fontsize`. Both Ch7 figures needed this — fig2 went 7.9 pt → 12.1 pt purely
-    by restacking two columns into one. Also: **`edge` is a reserved word in DOT** and cannot be a
-    node id, and `\uXXXX` escapes do not work in plain DOT strings.
-
-  - **Word/`.docx` build — `education/tools/build_docx.py <track> [chapter numbers]` (tracked).**
-    ⚠️ **The track argument is mandatory as of Aug 12** — it used to be derived from the script's own
-    location, which stopped being meaningful once there was more than one track. `pandoc` + a
-    generated `reference.docx`: **7.00 in column, Cambria 11 pt, single-spaced, every image full
-    column width**. Output to `education/<track>/docx/`, committed. **No table of contents** — pandoc's `--toc`
-    emitted a literal "No table of contents entries found" on page 1 because the field needs a Word
-    render to populate, so on Aug 3 all TOC code (flag, `fill_toc`, `updateFields`, TOC styles) was
-    deleted rather than patched. Don't re-add it.
-    ⚠️ **Rebuilding rewrites every `.docx` even when nothing changed** (zip timestamps), so before
-    committing, diff the *inner* `word/document.xml` against `git show HEAD:<path>` and `git
-    checkout` the ones that are content-identical. Otherwise every build is 7 files of noise.
-    ⚠️ **No LibreOffice/soffice on the Z8**, so a `.docx` cannot be rendered or eyeballed here;
-    verification is by unzipping and inspecting `word/document.xml` + `word/styles.xml`.
-
-  - **Yellow highlighting for review passes (Aug 3).** Andrew's ask: read the ~125 pages once, then
-    revise from the highlights alone. Implemented as a **Word character style `Key` with shading
-    `#FFF3B0`** — a deliberately low-saturation yellow he chose so the ink does not bleed when
-    printed. **Target density ~20 % of prose words — raised from 15 % on Aug 19, 2026**, and **all 15
-    chapters of both tracks now sit at 19.5–21.2 %.** ⛔ **Before any highlight work read
-    `phases/phase15_education_program.md` §8** — it holds the two rules you cannot infer from the tool:
-    **mark operative clauses of 5–12 words, never sentences**, and **measure density per SECTION, not
-    per chapter** (a chapter can read 14 % while three of its sections sit under 7 %, and a list sized
-    to the average makes that worse, not better).
-    - Marks live **in the Markdown, not the `.docx`**, as `[text]{custom-style="Key"}`, so they
-      survive every rebuild. Needs `bracketed_spans` in pandoc's `--from`.
-    - `education/tools/highlight.py` (tracked) applies a list of verbatim anchors and **refuses to
-      write unless every anchor matches exactly once** — a silently-missed anchor is the one failure
-      you would never notice. `--check` validates and reports density without writing.
-    - ⚠️ **Anchor lists live in `education/k8s-k3s-redpanda/scratch/anchors_ch0*.py`, which is GITIGNORED.** The
-      highlights themselves are safe (they are in the committed Markdown); the anchor lists are not.
-    - ⚠️ **Re-running the SAME anchor list against an already-highlighted file is refused**, and every
-      anchor reports "already highlighted", which masks whether any *new* ones are valid. To redo a
-      whole pass, strip first: `re.sub(r'\[([^\[\]]*)\]\{custom-style="Key"\}', r'\1', text)`.
-      ✅ **But a TOP-UP pass with a list of only-unmarked phrases is safe, and is now the normal
-      workflow** — that is how both tracks reached 20 %. The blanket rule, read literally, would have
-      forbidden the whole job. Candidate finder: `<track>/scratch/unmarked.py <chapter.md>` (gitignored).
-    - 🚨 **Two refusals added Aug 19, 2026 (`highlight.py`), after both failures happened for real:** a
-      mark may not **split an inline-formatting pair** (pandoc cannot close emphasis across a span, so
-      the asterisks print **literally in the `.docx`** — 15 marks were doing this) and may not **open
-      inside an already-open mark**. Detail and the fix pattern: `phases/phase15_education_program.md` §8d.
-      ⭐ **The transferable lesson, which is not about highlighting: the Markdown passed every check that
-      existed and the defect lived ONLY in the built artefact.** Same family as trusting a conversation
-      summary as evidence — **verify the thing you ship.** No LibreOffice here, so that means
-      `unzip -p x.docx word/document.xml`, strip tags, grep the rendered text.
-    - **By design it skips code blocks and tables**, so load-bearing facts sitting in table cells
-      cannot be marked and a highlights-only reader loses them. The fix that worked was to **restate
-      the strongest ones in prose**; done for 11 facts in Ch7. Watch for this in any new chapter.
-    - Density per chapter: Ch1 44 spans, Ch2 33, Ch3 41, Ch4 38, Ch5 39, Ch6 45, **Ch7 103** (Ch7 is
-      much denser because it is all prose — no lab transcripts to dilute it). All ≈14–15 %.
-
   - **Ch1's "ranch" allegory was deleted Aug 3** at Andrew's request ("now unnecessary — use proper
     terms"). The **table mapping each piece to what it does was kept** (he said that overview is
     still valuable); the "where the analogy breaks down" section became "Five things the table
@@ -1145,7 +968,11 @@ session. The rest is history the phase files also carry.
     LAN-only home lab behind Phase 12 perimeter; revisit later.
   - **❎ WON'T-FIX by Andrew:** vzdump backups for 183 (Sonar, barely used) + 184 (WWW =
     vanity/demo box) — both easily rebuilt. Only GitLab (181) holds irreplaceable data.
-    **VM 185 (OpenClaw) stays dormant as-is** (not destroyed).
+    ~~**VM 185 (OpenClaw) stays dormant as-is** (not destroyed).~~ ⛔ **SUPERSEDED Aug 19, 2026 —
+    Andrew ordered VM 185 killed and removed. It is totally gone: destroyed with `qm destroy 185
+    --purge`, no backup taken (declined on purpose), no snapshot existed. Verified: config file gone,
+    no ZFS volumes left on `vm-critical`, and `--purge` removed `/etc/pve/firewall/185.fw` too.
+    16 GB + 12 cores returned to the host. VMID 185 and `.185` are now Jenkins (Phase 17).**
   - 📌 **STANDING RULE (Andrew, Aug 13, 2026) — ALL vzdump backups go to the NAS under
     `/ProxmoxBackups/<vm-name>/`, NEVER to NVMe.** Per-VM folders require **one CIFS storage per VM**
     (`--subdir /ProxmoxBackups/<vm-name>`) because PVE dumps everything into a single `dump/` per
@@ -1193,7 +1020,8 @@ session. The rest is history the phase files also carry.
     181/182/183/184/200 + `agent enabled=1` + graceful stop/start each (runner idle-checked,
     GitLab last). All answer `qm agent ping`. Restarts also put every VM on the **new QEMU
     11.0.2** binary (upgrade loose end closed). All services verified healthy after.
-    185 (dormant) skipped — add agent if ever revived.
+    185 skipped (was dormant, ⛔ destroyed Aug 19, 2026). ⭐ **Phase 17's Jenkins VM needs the agent
+    installed** so `vzdump` can fs-freeze it rather than taking a crash-consistent copy.
   - **Still open/optional:** ~~2x32GB DIMMs for 6-channel bandwidth~~ ⏸️ **ON HOLD Aug 19, 2026 —
     now ~$600 (32GB DDR4 ≈ $300 each, DDR4 is EOL), the gain is still UNMEASURED, and the free
     levers come first: cap `zfs_arc_max` (unmeasured) + measure VM working sets. Slots are
@@ -1217,8 +1045,10 @@ session. The rest is history the phase files also carry.
   - **.184 is inbound-only (Proxmox fw):** `/etc/pve/firewall/184.fw` — IN policy DROP
     (allow 80/443 anywhere; 22 from .182/.195/.150 only; LAN ICMP); OUT = ACCEPT to gateway .1
     + internet, DROP to all RFC1918. Datacenter fw ENABLED via new `cluster.fw` (was disabled —
-    the old 184.fw had been inert). Other VMs have no .fw files → unaffected (185.fw exists,
-    VM stopped). Rollback: `/root/184.fw.bak-20260708` on pve, VM snapshot `pre_phase12_firewall`.
+    the old 184.fw had been inert). Other VMs have no .fw files → unaffected (185.fw existed until
+    Aug 19, 2026 — ✅ **verified that `qm destroy --purge` deletes a VM's `.fw` file along with it**;
+    it is gone now that the VM is). Rollback: `/root/184.fw.bak-20260708` on pve, VM snapshot
+    `pre_phase12_firewall`.
   - **Validated:** .184→.180/.181/.183/.150 all blocked; .184→internet/DNS works; public 200;
     .195/.182 SSH in OK; .181→.184:22 blocked; :8080 dashboard blocked from LAN.
   - **Still open (minor):** off-LAN scan of WAN IP (needs external vantage); .195 workstation
@@ -1248,8 +1078,8 @@ session. The rest is history the phase files also carry.
 - **GCP Instance (on-demand):** https://capricorn.gothamtechnologies.com (for public demos)
 - **Cost Savings:** ~$400/year by replacing GCP hosting
 - **README Files:** Both projects direct users to cap.* as primary production URL
-- **Phase 11 COMPLETE:** OpenClaw AI Agent Server LIVE (vm-openclaw-1 @ .185, Tailscale Serve, Telegram)
-- **`refresh` command on Proxmox:** Parallel update + reboot of all 5 VMs (.180-.184, excluding .185), live status display. See REFRESH SCRIPT section.
+- **Phase 11 ~~COMPLETE~~ RETIRED:** OpenClaw AI Agent Server was live at `.185` (Tailscale Serve, Telegram) → ⛔ **VM destroyed Aug 19, 2026, totally gone.**
+- **`refresh` command on Proxmox:** Parallel update + reboot of all 5 VMs (.180-.184), live status display. See REFRESH SCRIPT section. ⭐ **Phase 17 adds `.185` (Jenkins) to the allow-list** — and `unattended-upgrades` stays masked there on purpose, so `refresh` is the only patching path for a host that must not restart mid-build.
 - Next: Phase 8 (Monitoring Stack)
 
 ---
@@ -1259,12 +1089,12 @@ session. The rest is history the phase files also carry.
 | Host | IP | Status |
 |------|-----|--------|
 | Proxmox | .150 | ✅ Running — `ssh root@192.168.1.150`, key auth ✅ (via `authorized_keys2`, Aug 12 2026) |
-| QA/K8s | .180 | ✅ Built (vm-kubernetes-1) |
+| **QA** | **.180** | ✅ LIVE — ⚠️ **hostname `vm-kubernetes-1` is a MISNOMER: there is NO Kubernetes on it.** It is the **Capricorn QA server** (`:5001`, auto-deploy on `develop` push). Andrew confirmed the naming error Aug 19, 2026. ⛔ **The only Kubernetes in this lab is k3s on VM 186** — do not go looking for a cluster here |
 | GitLab | .181 | ✅ LIVE |
 | Runner | .182 | ✅ LIVE (gitlab-runner-1) |
 | SonarQube | .183 | ✅ LIVE (vm-sonarqube-1, v26.1.0) |
 | **WWW** | **.184** | **✅ LIVE (vm-www-1, Traefik, Capricorn PROD, Splash)** |
-| **OpenClaw** | **.185** | **⏸️ DORMANT (vm-openclaw-1) — retired, do not use** |
+| **~~OpenClaw~~ → Jenkins** | **.185** | ⛔ **OpenClaw DESTROYED Aug 19, 2026 (totally gone).** VMID 185 + `.185` reassigned to `vm-jenkins-1` — Phase 17 |
 | **K8s/Redpanda POC** | **.186** | **🔵 BUILT July 25, 2026 (vm-k8-redpanda-1, Phase 14 sandbox) — `ssh agamache@192.168.1.186`, key auth ✅** |
 
 ---
@@ -1315,7 +1145,7 @@ password as fallback, and **password-only** access from any other machine (lapto
 | **.182 vm-gitrun-1** | `agamache` | ✅ | ✅ | ✅ via subnet route |
 | **.183 vm-sonarqube-1** | `agamache` | ✅ | ✅ | ✅ via subnet route |
 | **.184 vm-www-1** | `agamache` | ✅ | ✅ | ✅ — see the firewall note below |
-| **.185 vm-openclaw-1** | `agamache` | ⏸️ powered off (`onboot=0`) — nothing to reach | — | — |
+| **.185** | — | ⛔ **vm-openclaw-1 DESTROYED Aug 19, 2026.** Address free; Phase 17 rebuilds it as `vm-jenkins-1` | — | — |
 | **.186 vm-k8-redpanda-1** | `agamache` | ✅ | ✅ | ✅ via subnet route |
 
 Every VM reports `passwordauthentication yes` with `agamache` holding a usable password
@@ -1328,8 +1158,9 @@ an account whose password is locked look identical until you try it.
 
 1. **The pve host is a Tailscale subnet router.** It advertises **`192.168.1.0/24`**, and the route
    is approved (it shows in `PrimaryRoutes`). So any device on the tailnet can address
-   `192.168.1.x` directly — there is no need to put Tailscale on each VM, and **.185 remains the
-   only VM that has it.**
+   `192.168.1.x` directly — there is no need to put Tailscale on each VM. ⛔ **Corrected Aug 19, 2026:
+   `.185` used to be the only VM running Tailscale, and it was destroyed — so NO VM runs Tailscale
+   now.** Remote access depends entirely on the subnet route advertised by the pve host.
 2. **Subnet routing SNATs by default** (`NoSNAT: false`). Traffic from a remote laptop therefore
    arrives at the VMs **with a source IP of `192.168.1.150`**, not the laptop's `100.x` address.
 3. ⚠️ **That SNAT is what makes .184 reachable at all.** `184.fw` is `policy_in: DROP` and permits
@@ -1342,8 +1173,9 @@ an account whose password is locked look identical until you try it.
 5. **The tailnet devices that matter:** `bullpup` (macOS laptop) and `fibermedia` (macOS).
    ⚠️ **This dev box is NOT on the tailnet** — `agamache-z8g4` on the tailnet is the *Windows Z8
    host*; the dev box is the VMware guest inside it. Remote work from the dev box goes via Windows.
-6. **No guest-level firewall is in the way:** `ufw` is `inactive` on all six live VMs. Only .184 and
-   .185 have PVE-level rules; `cluster.fw` is enabled but carries no rules of its own.
+6. **No guest-level firewall is in the way:** `ufw` is `inactive` on all six live VMs. **Only .184 has
+   PVE-level rules** (`.185`'s went away with the VM on Aug 19, 2026); `cluster.fw` is enabled but
+   carries no rules of its own.
 
 ---
 
@@ -1635,21 +1467,23 @@ wget http://192.168.1.195/scripts/host_setup.sh && chmod +x host_setup.sh && ./h
 | **182 - Runner** | 8 cores | 12 GB | 100 GB | vm-ephemeral | ✅ Standard |
 | **183 - SonarQube** | 4 cores | 12 GB | 30 GB | vm-critical | ✅ Standard |
 | **184 - WWW** | 8 cores | 8 GB | 50 GB | vm-critical | ✅ Standard |
-| **185 - OpenClaw** | 8 cores | 16 GB | 50 GB | vm-critical | ✅ Standard |
+| ~~**185 - OpenClaw**~~ | ~~12 cores~~ | ~~16 GB~~ | ~~50 GB~~ | ~~vm-critical~~ | ⛔ **DESTROYED Aug 19, 2026 — all of it returned to the host.** ⚠️ It held **12 cores, not the 8 recorded here** — measured from `qm config` before the destroy |
 | **186 - K8s/Redpanda POC** | 8 cores | 16 GB | 300 GB | vm-ephemeral | ✅ Standard (from template 9000) — **right-sized down from 16c/32 GB Aug 12, 2026** |
 | **191 - docker-swarm-1** | 2 cores | 4 GB | 40 GB | vm-ephemeral | ✅ Standard (template 9000) — **built Aug 13, 2026, Phase 16** |
 | **192 - docker-swarm-2** | 2 cores | 4 GB | 40 GB | vm-ephemeral | ✅ Standard (template 9000) — **built Aug 13, 2026, Phase 16** |
 | **193 - docker-swarm-3** | 2 cores | 4 GB | 40 GB | vm-ephemeral | ✅ Standard (template 9000) — **built Aug 13, 2026, Phase 16** |
-| **200 - Kubernetes** | 8 cores | 12 GB | 100 GB | vm-ephemeral | ✅ Standard |
+| **200 - QA** (IP **`.180`**, hostname `vm-kubernetes-1`) | 8 cores | 12 GB | 100 GB | vm-ephemeral | ✅ Standard — ⚠️ **the VMID (200) does NOT match the IP (.180), and the hostname says Kubernetes while the box runs Capricorn QA.** Both are historical naming errors, confirmed by Andrew Aug 19, 2026. Every other VM follows `18x → .18x` |
 | **9000 - TEMPLATE** | 2 cores | 2 GB | 3.5 GB | vm-ephemeral | 📀 `tmpl-ubuntu-2404-cloudinit` |
 
 ### RAM Allocation Strategy
 - **GitLab:** 24 GB (memory-hungry, upgraded from 16 GB)
 - **SonarQube:** 12 GB (upgraded from 8 GB for large project scans)
 - **Runner:** 12 GB (upgraded from 8 GB)
-- **Kubernetes/QA:** 12 GB (upgraded from 8 GB)
+- **QA (`.180`, VMID 200, hostname `vm-kubernetes-1` — a misnomer, no Kubernetes on it):** 12 GB (upgraded from 8 GB)
 - **WWW:** 8 GB (Traefik + Capricorn PROD + splash)
-- **OpenClaw:** 16 GB (retired/dormant — VM 185 is not running, so this is reserved on paper only)
+- **~~OpenClaw:~~ 0 GB** — ⛔ **VM 185 destroyed Aug 19, 2026. The 16 GB and 12 cores are actually free
+  now, not merely idle.** Phase 17's `vm-jenkins-1` takes 8 GB / 4 vCPU of it, so the lab **nets 8 GB
+  and 8 cores.** Host measured **33 GB free** immediately after the destroy.
 - **K8s/Redpanda POC (186):** **16 GB** — was 32 GB, sized for 3 Redpanda brokers **+ OpenSearch**.
   OpenSearch (Phase 14 Part 5) was never installed, so **right-sized to 16 GB / 8 cores on
   Aug 12, 2026** after nine days of measurement showed **3.0 GB and ~1% CPU actually in use**.
@@ -1661,11 +1495,13 @@ wget http://192.168.1.195/scripts/host_setup.sh && chmod +x host_setup.sh && ./h
 - **Docker Swarm nodes (191/192/193):** **4 GB each, 12 GB total** — built Aug 13, 2026, and funded
   exactly by the 16 GB VM 186 gave back the day before. Swarm's control plane is light; CPU
   (2 vCPU each) is the binding constraint, not RAM.
-- **Total Allocated:** 112 GB of 128 GB (88%) on paper — **but 185 is powered off**, so **96 GB
-  (75%) is actually committed**. Host measured **51 GB free** immediately before the swarm build on
-  Aug 13, and the three nodes took 12 GB of it. vCPU is now **50 of 48 threads assigned, a 1.04:1
-  overcommit**, which is normal and intended. ⚠️ Budget deliberately from here: destroying dormant
-  185 would free another 16 GB on paper, and that is the next obvious source for a Phase 17 track.
+- **Total Allocated (updated Aug 19, 2026, after 185 was destroyed):** **96 GB of 128 GB (75%)**, and
+  now the paper number and the real number agree — the 16 GB that used to be "allocated but powered
+  off" is genuinely released. vCPU drops to **38 of 48 threads assigned**, so the 1.04:1 overcommit
+  is **gone**. ⭐ **Phase 17's `vm-jenkins-1` takes 8 GB / 4 vCPU**, leaving the lab at **104 GB (81%)
+  and 42 threads** — still under-committed on CPU for the first time since the Swarm build. Host
+  measured **33 GB free** right after the destroy. ⚠️ Budget from here: **there is no dormant VM left
+  to harvest.** The next 16 GB has to come from right-sizing something that is running.
 
 ---
 
@@ -1768,7 +1604,8 @@ rebooted, but GitLab (slow Omnibus reconfigure) finished apt but never got to
 `init 6`, so it didn't reboot. tmux wrapping prevents this.
 
 **VMs targeted (parallel):** .180, .181, .182, .183, .184
-**Excluded:** .185 (vm-openclaw-1) — managed separately
+**Excluded:** ~~.185 (vm-openclaw-1) — managed separately~~ → ⛔ **that VM is gone (Aug 19, 2026).**
+🔲 **Phase 17 TODO: add `.185` back as `vm-jenkins-1`, this time as an INCLUDED host.**
 
 **What it does on each VM:**
 1. Records pre-update `/proc/uptime` (baseline for reboot detection)
@@ -1907,7 +1744,7 @@ All Proxmox-host alerts now reach Andrew's Gmail via app password (PASSWORDS.md 
 | Pool | Drives | Type | Size | Usage | Compression | Ratio | Use |
 |------|--------|------|------|-------|-------------|-------|-----|
 | rpool | 2x WD Blue SN5100 500GB | mirror | 460GB | 11GB (2%) | lz4 ✅ | 1.17x | Proxmox, ISOs |
-| vm-critical | 2x Lexar NM620 1TB | mirror | 952GB | 66GB (6%) | lz4 ✅ | 1.40x | GitLab, Sonar, WWW, (OpenClaw) |
+| vm-critical | 2x Lexar NM620 1TB | mirror | 952GB | 66GB (6%) | lz4 ✅ | 1.40x | GitLab, Sonar, WWW, ~~(OpenClaw)~~ → **Jenkins** (185's 50 GB freed Aug 19, 2026) |
 | vm-ephemeral | 2x Lexar NM620 1TB | stripe | 1.86TB | 46GB (2%) | lz4 ✅ | ~1.5x | Runner, QA |
 
 **ashift (verified/fixed Jul 9, 2026):** ALL pools now ashift=12 (vm-ephemeral was 9 —
@@ -1937,7 +1774,7 @@ All pools feature-flag current (zpool upgrade Jul 9).
 | 7 | Local WWW Server | ✅ COMPLETE (vm-www-1 @ .184, cap + www live!) |
 | 8 | Monitoring Stack | 🔲 Planned (build it from template 9000) |
 | 14 | Kubernetes + Redpanda POC (was interview prep) | ✅ **CLOSED Aug 12, 2026 — goal met: the interviews happened Aug 6/7 and Andrew got the job.** Parts 1–6 done, 7 chapters written. VM 186 right-sized to 8 vCPU / 16 GB and left at snapshot `s05-app-running`. **Do not extend it**; Ch8–10 are track-1 education work, not phase 14. |
-| 11 | OpenClaw AI Agent | ✅ COMPLETE (vm-openclaw-1 @ .185, Feb 20, 2026) |
+| 11 | OpenClaw AI Agent | ✅ COMPLETE Feb 20, 2026 → ⛔ **RETIRED AND DESTROYED Aug 19, 2026.** VM totally gone, no backup. VMID/IP reused by Phase 17 |
 | 15 | Education program — multi-track study repo | ✅ **Parts A–D COMPLETE Aug 12, 2026.** `education/` is now a shelf: one folder per track, shared `tools/`, `CONVENTIONS.md`. One item open — the `docker-swarm` row in `education/README.md`'s track table, held until the folder exists. |
 | 16 | Docker Swarm (education track 2) | 🟢 **COMPLETE — ALL 7 PARTS, ALL 7 TRAPS CLOSED (Aug 19, 2026); 8 chapters written.** VMs 191/192/193 from template 9000; three-manager swarm, quorum 2 of 3; snapshots `s01-base-clean` → **`s07-c4-fixed-verified`** (⭐ **`s07` is the FIRST snapshot containing the C4 fix — `s06` predates it**). CI deploys the stack from GitLab; **C1–C5 fired, C6/C6b closed, C7 run Aug 19**; C4 fixed and VERIFIED against a degraded cluster (P48+P50). 🤖 **C7 + chapter 7 were AI-EXECUTED at Andrew's written instruction — declared in the chapter and the README, and deliberately marked WEAKER than chapters 1–6, which he drove.** **Part 7 closed as chapter 8 — the Swarm↔Kubernetes crib sheet, every row marked S / K / 🤖 / ⚠️ recited so nothing recited can be quoted as experience.** ⭐ Its two non-obvious conclusions: **the PVC abstraction is not what protects data** (the k3s lab's `local-path` strands it identically — the value is the driver ecosystem, not the object), and **Swarm's digest-pinning default is the SAFER of the two image models.** **🟢 CLOSED Aug 19, 2026 — nothing outstanding.** Drill D ran Aug 18 (P30/P31 ✅), the highlight pass finished Aug 19 (all 15 chapters, both tracks, 19.5–21.2 %), and the last open measurement — the `redis` divergent-volume question — was made and **refuted** (the two volumes are trap C3's deliberate residue). 🚨 **Its transferable lesson: `docker service ps`'s `CURRENT STATE` age is the manager's last STATUS STAMP, not the task's age** — it moves on control-plane churn, so a day-old task presents as freshly rescheduled, which manufactured a fictional data-loss incident until measured. ⚠️ **Standing hazard, recorded not fixed: an empty 88-byte `capricorn_redis_data_swarm` sits on `.193`** — `redis` scheduling there attaches an empty cache. 🙋 Andrew drives by default (`education/METHOD.md` → "Who does the work"). Re-walk the `📌 READ THIS FIRST` pre-flight list in `phases/phase16_docker_swarm.md` each session. |
 | 17 | Jenkins (education track 3) | 📋 **CONFIRMED NEXT after Phase 16** — Jenkins is named explicitly on the study list (`education/fin_tech_stack.txt`), so this is no longer provisional. Phase 16 Part 3 deliberately keeps deploy logic in a shell script, so this track is largely "write a different wrapper". |
@@ -2126,9 +1963,17 @@ services:
 
 ---
 
-## OPENCLAW
+## OPENCLAW — ⛔ DEAD. VM DESTROYED Aug 19, 2026.
 
-- **VM:** vm-openclaw-1 @ 192.168.1.185 (16GB RAM, 8 cores, 50GB vm-critical)
+⛔ **`vm-openclaw-1` was killed and removed on Aug 19, 2026 on Andrew's instruction. It is totally
+gone** — `qm destroy 185 --purge`, no backup taken (declined on purpose), no snapshot had ever been
+made, no ZFS volumes left behind, firewall config purged with it. **Nothing below is reachable.**
+Everything in this section is kept as a historical record of what was built and why it was retired;
+**do not treat any address, port, token or URL here as live.** VMID 185 and `192.168.1.185` now belong
+to **Jenkins** — see `phases/phase17_jenkins.md`.
+
+- **VM:** ~~vm-openclaw-1 @ 192.168.1.185~~ (16GB RAM, **12 cores** — the "8 cores" recorded elsewhere
+  was wrong, measured from `qm config` at destroy time — 50GB vm-critical)
 - **OS:** Ubuntu 24.04 Desktop
 - **Version:** 2026.4.5 (updated Apr 6, 2026; prior: 3.13 → 3.22 → 3.23-beta.1 → 3.28 → 4.5)
 - **Install Method:** Bash script (`curl -fsSL https://openclaw.ai/install.sh | bash`)

@@ -1,6 +1,10 @@
 # Phase 11: OpenClaw AI Agent Server
 
-**Status:** ✅ COMPLETE (February 20, 2026 - 7:47 PM EST)  
+**Status:** ⛔ **RETIRED AND DESTROYED — August 19, 2026.** Built and completed Feb 20, 2026; ran until
+it was retired; **the VM was killed and removed on Aug 19, 2026 and is totally gone.** See the
+**"CLOSED" section at the end of this file** for the evidence. Everything
+below documents a machine that no longer exists — read it as history, not as configuration.
+**Nothing here is reachable.**  
 **Depends On:** Phase 2 (Host Setup Automation), Phase 7 (WWW/Script Server)  
 **Goal:** Deploy a self-hosted OpenClaw AI agent server with Tailscale VPN access and Telegram integration
 
@@ -402,3 +406,42 @@ OpenClaw has broken config compatibility on **4 out of 5 upgrades** in this lab 
 4. Inspect config and remove/restructure keys flagged in the error
 5. Use `openclaw config schema` piped to grep/python to find where keys moved
 6. Verify: `openclaw gateway status` and `openclaw status --all`
+
+---
+
+## ⛔ CLOSED — VM killed and removed, August 19, 2026
+
+**We killed it and it's totally gone.**
+
+Andrew ordered VM 185 destroyed to make room for the Phase 17 Jenkins build, and **explicitly declined
+a backup**. It was executed the same evening:
+
+```
+qm destroy 185 --purge 1 --destroy-unreferenced-disks 1
+```
+
+**Verified gone**, not assumed gone:
+
+| Check | Result |
+|---|---|
+| `qm status 185` | `Configuration file 'nodes/pve/qemu-server/185.conf' does not exist` |
+| ZFS volumes on `vm-critical` | none matching `185` |
+| `/etc/pve/firewall/185.fw` | removed — ✅ **`--purge` deletes the firewall config with the VM** |
+| Backups on any storage | **none existed** on `local`, `nas-gitlab`, or `nas-docker-swarm-1/2/3` |
+| Snapshots | **none had ever been taken** |
+
+⚠️ **This is irreversible and was chosen to be.** No backup, no snapshot, no archive anywhere. If
+OpenClaw is ever wanted again it is a rebuild from this file, not a restore.
+
+**What the lab got back:** 16 GB of RAM and **12 cores** — ⚠️ note the resource table in `MEMORY.md`
+had recorded **8** cores, so the real reclaim was larger than the paper one. Removing it also ended
+the 1.04:1 vCPU overcommit the lab had carried since the Swarm build.
+
+**Two facts elsewhere that this invalidated**, both corrected in `MEMORY.md` the same evening:
+
+- **`.185` was the only VM running Tailscale.** With it gone, **no VM runs Tailscale** — remote access
+  now depends entirely on the subnet route advertised by the pve host.
+- **`.185` was one of only two VMs with PVE-level firewall rules.** Now only `.184` has any.
+
+**VMID 185 and `192.168.1.185` are reassigned** to `vm-jenkins-1` — see
+[`phase17_jenkins.md`](phase17_jenkins.md).

@@ -244,6 +244,20 @@ python3 education/tools/build_docx.py --list         # what tracks exist
 
 Requires `pandoc`. Output goes to `education/<track>/docx/` and is committed.
 
+🚨 **A rebuild rewrites EVERY `.docx` even when nothing in it changed**, because the zip carries
+timestamps. So a one-chapter edit produces a commit that appears to touch the whole track, and the diff
+becomes useless for review. **Before committing, compare the INNER `word/document.xml` against the
+committed copy and `git checkout` the files that are content-identical:**
+
+```bash
+unzip -p education/<track>/docx/chapterNN.docx word/document.xml > /tmp/new.xml
+git show HEAD:education/<track>/docx/chapterNN.docx > /tmp/old.docx && unzip -p /tmp/old.docx word/document.xml > /tmp/old.xml
+diff -q /tmp/old.xml /tmp/new.xml || echo "genuinely changed"
+```
+
+⭐ **Why this is a convention and not housekeeping: a commit that claims to change eight chapters when
+it changed one destroys the reviewability of every future `git log` on the track.**
+
 The build is opinionated on purpose, so it reads like a textbook and prints legibly: **7.00in text
 column, Cambria 11pt, single-spaced, every image the full column width** (height-capped so a tall
 figure does not overflow the page).
@@ -344,6 +358,12 @@ python3 education/tools/highlight.py <chapter.md> <anchors.py> --check   # valid
 
 `highlight.py` **refuses to write unless every anchor matches exactly once** — a silently-missed
 anchor is the one failure you would never notice.
+
+🚨 **By design the pass skips code blocks and tables — so a load-bearing fact living in a table cell
+CANNOT be marked, and a reader revising from the highlights alone will never see it.** This is the one
+way the highlight pass can lose information rather than merely fail to add it. **The fix that worked was
+to restate the strongest table facts in prose** (done for 11 facts in track 1's chapter 7). Watch for it
+in any chapter whose argument sits in a table.
 
 ⚠️ **Two traps:**
 - **Never re-run `highlight.py` against an already-highlighted file.** Every existing anchor becomes

@@ -94,6 +94,16 @@ learn. Its job is to make the phase *fail on purpose in useful places*.
   from nothing, ship to it from a pipeline, break it several ways, and explain what each failure did
   to the application."
 - **List the traps in advance and mark them do-not-fix.** A trap pre-empted is a lesson deleted.
+- ⭐ **VERIFY EACH TRAP'S PRECONDITION before the phase starts — a trap that cannot fire is a lesson
+  deleted just as surely as one that was pre-empted, and it is worse because the plan still claims it.**
+  Added Aug 19, 2026, after it paid off immediately in Phase 17: one read-only query confirmed GitLab
+  would in fact refuse the webhook the trap depends on. ⚠️ **The failure it guards against already
+  happened once** — Phase 16's trap C2 (a start-order race) **could not fire at all**, because manual
+  `docker pull`s during an earlier investigation had left the state the race needed. Nobody had checked.
+  🚨 **Checking a precondition is NOT pre-empting the trap.** Knowing a switch exists is not the same as
+  having the thing work, and the diagnosis still has to be earned when it fires. The test: *does knowing
+  this let me skip the debugging?* If no, check it. **And it pays twice** — Phase 17's check turned up an
+  unrelated finding (the same product blocks one hook type and permits another) that no tutorial states.
 - **Sort the caveats into kinds** so they cannot be confused: what needs a decision, what is a hard
   rule, what is a deliberate trap, what is inherited and out of scope. Say who resolves each, and
   close what you can by *going and looking* rather than by asking.
