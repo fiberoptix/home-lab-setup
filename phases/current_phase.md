@@ -1,11 +1,161 @@
 # Current Phase
 
-**Updated:** August 20, 2026 - 12:15 PM EDT
+**Updated:** August 20, 2026 - 2:15 PM EDT
 
 📉 **This file was trimmed 3797 → 2067 lines on Aug 20** by demoting three closed-phase blocks
 (Phase 16 handoffs → `phase16`, Phase 14 closing record → `phase14`, OpenClaw logs → `phase11`).
 **Nothing was summarised or deleted — each block was copied verbatim and verified line-by-line before
 removal.** Details in `MEMORY.md` → PHASE INDEX footer.
+
+---
+
+## 🔵 PHASE 17 PARTS 0 + 1 — Jenkins is up (Aug 20, 2026, ~1:00–2:30 PM EDT) ✅ DONE
+
+🙋 **Andrew: "I'd like to go step-by-step with you building it so I understand all the pieces. I'd
+like to run all the commands myself."** He did — every command, including the VM build. The AI's
+contribution was instruction, live diagnosis, and **read-only verification** (Jenkins' REST API for
+plugin/node state, `ps` and file modes over SSH). That division is stated in the track README too,
+because a claim checked against `/api/json` outranks the same claim read off a web page.
+
+**Working protocol agreed at the start and honoured throughout** (recorded as P1 in the phase file):
+Part 0 is hands-on but earns **no chapter**; when a trap is near the AI says *"there's a trap coming
+— what do you think it is?"* without revealing it; **build-process improvements get fixed live**
+rather than logged for later; session scope was Part 0 + Part 1.
+
+**What was built.** VM 185 `vm-jenkins-1` from template 9000 (4 vCPU, 8 GB, 60 GB on `vm-critical`),
+then Jenkins **2.568.2 LTS** on **OpenJDK 21**, controller at **0 executors**, one SSH agent as OS
+user `jenkins-agent`, label `swarm-deploy`, host key pinned, private key deleted from the host so it
+exists only in Jenkins' credential store. Snapshot **`j02-jenkins-up`** taken (VM shut down for it)
+and `.185` restarted clean.
+
+**Findings — full detail in `phase17_jenkins.md`, do not duplicate it here:**
+
+| # | What |
+|---|---|
+| **J-P2** | Part 0. Template clone ≠ live-VM clone: fresh `smbios1` UUID means cloud-init personalises it, and new host keys on a **reused address** caused a `known_hosts` mismatch. Also the first end-to-end test of the Cockpit + `nofail` build-script changes — **both passed** |
+| **J-P3** | The apt install misleads twice: the **unversioned key filename is the OLDEST key** (dead since 2023), and the `jenkins` package **declares no Java dependency**, so it installs cleanly and cannot start |
+| **J-P4** | Six deliberate plugin choices → **73 installed plugins**; and `ssh-agent` ≠ `ssh-slaves`, so the build standard's own list omitted the plugin its own topology needs |
+| **J-P5** | The split, **proved with a queued build before the agent existed**. Plus: the agent can read `credentials.xml`, and `Running as SYSTEM` is a second privilege plane |
+
+**Two decisions closed on the record.** Agent transport = **SSH**, argued from lifecycle ownership
+(with SSH the controller can restart a dead agent; with JNLP it can only wait) rather than from
+convenience — ledger row **J2** covers the cost of co-locating it. And patching policy: every VM's
+`unattended-upgrades` and `apt-daily*` timers are **masked**, with `refresh.sh` the only path,
+`.185` added to it.
+
+📖 **Education track 3 opened** — `education/jenkins/README.md` + chapter 1, figure `figcheck`-clean
+at 10.2 pt, highlighted to 20.1 % at drafting time, DOCX built, and the track indexed in
+`education/README.md`. ⚠️ **There is deliberately no chapter 0** — Part 0 is the "assume it" plumbing
+`CONVENTIONS.md` tells you to cut.
+
+---
+
+## 🩹 LAB-WIDE `nofail` SWEEP + a security find on .184 (Aug 20, 2026, ~12:38–12:50 PM EDT) ✅ DONE
+
+🙋 **Andrew: "let's fix the nas issue on all current VMs."** Then, mid-sweep:
+**"184 should NOT mount the NAS! It's prod-local."**
+
+**Done: all 9 VMs + this dev workstation now show `RequiredBy=` empty.**
+
+| Host | Before | After |
+|---|---|---|
+| .180 qa, .181 gitlab, .182 runner, .183 sonar, .186 redpanda, .191–.193 swarm, .195 dev | `RequiredBy=[remote-fs.target]` (.180 already fixed) | `RequiredBy=[]`, `WantedBy=[remote-fs.target]`, mounts untouched |
+| **.184 www** | had the mount **and** it had been **failing every boot since July 9** | 🚫 **entry removed entirely** — see below |
+
+**Method** (`working/fix_nofail.sh`, re-runnable): back up fstab → edit only the one CIFS line →
+restore automatically if the edit doesn't verify → `daemon-reload` → assert `RequiredBy=` empty →
+assert the live mount survived. Canaried on **.193** (least critical) and the swarm was re-checked
+before touching anything else; **.181 GitLab went last-but-one and the dev box last.**
+⭐ **The raw `sed` is NOT idempotent** — run twice it appends `nofail,nofail`. The script's
+"already has nofail?" pre-check is what makes it safe, and a throwaway test caught that before it
+ever touched a host.
+
+### 🚫 The .184 find — a build standard leaking credentials into the DMZ
+
+`.184` is the internet-facing PROD box. Phase 12 gave it `OUT DROP -dest 192.168.1.0/24`, so the NAS
+is unreachable **by design** — confirmed: ping 100% loss, 445 blocked. Yet the standard build had
+given it the NAS fstab entry, which had been failing at **every boot since July 9**, and — the part
+that actually matters — had left **`/root/.smbcredentials` on the internet-facing host** for a share
+it is forbidden to touch.
+
+Removed: fstab line, mount unit, `/mnt/DevShare`, credentials file. Verified nothing referenced the
+path (no container bind-mounts; only stale Cursor logs from January). **PROD re-checked after:
+all 6 containers up, :80 → 301, :443 answering. Zero failed units.**
+
+⭐ **The lesson: a uniform build standard will plant credentials on exactly the hosts your network
+design isolates.** The firewall did its job perfectly; the **builder** was the leak.
+
+**Two guards added so a rebuild cannot recreate it:**
+- `bash host_setup.sh --no-nas` — deliberate skip for a prod-local host.
+- **`setup_smb_mount.sh` now pre-checks `<nas>:445` and refuses** to write fstab or credentials if it
+  cannot connect. ⭐ The better of the two, because it needs nobody to remember anything.
+  **Proven by running it on .184 itself:** refused, wrote nothing, host stayed clean.
+
+⚠️ **Gotcha found by testing:** `SKIP_NAS=1 sudo -E …` **does not work** — sudo has `env_reset`, warns
+*"preserving the entire environment is not supported"*, and silently drops the variable, so the script
+ran in full on the dev box. Harmless there (everything already existed), but the documented invocation
+was wrong and is now `sudo SKIP_NAS=1 bash ./setup_smb_mount.sh`. 🧠 **Testing the happy path is not
+testing the guard.**
+
+### ⚠️ CORRECTION — we overstated what missing `nofail` costs
+
+Earlier today this was written up as *"drops to an emergency console, no network, no SSH."* **That is
+wrong**, and `.184` disproves it from inside our own lab: it failed this mount at every boot for six
+weeks and came up fine each time. `_netdev` already keeps these entries out of `local-fs.target`; the
+emergency-console behaviour belongs to network mounts written **without** `_netdev`. Real cost of
+`_netdev` without `nofail`: a **bounded boot delay** (11 s measured, ~90 s worst case) and a
+permanently failed unit. Worth fixing — not a catastrophe. 🧠 **A plausible mechanism was asserted
+instead of checked, while the host running the experiment sat one `systemctl status` away.**
+Corrected in `MEMORY.md`, the phase-2 doc, and the script comments.
+
+⚠️ **Still unverified:** template **9000** has not been checked for a NAS fstab entry (it is stopped,
+and checking means booting a clone). Any VM cloned from it runs the fixed `host_setup.sh` anyway.
+👉 Check it during Phase 17 Part 0, when a clone is being made regardless.
+
+---
+
+## 🔧 BUILD STANDARD CHANGED — Cockpit is now on every Ubuntu server (Aug 20, 2026, ~12:25–12:40 PM EDT) ✅ DONE
+
+🙋 **Andrew's call:** *"I think we should make this part of every new ubuntu server we build… make sure
+we do it the safe way like you said."* Triggered by installing Cockpit by hand on `.186` earlier today.
+
+**What changed — three files, all in the build path:**
+
+| File | Change |
+|---|---|
+| `www/scripts/setup_cockpit.sh` | 🆕 **NEW.** Installs Cockpit; detects the network stack; **simulates the install and exits 1 if `network-manager` would appear** |
+| `www/scripts/host_setup.sh` | Downloads and runs it in **Phase 1**, next to SSH and sudo |
+| `www/scripts/setup_smb_mount.sh` | 🩹 **Unrelated bug found and fixed:** fstab got `_netdev` but **not `nofail`** |
+
+⭐ **The design decision worth remembering: the script enforces the rule instead of documenting it.**
+The obvious implementation was "write down the safe package list and trust future-us to use it." That
+fails the first time someone in a hurry types `apt install cockpit`. Instead `setup_cockpit.sh` runs
+`apt-get install -s`, greps the result, and **refuses to continue** if NetworkManager shows up on a
+host that does not already use it. It also *adds* `cockpit-networkmanager` on hosts where
+NetworkManager **is** active (desktop builds), so the rule is "match the host", not "never install it".
+
+**Measured, not assumed** (dry run on swarm node .191, which has no Cockpit):
+
+| Install | Packages added | Pulls network-manager? |
+|---|---|---|
+| `apt install cockpit` | **35** | **YES** + `dnsmasq-base`, `ppp`, `pptp-linux`, `wpasupplicant`, `wireless-regdb` |
+| Our explicit list | **19** | No |
+
+🩹 **The `nofail` find.** Chasing "where do we document server builds" led into `setup_smb_mount.sh`,
+which wrote `_netdev` **without `nofail`** — so every VM ever built by the standard script carried it.
+Fixed at the source, then **swept the whole lab (see the next block).** 🧠 **The lesson: when a per-VM
+fix works, immediately ask whether the builder has the same bug.** Fixing the VM fixes one VM; fixing
+the script fixes every future one.
+
+**Verified:**
+- `bash -n` clean on both scripts.
+- Re-ran `setup_cockpit.sh` **on .186 where Cockpit already exists** — correctly reported "already
+  installed, nothing to add", left the network stack alone, confirmed :9090 listening. **Idempotent.**
+- Both scripts serve HTTP 200 from `http://192.168.1.195/scripts/`, and the served copies contain the
+  guard and the `nofail` option — so a build started right now would pick them up.
+
+**Not yet proven:** no VM has been built end-to-end with the new `host_setup.sh`. 👉 **Phase 17 Part 0
+(the Jenkins VM) is the first real test**, and Part 0 now says so explicitly.
 
 ---
 
@@ -126,7 +276,7 @@ missing five VMs and understates GitLab's RAM. Historical phase files 2/4/5/7 le
 
 ---
 
-## ▶️ RESUME HERE — 🔵 PHASE 17 (JENKINS) IS OPEN. Plan APPROVED; VM 185 already destroyed; build the VM next.
+## ▶️ RESUME HERE — 🔵 PHASE 17 (JENKINS): **Parts 0 and 1 are DONE (Aug 20, 2026). Next is Part 2 — GitLab OAuth + trap T1.**
 
 **Read `phases/phase17_jenkins.md` before touching anything Jenkins-related.** Where things stand:
 
@@ -156,11 +306,36 @@ lab.** Nothing in the plan is open now.
   same target.** So "GitLab blocks outbound LAN requests" is false as a general statement; it depends on
   which subsystem asks. Full detail: `phase17_jenkins.md` → log entry **J-P1**.
 
-🔲 **NEXT ACTION — Part 0, steps 2–5.** ✅ **The plan is APPROVED and nothing in it is open** (Andrew
-signed off Aug 19, including A1/A2), so **no re-planning is needed — build the VM.** Clone template 9000
-into VMID 185 as `vm-jenkins-1` at `.185`, **8 GB / 4 vCPU / 60 GB on `vm-critical`**, `host_setup.sh`,
-`qemu-guest-agent`, verify from inside the guest, snapshot `j01-base-clean`. **That part is AI-drivable
-plumbing; everything from Part 1 on is Andrew at the keyboard.**
+~~🔲 **NEXT ACTION — Part 0, steps 2–5.**~~ ✅ **SUPERSEDED Aug 20 — Parts 0 and 1 are both complete.**
+🙋 **Andrew ran every command himself**, one step at a time, at his request.
+
+**Where Jenkins actually is right now** (all verified against the API and `ps`, not read off a screen):
+
+| | |
+|---|---|
+| Jenkins | **2.568.2 LTS** on Java **21.0.11**, `http://192.168.1.185:8080/` (URL saved correctly) |
+| Login | local admin `agamache` — **break-glass account, in `PASSWORDS.md`**, do not delete after OAuth |
+| Authorization | `FullControlOnceLoggedInAuthorizationStrategy` — **any authenticated user has full control.** Becomes a real question the moment OAuth lands in Part 2 |
+| Executors | controller **0**, node `jenkins-agent-1` **2**, label `swarm-deploy` |
+| Agent | SSH → `127.0.0.1` as OS user `jenkins-agent` (no sudo, no extra groups), host key **pinned**, private key **only** in the Jenkins credential store |
+| Plugins | 73 installed from **6** deliberate choices, plus `ssh-slaves` added by hand |
+
+📓 Findings written up as **J-P3** (expired apt key + undeclared Java dependency), **J-P4** (the plugin
+list problem), **J-P5** (the split, and what the agent can still read). New ledger row **J2**
+(agent co-located with the controller). A5's transport question is closed in the plan.
+
+🔲 **NEXT ACTIONS, in order:**
+
+1. ⏳ **Snapshot `j02-jenkins-up`** — owed from Part 1 and not yet taken. Shut the VM down for it, as
+   with `j01-base-clean`.
+2. ✅ **Chapter 1 and the track README are written** (`education/jenkins/`), figure rendered and
+   `figcheck`-clean, DOCX built. ⚠️ **The track is now indexed in `education/README.md` as track 3**,
+   so a future session should update that row as chapters land.
+3. ▶️ **Part 2 — GitLab OAuth, then prove break-glass works with GitLab unreachable, then trap T1.**
+
+⚠️ **Do not "fix" what looks unfinished.** `passwordauthentication yes` on `.185`'s sshd, the
+world-readable `credentials.xml`, and the agent's lack of Docker access are all **Part 4/7 material or
+deliberate** — see the trap table before touching any of them.
 
 📌 **Everything the build needs, and what it costs to skip each one** (verified Aug 19, 9:40 PM — do not
 re-probe, just use them):

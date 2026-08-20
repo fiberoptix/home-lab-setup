@@ -20,6 +20,21 @@
 #   FAILED   - SSH ended; host stayed up with unchanged uptime past grace window
 #              (apt likely failed before init 6 could fire)
 #
+# ---------------------------------------------------------------------------
+# PATCHING POLICY (Andrew, Aug 20, 2026): THIS SCRIPT IS THE ONLY WAY LAB VMs
+# GET UPGRADED. `unattended-upgrades` and the apt-daily timers are MASKED on
+# every VM, so nothing patches itself on its own schedule.
+#
+# Why: before this, boxes .181-.184 had BOTH mechanisms - refresh.sh (deliberate,
+# windowed, you are watching) and unattended-upgrades (unscheduled, invisible,
+# can restart a service mid-job). Two upgrade paths where one is uncontrolled is
+# worse than either alone, because the state you think you froze can move.
+#
+# Consequence to accept: a VM NOT in the list below now gets NO automatic
+# security patching at all. That is deliberate for .186 and .191-.193, whose
+# whole point is a frozen known state - patch those by hand, on purpose.
+# ---------------------------------------------------------------------------
+#
 # VMs targeted (the list below is keyed by IP, not VMID, so re-numbering a VM in
 # Proxmox does not affect this script):
 #   .180  vm-docker-qa-1 (Proxmox VM ID 180; was ID 200 / vm-kubernetes-1 until Aug 20, 2026)
@@ -27,10 +42,11 @@
 #   .182  vm-gitrun-1
 #   .183  vm-sonarqube-1
 #   .184  vm-www-1
+#   .185  vm-jenkins-1 (added Aug 20, 2026, Phase 17 - replaced the destroyed vm-openclaw-1)
 #
-# Deliberately NOT targeted:
-#   .185  was vm-openclaw-1, destroyed Aug 19, 2026 — to be re-added as vm-jenkins-1 (Phase 17)
-#   .186  vm-k8-redpanda-1 (k3s POC), .191-.193 docker-swarm-1..3 — never added to this script
+# Deliberately NOT targeted - frozen known state, patch by hand:
+#   .186  vm-k8-redpanda-1 (k3s POC)
+#   .191-.193  docker-swarm-1..3
 
 set -u
 
@@ -63,6 +79,7 @@ VMS=(
     "192.168.1.182"
     "192.168.1.183"
     "192.168.1.184"
+    "192.168.1.185"
 )
 
 SSH_USER="agamache"
@@ -136,7 +153,7 @@ done
 echo
 
 # Launch parallel SSH (update + reboot) for each VM
-echo "==> $(stamp) Launching parallel refresh on ${#VMS[@]} VMs (vm-openclaw-1/.185 excluded)..."
+echo "==> $(stamp) Launching parallel refresh on ${#VMS[@]} VMs..."
 for VM in "${VMS[@]}"; do
     SENTINEL="$STATE_DIR/done-${VM}"
     (

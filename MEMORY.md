@@ -84,7 +84,7 @@ house failure mode. Do not do it.**
 | **Firewall, port-forwards, public exposure** | `phases/phase12_network_segmentation.md` (200 ln) | Perimeter is deliberately closed to everything but the WWW box; open ports listed there include ones flagged for removal |
 | **GitLab / runner / CI** | `phases/phase3_gitlab_server.md`, `phase4_gitlab_runner.md`, `phase5_ci_cd_pipelines.md` | The runner is **privileged with the host Docker socket mounted** — any job on it is effectively root on the runner host (ledger L19) |
 | **SonarQube** | `phases/phase6_sonarqube.md` (625 ln) | — |
-| **OpenClaw agent (.185)** | `phases/phase11_openclaw.md` (935 ln) | ⛔ **VM DESTROYED Aug 19, 2026 — totally gone, no backup, no snapshot. Nothing in that file is actionable.** VMID 185 + `.185` now belong to **Jenkins** (Phase 17), so **any `.185` in it means OpenClaw, not Jenkins.** Its *OPERATIONAL LOG* section (demoted from `current_phase.md` Aug 20) is six months of run-and-repair history; the one transferable pattern is **upgrades that silently reset config files, so the service starts clean and the customisation is what breaks** |
+| **OpenClaw agent (.185)** | `phases/phase11_openclaw.md` (**1099 ln**) | ⛔ **VM DESTROYED Aug 19, 2026 — totally gone, no backup, no snapshot. Nothing in that file is actionable.** VMID 185 + `.185` now belong to **Jenkins** (Phase 17), so **any `.185` in it means OpenClaw, not Jenkins.** Its *OPERATIONAL LOG* section (demoted from `current_phase.md` Aug 20) is six months of run-and-repair history; the one transferable pattern is **upgrades that silently reset config files, so the service starts clean and the customisation is what breaks** |
 
 ⚠️ **`phases/current_phase.md` is the session log (2067 lines).** Read the **`▶️ RESUME HERE` block**
 for state and next steps; `rg -n '^## ' phases/current_phase.md` maps it — **never trust a line number,
@@ -98,6 +98,7 @@ session. The rest is history the phase files also carry.
 | Eight stacked Phase 16 session handoffs | 786 | `phase16_docker_swarm.md` → *SESSION HANDOFFS* |
 | Phase 14 closing record | 478 | `phase14_k8s_redpanda_poc.md` → *CLOSING RECORD* |
 | Six OpenClaw run/repair logs + Phase 11 completion | 471 | `phase11_openclaw.md` → *OPERATIONAL LOG* |
+| OpenClaw build record (gateway config, upgrade traps, SSHFS, firewall) | 151 | `phase11_openclaw.md` → *DEMOTED VERBATIM FROM `MEMORY.md`* — moved Aug 20, 2026, **first time this file lost a whole `##` section** |
 
 ⭐ **Every one was copy → verify → delete, one block per commit**, and a line-by-line diff check
 confirmed **0 removed lines missing** from the target each time. ⚠️ **All three were ~0% duplicated —
@@ -192,8 +193,17 @@ It had been accumulating since Aug 13. **When you write a new handoff, move the 
     touches education content.
   - **New `=== EDUCATION PROGRAM (/education) ===` section**, 7 rules (now 8 + `1b` after Aug 13).
 
-- **🔵 ACTIVE — Phase 17: Jenkins** (`phases/phase17_jenkins.md`, started Aug 19, 2026). Plan written and
-  awaiting Andrew's sign-off on two open items (**A1** DNS name vs bare IP, **A2** TLS on the web UI).
+- **🔵 ACTIVE — Phase 17: Jenkins** (`phases/phase17_jenkins.md`, started Aug 19, 2026).
+  ✅ **PARTS 0 AND 1 ARE DONE (Aug 20, 2026) — Jenkins is UP, do not rebuild it.** `http://192.168.1.185:8080/`,
+  **Jenkins 2.568.2 LTS on OpenJDK 21**, controller at **0 executors**, one SSH agent `jenkins-agent-1`
+  (OS user `jenkins-agent`, uid 1001, no sudo, no groups) with label `swarm-deploy`. 🙋 Andrew ran every
+  command. **Next is Part 2 — GitLab OAuth + trap T1.** A1/A2 are closed (bare IP, no TLS = ledger J1).
+  🚨 **The admin login is in `PASSWORDS.md` and is the BREAK-GLASS account — do NOT delete it once OAuth
+  works**, or GitLab being down locks everyone out of the system needed to fix GitLab. ⚠️ Also **do not
+  "tidy" these**: the `zz-executor-proof` job is a deliberate liveness probe, `credentials.xml` being
+  world-readable and the agent having no `docker` access are Part 4/7 material, not oversights.
+  📖 **Education track 3 opened: `education/jenkins/` — README + chapter 1 written Aug 20** (there is
+  deliberately **no chapter 0**; Part 0 is assumed plumbing, decision P1).
   ⛔ **Part 0 step 1 is already DONE and is irreversible: VM 185 `vm-openclaw-1` was destroyed** on
   Andrew's instruction with **no backup and no snapshot** — see `phase11_openclaw.md` → "CLOSED". VMID
   185 and `.185` are reassigned to `vm-jenkins-1`. ⭐ **Andrew's weighting: install + configure Jenkins,
@@ -203,7 +213,7 @@ It had been accumulating since Aug 13. **When you write a new handoff, move the 
   runs as a **firm-supplied build standard** (Andrew's framing) with every spec line marked 🔧 mechanics
   or 📐 invented convention — a deliberate deviation from `METHOD.md` that gets folded back in **only if
   it proves out.**
-  ⭐ **Three cross-phase rules earned on Aug 19, worth more than the phase that produced them:**
+  ⭐ **Six cross-phase rules earned here, worth more than the phase that produced them:**
   1. **Before destroying anything, read its config AND grep the docs for what depended on it.** The
      pre-destroy read of VM 185 caught a **wrong core count** (12, recorded as 8) and two facts it
      silently invalidated: it was the **only VM running Tailscale**, and one of only two with PVE
@@ -216,6 +226,27 @@ It had been accumulating since Aug 13. **When you write a new handoff, move the 
   3. **Do not generalise a product's policy from one subsystem's behaviour.** Measured on `.181`:
      GitLab **blocks** project webhooks to private addresses while **allowing** system hooks to the
      same target. "GitLab blocks LAN egress" is false as stated.
+  4. ⭐ **PROVE THE NEGATIVE BEFORE YOU BUILD THE POSITIVE** (Aug 20). To verify a boundary, first
+     demonstrate the failure it should cause, *while the thing that would mask it does not yet exist*.
+     Jenkins: controller set to 0 executors, then a job run **with no agent attached** — it sat in the
+     queue; the agent was added and **the same job, unchanged**, ran. Attaching the agent first can
+     never distinguish an enforced boundary from one that was never enforced, because a green build
+     only proves *something* ran it. **Reading a config field tells you what a system was told; a
+     failure tells you what it will do.**
+  5. ⭐ **A MANIFEST IS NOT A CAPABILITY** (Aug 20). Confirming the named things are installed proves
+     the list was followed, not that the system can do what the list was written for. Jenkins: the
+     build standard named **"SSH Agent"** (`ssh-agent` = a pipeline step that forwards a key *into* a
+     build) while the topology needed **"SSH Build Agents"** (`ssh-slaves` = the thing that launches
+     agents over SSH). Following the standard exactly produced a controller that could not attach the
+     agent the same standard demanded. Same shape as "reachable is not usable".
+  6. ⭐ **TWO PRIVILEGE PLANES — hardening one says nothing about the other** (Aug 20). A Jenkins build
+     ran as OS user `jenkins-agent` (unprivileged, kernel-enforced: `master.key` denied) **and** as
+     Jenkins' internal `SYSTEM` identity (full permissions through Jenkins' own APIs) *at the same
+     time*. **"The agent is unprivileged" is a true statement about one plane and a half-truth overall.**
+     Generalises to any runner: the OS account and the application-level identity are separate grants
+     with separate fixes. ⚠️ Related, same host: `JENKINS_HOME` is `755` and `credentials.xml` is `644`,
+     so **every local account can read the encrypted credentials** — the only thing between them and
+     plaintext is the `700` on `secrets/`. **One layer, nothing behind it.**
 
 - **🟢 COMPLETE — Phase 16: Docker Swarm** (`phases/phase16_docker_swarm.md`) — all 7 parts, all 7
   traps, 8 chapters, closed Aug 19, 2026 with the Swarm↔Kubernetes crib sheet (chapter 8). Only two
@@ -1132,9 +1163,50 @@ It had been accumulating since Aug 13. **When you write a new handoff, move the 
 | GitLab | .181 | ✅ LIVE |
 | Runner | .182 | ✅ LIVE (gitlab-runner-1) |
 | SonarQube | .183 | ✅ LIVE (vm-sonarqube-1, v26.1.0) |
-| **WWW** | **.184** | **✅ LIVE (vm-www-1, Traefik, Capricorn PROD, Splash)** |
+| **WWW** | **.184** | **✅ LIVE (vm-www-1, Traefik, Capricorn PROD, Splash)** — 🚫 **PROD-LOCAL: no NAS mount, no `/mnt/DevShare`, no `.smbcredentials`** (removed Aug 20, 2026; Phase 12 DMZ blocks the LAN). Rebuild it with **`host_setup.sh --no-nas`** |
 | **~~OpenClaw~~ → Jenkins** | **.185** | ⛔ **OpenClaw DESTROYED Aug 19, 2026 (totally gone).** VMID 185 + `.185` reassigned to `vm-jenkins-1` — Phase 17 |
-| **K8s/Redpanda POC** | **.186** | **🔵 BUILT July 25, 2026 (vm-k8-redpanda-1, Phase 14 sandbox) — `ssh agamache@192.168.1.186`, key auth ✅** |
+| **K8s/Redpanda POC** | **.186** | **🔵 BUILT July 25, 2026 (vm-k8-redpanda-1, Phase 14 sandbox) — `ssh agamache@192.168.1.186`, key auth ✅.** 🖥️ **Cockpit web UI at `https://192.168.1.186:9090/`** (added Aug 20, 2026) — log in with the `agamache` fleet password, self-signed cert so click through the warning. ⚠️ **`onboot 0`, so it is offline until you `qm start 186`** |
+
+### 🖥️ COCKPIT — now STANDARD on every Ubuntu server we build (Andrew's call, Aug 20, 2026)
+
+⭐ **Don't hand-install it — it is baked into the build.** `www/scripts/setup_cockpit.sh` runs in
+**Phase 1 of `host_setup.sh`**, alongside SSH and sudo (it is an *access* method, not a tool: if a
+later step wedges the box, Cockpit is already a second way in). Full write-up in
+`phases/phase2_host_setup_automation.md` § "3. setup_cockpit.sh". The notes below are the *why*, kept
+here because the trap will bite anyone who installs it manually on an existing box.
+
+⭐ **The script simulates the install and REFUSES to proceed if `network-manager` appears.** A comment
+saying "don't pull NetworkManager" gets ignored a year from now; a script that exits 1 does not. It
+also auto-includes `cockpit-networkmanager` **only** on hosts where NetworkManager is already active
+(desktop builds), where the module manages what is already in charge.
+
+🚨 **NEVER `apt install cockpit` on these VMs.** The metapackage **Recommends `cockpit-networkmanager`,
+which drags in `network-manager`** — and every lab VM runs **netplan + systemd-networkd**. Letting
+NetworkManager onto a box whose interfaces are already managed elsewhere risks losing the network on a
+machine you administer over SSH. Verified by simulation before installing: the metapackage pulls
+`network-manager`, `dnsmasq-base`, `ppp`, `wpasupplicant` and 10 NM-related packages. **Install the
+parts explicitly instead:**
+
+```bash
+sudo apt-get install -y cockpit-ws cockpit-bridge cockpit-system cockpit-storaged cockpit-packagekit
+# simulate anything unfamiliar first:  apt-get install -s <pkgs> | grep ^Inst
+```
+
+Measured on a swarm node, Aug 20 2026: the metapackage adds **35** packages including
+`network-manager`, `network-manager-pptp`, `pptp-linux`, `dnsmasq-base`, `ppp`, `wpasupplicant`,
+`wireless-regdb`. The explicit list adds **19** and none of those.
+
+- **Socket-activated** (`cockpit.socket`, enabled automatically) — it listens on **9090** and only
+  spawns the web server on a connection, so idle cost is ~nothing. Good on a POC box.
+- **Login is PAM**, so the user needs a real password: `passwd -S <user>` must show **`P`**, not `L`.
+  ⛔ **A key-only account cannot log into Cockpit.** `sudo` group membership enables *Administrative
+  access* inside the UI.
+- **Self-signed cert**, so browsers warn. ⚠️ **The Cursor built-in browser CANNOT open it at all** —
+  it fails `ERR_CERT_AUTHORITY_INVALID` with no "proceed anyway". Use a real browser.
+- ⭐ **Verify auth without a browser** — this is the real proof it works:
+  `curl -sk -u user:pass https://<ip>:9090/cockpit/login` returns **`{"csrf-token":...}`** on success
+  and an *Authentication failed* page on a bad password. ⚠️ **`/login` is the wrong path** — it serves
+  the HTML login page and returns 200 for good AND bad credentials, so testing it proves nothing.
 
 ---
 
@@ -1522,8 +1594,47 @@ authority** — nothing can restart a guest behind your back.
 ⚠️ **Operational consequence, do not be surprised by it: after any host reboot the Swarm is DOWN.**
 Phase 17 deploys Jenkins → Swarm, so `qm start 191 192 193` (and let the cluster converge) is a
 **prerequisite step for that work**, not an afterthought. Same for 186 before any k3s work.
-📌 Jenkins (185) is not built yet — **decide its `onboot` when it is**; as always-on CI it belongs in
-the autostart tier.
+✅ **Jenkins (185) BUILT Aug 20, 2026 and joined the autostart tier: `onboot 1`, `startup order=4`
+(last).** Andrew's call — it is core infrastructure, and nothing else waits on it to boot.
+⭐ **Startup order gives ORDERING, not READINESS.** GitLab CE takes minutes to actually serve, far
+longer than its `up=60`, so Jenkins can be up before GitLab can answer an OAuth request no matter what
+number it has. **That is not fixable with ordering — it is why Jenkins keeps a break-glass local
+admin.**
+
+### 🚨 PATCHING POLICY (Andrew, Aug 20, 2026) — `refresh.sh` is the ONLY way anything gets upgraded
+
+🙋 *"We should disable all auto-upgrades everywhere and only trigger upgrades from the refresh
+script."* ✅ **DONE and verified on all 10 VMs** — `unattended-upgrades`, `apt-daily.timer` and
+`apt-daily-upgrade.timer` are **`masked`** everywhere.
+
+⭐ **The problem it fixed:** `.180`–`.184` had **two** upgrade mechanisms — `refresh.sh` (deliberate,
+windowed, you are watching) **and** `unattended-upgrades` (unscheduled, invisible, will restart a
+service mid-job). **Two upgrade paths where one is uncontrolled is worse than either alone**, because
+the state you believe you froze can move on its own.
+
+⚠️ **It was never the convention MEMORY implied.** Measured before the change: **masked** on the 3
+swarm nodes, **disabled** on `.186`, **enabled** on `.180`, `.181`, `.182`, `.183`, `.184`. *Three
+states across nine hosts is an accident, not a policy* — and the boxes where an unscheduled restart
+hurts most (GitLab, the runner) were in the `enabled` group.
+
+- **`mask`, not `disable`.** A masked unit is symlinked to `/dev/null` and **cannot be started even as
+  another unit's dependency** — which is the whole point, since `apt-daily-upgrade.timer` would
+  otherwise pull the service in. `disable` does not stop that.
+- 🚨 **Reading `/etc/apt/apt.conf.d/20auto-upgrades` will LIE to you.** It still says
+  `APT::Periodic::Unattended-Upgrade "1"` on every masked host. **The timers decide; the config only
+  describes.** *The layer that reports is not the layer that decides.*
+- **`refresh.sh` now targets `.180`–`.185`** (Jenkins added Aug 20). ⚠️ **`.186` and `.191`–`.193` are
+  masked AND not in `refresh.sh`, so they get NO automatic patching at all** — deliberate (frozen
+  known state), but it means patching them is a manual act nothing will remind you about.
+- **PVE host `.150` needs nothing:** `unattended-upgrades` is **not installed**, so its apt-daily
+  timers refresh package lists but cannot install anything. Host upgrades stay the deliberate pinned
+  process from phases 1a/1b.
+- 🚨 **Hazard found while doing this — `refresh.sh` can be broken by a REBUILT VM.** It SSHes with
+  `StrictHostKeyChecking=accept-new`, which accepts *new* keys but **rejects changed** ones, and its
+  **preflight aborts the entire run on the first host it cannot probe.** So a VM rebuilt at a reused
+  IP (exactly what `.185` is) leaves a stale host key that **takes down the whole refresh for every
+  VM**, not just that one. ⭐ **After rebuilding any VM, SSH to it from the PVE host once by hand
+  before the next `refresh`.**
 
 ### Current VMs (Last verified Feb 20, 2026)
 | VM | CPU | RAM | Disk | Storage | Config |
@@ -1644,8 +1755,9 @@ copy-and-validate job, not an edit. A full clone of a 100 GB zvol with ~15 GB us
 2. 🚨 **A snapshot stores `onboot` too.** The original's pre-clone snapshot still says `onboot: 1`, so
    **a rollback silently re-arms autostart.** `qm config <id>` shows live; `qm config <id> --snapshot
    <name>` shows the snapshot. Reading the raw `<id>.conf` shows *both* and is easy to misread.
-3. ✅ **Netplan here matches on interface NAME (`ens18`), not MAC**, so the clone's new MAC did not
-   break networking. ⭐ **The escape hatch if it ever does: `agent: enabled=1` means `qm guest exec`
+3. ✅ **Netplan here matches on interface NAME, not MAC**, so the clone's new MAC did not break
+   networking. ⚠️ **The name is NOT uniform across the fleet — `.180` is `ens18`, `.186` is `eth0`.**
+   Check the source VM's actual name before assuming; `ip -o -4 addr` beats guessing. ⭐ **The escape hatch if it ever does: `agent: enabled=1` means `qm guest exec`
    works over virtio-serial with NO network at all.** Check the agent is enabled *before* you boot a
    clone you might not be able to reach.
 4. ✅ **A clone keeps the source's SSH host keys**, so if the IP is unchanged, `known_hosts` needs no
@@ -1656,6 +1768,50 @@ copy-and-validate job, not an edit. A full clone of a 100 GB zvol with ~15 GB us
    ⭐ **Verify the fix on the generated unit, not the fstab line:** `systemctl show <unit> -p RequiredBy
    -p WantedBy` must show **`RequiredBy=` empty** — that is what proves a dead NAS can no longer
    block boot.
+   ✅ **FIXED AT SOURCE Aug 20, 2026:** `www/scripts/setup_smb_mount.sh` wrote `_netdev` but **not**
+   `nofail`, so *every* VM ever built by it carried it. New builds are safe, and the whole lab was
+   swept the same day — **all 9 VMs + the dev workstation now show `RequiredBy=` empty.**
+   🧠 **The lesson that generalises:** when a per-VM fix works, go ask whether the *builder* has the
+   same bug. Fixing one VM fixes one VM; fixing the script fixes every future one.
+   ⚠️ **BUT the severity was overstated and is now corrected — see the `_netdev` note below.**
+
+### 🩹 `nofail` / `_netdev` — what missing `nofail` ACTUALLY costs (corrected Aug 20, 2026)
+
+⚠️ **We claimed it "drops the host to an emergency console, no network, no SSH." That is WRONG.**
+`_netdev` already keeps the entry out of `local-fs.target`, and **`.184` is the disproof sitting in
+our own lab** — it failed this exact mount at *every* boot from **July 9** onward and still came up
+each time with networking and SSH working.
+
+| Entry | Lands in | A dead NAS at boot means |
+|---|---|---|
+| network mount, **no `_netdev`, no `nofail`** | `local-fs.target` | ⛔ **emergency console** — the scary one |
+| `_netdev`, **no `nofail`** | `remote-fs.target`, `RequiredBy=` | ⚠️ bounded **boot delay** (11 s measured on .184, ~90 s worst case) + a permanently failed unit |
+| `_netdev,nofail` | `remote-fs.target`, `WantedBy=` | ✅ ignored at boot; still mounts when the NAS is there |
+
+🧠 **The thinking error worth remembering: a plausible mechanism was asserted instead of checked,
+while a host that had been running the experiment for six weeks sat one `systemctl status` away.**
+Still worth fixing — a failed unit and a boot stall are real — just not a catastrophe.
+
+### 🚫 PROD-LOCAL HOSTS MUST NOT MOUNT THE NAS — `.184` (`vm-www-1`)
+
+🙋 **Andrew, Aug 20 2026: "184 should NOT mount the NAS! It's prod-local."** `.184` is the
+internet-facing DMZ box; Phase 12 gave it `OUT DROP -dest 192.168.1.0/24`, so the NAS is unreachable
+**by design**. The standard build had mounted it anyway — failing every boot since July **and leaving
+`/root/.smbcredentials` on the internet-facing host** for a share it may never reach. All removed
+(fstab line, unit, `/mnt/DevShare`, credentials); `.184` now has **zero failed units**.
+
+⭐ **The generalisable point: a uniform build standard will plant credentials on the very hosts your
+network design isolates.** The firewall worked perfectly; the **builder** was the leak.
+
+**Two guards now, both in the build:**
+- `bash host_setup.sh --no-nas` — deliberate skip for a known prod-local host.
+- **`setup_smb_mount.sh` pre-checks `<nas>:445` and refuses** to write fstab or credentials if it
+  cannot connect. ⭐ This is the one that matters — it needs no operator knowledge. **Verified by
+  running it on `.184` itself:** refused, wrote nothing, host stayed clean.
+
+⚠️ **`SKIP_NAS=1 sudo -E …` DOES NOT WORK here.** sudo has `env_reset`; it warns *"preserving the
+entire environment is not supported"* and **silently drops the variable**, so the script runs in
+full. Put it after sudo: **`sudo SKIP_NAS=1 bash ./setup_smb_mount.sh`**.
 
 **Validating a template change:** clone to a throwaway VMID, boot, test, `qm destroy --purge`.
 Takes ~40 seconds and is the only real proof. Done for the password-auth change: fresh clone
@@ -2056,157 +2212,24 @@ services:
 
 ---
 
-## OPENCLAW — ⛔ DEAD. VM DESTROYED Aug 19, 2026.
+## OPENCLAW — ⛔ DEAD. VM DESTROYED Aug 19, 2026. (detail demoted to phase11)
 
-⛔ **`vm-openclaw-1` was killed and removed on Aug 19, 2026 on Andrew's instruction. It is totally
-gone** — `qm destroy 185 --purge`, no backup taken (declined on purpose), no snapshot had ever been
-made, no ZFS volumes left behind, firewall config purged with it. **Nothing below is reachable.**
-Everything in this section is kept as a historical record of what was built and why it was retired;
-**do not treat any address, port, token or URL here as live.** VMID 185 and `192.168.1.185` now belong
-to **Jenkins** — see `phases/phase17_jenkins.md`.
+⛔ **`vm-openclaw-1` was destroyed on Aug 19, 2026** — `qm destroy 185 --purge`, no backup (declined
+on purpose), no snapshot had ever been taken, ZFS volumes and firewall config purged with it. **There
+is no way to restore it and that was the decision — do not go looking for one.**
 
-- **VM:** ~~vm-openclaw-1 @ 192.168.1.185~~ (16GB RAM, **12 cores** — the "8 cores" recorded elsewhere
-  was wrong, measured from `qm config` at destroy time — 50GB vm-critical)
-- **OS:** Ubuntu 24.04 Desktop
-- **Version:** 2026.4.5 (updated Apr 6, 2026; prior: 3.13 → 3.22 → 3.23-beta.1 → 3.28 → 4.5)
-- **Install Method:** Bash script (`curl -fsSL https://openclaw.ai/install.sh | bash`)
-- **Gateway Port:** 1885 (non-default to avoid scanner detection; default is 18789)
-- **Gateway Bind:** LAN (0.0.0.0)
-- **Gateway Auth:** Token [See working/open-claw-keys.txt]
-- **AI Model:** OpenRouter / Anthropic Claude Sonnet 4.6
-- **Status:** ✅ LIVE
+⭐ **VMID 185 and `192.168.1.185` now belong to JENKINS** (`vm-jenkins-1`, built Aug 20, 2026). So any
+OpenClaw-era address, port, token or URL in an old note is not merely dead — it now points at a
+DIFFERENT MACHINE. 🚨 The one that actually bites: because `.185` was reused, a stale `known_hosts`
+entry produces a host-key MISMATCH, which reads like an attack rather than like a rebuild.
 
-**Access:**
-- **Control UI (HTTPS):** https://vm-openclaw-1.tail8f8df.ts.net/ (via Tailscale Serve)
-- **Control UI (localhost):** http://localhost:1885 (from VM only)
-- **Telegram Bot:** @OC_GothamBot (DM policy: pairing required)
-- **SSH:** ssh agamache@192.168.1.185 (from LAN only)
+📖 **The full 151-line build record — gateway config and `allowedOrigins`, the v2026.3.22 packaging
+bug, the TTS schema moves across v3.28/v4.5, the SSHFS mount, the Tailscale Serve setup and the
+firewall rules — was demoted VERBATIM to `phases/phase11_openclaw.md` on Aug 20, 2026** (diffed
+identical before removal). **Cost of skipping it:** nothing, unless OpenClaw is ever rebuilt — at
+which point the upgrade traps recorded there are the entire value, and none of them are inferable
+from the software.
 
-**Tailscale:**
-- **Tailscale IP:** 100.119.212.71
-- **Tailscale Serve:** HTTPS proxy on port 443 → localhost:1885
-- ~~This is the ONLY VM with Tailscale in the lab~~ **CORRECTION (Jul 9, 2026): the Proxmox
-  HOST also runs Tailscale** (tailscaled active on pve, 100.108.209.77). .185 remains the only *VM* with it.
-
-**CRITICAL: Control UI requires HTTPS or localhost!**
-- Plain HTTP to LAN IP (http://192.168.1.185:1885) will NOT work -- OpenClaw blocks it
-- Must use Tailscale Serve (HTTPS) or access from VM itself (localhost)
-- Tailscale Serve provides auto-managed TLS certs via the tailnet domain
-
-**CRITICAL: allowedOrigins required since v2026.2.23!**
-- Non-loopback bind (`gateway.bind: "lan"`) now requires `gateway.controlUi.allowedOrigins`
-- Without it, the gateway refuses to start (crash loop, exit 1)
-- Current config has: `["https://vm-openclaw-1.tail8f8df.ts.net", "http://localhost:1885", "http://127.0.0.1:1885"]`
-- If updating OpenClaw in the future, check release notes for similar breaking security changes
-
-**Services (all auto-start on boot):**
-- `openclaw-gateway.service` (systemd user service, enabled, lingering)
-- `tailscaled.service` (systemd service, enabled)
-- Tailscale Serve (persistent via --bg flag)
-
-**Config:** `~/.openclaw/openclaw.json` on vm-openclaw-1 (permissions: 600)
-**Config backups on VM:**
-- `~/.openclaw/openclaw.json.bak` (auto-created by doctor)
-- `~/.openclaw/openclaw.json.bak.pre-fix` (pre-v2026.2.23 fix)
-- `~/.openclaw/openclaw.json.bak.pre-v3.28-fix` (pre-v3.28 fix, Apr 6 2026)
-- `~/.openclaw/openclaw.json.bak.pre-v4.5-fix` (pre-v4.5 fix, Apr 6 2026)
-- `~/.openclaw/openclaw.json.bak.pre-elevenlabs-fix` (pre-ElevenLabs fix, Apr 6 2026)
-
-**TTS (ElevenLabs) — v4.5 config location:**
-- Provider credentials go in `messages.tts.providers.elevenlabs` (NOT `plugins.entries` or top-level `messages.tts`)
-- Valid keys: `apiKey`, `voiceId`, `modelId`, `baseUrl`, `seed`, `applyTextNormalization`, `languageCode`
-**Logs:** `/tmp/openclaw/openclaw-YYYY-MM-DD.log`
-**npm global bin:** `/home/agamache/.npm-global/bin` (added to PATH in .bashrc)
-
-**Installed Skills:** github, himalaya (email), nano-pdf, summarize, blogwatcher, goplaces
-**Google Places API Key:** configured in openclaw.json
-
-**Proxmox Firewall (VM 185):**
-- IN: SSH (22/tcp) from 192.168.1.0/24
-- IN: OpenClaw Control UI (1885/tcp) from 192.168.1.0/24
-- IN: Tailscale (41641/udp) from anywhere
-- OUT: Allow all
-- Default IN policy: DROP
-
-**CLI Commands (must use localhost due to HTTPS enforcement):**
-```bash
-export PATH=/home/agamache/.npm-global/bin:$PATH
-openclaw devices list --url ws://127.0.0.1:1885 --token [See working/open-claw-keys.txt]
-openclaw devices approve <requestId> --url ws://127.0.0.1:1885 --token [See working/open-claw-keys.txt]
-openclaw gateway status
-openclaw gateway restart
-openclaw doctor --non-interactive
-openclaw status --all
-sudo tailscale serve --bg 1885
-```
-
-**Update procedure (safe):**
-```bash
-# 1. Back up config FIRST
-cp ~/.openclaw/openclaw.json ~/.openclaw/openclaw.json.bak.pre-update
-
-# 2. Update (pick one)
-curl -fsSL https://openclaw.ai/install.sh | bash -s -- --no-onboard
-# Or: npm update
-npm i -g openclaw@latest
-
-# 3. Try doctor first (may not fix everything)
-openclaw doctor --fix --non-interactive
-
-# 4. Check if gateway started
-openclaw gateway status
-
-# 5. If still crash-looping, check the error and fix config manually:
-journalctl --user -u openclaw-gateway.service -n 20 --no-pager
-# Then edit ~/.openclaw/openclaw.json to remove offending keys
-# Then: openclaw gateway restart
-
-# 6. Final verification
-openclaw status --all
-```
-
-**Rollback (if update breaks things):**
-```bash
-npm i -g openclaw@<version>   # e.g. openclaw@2026.2.19-2
-openclaw doctor
-openclaw gateway restart
-```
-
-**Reference:** Ansible playbook at `working/openclaw-ansible/` (not used, kept for reference)
-**Phase Plan:** `phases/phase11_openclaw.md`
-
-**SSH:** Key auth from dev workstation ✅ FIXED (Feb 27, 2026 — `ssh-copy-id` via sshpass, same as all other VMs)
-
-**SSHFS Mount (Dev Workstation → OpenClaw):**
-- **Mount point:** `/home/agamache/mnt/openclaw` (mounts remote `/home/agamache`)
-- **Symlink:** `~/openclaw` → `/home/agamache/mnt/openclaw`
-- **Service:** `~/.config/systemd/user/sshfs-openclaw.service` — **DISABLED Jul 25, 2026**
-  (VM 185 retired; it was failing + retrying every 100s forever and was the only journal noise
-  on the workstation). Unit file left in place — `systemctl --user enable --now sshfs-openclaw`
-  to revive if OpenClaw ever comes back.
-- **Persistence:** Survives reboot (systemd user service + linger enabled)
-- **Options:** reconnect, ServerAliveInterval=15, ServerAliveCountMax=3
-- **Manage:** `systemctl --user {status|start|stop|restart} sshfs-openclaw`
-- **Why user service not fstab:** fstab mounts run as root (wrong SSH keys); user service runs as agamache
-
-**⚠️ KNOWN BUG: Skip v2026.3.22!**
-- npm package is missing `dist/control-ui/` directory (packaging bug)
-- Control UI shows "assets not found" error
-- v3.13 and v3.23+ both have the UI assets; v3.22 does not
-- Verify before upgrading: `npm pack openclaw@<version> --dry-run | grep control-ui/`
-
-**⚠️ POST-UPGRADE: Always run doctor, then verify manually!**
-- v2026.3.28: Changed TTS config schema, renamed `streamMode` → `streaming`
-- v2026.4.5: Tightened plugin entries (only `enabled`/`hooks` allowed); moved TTS creds to `messages.tts.providers.<name>`
-- Doctor FAILED to auto-fix plugin config issues in v4.5
-- Gateway crash-loops if config has unrecognized keys
-- **After ANY upgrade:** back up config, run `openclaw doctor --fix --non-interactive`, then `openclaw gateway status`
-- **If doctor fails:** check `journalctl --user -u openclaw-gateway.service -n 20`, inspect config, remove offending keys
-- **Schema discovery:** `openclaw config schema | python3 -c "import sys,json; ..."` to find where keys moved
-
-**Manual TODOs:**
-- [x] Configure OpenRouter API key/credits (done, working as of Mar 2026)
-- [ ] Test Telegram bot from iPhone
 
 ---
 

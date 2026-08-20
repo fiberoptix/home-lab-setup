@@ -1,6 +1,6 @@
 # Phase 17 — Jenkins: build the controller, wire it to GitLab, and deploy Capricorn *properly*
 
-**Status:** 📋 **PLAN — AWAITING ANDREW'S APPROVAL. Nothing has been built and nothing destroyed.**
+**Status:** 🔵 **IN PROGRESS — build started Aug 20, 2026, ~12:55 PM EDT. Part 0 under way.**
 **Created:** August 19, 2026
 **Owner:** Andrew
 **Track:** `education/jenkins/` (chapter numbering restarts at 01 — see `education/CONVENTIONS.md`)
@@ -16,11 +16,19 @@ Phase 16 left behind is still a Phase 17 deliverable — it is the standing char
 and it is not the summit of the phase.** ⚠️ **This is a correction to this plan's first draft**, which
 billed the security work as the centre of gravity. Fixing a bad deployment at 3am is the thing the job
 will actually ask for.
-🙋 **HANDS-ON THROUGHOUT except Part 0.** Andrew runs the commands; the AI explains, checks and writes
-— `education/METHOD.md` → "Who does the work". Part 0 is VM plumbing the lab has done a dozen times
-and is explicitly AI-drivable under that same table. **Everything from Part 1 onward is the subject.**
+🙋 **HANDS-ON THROUGHOUT — INCLUDING Part 0.** Andrew runs every command; the AI explains, checks and
+writes — `education/METHOD.md` → "Who does the work".
 📖 **`education/CONVENTIONS.md` and `education/METHOD.md` are MANDATORY reads for this phase**, not
-optional. Session 1 drafts chapter 1.
+optional.
+
+### 🤝 Working protocol — settled by Andrew, Aug 20, 2026, before the first command
+
+| # | Decision | Consequence |
+|---|---|---|
+| **P1** | **Part 0 is hands-on but does NOT become a chapter.** | Changed from the original plan (which had it AI-driven and assumed). Andrew runs it to audit the build process; the education track still opens at the Jenkins install. **Findings go in the execution log, not a chapter.** |
+| **P2** | ⭐ **Trap protocol — Andrew's own third option, better than either offered.** When a trap is about to fire the AI says *"there's a trap coming up — what do you think it could be?"* Andrew predicts and/or checks, answers, **then** we walk into it. | Keeps the diagnosis Andrew's work (METHOD.md's requirement) while beating pure silence: **a prediction made out loud before the failure is falsifiable, so the lesson lands whether he is right or wrong.** ⚠️ **The AI must not reveal the trap in the question** — the prompt names no symptom, file or component. 🧾 **Fold into `METHOD.md` if it proves out** (`CURSOR_RULES` rule 8). |
+| **P3** | **Build-process improvements get fixed LIVE**, not deferred. | The Jenkins VM is built with the *improved* process, so it is the first host to benefit. ⚠️ **Cost, accepted knowingly: this VM is then no longer a clean test of what the scripts did at 12:00 today** — so each live fix is logged as it is made, or we lose the ability to say which behaviour came from where. |
+| **P4** | **Session target: Part 0 + Part 1** — VM built and Jenkins reachable in a browser. | |
 
 ---
 
@@ -223,6 +231,7 @@ Every line marked 🔧 MECHANICS (rely on it) or 📐 CONVENTION (ask about it o
 | vCPU | **4** | 📐 |
 | Disk | **≥ 60 GB** — workspaces and Docker images are what fill a build host, not Jenkins itself | 🔧 the reason, 📐 the number |
 | UI | **headless, browser-accessed.** No desktop, no `xrdp`. | 🔧 — this is what a real controller is |
+| Admin UI | **Cockpit on `:9090`**, installed by `host_setup.sh` as of Aug 20, 2026 | 📐 |
 | Patching | added to `refresh.sh`; `unattended-upgrades` stays **masked** | 🔧 the reasoning below |
 | Backup | `vzdump` → NAS storage `nas-jenkins`, `keep-last=3` | 📐 the retention, 🔧 the necessity |
 
@@ -240,10 +249,10 @@ it runs when the controller is idle.**
 | Java | whatever the LTS requires — **verify, do not assume** | 🔧 |
 | Executors on the controller | **0** | 🔧 — a build on the controller is a build with access to `JENKINS_HOME` |
 | Agents | **one**, label `swarm-deploy` | 📐 the count and label |
-| Agent transport | inbound JNLP or SSH — decided in Part 1 by what the topology needs | 🔧 |
+| Agent transport | ✅ **CLOSED Aug 20 — SSH** (controller → `127.0.0.1` as user `jenkins-agent`; needs the **SSH Build Agents** / `ssh-slaves` plugin). Ledger row **J2**. | 🔧 |
 | Auth | **local admin as break-glass**, then **GitLab OAuth** for normal use | 📐 the choice, 🔧 the break-glass principle |
 | Job type | **Multibranch Pipeline** from a `Jenkinsfile` in the repo | 🔧 — pipeline-as-code is the whole point |
-| Plugins | the minimum that works: Pipeline, Git, GitLab, SSH Agent, Credentials Binding, Workspace Cleanup | 📐 |
+| Plugins | the minimum that works: Pipeline, Git, GitLab, SSH Agent, Credentials Binding, Workspace Cleanup — **plus SSH Build Agents (`ssh-slaves`), added Aug 20; the wizard list does not offer it and it is NOT the same plugin as "SSH Agent"** (see J-P4) | 📐 |
 
 ⭐ **Why a local admin survives after OAuth is wired — and this is 🔧.** Once identity comes from
 GitLab, **GitLab being down means nobody can log into Jenkins**, including to deploy the fix. A
@@ -293,16 +302,30 @@ any more**, and **only `.184` still has PVE-level firewall rules.** Full record 
 4. Run `host_setup.sh`; grow the disk from the template's 3.5 GB; install `qemu-guest-agent` so
    `vzdump` can fs-freeze rather than taking a crash-consistent copy; ⭐ **verify from inside the
    guest** (`df -h /`, `free -g`, `nproc`) — `qm config` reports intent, not outcome.
+   ⭐ **This is the first VM built since Cockpit and the `nofail` fstab fix went into the build
+   scripts (Aug 20, 2026), so Part 0 doubles as their first end-to-end test.** Confirm both landed:
+   `https://192.168.1.185:9090/` answers, and `systemctl show mnt-DevShare.mount -p RequiredBy`
+   comes back **empty**. A headless controller is exactly the box where a second way in earns its keep.
 5. **Snapshot `j01-base-clean`.**
 
 **Deliverable:** a clean host, **8 GB and 8 cores net back to the lab**, and the vCPU overcommit gone.
 
-### Part 1 — install Jenkins and make the topology real (🙋 Andrew)
+### Part 1 — install Jenkins and make the topology real (🙋 Andrew) — ✅ **DONE Aug 20, 2026**
 
 Install LTS, first unlock, the plugin set, controller to 0 executors, attach the agent. **Verify the
 split by proving a build cannot run on the controller**, rather than by reading the executor count.
 
-**Snapshot `j02-jenkins-up`.** Chapter 1.
+✅ Done and written up in **J-P3** (apt key + Java), **J-P4** (plugin set; `ssh-slaves` was missing
+from the standard's own list) and **J-P5** (the split, proved with a queued build before the agent
+existed). Transport settled as **SSH → `127.0.0.1` as `jenkins-agent`**, ledger row **J2** for the
+co-location cost.
+
+📖 **Chapter 1 written Aug 20** — [`education/jenkins/chapter01_the_controller_and_the_agent.md`](../education/jenkins/chapter01_the_controller_and_the_agent.md),
+plus the track [`README.md`](../education/jenkins/README.md) and figure `ch01_fig1_controller_agent`
+(10.2 pt on page, passes `figcheck`). Highlighted to **20.1 %** at drafting time, every prose section
+18–22 %. DOCX built.
+
+⏳ **Snapshot `j02-jenkins-up` still outstanding.**
 
 ### Part 2 — identity, access, and the first trap (🙋 Andrew)
 
@@ -479,6 +502,7 @@ taken on Aug 19, before the build, which is exactly when the honest reason was a
 
 | # | Compromise | Why acceptable here | What production does | If you carry the habit | Verified? |
 |---|---|---|---|---|---|
+| **J2** | **The build agent is the controller's own VM.** Jenkins SSHes to `127.0.0.1` as a separate `jenkins-agent` OS user, so the *privilege* boundary is real (different UID, kernel-enforced, cannot read `JENKINS_HOME/secrets/`) but the *isolation* boundary is not: same kernel, same disk, same 4 vCPU / 8 GB. Decided Aug 20, 2026 in Part 1. | One VM's worth of RAM was what the fleet had spare, and the Jenkins-side configuration is byte-for-byte what a remote host would need — only the hostname field differs. Nothing in Parts 1–6 depends on the hosts being distinct. | Agents live on their own hosts, precisely so that whatever privilege a build needs in order to build images does **not** land on the machine holding every credential the CI system owns. Firms with a dozen static build hosts SSH-launch them individually; ephemeral fleets use the Kubernetes/Docker plugins and get a fresh, disposable agent per build. | ⚠️ **The co-location makes the agent's privilege sharper here than in production, not softer** — the host it can reach is the controller. Also: a build that fills the disk or pins the CPU takes the controller down with it, so "the agent is unhealthy" and "Jenkins is unhealthy" are the same event in this lab and are two different events at a firm. Do not carry the reassurance that a compromised agent is contained. | ⚠️ **recited** (a second agent host is not built here) |
 | **J1** | 🚨 **The Jenkins web UI is plain HTTP on `192.168.1.185:8080`** — no TLS, no DNS name. Andrew's decision, Aug 19, 2026. | Isolated LAN, single operator, no untrusted device on the segment, and the controller is not reachable from outside. The lab's threat model is an accident, not an adversary on the wire. | TLS terminated at the controller or an ingress in front of it, with a real certificate and HSTS; the CI controller is usually behind SSO on an internal-only hostname. | 🚨 **Every login sends the admin password in cleartext, and the session cookie that follows is a credential to EVERYTHING Jenkins can deploy** — which here means root-equivalent reach into the Swarm. ⚠️ A sniffed CI session is worse than a sniffed app session: it does not just read data, it ships code. | ⚠️ **recited** (the PROD answer is not built here) |
 
 ---
@@ -486,6 +510,219 @@ taken on Aug 19, before the build, which is exactly when the honest reason was a
 ## 📓 Execution log
 
 Entries land here as work happens, with `J-P` numbers for findings, as in Phase 16.
+
+### J-P5 — ✅ PART 1 DONE: the controller/agent split, proved rather than configured (Aug 20, 2026, ~1:55–2:10 PM)
+
+🙋 **Andrew ran every command.** End state: controller `0` executors and online, node
+`jenkins-agent-1` online, `2` executors, label `swarm-deploy`, launched over SSH to `127.0.0.1` as OS
+user `jenkins-agent`.
+
+⭐ **The method is the finding: prove the negative before you build the positive.**
+
+1. Controller executors → `0`.
+2. Create a throwaway freestyle job `zz-executor-proof` and run it **with no agent yet.** It parks in
+   the Build Queue and never starts.
+3. *Then* install `ssh-slaves`, create the account, attach the node.
+4. Run **the same job again, unchanged.** It runs:
+   `Building remotely on jenkins-agent-1 (swarm-deploy) in workspace /home/jenkins-agent/agent/workspace/...`
+
+Reading `0` in a config field tells you what Jenkins was *told*. A job stuck in the queue tells you
+what Jenkins will *do*. Steps 2 and 4 are the same job with different infrastructure, so the change
+in outcome has exactly one possible cause. **The queued build is the evidence; the config field is
+only a claim.**
+
+**Account created with nothing:**
+
+```bash
+sudo useradd -m -d /home/jenkins-agent -s /bin/bash jenkins-agent   # password locked by default
+```
+
+`uid=1001(jenkins-agent) groups=1001(jenkins-agent)` — no sudo, no supplementary groups. Whatever it
+later needs must be granted for a stated reason, not inherited from a convenient creation command.
+
+**The key lives in one place only.** Generated on the host, public half into `authorized_keys`,
+private half pasted into the Jenkins credential store, then **deleted from the host** — after which
+`/home/jenkins-agent/.ssh/` holds `authorized_keys` and nothing else. Host key **pinned** via
+*Manually provided key Verification Strategy* rather than "Non verifying", which pays off Phase 16's
+**L21** instead of reciting it.
+
+**The boundary is kernel-enforced, and was tested, not assumed:**
+
+```
+$ ps -o user:14,pid,cmd -C java
+jenkins        10793  /usr/bin/java ... -jar /usr/share/java/jenkins.war --httpPort=8080
+jenkins-agent  11507  java -jar remoting.jar
+
+$ sudo -u jenkins-agent cat /var/lib/jenkins/secrets/master.key
+  permission denied
+```
+
+⚠️ **But the agent CAN read most of `JENKINS_HOME`, and the protection is exactly one directory deep.**
+
+| Path | Mode | Agent can read? |
+|---|---|---|
+| `/var/lib/jenkins/` | `755` | yes |
+| `config.xml`, `secret.key`, `credentials.xml` | `644` | **yes** — including the new SSH credential as `{AQAAABAA…}` ciphertext |
+| `identity.key.enc` | `600` | no |
+| `secrets/` (holds `master.key`, `hudson.util.Secret`) | `700` | **no** |
+
+So the ciphertext is world-readable to every local account and only the key material is protected —
+by a single directory's mode bits, with nothing behind it. `master.key` is itself `644`; it is safe
+solely because of the `700` on its parent. **One layer, not two.**
+
+🚨 **Two privilege planes, and hardening one says nothing about the other.** The build log opened with
+`Running as SYSTEM` while the OS process ran as unprivileged `jenkins-agent`. `SYSTEM` is Jenkins'
+full-permission *internal* identity, so a pipeline can act through Jenkins' own APIs in ways the Unix
+account could never act directly. Relevant to Part 7: an "unprivileged agent" is a statement about
+one plane only.
+
+### J-P4 — 🔧 The wizard's "minimum" is 73 plugins, and one of them is not the plugin you think (Aug 20, 2026, ~1:45 PM)
+
+Andrew took **"Select plugins to install"** over "Install suggested", and picked exactly the six the
+build standard names. Verified afterwards against the API rather than the screen:
+
+```bash
+curl -s -u <user>:<pass> http://192.168.1.185:8080/pluginManager/api/json?depth=1
+```
+
+All six are present — `workflow-aggregator`, `git`, `gitlab-plugin`, `ssh-agent`,
+`credentials-binding`, `ws-cleanup`. **GitLab and SSH Agent DID appear in the wizard's curated list**,
+which the plan had flagged as uncertain; no post-install hunting was needed.
+
+⭐ **But the total is 73 plugins, not 6.** The other 67 are transitive dependencies the wizard resolved
+silently. The honest claim for a "minimal" install is therefore **minimal in deliberate decisions, not
+in installed artifacts** — the difference from "suggested" is real (you can name why each of your six
+is there) but it is not a smaller attack surface by two-thirds, and saying so would be a lie a chapter
+would carry.
+
+🚨 **"SSH Agent" is not the plugin that launches agents over SSH.** Two plugins with near-identical
+names doing unrelated jobs:
+
+| Plugin | Short name | What it actually does |
+|---|---|---|
+| **SSH Agent** | `ssh-agent` | the `sshagent { }` **pipeline step** — forwards a key *into* a running build so the build can `git clone` / `scp` |
+| **SSH Build Agents** | `ssh-slaves` | **launches an agent** by SSHing to a host, copying `remoting.jar`, and running it |
+
+The wizard offered the first and not the second, and the build standard's plugin list named only the
+first — so following the standard to the letter left the controller **unable to attach the SSH agent
+the same standard requires**. Caught before it cost anything, by checking the installed short names
+against what the Part 1 task actually needs. **Generalizable: a plugin list is not a capability list.**
+
+### J-P3 — 🔧 Two ways the Jenkins apt install misleads you (Aug 20, 2026, ~1:28–1:35 PM)
+
+Both found by **verifying instead of reciting**, which is the A3/Java line of the build standard doing
+its job. Both are 🔧 MECHANICS.
+
+**1. The signing key you will be told to use is EXPIRED, and the "obvious" one is worse.**
+`apt update` failed with `NO_PUBKEY 7198F4B714ABFC68`. The downloaded key was **valid, correctly
+placed, correctly permissioned — and the wrong key.**
+
+| URL | Key ID | State |
+|---|---|---|
+| `jenkins.io.key` — the unversioned, "default-looking" name | `FCEF32E745F2C3D5` | **expired 2023-03-30** |
+| `jenkins.io-2023.key` — what nearly every guide still says | `…5BA31D57EF5975CA` | **expired 2026-03-26** |
+| **`jenkins.io-2026.key`** | **`7198F4B714ABFC68`** | ✅ current, expires 2028-12-21 |
+
+⭐ **The unversioned filename is the OLDEST**, dead three years. And the failure is quiet: `wget`
+returns 0, the file *is* a real PGP key, nothing looks wrong until apt refuses the repo.
+⭐ **The verification loop that settles it: apt names the key ID it wants in the `NO_PUBKEY` line —
+match that against `gpg --show-keys` on what you installed. Never trust the filename.**
+⚠️ **Any host built between Mar 26 and Aug 20, 2026 following the standard instructions hits this.**
+📌 **Diarise: `7198F4B714ABFC68` expires 2028-12-21**, and when it does, `apt update` breaks silently
+on every host holding it. Part 8 material.
+
+**2. 🚨 The `jenkins` package DOES NOT DEPEND ON JAVA, and the version everyone quotes is now wrong.**
+
+```
+Version: 2.568.2
+Depends: adduser, lsb-base (>= 3.2-14), net-tools, sysvinit-utils (>= 2.88dsf-50)
+```
+
+No Java in `Depends`, **and none in `Recommends` or `Suggests` either** — checked. Watch it vanish in
+the version history: `≤ 2.107` declared `default-jre-headless (>= 2:1.8) | java8-runtime-headless`;
+from ~`2.332` onward it is simply gone. **So `apt-get install jenkins` succeeds and the service then
+fails to start.** ⭐ **The package metadata under-declares its own hard requirement**, which means
+"verify with `Depends`" — the technique the build standard asked for — *cannot answer this question
+either*. The authority is Jenkins' Java Support Policy page, not the package.
+
+⚠️ **And the recited answer is stale.** "Jenkins needs Java 17 or 21" is everywhere and is **wrong for
+2.568.2**:
+
+| Supported Java | From LTS |
+|---|---|
+| Java 17, 21, or 25 | 2.541.1 (Jan 2026) |
+| **Java 21 or Java 25** | **2.555.1 (Apr 2026)** ← our 2.568.2 is past this |
+
+Jenkins: *"If you install an unsupported Java version, your Jenkins controller will not run."*
+**Chose `openjdk-21-jre-headless`** — supported *and* the one Jenkins says it full-tests. (Their page
+is mildly self-contradictory: the test-flow paragraph still names 17, which their own table rules out
+for our version. **The support table is normative; the prose is stale.**)
+
+🧠 **The transferable lesson, and it is the phase's spine again:** *the layer that reports is not the
+layer that decides.* Here **three** sources disagreed — the filename, the package metadata, and the
+documentation prose — and only one of each pair was authoritative.
+
+### J-P2 — Part 0: the VM, and three findings the build audit paid for (Aug 20, 2026, ~1:00–1:20 PM)
+
+🙋 **Andrew ran every command** (protocol P1). VM 185 `vm-jenkins-1` is up at `.185`: 4 vCPU, 8 GB,
+58 G usable, `onboot 1` + `startup order=4`, zero failed units.
+
+**Clone notes worth keeping:**
+- `--full --storage vm-critical` moved **both** volumes — `scsi0` *and* the cloud-init drive. Nothing
+  stranded on `vm-ephemeral`.
+- ⭐ **The clone got a fresh `smbios1` UUID, and that UUID is cloud-init's instance identity.** Because
+  it changed, first boot was treated as a new instance, so the hostname (from `--name`) and the static
+  IP were actually applied. **This is the precise difference from yesterday's QA clone**, which had no
+  cloud-init drive at all and therefore carried `.180` baked into the guest's netplan — hence the
+  hostname surgery and the IP-collision hazard there. *Template clone = personalised; live-VM clone =
+  duplicated.*
+- ⭐ **First SSH failed on a host-key mismatch, and the reason generalises:** `.185` is a **reused
+  address** (OpenClaw lived there), and a template clone generates **new** host keys on first boot.
+  Yesterday's clone-of-a-running-VM *kept* its host keys, so `.180` needed no `known_hosts` edit.
+  **Same word "clone", opposite outcome.**
+- ✅ `growpart` fired — `df -h /` shows 58 G, so the filesystem followed the virtual disk. Verified from
+  inside the guest, per the standing rule.
+- **Interface is `eth0`**, while `.180`/`.184` use `ens18` — confirms the fleet is *not* uniform here.
+
+**✅ First end-to-end test of both build-script changes made earlier today — both passed on a real
+build, not a simulation:**
+- **Cockpit:** socket enabled, listening on 9090, 5 packages, **`network-manager` count = 0**, NM
+  inactive. The refuse-if-NetworkManager guard held on a genuine install.
+- **`nofail`:** written automatically; `RequiredBy=[]`, `WantedBy=[remote-fs.target]`, mounted.
+
+#### 🚨 Finding 1 — the NAS password was being served over unauthenticated HTTP
+
+`http://192.168.1.195/scripts/smb_credentials` returned **HTTP 200 to anyone on the LAN**, and the
+`autoindex` directory listing advertised it by name. ✅ The file **is** gitignored, so it never reached
+GitHub — that control worked. But the exposure bought **nothing**: `host_setup.sh` does not download
+it; it is only read when it happens to sit beside the script in a local repo clone.
+**Fixed live (protocol P3)** with an exact-match `deny all` in `www/nginx.conf`.
+⭐ **Same shape as the `.184` finding earlier the same day: the build/distribution system leaking a
+credential wider than the design intended, while the control everyone watches (gitignore) worked
+perfectly.** Two in one day is a pattern, not a coincidence — **audit the distribution path, not just
+the repo.**
+
+#### 🚨 Finding 2 — `unattended-upgrades` is NOT the fleet convention this plan claimed
+
+The build standard says auto-patching stays masked and that the "same reasoning [was] already applied
+to the Swarm nodes." ⚠️ **True of the Swarm nodes and nowhere else.** Measured across the fleet:
+
+| State | Hosts |
+|---|---|
+| **masked** | `docker-swarm-1/2/3` |
+| **disabled** | `.186` |
+| **enabled** | `.181` GitLab, `.182` runner, `.183` SonarQube, `.184` WWW, and `.185` as built |
+
+**Three different states across nine hosts is not a convention; it is an accident.** 🧠 And the
+uncomfortable part: the boxes where an unscheduled restart hurts most — **GitLab and the runner, the
+whole deploy path** — are in the `enabled` group. Logged as an open question, deliberately **not**
+fixed mid-build.
+
+⭐ **How the Swarm nodes actually did it, and the trap inside it:** they masked **three** units —
+`unattended-upgrades.service`, `apt-daily.timer`, `apt-daily-upgrade.timer` — and **left
+`/etc/apt/apt.conf.d/20auto-upgrades` saying `Unattended-Upgrade "1"`.** So **reading the config file
+tells you auto-patching is ON when it is off.** The timers decide; the config only describes.
+*The layer that reports is not the layer that decides* — the phase's recurring lesson, found in Part 0.
 
 ### J-P1 — ✅ T8's precondition VERIFIED, and an asymmetry nobody would guess (Aug 19, 2026, ~9:30 PM)
 

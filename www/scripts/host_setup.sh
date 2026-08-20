@@ -10,13 +10,27 @@
 # If run with sudo, remember the original user
 ORIGINAL_USER="${SUDO_USER:-$USER}"
 
+# --no-nas: for DMZ / prod-local hosts that must never reach the NAS (e.g. .184).
+# setup_smb_mount.sh also refuses on its own if the NAS is unreachable, so this flag
+# is the "I meant it" version that skips the attempt and the error entirely.
+SKIP_NAS=0
+for arg in "$@"; do
+    case "$arg" in
+        --no-nas) SKIP_NAS=1 ;;
+        -h|--help)
+            echo "Usage: bash host_setup.sh [--no-nas]"
+            echo "  --no-nas   prod-local/DMZ host: skip the NAS mount entirely"
+            exit 0 ;;
+    esac
+done
+
 SCRIPT_SERVER="http://192.168.1.195/scripts"
 
 # Get the directory where this script is located (where user downloaded it)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Scripts to download
-SCRIPTS="setup_ssh.sh setup_sudo.sh setup_docker.sh setup_smb_mount.sh setup_desktop.sh anysphere.gpg"
+SCRIPTS="setup_ssh.sh setup_sudo.sh setup_cockpit.sh setup_docker.sh setup_smb_mount.sh setup_desktop.sh anysphere.gpg"
 
 echo "=========================================="
 echo "     Ubuntu Host Setup - Master Script"
@@ -28,6 +42,7 @@ echo ""
 echo "This will configure a new Ubuntu host with:"
 echo "  • SSH server"
 echo "  • Passwordless sudo"
+echo "  • Cockpit web admin (https://<host>:9090)"
 echo "  • Docker + Git"
 echo "  • NAS mount (~/DevShare)"
 echo "  • Desktop config (if desktop environment)"
@@ -99,6 +114,10 @@ echo ""
 echo "━━━ Running setup_sudo.sh ━━━"
 sudo bash "${SCRIPT_DIR}/setup_sudo.sh"
 
+echo ""
+echo "━━━ Running setup_cockpit.sh ━━━"
+sudo bash "${SCRIPT_DIR}/setup_cockpit.sh"
+
 # ============================================
 # PHASE 2: Development Tools (run as sudo)
 # ============================================
@@ -120,8 +139,12 @@ echo "║  PHASE 3: Storage Configuration        ║"
 echo "╚════════════════════════════════════════╝"
 
 echo ""
-echo "━━━ Running setup_smb_mount.sh ━━━"
-sudo bash "${SCRIPT_DIR}/setup_smb_mount.sh"
+if [ "$SKIP_NAS" -eq 1 ]; then
+    echo "━━━ SKIPPING setup_smb_mount.sh (--no-nas: prod-local host) ━━━"
+else
+    echo "━━━ Running setup_smb_mount.sh ━━━"
+    sudo bash "${SCRIPT_DIR}/setup_smb_mount.sh"
+fi
 
 # ============================================
 # PHASE 4: Desktop (run as user)
@@ -156,9 +179,20 @@ echo ""
 echo "Installed:"
 echo "  ✓ SSH server (enabled)"
 echo "  ✓ Passwordless sudo"
+if systemctl is-enabled --quiet cockpit.socket 2>/dev/null; then
+echo "  ✓ Cockpit web admin at https://$(hostname -I | awk '{print $1}'):9090"
+else
+echo "  ✗ Cockpit NOT installed - re-run setup_cockpit.sh and read its error"
+fi
 echo "  ✓ Docker + Docker Compose"
 echo "  ✓ Git (configured)"
+if [ "$SKIP_NAS" -eq 1 ]; then
+echo "  – NAS mount SKIPPED (prod-local host)"
+elif mountpoint -q /mnt/DevShare 2>/dev/null; then
 echo "  ✓ NAS mount at ~/DevShare"
+else
+echo "  ✗ NAS mount NOT active - see setup_smb_mount.sh output above"
+fi
 if command -v gnome-shell &> /dev/null; then
 echo "  ✓ Desktop configured (Chrome, Cursor, dock, etc.)"
 fi
@@ -166,6 +200,7 @@ echo ""
 echo "Scripts saved in: $SCRIPT_DIR"
 echo ""
 echo "IMPORTANT:"
+echo "  • Cockpit logs in with your SYSTEM PASSWORD, not an SSH key (self-signed cert)"
 echo "  • Log out and back in for docker group to take effect"
 echo "  • Run 'source ~/.bashrc' for aliases (godev, update)"
 echo "  • Run 'newgrp docker' to use docker without logout"

@@ -19,6 +19,7 @@ produced by the same tooling.
 |---|---|---|---|---|
 | [**k8s-k3s-redpanda**](k8s-k3s-redpanda/README.md) | Kubernetes (k3s), Redpanda, and an order management system built on both | 7 written | **Yes** — everything in Ch1–6 was run on a real cluster | ✅ Ch1–7 complete · Ch8–10 planned |
 | [**docker-swarm**](docker-swarm/README.md) | Docker Swarm: building a three-manager cluster, shipping to it, deploying through a pipeline, breaking it on purpose, the false-greens capstone, and the Kubernetes comparison | 8 written | **Yes** — a real three-node cluster running a real application, deployed by a real pipeline, with failure drills run against it | ✅ Ch1–8 complete (Ch7 AI-executed, Ch8 synthesis) |
+| [**jenkins**](jenkins/README.md) | Jenkins: a controller built from nothing, wired to the same GitLab and deploying the same application to the same Swarm — then made to fail on purpose | 1 written | **Yes** — a real controller and agent, aimed at the registry and cluster track 2 already uses | 🔵 In progress — Ch1 written, rest planned in [`phase17`](../phases/phase17_jenkins.md) |
 
 **The two tracks are one comparison, and this is where it is drawn.** The k3s track ran Kubernetes on
 **one** node; the Swarm track ran three, with a real pipeline and seven planted traps. That asymmetry
@@ -26,6 +27,12 @@ makes several rows tempting and wrong, so the crib sheet
 [**docker-swarm/chapter08_swarm_vs_kubernetes.md**](docker-swarm/chapter08_swarm_vs_kubernetes.md)
 labels every claim with the lab that measured it, and marks as **recited** anything neither lab ran.
 It is the only document that cites both tracks; the chapters themselves stay self-contained.
+
+⭐ **Track 3 extends that comparison in a different direction.** Where tracks 1 and 2 compare two
+*orchestrators*, the Jenkins track compares two *delivery systems* aimed at the same target: GitLab CI
+already builds and deploys Capricorn to the Swarm, and Jenkins is built to do the same job beside it.
+Both pipelines stay running, deploying separate stacks, so the differences are observable rather than
+argued.
 
 Further tracks are being scoped against the stack Andrew works on now. The roadmap lives in
 [`phases/phase15_education_program.md`](../phases/phase15_education_program.md); each track gets its

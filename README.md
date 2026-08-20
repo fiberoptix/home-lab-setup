@@ -195,6 +195,7 @@ home-lab-setup/
         ├── setup_docker.sh      # Docker + insecure registry config
         ├── setup_ssh.sh         # SSH key deployment
         ├── setup_sudo.sh        # Passwordless sudo
+        ├── setup_cockpit.sh     # Cockpit web admin on :9090
         ├── setup_smb_mount.sh   # NAS mount configuration
         └── setup_desktop.sh     # Desktop environment
 ```
@@ -238,8 +239,12 @@ Username: admin
 wget http://192.168.1.195/scripts/host_setup.sh
 bash host_setup.sh
 
-# Includes: Docker, SSH keys, sudo config, SMB mount
+# Includes: SSH keys, sudo config, Cockpit web admin, Docker, SMB mount
 ```
+
+Every server gets **Cockpit** at `https://<host>:9090` (log in with the system
+password, not an SSH key — it authenticates via PAM). Self-signed cert, so use Chrome
+or Firefox; the Cursor built-in browser cannot get past the warning.
 
 ---
 

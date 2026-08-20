@@ -1,0 +1,38 @@
+// Chapter 1, Figure 1 - the controller/agent split as actually built on VM 185.
+// Point of the figure: the boundary is a UID, not a machine, and the only thing
+// protecting the key material is one directory's mode bits.
+// Prose deliberately kept OUT of the figure (CONVENTIONS: width <= 1155px @ 150dpi).
+digraph split {
+    rankdir=TB;
+    bgcolor="white";
+    node [fontname="Helvetica" fontsize=11 shape=box style="filled,rounded" fillcolor="#f5f5f5" color="#888888"];
+    edge [fontname="Helvetica" fontsize=11 color="#666666"];
+    graph [fontname="Helvetica" fontsize=11];
+
+    browser [label=<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="4"><TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>Operator's browser</B><BR/>bookmark, no DNS name</TD></TR></TABLE>>
+             fillcolor="#eeeeee"];
+
+    subgraph cluster_vm {
+        label="VM 185  vm-jenkins-1  ·  192.168.1.185\lONE VM, ONE kernel, ONE disk  (ledger J2)\l";
+        style="dashed";
+        color="#b03030";
+        fontcolor="#b03030";
+        margin=12;
+
+        controller [label=<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="4"><TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>Controller</B><BR/>uid 111 <B>jenkins</B><BR/>jenkins.war on :8080<BR/><B>0 executors</B><BR/>schedules and stores</TD></TR></TABLE>>
+                     fillcolor="#e8eef7" color="#4a6fa5"];
+
+        agent [label=<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="4"><TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>Agent</B><BR/>uid 1001 <B>jenkins-agent</B><BR/>remoting.jar<BR/><B>2 executors</B>, label <B>swarm-deploy</B><BR/>no sudo, no extra groups</TD></TR></TABLE>>
+                fillcolor="#eaf3ea" color="#4a8a4a"];
+
+        jhome [label=<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="4"><TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>/var/lib/jenkins</B> — mode 755<BR/>config.xml, credentials.xml — <B>644</B><BR/><B>secrets/</B> — <B>700</B> — master.key</TD></TR></TABLE>>
+               shape=box fillcolor="#fdf6e3" color="#b08a30"];
+
+        {rank=same; controller; agent;}
+    }
+
+    browser -> controller [label="  :8080, no TLS  \l  (ledger J1)  \l" color="#b03030" fontcolor="#b03030"];
+    controller -> agent [label="  SSH to 127.0.0.1  \l  host key pinned  \l"];
+    controller -> jhome [label="  owns  "];
+    agent -> jhome [label="  644 files: readable  \l  secrets/: DENIED  \l" style=dashed color="#4a8a4a" fontcolor="#4a8a4a"];
+}

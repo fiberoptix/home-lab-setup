@@ -933,3 +933,167 @@ After rebooting the VM, the Tailscale Serve HTTPS proxy was not active and the C
 
 ---
 
+
+## 📦 DEMOTED VERBATIM FROM `MEMORY.md` — Aug 20, 2026
+
+⛔ **The VM is destroyed; nothing below is live.** This was the 151-line OpenClaw section of
+`MEMORY.md`, moved here unchanged during a MAKE_MEMORIES demotion — a destroyed VM should not hold
+6 % of the always-loaded memory file. **Copied verbatim and diffed before removal, not summarised**,
+because three facts existed ONLY there and nowhere in this phase file: the Google Places API key
+location, the `pre-elevenlabs-fix` config backup, and the Tailscale IP `100.119.212.71`.
+
+⚠️ **Read it as a 2026 snapshot, not as instructions.** Its own internal "Status: ✅ LIVE" and the
+`~~strikethrough~~` corrections are preserved as they were written; editing them would have made the
+copy unverifiable against the original.
+
+## OPENCLAW — ⛔ DEAD. VM DESTROYED Aug 19, 2026.
+
+⛔ **`vm-openclaw-1` was killed and removed on Aug 19, 2026 on Andrew's instruction. It is totally
+gone** — `qm destroy 185 --purge`, no backup taken (declined on purpose), no snapshot had ever been
+made, no ZFS volumes left behind, firewall config purged with it. **Nothing below is reachable.**
+Everything in this section is kept as a historical record of what was built and why it was retired;
+**do not treat any address, port, token or URL here as live.** VMID 185 and `192.168.1.185` now belong
+to **Jenkins** — see `phases/phase17_jenkins.md`.
+
+- **VM:** ~~vm-openclaw-1 @ 192.168.1.185~~ (16GB RAM, **12 cores** — the "8 cores" recorded elsewhere
+  was wrong, measured from `qm config` at destroy time — 50GB vm-critical)
+- **OS:** Ubuntu 24.04 Desktop
+- **Version:** 2026.4.5 (updated Apr 6, 2026; prior: 3.13 → 3.22 → 3.23-beta.1 → 3.28 → 4.5)
+- **Install Method:** Bash script (`curl -fsSL https://openclaw.ai/install.sh | bash`)
+- **Gateway Port:** 1885 (non-default to avoid scanner detection; default is 18789)
+- **Gateway Bind:** LAN (0.0.0.0)
+- **Gateway Auth:** Token [See working/open-claw-keys.txt]
+- **AI Model:** OpenRouter / Anthropic Claude Sonnet 4.6
+- **Status:** ✅ LIVE
+
+**Access:**
+- **Control UI (HTTPS):** https://vm-openclaw-1.tail8f8df.ts.net/ (via Tailscale Serve)
+- **Control UI (localhost):** http://localhost:1885 (from VM only)
+- **Telegram Bot:** @OC_GothamBot (DM policy: pairing required)
+- **SSH:** ssh agamache@192.168.1.185 (from LAN only)
+
+**Tailscale:**
+- **Tailscale IP:** 100.119.212.71
+- **Tailscale Serve:** HTTPS proxy on port 443 → localhost:1885
+- ~~This is the ONLY VM with Tailscale in the lab~~ **CORRECTION (Jul 9, 2026): the Proxmox
+  HOST also runs Tailscale** (tailscaled active on pve, 100.108.209.77). .185 remains the only *VM* with it.
+
+**CRITICAL: Control UI requires HTTPS or localhost!**
+- Plain HTTP to LAN IP (http://192.168.1.185:1885) will NOT work -- OpenClaw blocks it
+- Must use Tailscale Serve (HTTPS) or access from VM itself (localhost)
+- Tailscale Serve provides auto-managed TLS certs via the tailnet domain
+
+**CRITICAL: allowedOrigins required since v2026.2.23!**
+- Non-loopback bind (`gateway.bind: "lan"`) now requires `gateway.controlUi.allowedOrigins`
+- Without it, the gateway refuses to start (crash loop, exit 1)
+- Current config has: `["https://vm-openclaw-1.tail8f8df.ts.net", "http://localhost:1885", "http://127.0.0.1:1885"]`
+- If updating OpenClaw in the future, check release notes for similar breaking security changes
+
+**Services (all auto-start on boot):**
+- `openclaw-gateway.service` (systemd user service, enabled, lingering)
+- `tailscaled.service` (systemd service, enabled)
+- Tailscale Serve (persistent via --bg flag)
+
+**Config:** `~/.openclaw/openclaw.json` on vm-openclaw-1 (permissions: 600)
+**Config backups on VM:**
+- `~/.openclaw/openclaw.json.bak` (auto-created by doctor)
+- `~/.openclaw/openclaw.json.bak.pre-fix` (pre-v2026.2.23 fix)
+- `~/.openclaw/openclaw.json.bak.pre-v3.28-fix` (pre-v3.28 fix, Apr 6 2026)
+- `~/.openclaw/openclaw.json.bak.pre-v4.5-fix` (pre-v4.5 fix, Apr 6 2026)
+- `~/.openclaw/openclaw.json.bak.pre-elevenlabs-fix` (pre-ElevenLabs fix, Apr 6 2026)
+
+**TTS (ElevenLabs) — v4.5 config location:**
+- Provider credentials go in `messages.tts.providers.elevenlabs` (NOT `plugins.entries` or top-level `messages.tts`)
+- Valid keys: `apiKey`, `voiceId`, `modelId`, `baseUrl`, `seed`, `applyTextNormalization`, `languageCode`
+**Logs:** `/tmp/openclaw/openclaw-YYYY-MM-DD.log`
+**npm global bin:** `/home/agamache/.npm-global/bin` (added to PATH in .bashrc)
+
+**Installed Skills:** github, himalaya (email), nano-pdf, summarize, blogwatcher, goplaces
+**Google Places API Key:** configured in openclaw.json
+
+**Proxmox Firewall (VM 185):**
+- IN: SSH (22/tcp) from 192.168.1.0/24
+- IN: OpenClaw Control UI (1885/tcp) from 192.168.1.0/24
+- IN: Tailscale (41641/udp) from anywhere
+- OUT: Allow all
+- Default IN policy: DROP
+
+**CLI Commands (must use localhost due to HTTPS enforcement):**
+```bash
+export PATH=/home/agamache/.npm-global/bin:$PATH
+openclaw devices list --url ws://127.0.0.1:1885 --token [See working/open-claw-keys.txt]
+openclaw devices approve <requestId> --url ws://127.0.0.1:1885 --token [See working/open-claw-keys.txt]
+openclaw gateway status
+openclaw gateway restart
+openclaw doctor --non-interactive
+openclaw status --all
+sudo tailscale serve --bg 1885
+```
+
+**Update procedure (safe):**
+```bash
+# 1. Back up config FIRST
+cp ~/.openclaw/openclaw.json ~/.openclaw/openclaw.json.bak.pre-update
+
+# 2. Update (pick one)
+curl -fsSL https://openclaw.ai/install.sh | bash -s -- --no-onboard
+# Or: npm update
+npm i -g openclaw@latest
+
+# 3. Try doctor first (may not fix everything)
+openclaw doctor --fix --non-interactive
+
+# 4. Check if gateway started
+openclaw gateway status
+
+# 5. If still crash-looping, check the error and fix config manually:
+journalctl --user -u openclaw-gateway.service -n 20 --no-pager
+# Then edit ~/.openclaw/openclaw.json to remove offending keys
+# Then: openclaw gateway restart
+
+# 6. Final verification
+openclaw status --all
+```
+
+**Rollback (if update breaks things):**
+```bash
+npm i -g openclaw@<version>   # e.g. openclaw@2026.2.19-2
+openclaw doctor
+openclaw gateway restart
+```
+
+**Reference:** Ansible playbook at `working/openclaw-ansible/` (not used, kept for reference)
+**Phase Plan:** `phases/phase11_openclaw.md`
+
+**SSH:** Key auth from dev workstation ✅ FIXED (Feb 27, 2026 — `ssh-copy-id` via sshpass, same as all other VMs)
+
+**SSHFS Mount (Dev Workstation → OpenClaw):**
+- **Mount point:** `/home/agamache/mnt/openclaw` (mounts remote `/home/agamache`)
+- **Symlink:** `~/openclaw` → `/home/agamache/mnt/openclaw`
+- **Service:** `~/.config/systemd/user/sshfs-openclaw.service` — **DISABLED Jul 25, 2026**
+  (VM 185 retired; it was failing + retrying every 100s forever and was the only journal noise
+  on the workstation). Unit file left in place — `systemctl --user enable --now sshfs-openclaw`
+  to revive if OpenClaw ever comes back.
+- **Persistence:** Survives reboot (systemd user service + linger enabled)
+- **Options:** reconnect, ServerAliveInterval=15, ServerAliveCountMax=3
+- **Manage:** `systemctl --user {status|start|stop|restart} sshfs-openclaw`
+- **Why user service not fstab:** fstab mounts run as root (wrong SSH keys); user service runs as agamache
+
+**⚠️ KNOWN BUG: Skip v2026.3.22!**
+- npm package is missing `dist/control-ui/` directory (packaging bug)
+- Control UI shows "assets not found" error
+- v3.13 and v3.23+ both have the UI assets; v3.22 does not
+- Verify before upgrading: `npm pack openclaw@<version> --dry-run | grep control-ui/`
+
+**⚠️ POST-UPGRADE: Always run doctor, then verify manually!**
+- v2026.3.28: Changed TTS config schema, renamed `streamMode` → `streaming`
+- v2026.4.5: Tightened plugin entries (only `enabled`/`hooks` allowed); moved TTS creds to `messages.tts.providers.<name>`
+- Doctor FAILED to auto-fix plugin config issues in v4.5
+- Gateway crash-loops if config has unrecognized keys
+- **After ANY upgrade:** back up config, run `openclaw doctor --fix --non-interactive`, then `openclaw gateway status`
+- **If doctor fails:** check `journalctl --user -u openclaw-gateway.service -n 20`, inspect config, remove offending keys
+- **Schema discovery:** `openclaw config schema | python3 -c "import sys,json; ..."` to find where keys moved
+
+**Manual TODOs:**
+- [x] Configure OpenRouter API key/credits (done, working as of Mar 2026)
+- [ ] Test Telegram bot from iPhone

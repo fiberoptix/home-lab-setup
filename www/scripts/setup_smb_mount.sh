@@ -23,7 +23,23 @@ SMB_SERVER="192.168.1.120"
 SMB_SHARE="NeoCortex/DEV_Projects"
 SMB_USERNAME="fiberoptix"
 MOUNT_POINT="/mnt/DevShare"
-MOUNT_OPTIONS="uid=1000,gid=1000,file_mode=0775,dir_mode=0775"
+# nofail: without it the generated unit is RequiredBy=remote-fs.target, so an
+# unreachable NAS makes the mount fail, fails remote-fs.target with it, and stalls
+# boot for the mount timeout (~11s observed, up to ~90s) leaving a permanently
+# failed unit. With nofail it is only WantedBy, so boot ignores it.
+# NOTE: _netdev already keeps this OUT of local-fs.target, so a missing nofail does
+# NOT drop the host to an emergency console - measured on .184, which failed this
+# mount at every boot since July 2026 and still came up with network and SSH fine.
+MOUNT_OPTIONS="uid=1000,gid=1000,file_mode=0775,dir_mode=0775,nofail"
+
+# Hosts that must never reach the NAS (DMZ / prod-local, e.g. .184 vm-www-1) skip this
+# entirely. Put the variable AFTER sudo - `SKIP_NAS=1 sudo -E ...` does NOT work here,
+# sudo is built with env_reset and prints "preserving the entire environment is not
+# supported" while silently dropping it:
+#     sudo SKIP_NAS=1 bash ./setup_smb_mount.sh
+# or, for a whole build:
+#     bash host_setup.sh --no-nas
+SKIP_NAS="${SKIP_NAS:-0}"
 
 # ============================================
 # DO NOT EDIT BELOW THIS LINE
@@ -40,6 +56,36 @@ echo "=========================================="
 # Check if running as root
 if [ "$EUID" -ne 0 ]; then
     echo "ERROR: Please run as root (sudo ./setup_smb_mount.sh)"
+    exit 1
+fi
+
+# Opt-out for prod-local / DMZ hosts
+if [ "$SKIP_NAS" = "1" ]; then
+    echo ""
+    echo "SKIP_NAS=1 - this host is prod-local, not mounting the NAS."
+    echo "No fstab entry and no credentials file will be written."
+    exit 0
+fi
+
+# Refuse to write a doomed entry. A host that cannot reach the NAS now will not be
+# able to at boot either, and the result is a permanently failed mount unit plus NAS
+# credentials sitting on a box that is not allowed to use them. Exactly what we found
+# on .184 (Phase 12 DMZ: `OUT DROP -dest 192.168.1.0/24`) on Aug 20, 2026 - it had
+# been failing this mount every boot since July while holding /root/.smbcredentials.
+echo ""
+echo "[0/6] Checking the NAS is actually reachable from this host..."
+if timeout 6 bash -c "</dev/tcp/${SMB_SERVER}/445" 2>/dev/null; then
+    echo "    ${SMB_SERVER}:445 reachable"
+else
+    echo ""
+    echo "ERROR: cannot reach ${SMB_SERVER}:445 from this host."
+    echo ""
+    echo "  If this host is DMZ / prod-local, that is CORRECT - re-run the build with"
+    echo "  --no-nas (or SKIP_NAS=1) and it will stop asking."
+    echo "  If the NAS is merely down, fix that and re-run this script."
+    echo ""
+    echo "  Refusing to write an fstab entry that can never mount, or to drop NAS"
+    echo "  credentials on a host that cannot use them."
     exit 1
 fi
 
