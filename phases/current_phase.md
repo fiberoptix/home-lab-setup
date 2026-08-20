@@ -1,6 +1,6 @@
 # Current Phase
 
-**Updated:** August 20, 2026 - 2:15 PM EDT
+**Updated:** August 20, 2026 - 4:40 PM EDT
 
 📉 **This file was trimmed 3797 → 2067 lines on Aug 20** by demoting three closed-phase blocks
 (Phase 16 handoffs → `phase16`, Phase 14 closing record → `phase14`, OpenClaw logs → `phase11`).
@@ -276,7 +276,12 @@ missing five VMs and understates GitLab's RAM. Historical phase files 2/4/5/7 le
 
 ---
 
-## ▶️ RESUME HERE — 🔵 PHASE 17 (JENKINS): **Parts 0 and 1 are DONE (Aug 20, 2026). Next is Part 2 — GitLab OAuth + trap T1.**
+## ▶️ RESUME HERE — 🔵 PHASE 17 (JENKINS): **Parts 0, 1 and 2 are DONE (Aug 20, 2026). Next is Part 3 — wire it to GitLab.**
+
+🔻 **AND THE DELIVERY MODEL WAS REPLANNED at ~4:30 PM (log entry J-P7) — read that before Part 3.**
+Parts **4 and 5 are swapped** (deploy now precedes build), and there are two new hard rules, **B10**
+(registry write scope) and **B11** (SHA tags). Nothing was built during the replan; it was all
+discussion, and it changed the plan enough that acting on the pre-4 PM version would be wrong.
 
 **Read `phases/phase17_jenkins.md` before touching anything Jenkins-related.** Where things stand:
 
@@ -294,7 +299,8 @@ lab.** Nothing in the plan is open now.
 - **No TLS is ledger row J1**, accepted knowingly. It is a real compromise: the session cookie of a CI
   controller is a credential to everything it can deploy.
 - **No DNS is cosmetic — because the address is static.** The one caveat: if `.185` ever moves, five
-  things need hand-editing (Jenkins URL, webhook URL, OAuth redirect, agent config, bookmark). In the
+  things need hand-editing (Jenkins URL, webhook URL, agent config, bookmark — the OAuth redirect is
+  gone now that A8 killed OAuth). In the
   chapter it is a Lab-vs-PROD **table row**, not a callout — smaller, not wrong.
 - 🚨 **Trap T8 is NOT a consequence of skipping DNS**, though this file said so for one revision.
   **GitLab blocks webhooks by RESOLVED ADDRESS**, so a hostname pointing at `192.168.1.185` is blocked
@@ -314,8 +320,8 @@ lab.** Nothing in the plan is open now.
 | | |
 |---|---|
 | Jenkins | **2.568.2 LTS** on Java **21.0.11**, `http://192.168.1.185:8080/` (URL saved correctly) |
-| Login | local admin `agamache` — **break-glass account, in `PASSWORDS.md`**, do not delete after OAuth |
-| Authorization | `FullControlOnceLoggedInAuthorizationStrategy` — **any authenticated user has full control.** Becomes a real question the moment OAuth lands in Part 2 |
+| Login | local admin `agamache` — credentials in `PASSWORDS.md`. ⛔ **NOT a "break-glass account"** — that phrasing was wrong and is corrected in J-P6. Real break-glass is **root on the host** editing `config.xml` with Jenkins **stopped first** |
+| Authorization | ✅ **matrix-based since Part 2**: `agamache → Overall/Administer`, `authenticated → Overall/Read`. The wizard's "any authenticated user has full control" default is closed |
 | Executors | controller **0**, node `jenkins-agent-1` **2**, label `swarm-deploy` |
 | Agent | SSH → `127.0.0.1` as OS user `jenkins-agent` (no sudo, no extra groups), host key **pinned**, private key **only** in the Jenkins credential store |
 | Plugins | 73 installed from **6** deliberate choices, plus `ssh-slaves` added by hand |
@@ -326,12 +332,42 @@ list problem), **J-P5** (the split, and what the agent can still read). New ledg
 
 🔲 **NEXT ACTIONS, in order:**
 
-1. ⏳ **Snapshot `j02-jenkins-up`** — owed from Part 1 and not yet taken. Shut the VM down for it, as
-   with `j01-base-clean`.
+1. ✅ **Snapshot `j02-jenkins-up` taken** (VM shut down for it, restarted clean).
 2. ✅ **Chapter 1 and the track README are written** (`education/jenkins/`), figure rendered and
    `figcheck`-clean, DOCX built. ⚠️ **The track is now indexed in `education/README.md` as track 3**,
    so a future session should update that row as chapters land.
-3. ▶️ **Part 2 — GitLab OAuth, then prove break-glass works with GitLab unreachable, then trap T1.**
+3. ✅ **Part 2 DONE and RESHAPED — see J-P6.** 🔻 **OAuth was DROPPED for good (decision A8)**, because
+   Andrew's firm uses GitHub and because coupling the login to GitLab puts an instrument inside the
+   system Part 6 exists to break. Auth is now **local accounts + matrix authorization**
+   (`agamache → Administer`, `authenticated → Overall/Read`). Two attempts to lock ourselves out both
+   **failed by design** — matrix-auth pre-seeds and then silently restores your own `Administer`,
+   with no UI warning and nothing in the log. 📕 The **break-glass runbook is written but ⚠️ NOT
+   rehearsed**; it is marked `recited`, not `verified`.
+4. ✅ **DELIVERY MODEL REPLANNED (J-P7, ~4:00–4:35 PM) — discussion only, nothing built.** Andrew's
+   correction started it: this lab has **three** delivery paths, not two. `production/capricorn`'s own
+   pipeline ships the real app to QA `.180` and PROD `.184`; this repo's `.gitlab-ci.yml` is the Phase
+   16 exercise; Jenkins is the third. **The registry-overwrite hazard is invisible until you count
+   three.** Decisions **A9/A10/A11** closed, rules **B10/B11** added, ledger rows **J3/J4** written,
+   and **Parts 4 and 5 swapped.**
+5. ▶️ **NEXT — Part 3: wire it to GitLab.** Read-only deploy key, webhook, multibranch pipeline with
+   **Script Path `education/jenkins/Jenkinsfile`**, and a first `Jenkinsfile` that only checks out and
+   prints. Traps **T4** (webhook with no token), **T5** (the workspace that keeps the plaintext mirror)
+   and **T1** (moved down from Part 2 — masking needs a pipeline to fire in) all fire here.
+   ⚠️ **T8 is also waiting:** GitLab blocks webhooks to private addresses by resolved address —
+   **verified true on `.181` (J-P1), so it WILL fire.** Snapshot `j03-gitlab-wired`.
+6. 🔲 **Then Part 4 — DEPLOY (this used to be Part 5).** Reuse
+   `education/docker-swarm/scripts/deploy_swarm.sh` **unchanged** with `STACK=capricorn-jenkins`,
+   against the **existing `:latest` images**, so the only variable versus Phase 16 is the CI system.
+   ⚠️ **Needs `education/jenkins/manifests/capricorn-jenkins.stack.yml` on ports 5011/5012** — the
+   Phase 16 manifest's 5001/5002 are `mode: ingress` and two stacks cannot share them.
+7. 🔲 **Then Part 5 — BUILD AND PUSH (this used to be Part 4).** Create GitLab group **`lab`** and
+   project **`lab/capricorn-swarm`**, a token scoped to `lab/` only, **prove the 403 against
+   `production/capricorn`**, then build from a read-only clone of Capricorn and push **git-SHA tags**.
+   **T2** (the `docker` group) fires here.
+
+🚨 **The one rule that escapes the lab if you get it wrong: B10.** Everything else in this phase fails
+locally. Pushing a Jenkins-built image over `production/capricorn/<svc>:latest` reaches **PROD `.184`**
+on the next pull.
 
 ⚠️ **Do not "fix" what looks unfinished.** `passwordauthentication yes` on `.185`'s sshd, the
 world-readable `credentials.xml`, and the agent's lack of Docker access are all **Part 4/7 material or
