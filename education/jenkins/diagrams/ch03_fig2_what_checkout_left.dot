@@ -25,7 +25,7 @@ digraph what_checkout_left {
 <TR><TD ALIGN="LEFT"><B>CONTROLLER, uid jenkins</B></TD></TR>
 <TR><TD ALIGN="LEFT"><FONT POINT-SIZE="11">caches/git-8444&#8230;</FONT></TD></TR>
 <TR><TD ALIGN="LEFT"><FONT POINT-SIZE="11">31 MB, mode 755</FONT></TD></TR>
-<TR><TD ALIGN="LEFT"><B><FONT POINT-SIZE="11">nobody planned this copy</FONT></B></TD></TR>
+<TR><TD ALIGN="LEFT"><B><FONT POINT-SIZE="11">the copy people miss</FONT></B></TD></TR>
 <TR><TD ALIGN="LEFT"><FONT POINT-SIZE="11">gate: must be uid jenkins</FONT></TD></TR>
 </TABLE>>];
 
@@ -40,11 +40,10 @@ digraph what_checkout_left {
 
     note [shape=note, fillcolor="#FFF2CC", color="#BF8F00", label=<
 <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="2">
-<TR><TD ALIGN="LEFT"><B>The deploy key was read-only, project-scoped,</B></TD></TR>
-<TR><TD ALIGN="LEFT"><B>pinned, and deleted from disk.</B></TD></TR>
-<TR><TD ALIGN="LEFT"><B>None of it helped.</B></TD></TR>
-<TR><TD ALIGN="LEFT"><FONT POINT-SIZE="11">0 executors stops BUILDS &#8212; and indexing</FONT></TD></TR>
-<TR><TD ALIGN="LEFT"><FONT POINT-SIZE="11">is not a build.</FONT></TD></TR>
+<TR><TD ALIGN="LEFT"><B>Scoping the deploy key governs how Jenkins</B></TD></TR>
+<TR><TD ALIGN="LEFT"><B>AUTHENTICATES &#8212; not what the clone CONTAINS.</B></TD></TR>
+<TR><TD ALIGN="LEFT"><FONT POINT-SIZE="11">0 executors stops BUILDS, and indexing</FONT></TD></TR>
+<TR><TD ALIGN="LEFT"><FONT POINT-SIZE="11">is not a build &#8212; hence two copies.</FONT></TD></TR>
 </TABLE>>];
 
     repo -> ctrl  [color="#C00000", label=" branch\l indexing\l"];

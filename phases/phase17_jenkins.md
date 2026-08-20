@@ -144,6 +144,28 @@ skimmed.** Same here. Four kinds of item, and telling them apart is the whole po
 | **A9** | **Who builds the container images, and where do they go?** | 🙋 **Andrew + AI, Aug 20** | ✅ **CLOSED — the Jenkins agent builds them and pushes to a NEW GitLab group `lab`, project `capricorn-swarm`.** Reasoning below. |
 | **A10** | **Where does the `Jenkinsfile` live?** | 🙋 **Andrew** | ✅ **CLOSED — `education/jenkins/Jenkinsfile`, inside `production/home-lab-setup`.** One pipeline per education track, each in its own track folder. **Not** the repo root. |
 | **A11** | **Does this repo's Phase 16 `.gitlab-ci.yml` get deleted once Jenkins works?** | 🙋 **Andrew** | ✅ **CLOSED — NO. Neutered, never deleted.** See B1, now amended. |
+| **A12** | **What register are the CHAPTERS written in?** | 🙋 **Andrew, Aug 20** | ✅ **CLOSED — a build procedure with warnings, NOT a trap narrative.** See below. |
+
+⭐ **A12 in full, because it changes how every remaining chapter of this phase is written.** Chapter 3
+was first drafted as the story of an evening, with the planted traps as its spine. 🙋 **Andrew rejected
+that framing on re-read** (Aug 20): *"I'd like to be able to re-read this and fill MY context with
+success and warnings rather than re-read traps."*
+
+**The rule going forward:**
+- ✅ **The chapter is the step-by-step procedure that worked** — numbered steps, each with **how to
+  confirm it took effect** and its ⚠️ tripping points marked **at the step**, not collected at the end.
+- ✅ **Problems we hit are kept**, as caveats attached to the step where they bite. ⭐ **They lose
+  nothing by being reframed** — *"paste the whole public-key line"* teaches more than *"trap T-whatever
+  fired"*, and it teaches it at the moment it is actionable.
+- ⛔ **No trap bookkeeping in chapter prose.** No `T4`/`T5`/`T8`, no 🅒, no *"a trap that could not
+  fire"*, no meta-narrative about the fictional build standard.
+- 📌 **The trap design stays HERE, in the phase file**, which is the working record and is where the
+  pedagogy is planned. **The two documents have different jobs** and this is the line between them.
+
+⚠️ **Chapters 1 and 2 were checked and are already clean** — the single word *"trap"* in Chapter 2 §7
+means *pitfall for later*, which is the warning register Andrew asked for. **No retrofit needed.**
+🔲 **Open question deliberately NOT actioned:** whether this belongs in `education/CONVENTIONS.md` as a
+rule for **all** tracks, rather than just Phase 17.
 
 ✅ **A1 + A2 answered Aug 19, 2026: bookmark the IP, no TLS.** Both are reasonable for a LAN lab and
 both have consequences that are now written down rather than absorbed silently:
@@ -461,9 +483,16 @@ planted: J-P9.**
 | **T4** — a webhook with no token lets anyone trigger a build | ⛔ **CANNOT FIRE** — git plugin 5.10.1 requires a token by default and fails closed. **Second vendor-closed trap this phase**, after J-P6's lockout. Its lesson survives via *the token is in a URL* and *the build cause says `Branch indexing`, not "GitLab"*. J-P10 |
 | **T1** — secret masking is string matching | ⏳ **DEFERRED to Part 4/5 by Andrew** ("no more traps in this section"). It needs a pipeline and now has one. **Moved, not dropped.** |
 
-✅ **Chapter 3 written Aug 20, 2026** — `education/jenkins/chapter03_wiring_it_to_gitlab.md`, 3,700
-words, **two figures** (both figcheck-clean), DOCX built. Organised around **one integration, two
-independent links**, which is the frame the whole evening argued for.
+✅ **Chapter 3 written Aug 20, 2026** — `education/jenkins/chapter03_wiring_it_to_gitlab.md`,
+**two figures** (both figcheck-clean), DOCX built.
+
+🔻 **REWRITTEN the same evening at Andrew's request — see decision A12.** The first draft told the
+story of the evening with the traps as its spine; the shipped version is **an eight-step build
+procedure**, each step carrying its own *"confirm it took effect"* and its ⚠️ tripping points.
+**4,600 words, 19.8% highlight density**, applied with `highlight.py` against a checked anchor list.
+⭐ **Nothing technical was dropped in the reframing** — the wrong-URL 422, the save that never saved,
+the local-network block and the token requirement are all still there, as caveats attached to the step
+where they bite.
 
 Two things the writing added rather than recorded:
 - 🆕 **Ledger rows J7 and J8**, for compromises that had been taken but never written down —
@@ -963,6 +992,7 @@ visible** — it is invisible if you think there are only two systems.
 | **A9** — who builds, where images go | Jenkins agent builds; images to **`lab/capricorn-swarm`** (new group), **never** `production/*` |
 | **A10** — `Jenkinsfile` location | `education/jenkins/Jenkinsfile`, one per track, **not** the repo root |
 | **A11** — this repo's `.gitlab-ci.yml` | **Neuter it eventually, never delete it** — B1 amended |
+| **A12** — chapter writing register | **A build procedure with warnings, not a trap narrative.** Steps + confirmations + tripping points in the chapter; ⛔ **trap bookkeeping stays in this phase file** |
 | **Part order** | **Parts 4 and 5 SWAPPED**: deploy first, build second |
 | **New rules** | **B10** (registry write scope), **B11** (SHA tags), ledger **J3** and **J4** |
 
