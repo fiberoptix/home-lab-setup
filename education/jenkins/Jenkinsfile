@@ -29,6 +29,12 @@ pipeline {
 
         stage('Report where this ran') {
             steps {
+                // BRANCH_NAME comes from the multibranch job, not from the workspace. Asking git
+                // returns `HEAD`, because Jenkins checks out the commit by SHA and leaves the
+                // working copy detached — a guard against the command *failing* does not help when
+                // the command *succeeds* and returns something useless.
+                echo "branch:     ${env.BRANCH_NAME}"
+
                 // `set -eu` without `pipefail` is the shell default this repo has been living with.
                 // Do not add pipefail here casually — Part 6's T6 drill is specifically about what a
                 // pipeline step hides when it is missing.
@@ -38,7 +44,7 @@ pipeline {
                     echo "os identity:$(id)"
                     echo "workspace:  ${WORKSPACE}"
                     echo "commit:     $(git rev-parse HEAD)"
-                    echo "branch:     $(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo detached)"
+                    echo "git says:   $(git rev-parse --abbrev-ref HEAD)"
                     echo "remote:     $(git remote get-url origin)"
                 '''
             }
