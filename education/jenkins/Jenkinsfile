@@ -1,0 +1,47 @@
+// Phase 17 Part 3 — the first pipeline. It checks out this repo and prints where it is.
+//
+// It deliberately deploys nothing. Part 4 is the first deploy, and it reuses
+// education/docker-swarm/scripts/deploy_swarm.sh unchanged so that the only difference between
+// this pipeline and the Phase 16 GitLab one is the CI system itself.
+//
+// Script Path for the Jenkins job is `education/jenkins/Jenkinsfile` — one pipeline per education
+// track, in the track's own folder (decision A10). Jenkins supports this natively because every job
+// carries its own Script Path; GitLab would need the root .gitlab-ci.yml to become an include: router.
+
+pipeline {
+    // The controller runs 0 executors, so a build with no valid label never starts — it queues
+    // forever instead. That is the boundary Part 1 proved with a stuck build before the agent
+    // existed; naming the label here is what lands the work on jenkins-agent-1.
+    agent { label 'swarm-deploy' }
+
+    options {
+        buildDiscarder(logRotator(numToKeepStr: '20'))
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                // Uses the job's own SCM definition, so the deploy key lives in Jenkins'
+                // credential store and never appears in this file.
+                checkout scm
+            }
+        }
+
+        stage('Report where this ran') {
+            steps {
+                // `set -eu` without `pipefail` is the shell default this repo has been living with.
+                // Do not add pipefail here casually — Part 6's T6 drill is specifically about what a
+                // pipeline step hides when it is missing.
+                sh '''
+                    set -eu
+                    echo "host:       $(hostname)"
+                    echo "os identity:$(id)"
+                    echo "workspace:  ${WORKSPACE}"
+                    echo "commit:     $(git rev-parse HEAD)"
+                    echo "branch:     $(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo detached)"
+                    echo "remote:     $(git remote get-url origin)"
+                '''
+            }
+        }
+    }
+}

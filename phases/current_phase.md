@@ -375,9 +375,13 @@ list problem), **J-P5** (the split, and what the agent can still read). New ledg
    `lab/`, **`pull` only** on `production/capricorn`. ⚠️ **The `pull` is not a scope leak:
    `production/capricorn` is an INTERNAL project, so every authenticated identity can read it —
    a token scope grants, it does not fence.**
-   ⏳ **Still owed here:** the end-to-end `docker push` denial, `insecure-registries` for
-   `gitlab.gothamtechnologies.com:5050` on `.185` (**it is not set — the push will fail without it**),
-   SHA tagging (B11), the two-job split, a registry cleanup policy, and **T2** (the `docker` group).
+   ⏳ **Still owed here:** the end-to-end `docker push` denial, SHA tagging (B11), the two-job split,
+   a registry cleanup policy, and **T2** (the `docker` group).
+   ✅ **`insecure-registries` is ALREADY SET on `.185`** — `/etc/docker/daemon.json` contains
+   `["gitlab.gothamtechnologies.com:5050"]`, written by the standard build. ⚠️ **An earlier note in
+   this file claimed it was missing; that was asserted, not measured.** The build standard handles it,
+   which is the Cockpit/`nofail` pattern again: **a fix folded into `host_setup.sh` keeps paying on
+   every host built afterwards.**
    📌 **Diarised hazard:** `jenkins-lab-push` and `swarm-lab-pull` **expire at the same instant**
    (2026-12-31 05:00 UTC). Jenkins will fail loudly at build time; the Swarm fails **silently at the
    next task reschedule**. Correlated expiry = two variables changing at once.
