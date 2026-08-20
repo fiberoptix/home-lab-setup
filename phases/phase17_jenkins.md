@@ -678,7 +678,7 @@ about what `push_gitlab.sh` puts on `gitlab/main` that `push_github.sh` keeps of
 | Where | What | Mode |
 |---|---|---|
 | **Agent** `/home/jenkins-agent/agent/workspace/home-lab-setup_main/` | `PASSWORDS.md` (14,854 B), `github_credentials.md` (3,233 B), **57 files under `working/`** including **`working/phase16/swarm_deploy_ed25519`** — the real Swarm deploy key | `664`, owner `jenkins-agent` |
-| **Controller** `/var/lib/jenkins/caches/git-84449500f7eef9cd…` | **30 MB git cache created by BRANCH INDEXING.** `git show origin/main:working/phase16/swarm_deploy_ed25519` prints `-----BEGIN OPENSSH PRIVATE KEY-----` | `755`, owner `jenkins` |
+| **Controller** `/var/lib/jenkins/caches/git-84449500f7eef9cd…` | **30 MB git cache created by BRANCH INDEXING.** `git show origin/main:working/phase16/swarm_deploy_ed25519` prints the OpenSSH private-key PEM header and the key body. ⚠️ *The literal header string is deliberately NOT quoted here — it tripped `push_github.sh`'s secret scanner on Aug 20 and blocked the public push, which is the guard behaving correctly.* | `755`, owner `jenkins` |
 
 🚨 **Finding 1 — the trap was planted as an AGENT problem; the CONTROLLER has a copy too, and nobody
 planned that.** Branch indexing is not a build, so **0 executors does not stop it** — the controller
