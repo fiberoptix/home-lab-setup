@@ -397,6 +397,34 @@ Required, and deliberately **after** the deployment work rather than before it.
    storage); the `.pw` file is `password=<value>` **plus a newline**, so pass `--password` and let PVE
    write it; and `pvesm set --password` needs `--username` **in the same call** or it writes an empty
    one.
+   - ✅ **Working recipe for the subdir, proven end-to-end Aug 20, 2026** (built for VM 180, then torn
+     down — see below) — mount the *parent* by hand, `mkdir`, unmount, then add the storage:
+     ```bash
+     mkdir -p /tmp/nasroot
+     mount -t cifs //192.168.1.120/NeoCortex/ProxmoxBackups /tmp/nasroot \
+       -o username=fiberoptix,password='<the 9-char password from PASSWORDS.md>'
+     mkdir -p /tmp/nasroot/vm-jenkins-1 && umount /tmp/nasroot && rmdir /tmp/nasroot
+     ```
+     🚨 **Type the real password — do NOT feed it `$(cat /etc/pve/priv/storage/<id>.pw)`.** That file
+     is `password=<value>`, so you would send the literal string `password=…` and get
+     **`mount error(13) Permission denied`**, which looks exactly like a NAS permissions problem and
+     is not. **Two separate sessions have now lost time to this.** ⚠️ **Stop after 3–4 failed
+     attempts** — Synology-style auto-block trips near five and would blackhole the Proxmox host's IP,
+     taking out the nightly GitLab backup and every guest's `/mnt/DevShare`.
+   - ⚠️ **Stagger the schedule.** `gitlab-nightly` is the only other job (02:00, ~14 GB), so **give
+     Jenkins 03:00.** And note **a defined storage is not a scheduled job** — read `/etc/pve/jobs.cfg`
+     for real coverage, not `pvesm status`.
+   - 📊 **Expect roughly 10 GB / ~2.5 min** for a 60–100 GB disk with ~15 GB used; vzdump
+     sparse-skips zeros, so size tracks *used* data.
+   - 🎯 **Be ready to justify why Jenkins gets a backup when QA does not.** Andrew removed VM 180's
+     backup on Aug 20 with the rule *QA is rebuilt by CI, so it is a deploy target, not a data store.*
+     **Jenkins is the opposite case and that is the whole point of B7:** `JENKINS_HOME` holds
+     credentials, job history and `master.key` — **state no pipeline can regenerate.** ⭐ The lesson
+     for the chapter is the *test*, not the list: **back up what cannot be rebuilt.**
+   - ⚠️ **Teardown gotcha if a backup storage ever has to be removed:** `pvesm free` clears the
+     archive but PVE's `dump/` subdir remains, and the **CIFS dentry cache misreports it** —
+     `rm -rf` fails *"Directory not empty"* while `stat` says it does not exist. **A fresh mount with
+     `noserverino` clears it.** Recorded in `proxmox/Home_Lab_Proxmox_Storage.md`.
 2. **T3 fires here:** decrypt a credential out of our own backup. The lesson lands hardest when the
    file is yours.
 3. ⭐ **Restore test — a backup is not a recovery until it has been restored.** Restore to a throwaway

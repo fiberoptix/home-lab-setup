@@ -23,12 +23,12 @@ digraph stack {
     vm183 [label="VM 183\nSonarQube\n.183"];
     vm184 [label="VM 184\nWWW\n.184"];
     vm186 [label="VM 186\nvm-k8-redpanda-1\n.186", fillcolor="#1f4e79", fontcolor="white", color="#1f4e79", penwidth=2];
-    vm200 [label="VM 200\nQA/k8s\n.180"];
+    vm180 [label="VM 180\nQA\n.180"];
 
     {rank=same; vm181; vm182; vm183;}
-    {rank=same; vm184; vm186; vm200;}
+    {rank=same; vm184; vm186; vm180;}
     vm181 -> vm182 -> vm183 [style=invis];
-    vm184 -> vm186 -> vm200 [style=invis];
+    vm184 -> vm186 -> vm180 [style=invis];
     vm181 -> vm184 [style=invis];
   }
 

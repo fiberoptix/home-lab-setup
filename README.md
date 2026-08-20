@@ -125,16 +125,16 @@ A lot has shipped since the initial CI/CD milestone:
 - ✅ GitLab CE at 192.168.1.181 (source control + CI/CD, auto-start)
 - ✅ GitLab Runner at 192.168.1.182 (Docker executor, v19.2.1 as of Aug 19 2026; installed at v18.7.2)
 - ✅ SonarQube at 192.168.1.183:9000 (v26.1.0, auto-start)
-- ✅ QA Host at 192.168.1.180 (vm-kubernetes-1, auto-start)
+- ✅ QA Host at 192.168.1.180 (vm-docker-qa-1, VMID 180, auto-start)
 - ✅ WWW/PROD at 192.168.1.184 (Traefik + Let's Encrypt, Capricorn PROD + splash, auto-start)
 - ✅ Container Registry at gitlab.gothamtechnologies.com:5050 (operational)
 - ✅ Script server at http://192.168.1.195/scripts/ (host setup automation)
 - 🔁 `refresh` command: parallel update + reboot of all lab VMs, disconnect-proof via tmux
-- 🤖 OpenClaw AI agent at .185 — **retired** (auto-start disabled)
+- ⛔ OpenClaw AI agent at .185 — **destroyed Aug 19, 2026**; VMID 185 / `.185` being rebuilt as `vm-jenkins-1`
 
 **Applications Deployed via CI/CD:**
-- ✅ Test App: http://192.168.1.180:8080 (validation + quality scan)
-- ✅ Capricorn: http://192.168.1.180:5001 (QA automated + quality scan)
+- ⚪ Test App: was http://192.168.1.180:8080 (pipeline validation, Phase 5) — **no longer deployed**; nothing listens on 8080 as of Aug 20, 2026. The pipeline it proved out is still in use
+- ✅ Capricorn: http://192.168.1.180:5001 (QA automated + quality scan; backend on :5002)
 - ✅ Capricorn: https://cap.gothamtechnologies.com (PROD-Local, primary)
 - ☁️ Capricorn: https://capricorn.gothamtechnologies.com (GCP instance, on-demand)
 

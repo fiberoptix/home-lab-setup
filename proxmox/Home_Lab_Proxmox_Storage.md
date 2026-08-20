@@ -236,6 +236,27 @@ Resulting layout, with PVE creating `dump/` inside each:
 Currently defined: `nas-gitlab` (VM 181), `nas-docker-swarm-1/2/3` (VMs 191/192/193, added Aug 13 2026,
 `keep-last=3`).
 
+🚨 **A defined storage is NOT a scheduled backup — the two lists differ.** As of Aug 20 2026 exactly **one
+`vzdump` job** exists: `gitlab-nightly` (181, 02:00, keep 7). The three swarm storages hold **one
+hand-made dump each and have no schedule.** Check `/etc/pve/jobs.cfg`, not `pvesm status`. Stagger any
+new job — GitLab's run takes minutes and writes ~14 GB.
+
+📌 **Andrew's ruling, Aug 20 2026: QA (VM 180) gets NO backup.** A `nas-docker-qa` storage and nightly job
+were built, proven with a real 10.66 GB archive, then **torn down the same day** — storage, job,
+credential, archive and NAS folder all removed. ⭐ **The principle: QA is rebuilt by GitLab CI on every
+deploy, so it is a deploy target, not a data store. Only irreplaceable state earns a backup.**
+
+📊 **Sizing reference kept from that run (VM 180, measured Aug 20 2026):** a 100 GB provisioned disk with
+~15 GB used backed up live in `snapshot` mode in **2m20s** to a **10.66 GB** archive — **80% of the disk
+was zeros and was sparse-skipped.** Budget NAS space against *used* data, not provisioned size.
+
+⚠️ **Tearing a CIFS backup storage down leaves two cosmetic traps.** `pvesm free` clears the archive, log
+and notes, but PVE's `dump/` subdir remains, and **the client-side dentry cache lies about it** — `ls`
+and `find` reported a `dump` directory that `stat` and `rmdir` both said did not exist, and `rm -rf`
+failed with *Directory not empty*. A **fresh mount with `noserverino`** cleared it and the `rmdir`
+succeeded immediately. Afterwards the parent listing may still show the deleted folder as
+`d????????? ? ?` — that is a server-side enumeration remnant; `test -d` correctly reports it gone.
+
 ⚠️ **Gotcha that cost 20 minutes — and the real cause is the FILE FORMAT.**
 `/etc/pve/priv/storage/<id>.pw` is **not** a bare password. PVE writes a credentials-style body:
 

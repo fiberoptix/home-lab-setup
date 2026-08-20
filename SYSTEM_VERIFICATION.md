@@ -1,8 +1,21 @@
 # System Verification Report
 
+> ## ⛔ HISTORICAL SNAPSHOT — DO NOT TRUST THE NUMBERS BELOW
+>
+> This is a **point-in-time report from January 14, 2026**, deliberately left unedited. It was accurate
+> that day and is badly stale now. Known drift as of **August 20, 2026**:
+>
+> - The VM table is **missing 184, 186, 191, 192, 193** entirely, and still lists **VMID 200
+>   (`vm-kubernetes-1`)**, which was cloned to **VMID 180 (`vm-docker-qa-1`)** and stopped.
+> - GitLab shows **16 GB**; it is **24 GB** now. Several other RAM figures also grew.
+> - **185** was OpenClaw, then destroyed, and is being rebuilt as `vm-jenkins-1`.
+>
+> **`MEMORY.md` is the single live source of truth for VMs, IPs, and resources.** Read this file only
+> to see what was true in January 2026.
+
 **Date:** January 14, 2026  
 **Purpose:** Verify actual Proxmox configuration matches documentation  
-**Status:** ✅ VERIFIED - Documentation updated to match reality
+**Status:** ✅ VERIFIED as of the date above — ⛔ **now stale, see the banner**
 
 ---
 

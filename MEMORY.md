@@ -73,7 +73,7 @@ house failure mode. Do not do it.**
 
 | Touching this | Read this FIRST | You will be WRONG without it |
 |---|---|---|
-| 🟢 **Docker Swarm** (VMs .191–.193), the swarm CI pipeline, `education/docker-swarm/` | `phases/phase16_docker_swarm.md` (3272 ln — **grep it**) | **Hard rule B1: NEVER retag/push production Capricorn images.** All 7 parts done and all 7 planted traps CLOSED (C7 last, Aug 19) — do NOT "re-fix" them; the drills are spent and their write-ups are the value. **8 chapters**, the last being the Swarm↔k8s crib sheet, whose per-row **provenance marks (S / K / 🤖 / recited)** are the device to reuse for any future cross-track writing. Also holds the P-numbered prediction log **P1–P61**, ledger **L1–L23** (lab-vs-PROD compromises), and the `s01→s07` snapshot chain (⭐ **s07 is the first with the C4 fix; s06 predates it**) |
+| 🟢 **Docker Swarm** (VMs .191–.193), the swarm CI pipeline, `education/docker-swarm/` | `phases/phase16_docker_swarm.md` (**4137 ln — grep it, never read it whole**) | **Hard rule B1: NEVER retag/push production Capricorn images.** All 7 parts done and all 7 planted traps CLOSED (C7 last, Aug 19) — do NOT "re-fix" them; the drills are spent and their write-ups are the value. **8 chapters**, the last being the Swarm↔k8s crib sheet, whose per-row **provenance marks (S / K / 🤖 / recited)** are the device to reuse for any future cross-track writing. Also holds the P-numbered prediction log **P1–P61**, ledger **L1–L23** (lab-vs-PROD compromises), and the `s01→s07` snapshot chain (⭐ **s07 is the first with the C4 fix; s06 predates it**) |
 | 🔵 **Jenkins (VM 185 `.185`), the Jenkins↔GitLab↔Swarm pipeline, `education/jenkins/`** | `phases/phase17_jenkins.md` | ⭐ **Weighting is Andrew's and is NOT Phase 16's:** install + configure + wire it up, and above all **Part 6 — bad deployments and recovery — is the centre of gravity.** The Phase 16 security charter is **Part 7 and secondary**; it is also **scoped** — only L21, L22, L12(partial) and the agent's privilege are in scope, because L1/L2/L3 are registry/Swarm work Jenkins cannot fix. 🎭 The phase is written as a **firm-supplied build standard**, so every spec line is marked 🔧 MECHANICS (rely on it) or 📐 CONVENTION (an AI invention standing in for the firm — **never quote it as what their firm does**). **8 planted traps T1–T8, do-not-fix before they fire**; T7 (a pinned, keystore-held key that still grants a full shell) fires *after* the deploy looks hardened. **A1/A2 settled: bookmark `http://192.168.1.185:8080/`, no DNS, no TLS.** No TLS is ledger row **J1** (accepted knowingly — a CI session cookie is a credential to everything Jenkins can deploy). **No DNS is cosmetic *because the address is static*** — the cost only appears if `.185` moves, when five things need hand-editing (Jenkins URL, webhook, OAuth redirect, agent, bookmark); in a chapter that is a Lab-vs-PROD **table row, not a callout**, per CONVENTIONS' "wrong, not merely smaller" threshold. ⚠️ **T8 is NOT caused by skipping DNS** (the plan misattributed it once): GitLab blocks webhooks by **resolved address**, so a hostname on `192.168.1.185` is blocked identically. Hard rule: **Jenkins deploys the stack `capricorn-jenkins`, NEVER `capricorn`** — the Phase 16 GitLab pipeline stays alive as the comparison |
 | 🔵 **Any education track / chapter / diagram / docx** | `education/CONVENTIONS.md` + `education/METHOD.md` + that track's `README.md` | Figures must clear a **10pt** floor (`figcheck.py`) and raw aspect ratio sets rendered font size; the highlight pass targets **~20%** (raised from 15% Aug 19, 2026) measured **per section, not per chapter**, and a **top-up pass with a list of only-unmarked phrases is the normal workflow** — the old "never re-run `highlight.py`" rule applies solely to re-running the SAME list; chapter H1 format is fixed. Inventing a format per track is explicitly forbidden. 🚨 **Two traps you will otherwise walk into, both now IN `CONVENTIONS.md` (moved out of this file Aug 19, 2026): (a) a rebuild rewrites EVERY `.docx` via zip timestamps, so commit the one you changed and `git checkout` the rest or the track's history becomes unreviewable; (b) the highlight pass SKIPS tables and code blocks, so a load-bearing fact in a table cell is invisible to a highlights-only reader — restate it in prose.** ⚠️ **This row replaced ~200 lines that summarised `CONVENTIONS.md`/`METHOD.md` here.** Do not re-summarise them — read them; `CURSOR_RULES` already makes both mandatory before touching study material |
 | **k3s / Redpanda / OpenSearch** (VM 186) | `phases/phase14_k8s_redpanda_poc.md` (878 ln) | Phase CLOSED. Paths moved to `education/k8s-k3s-redpanda/` Aug 12 — older references are stale. Holds the quorum/leaderless alerting findings |
@@ -86,11 +86,16 @@ house failure mode. Do not do it.**
 | **SonarQube** | `phases/phase6_sonarqube.md` (625 ln) | — |
 | **OpenClaw agent (.185)** | `phases/phase11_openclaw.md` (404 ln) | ⛔ **VM DESTROYED Aug 19, 2026 — totally gone, no backup, no snapshot.** The file is history only; VMID 185 + `.185` now belong to **Jenkins** (Phase 17) |
 
-⚠️ **`phases/current_phase.md` is the session log, and it is LARGE (3505 lines, 8+ stacked handoffs).**
-Read the **`▶️ RESUME HERE` block** for state and next steps — it runs from the top down to the first
-`## 🎯 SESSION HANDOFF` heading (`rg -n '^## ' phases/current_phase.md` locates the boundary; do not
-trust a line count, it drifts). Read below that line ONLY to answer a specific question about a past
+⚠️ **`phases/current_phase.md` is the session log (3011 lines).** Read the **`▶️ RESUME HERE` block**
+for state and next steps; `rg -n '^## ' phases/current_phase.md` maps it — **never trust a line number,
+they drift every session.** Read below that block ONLY to answer a specific question about a past
 session. The rest is history the phase files also carry.
+
+📉 **Aug 20, 2026 — the eight stacked Phase 16 handoffs (786 lines) were DEMOTED** verbatim into
+`phase16_docker_swarm.md` → *SESSION HANDOFFS*, taking this file **3797 → 3011**. Copy-then-verify-then-
+delete; all 781 removed content lines were confirmed present in the phase file before deletion.
+⭐ **The rule that made it necessary and is easy to let slide: `current_phase.md` holds ONE handoff.**
+It had been accumulating them since Aug 13. **When you write a new handoff, move the old one out.**
 
 ---
 
@@ -978,10 +983,34 @@ session. The rest is history the phase files also carry.
     (`--subdir /ProxmoxBackups/<vm-name>`) because PVE dumps everything into a single `dump/` per
     storage. Defined: `nas-gitlab` (181), `nas-docker-swarm-1/2/3` (191/192/193, `keep-last=3`).
     Full recipe + gotchas in `proxmox/Home_Lab_Proxmox_Storage.md` → *Backup Strategy*.
-    - 🚨 **`/etc/pve/priv/storage/<id>.pw` is `password=<value>` + newline, NOT a bare password.**
-      A 9-char password = 19 bytes on disk. Pre-placing a bare password is malformed and `pvesm add`
-      then fails `NT_STATUS_LOGON_FAILURE` — an auth-shaped error for a format problem. **Pass
-      `--password` and let PVE write it.**
+    - 🚨 **SCHEDULED jobs are much rarer than storages — as of Aug 20, 2026 there is exactly ONE:**
+      `gitlab-nightly` (181, 02:00, keep 7). **A defined storage is NOT a backup.** 191/192/193 each
+      hold **one hand-made dump from Aug 13 and have no schedule**, and **180, 184 (WWW/PROD), 186,
+      and 9000 have no backup at all.** Don't infer coverage from `pvesm status`; read
+      `/etc/pve/jobs.cfg`.
+    - 📌 **RULING (Andrew, Aug 20, 2026) — VM 180 (QA) is deliberately NOT backed up.** A
+      `nas-docker-qa` storage + nightly job were built and a 10.66 GB archive proven, then **removed
+      the same day on his instruction.** ⭐ **The reasoning generalises: QA is rebuildable from GitLab
+      CI, so it is a deploy target, not a data store — only irreplaceable state earns a backup.**
+      Do not "helpfully" re-add it.
+    - 📊 **Sizing datapoint kept from that one run** (VM 180, 100 GB disk, ~15 GB used): live
+      `snapshot` mode with the guest agent took **2m20s** for a **10.66 GB** archive — **80% of the
+      disk was zeros** and sparse-skipped. Archive size tracks *used* data, not provisioned size.
+    - 🚨🚨 **`/etc/pve/priv/storage/<id>.pw` is `password=<value>` + newline, NOT a bare password.
+      THIS HAS NOW BURNED TWO SEPARATE SESSIONS (Jul 2026 and Aug 20, 2026). Read it before you
+      touch NAS auth.** A 9-char password = 19 bytes on disk. Two distinct failures come from the
+      same misread:
+      - **Writing it:** pre-placing a bare password is malformed, and `pvesm add` fails
+        `NT_STATUS_LOGON_FAILURE` — an auth-shaped error for a format problem. **Pass `--password`
+        and let PVE write the file.**
+      - **Reading it:** `mount -t cifs ... -o password=$(cat …pw)` sends the literal string
+        `password=Powerme!1` and returns **`mount error(13) Permission denied`**, which looks exactly
+        like a NAS ACL problem. **Type the real password from `PASSWORDS.md` instead.**
+      ⭐ **The distilled lesson, which is why this keeps happening: A BYTE COUNT IS NOT A VALUE.**
+      Both sessions inferred the password's length from `wc -c` and never opened the file.
+      ⚠️ **And stop after 3–4 failed SMB auth attempts** — Synology-style auto-block trips near five
+      and would blackhole the Proxmox host, killing the nightly GitLab backup and every guest's
+      `/mnt/DevShare`.
     - ⚠️ **`pvesm set --password` needs `--username` in the same call** even when the config already
       has one, or it warns `no user set` and writes an EMPTY password.
     - ⚠️ **The `subdir` must exist on the NAS first**; PVE will not create it, and it cannot be
@@ -1089,7 +1118,7 @@ session. The rest is history the phase files also carry.
 | Host | IP | Status |
 |------|-----|--------|
 | Proxmox | .150 | ✅ Running — `ssh root@192.168.1.150`, key auth ✅ (via `authorized_keys2`, Aug 12 2026) |
-| **QA** | **.180** | ✅ LIVE — ⚠️ **hostname `vm-kubernetes-1` is a MISNOMER: there is NO Kubernetes on it.** It is the **Capricorn QA server** (`:5001`, auto-deploy on `develop` push). Andrew confirmed the naming error Aug 19, 2026. ⛔ **The only Kubernetes in this lab is k3s on VM 186** — do not go looking for a cluster here |
+| **QA** | **.180** | ✅ LIVE — **VMID 180, hostname `vm-docker-qa-1`** as of Aug 20, 2026. **Capricorn QA server** (`:5001` frontend, `:5002` backend, auto-deploy on `develop` push), plain `docker compose` — NOT Swarm. ⛔ **The only Kubernetes in this lab is k3s on VM 186.** The old misnamed `vm-kubernetes-1` (VMID 200) was cloned to this one and is now **stopped, `onboot 0`, awaiting destroy after ~Sept 3, 2026** |
 | GitLab | .181 | ✅ LIVE |
 | Runner | .182 | ✅ LIVE (gitlab-runner-1) |
 | SonarQube | .183 | ✅ LIVE (vm-sonarqube-1, v26.1.0) |
@@ -1140,7 +1169,7 @@ password as fallback, and **password-only** access from any other machine (lapto
 | Target | User | Key auth from dev box (.195) | Password fallback | From remote tailnet |
 |---|---|---|---|---|
 | **.150 pve** | `root` | ✅ (`authorized_keys2`) | ✅ | ✅ direct, it *is* the tailnet node |
-| **.180 vm-kubernetes-1** | `agamache` | ✅ | ✅ | ✅ via subnet route |
+| **.180 vm-docker-qa-1** | `agamache` | ✅ | ✅ | ✅ via subnet route — **the Aug 20 clone kept the same SSH host keys, so `known_hosts` did NOT need clearing** |
 | **.181 vm-gitlab-1** | `agamache` | ✅ | ✅ | ✅ via subnet route |
 | **.182 vm-gitrun-1** | `agamache` | ✅ | ✅ | ✅ via subnet route |
 | **.183 vm-sonarqube-1** | `agamache` | ✅ | ✅ | ✅ via subnet route |
@@ -1460,9 +1489,36 @@ wget http://192.168.1.195/scripts/host_setup.sh && chmod +x host_setup.sh && ./h
 # - Or use cache=writeback with aio=threads (default, but higher CPU)
 ```
 
+### 🚨 AUTOSTART POLICY (Andrew, Aug 20, 2026) — only FIVE VMs come back after a host reboot
+**`onboot 1`: 180, 181, 182, 183, 184. Everything else is `onboot 0` and starts by hand** — that means
+**186 (k3s POC) and 191/192/193 (the Docker Swarm)**, all four flipped from `1` to `0` on Aug 20, plus
+200 (retired) and 9000 (template, never set). Rule of thumb: **the always-on service tier autostarts;
+lab/POC gear does not.**
+
+**Boot ORDER, set the same day** (`qm set <id> --startup order=N,up=S`; `up` = seconds to wait *after*
+starting that VM before continuing):
+
+| Order | VMs | Delay after |
+|---|---|---|
+| 1 | **181 GitLab** | `up=60` — everything else that talks to it gets a head start |
+| 2 | **182 Runner, 183 SonarQube** | `up=10` each |
+| 3 | **180 QA, 184 WWW** | — |
+
+⚠️ **Consequence: 184 (public site) now waits ~80 s longer after a host boot than it used to**, because
+it sits behind GitLab's delay. It has no actual dependency on GitLab — **if that ever matters, move it
+with `qm set 184 --startup order=1`.** ✅ **No HA resources and no cluster exist, so `onboot` is the sole
+authority** — nothing can restart a guest behind your back.
+
+⚠️ **Operational consequence, do not be surprised by it: after any host reboot the Swarm is DOWN.**
+Phase 17 deploys Jenkins → Swarm, so `qm start 191 192 193` (and let the cluster converge) is a
+**prerequisite step for that work**, not an afterthought. Same for 186 before any k3s work.
+📌 Jenkins (185) is not built yet — **decide its `onboot` when it is**; as always-on CI it belongs in
+the autostart tier.
+
 ### Current VMs (Last verified Feb 20, 2026)
 | VM | CPU | RAM | Disk | Storage | Config |
 |----|-----|-----|------|---------|--------|
+| **180 - QA** (`vm-docker-qa-1`, IP `.180`) | 8 cores | 12 GB | 100 GB | vm-ephemeral | ✅ Standard — **full clone of the old VMID 200, Aug 20, 2026.** VMID now matches the IP like every other VM. Only ~15 GB of the 100 GB is actually used |
 | **181 - GitLab** | 8 cores | 24 GB | 500 GB | vm-critical | ✅ Standard |
 | **182 - Runner** | 8 cores | 12 GB | 100 GB | vm-ephemeral | ✅ Standard |
 | **183 - SonarQube** | 4 cores | 12 GB | 30 GB | vm-critical | ✅ Standard |
@@ -1472,14 +1528,15 @@ wget http://192.168.1.195/scripts/host_setup.sh && chmod +x host_setup.sh && ./h
 | **191 - docker-swarm-1** | 2 cores | 4 GB | 40 GB | vm-ephemeral | ✅ Standard (template 9000) — **built Aug 13, 2026, Phase 16** |
 | **192 - docker-swarm-2** | 2 cores | 4 GB | 40 GB | vm-ephemeral | ✅ Standard (template 9000) — **built Aug 13, 2026, Phase 16** |
 | **193 - docker-swarm-3** | 2 cores | 4 GB | 40 GB | vm-ephemeral | ✅ Standard (template 9000) — **built Aug 13, 2026, Phase 16** |
-| **200 - QA** (IP **`.180`**, hostname `vm-kubernetes-1`) | 8 cores | 12 GB | 100 GB | vm-ephemeral | ✅ Standard — ⚠️ **the VMID (200) does NOT match the IP (.180), and the hostname says Kubernetes while the box runs Capricorn QA.** Both are historical naming errors, confirmed by Andrew Aug 19, 2026. Every other VM follows `18x → .18x` |
+| ~~**200 - QA**~~ (old `vm-kubernetes-1`) | ~~8 cores~~ | ~~12 GB~~ | ~~100 GB~~ | ~~vm-ephemeral~~ | 🟡 **STOPPED + `onboot 0` Aug 20, 2026 — kept as the rollback for VM 180 until ~Sept 3, 2026, then destroy.** Its VMID never matched its IP (.180) and its hostname claimed Kubernetes it never ran; both were fixed by cloning to 180. **Consumes disk only, no RAM/CPU, while stopped.** ⚠️ Its `pre-clone-20260820` snapshot still records `onboot: 1` — a rollback would re-arm autostart and collide with .180 |
 | **9000 - TEMPLATE** | 2 cores | 2 GB | 3.5 GB | vm-ephemeral | 📀 `tmpl-ubuntu-2404-cloudinit` |
 
 ### RAM Allocation Strategy
 - **GitLab:** 24 GB (memory-hungry, upgraded from 16 GB)
 - **SonarQube:** 12 GB (upgraded from 8 GB for large project scans)
 - **Runner:** 12 GB (upgraded from 8 GB)
-- **QA (`.180`, VMID 200, hostname `vm-kubernetes-1` — a misnomer, no Kubernetes on it):** 12 GB (upgraded from 8 GB)
+- **QA (`.180`, VMID 180, `vm-docker-qa-1`):** 12 GB (upgraded from 8 GB). **Old VMID 200 is stopped, so
+  this 12 GB is counted once, not twice** — a stopped VM reserves no RAM.
 - **WWW:** 8 GB (Traefik + Capricorn PROD + splash)
 - **~~OpenClaw:~~ 0 GB** — ⛔ **VM 185 destroyed Aug 19, 2026. The 16 GB and 12 cores are actually free
   now, not merely idle.** Phase 17's `vm-jenkins-1` takes 8 GB / 4 vCPU of it, so the lab **nets 8 GB
@@ -1563,6 +1620,32 @@ virt-cat -a /dev/zvol/vm-ephemeral/base-9000-disk-0 /etc/machine-id | wc -c     
 > an identical machine-id** — the exact identity collision the template exists to prevent.
 > Always finish with `--truncate /etc/machine-id` and verify it reads 0 bytes.
 > The `@__base__` snapshot on the template zvol is PVE's own marker — leave it alone.
+
+### 🔁 CLONING AN EXISTING VM (not the template) — proven Aug 20, 2026 doing 200 → 180
+
+🚨 **Proxmox CANNOT re-number a VM in place. "Renumbering" is always a clone**, so treat it as a
+copy-and-validate job, not an edit. A full clone of a 100 GB zvol with ~15 GB used took **23 seconds**.
+
+⛔ **The dangerous part is not the clone, it is the two machines afterwards.** Checklist that worked:
+
+1. ⚠️ **If the source has no cloud-init drive, its IP is STATIC INSIDE THE GUEST — the clone claims the
+   same address.** Set **`onboot 0` on the original before anything else.** This is load-bearing, not
+   tidiness: without it, one host reboot starts both and they fight over the IP.
+2. 🚨 **A snapshot stores `onboot` too.** The original's pre-clone snapshot still says `onboot: 1`, so
+   **a rollback silently re-arms autostart.** `qm config <id>` shows live; `qm config <id> --snapshot
+   <name>` shows the snapshot. Reading the raw `<id>.conf` shows *both* and is easy to misread.
+3. ✅ **Netplan here matches on interface NAME (`ens18`), not MAC**, so the clone's new MAC did not
+   break networking. ⭐ **The escape hatch if it ever does: `agent: enabled=1` means `qm guest exec`
+   works over virtio-serial with NO network at all.** Check the agent is enabled *before* you boot a
+   clone you might not be able to reach.
+4. ✅ **A clone keeps the source's SSH host keys**, so if the IP is unchanged, `known_hosts` needs no
+   clearing anywhere.
+5. ✅ **`refresh.sh` targets hosts by IP, not VMID**, so re-numbering is invisible to it — only its
+   comment needed fixing. Check the same before assuming any script cares.
+6. **Fix `/etc/fstab` BEFORE cloning** so both copies inherit it. Any network mount needs `nofail`.
+   ⭐ **Verify the fix on the generated unit, not the fstab line:** `systemctl show <unit> -p RequiredBy
+   -p WantedBy` must show **`RequiredBy=` empty** — that is what proves a dead NAS can no longer
+   block boot.
 
 **Validating a template change:** clone to a throwaway VMID, boot, test, `qm destroy --purge`.
 Takes ~40 seconds and is the only real proof. Done for the password-auth change: fresh clone

@@ -4,6 +4,12 @@
 (Sole exception if Andrew explicitly authorises a one-time edit. Ask for written approval. Do not edit
 this file again without the same explicit, in-writing approval.)
 
+EDIT LOG (every authorised change to this file, so the count is visible):
+  1. Aug 12, 2026 - CONVENTIONS.md added as a mandatory read (checklist item 2f).
+  2. Aug 13, 2026 - BACKUP DIRECTIVE pointer; METHOD.md wired in (item 2g, rules 1b/2/8).
+  3. Aug 19, 2026 - checklist item 2 rewritten for load-before-touch context loading.
+  4. Aug 19, 2026 - push order flipped to GitLab FIRST, with the reason recorded (see git routing).
+
 Project: home-lab-setup - Building Proxmox VE DevOps/QA Environment
 
 Hardware: Proxmox host is HP Z6 G4 (single Xeon Platinum 8168 24c/48t, 128GB RAM, 6x NVMe ZFS, Intel VMD)
@@ -174,7 +180,15 @@ RULES (CRITICAL):
 2. BEFORE pushing, ALWAYS ASK: "Push to GitHub, GitLab, or both?" Then push only where told:
    - GitHub only (PUBLIC, curated 'main'):   ./push_github.sh
    - GitLab only (PRIVATE, full mirror):     ./push_gitlab.sh "message"
-   - Both:                                    run both explicitly, GitHub first
+   - Both:                                    run both explicitly, GitLab FIRST
+     WHY GitLab first (was "GitHub first" until Aug 19, 2026; flipped at Andrew's instruction):
+       GitLab is the PRIMARY repo and the only complete copy of the project, including the ignored
+       secret files. Back it up BEFORE running the push that cannot be taken back. A bad private
+       snapshot is superseded by the next one; a secret that reaches PUBLIC GitHub is disclosed the
+       instant it lands, and push_github.sh's gates are a filter, not a guarantee. Do the recoverable
+       thing first and the irreversible thing second.
+       (The only argument for the old order was cosmetic: push_gitlab.sh stamps each snapshot with
+        `main @ <sha>`, so GitHub-first made that sha publicly resolvable. Tidiness, not safety.)
    Preview either with --dry-run first. push_github.sh will ask for typed confirmation;
    it REFUSES to push unattended unless given --yes.
 3. GitHub (public) must NEVER contain sensitive information. There is no encryption — safety
