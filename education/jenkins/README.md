@@ -31,11 +31,13 @@ to a first week on a real platform than a greenfield tutorial is.
 🚨 **It also creates a hazard that the phase file manages explicitly.** Every specification line in
 the plan is marked either 🔧 **MECHANICS** (how Jenkins actually works — rely on it) or 📐
 **CONVENTION** (an AI invention standing in for a firm's house style). **Nothing marked 📐 should ever
-be quoted as "how a real firm does it."** Both chapters so far contain a worked example of why the
+be quoted as "how a real firm does it."** Every chapter so far contains a worked example of why the
 distinction matters. In Chapter 1 the standard's own plugin list omitted a plugin that the standard's
 own agent requirement depends on. In Chapter 2 the standard specified a break-glass account that
 **Jenkins' mechanics make impossible** — a 📐 convention written in confident prose, resting on a 🔧
-mechanic nobody had checked. 🚨 **Neither error announced itself; both had to be measured.**
+mechanic nobody had checked. In Chapter 3 it happened a **third** time: the standard required a
+webhook trigger, and **no plugin on its own list can provide one for the job type it also specified.**
+🚨 **None of the three announced itself; all three had to be measured.**
 
 ---
 
@@ -49,11 +51,12 @@ comparison both come from it — but it is not required for Chapter 1.
 |---|---|---|---|
 | 01 | [The controller and the agent](chapter01_the_controller_and_the_agent.md) | Why the controller runs zero builds; **three sources that disagreed about the install** — an expired signing key whose unversioned filename is the *oldest*, and a package that does not declare Java and so installs cleanly and cannot start; six plugin choices that became 73 plugins, and the plugin whose name says it does the thing it does not do; SSH vs inbound agents and which failure modes each buys; ⭐ **proving the split with a build that could not run**; the two privilege planes, and what the agent can still read | ✅ Written |
 | 02 | [Identity, authorization, and break-glass](chapter02_identity_authorization_breakglass.md) | Two questions — *who are you* and *what may you do* — answered by **two slots that each hold exactly one value**, and the fallback that therefore does not exist; the build standard's own break-glass plan, and why it was wrong; ⭐ **a lockout drill that could not fire, twice**, and a save that succeeded at something that never happened; why the lockout moved to upgrade time; the break-glass runbook, ⚠️ **written and not rehearsed**, and why the internet's version of it is the destructive one; the **third** privilege plane, which none of this touches | ✅ Written |
+| 03 | [Wiring it to GitLab](chapter03_wiring_it_to_gitlab.md) | Why "wire A to B" is **two links that share nothing but the hostnames**, and each broke separately; proving a deploy key is read-only somewhere other than the checkbox, and when a scoped credential buys nothing at all; host keys pinned from the server's own disk — and ⭐ **the vendor default that was stricter than our own script**; Script Path vs a fixed root, and what Jenkins moves out of the repo; a webhook trap the vendor had already closed, and the half of its lesson that survives; **two fields called "token"**, neither aware of the other; 🅒 **the checkout that copied the vault onto two machines**, one of which nobody planned; ⭐ **four screens that reported something untrue**, and which surface to believe instead | ✅ Written |
 
 Chapters are written after the work they describe, so this table fills in **behind** the build rather
-than ahead of it. The remaining arc — webhooks and pipeline-as-code, deploying to the Swarm, building
-and pushing images, then a run of deliberate bad deployments and recoveries, then hardening and
-operations — is planned in the phase file. ⚠️ **The chapter count there is an estimate and not a contract**; Phase 16 planned
+than ahead of it. The remaining arc — deploying to the Swarm, building and pushing images, then a run
+of deliberate bad deployments and recoveries, then hardening and operations — is planned in the phase
+file. ⚠️ **The chapter count there is an estimate and not a contract**; Phase 16 planned
 seven parts and produced eight chapters that did not map one-to-one.
 
 🙋 **Andrew ran every command in this track at the keyboard**, one step at a time, including the whole
@@ -99,10 +102,13 @@ ledger"*); this index maps each row to where it is taught.
 
 | Row | Compromise | Taught in |
 |---|---|---|
-| **J1** | The Jenkins web UI is plain HTTP — password and session cookie cross the LAN in cleartext | Chapter 1 §2 |
+| **J1** | The Jenkins web UI is plain HTTP — password and session cookie cross the LAN in cleartext | Chapter 1 §2, and again in Chapter 3 §5 where the trigger token rides in a cleartext **URL** |
 | **J2** | The build agent is the controller's own VM — privilege boundary real, isolation boundary absent | Chapter 1 §7 |
+| **J4** | One long-lived agent whose **workspace persists between builds** — the concrete difference from Phase 16's fresh container per job | Chapter 3 §6 |
 | **J5** | Jenkins' own user database is the security realm — no central identity, and therefore no central offboarding | Chapter 2 §2 |
 | **J6** | The break-glass procedure is recorded and has never been rehearsed | Chapter 2 §6 |
+| **J7** | Git host keys are **pinned by hand**, which is a real pin and does not scale | Chapter 3 §3 |
+| **J8** | 🚨 The repository Jenkins clones **contains plaintext credentials**, so every clone is a copy of the vault | Chapter 3 §6 |
 
 ---
 

@@ -1,0 +1,59 @@
+// Jenkins ch03 fig1 — one integration, two independent links.
+// Rendered: dot -Tpng -Gdpi=150 ch03_fig1_two_links.dot -o ../images/ch03_fig1_two_links.png
+// Keep width <= 1155px at 150dpi and smallest type >= 10pt (education/tools/figcheck.py).
+//
+// An LR draft with the link detail as EDGE LABELS came out 1790px wide and made Graphviz's
+// path router fail. Carrying the detail in ranked boxes instead controls the width; the two
+// upward arrows are ordinary edges drawn with dir=back.
+
+digraph two_links {
+    rankdir=TB;
+    graph [fontname="Helvetica", fontsize=13, margin=0.12, nodesep=0.40, ranksep=0.45];
+    node  [fontname="Helvetica", fontsize=12, shape=box, style="filled,rounded", penwidth=1.1];
+    edge  [fontname="Helvetica", fontsize=11, penwidth=1.5];
+
+    jenkins [fillcolor="#DDEBF7", color="#2E75B6", label=<
+<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="2">
+<TR><TD ALIGN="LEFT"><B>JENKINS &#183; 192.168.1.185</B> &#8212; controller 0 executors, agent uid 1001</TD></TR>
+</TABLE>>];
+
+    gitlab [fillcolor="#E2EFDA", color="#548235", label=<
+<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="2">
+<TR><TD ALIGN="LEFT"><B>GITLAB &#183; 192.168.1.181</B> &#8212; production/home-lab-setup, PRIVATE</TD></TR>
+</TABLE>>];
+
+    clone [fillcolor="#DDEBF7", color="#2E75B6", label=<
+<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="2">
+<TR><TD ALIGN="LEFT"><B>1. CLONE &#8212; Jenkins dials out</B></TD></TR>
+<TR><TD ALIGN="LEFT"><FONT POINT-SIZE="11">SSH, port 22</FONT></TD></TR>
+<TR><TD ALIGN="LEFT"><FONT POINT-SIZE="11">read-only deploy key, can_push=f</FONT></TD></TR>
+<TR><TD ALIGN="LEFT"><FONT POINT-SIZE="11">host key PINNED</FONT></TD></TR>
+<TR><TD ALIGN="LEFT"><B><FONT POINT-SIZE="11">default: fails closed</FONT></B></TD></TR>
+</TABLE>>];
+
+    trigger [fillcolor="#FCE4E4", color="#C00000", label=<
+<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="2">
+<TR><TD ALIGN="LEFT"><B>2. TRIGGER &#8212; GitLab dials out</B></TD></TR>
+<TR><TD ALIGN="LEFT"><FONT POINT-SIZE="11">HTTP, port 8080, cleartext</FONT></TD></TR>
+<TR><TD ALIGN="LEFT"><FONT POINT-SIZE="11">/git/notifyCommit?url=&#8230;&amp;token=&#8230;</FONT></TD></TR>
+<TR><TD ALIGN="LEFT"><FONT POINT-SIZE="11">GitLab allow-list: 192.168.1.185:8080</FONT></TD></TR>
+<TR><TD ALIGN="LEFT"><B><FONT POINT-SIZE="11">token rides in the URL</FONT></B></TD></TR>
+</TABLE>>];
+
+    note [shape=note, fillcolor="#FFF2CC", color="#BF8F00", label=<
+<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="2">
+<TR><TD ALIGN="LEFT"><B>Two links, not one &#8212; different direction, protocol,</B></TD></TR>
+<TR><TD ALIGN="LEFT"><B>credential and failure mode.</B></TD></TR>
+<TR><TD ALIGN="LEFT"><FONT POINT-SIZE="11">Securing one says nothing about the other, and each</FONT></TD></TR>
+<TR><TD ALIGN="LEFT"><FONT POINT-SIZE="11">broke separately for unrelated reasons.</FONT></TD></TR>
+</TABLE>>];
+
+    jenkins -> clone   [color="#2E75B6"];
+    clone   -> gitlab  [color="#2E75B6"];
+    jenkins -> trigger [color="#C00000", dir=back];
+    trigger -> gitlab  [color="#C00000", dir=back];
+
+    { rank=same; clone; trigger; }
+
+    gitlab -> note [style=invis];
+}

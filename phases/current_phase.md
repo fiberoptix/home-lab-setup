@@ -285,9 +285,15 @@ missing five VMs and understates GitLab's RAM. Historical phase files 2/4/5/7 le
 ## ▶️ RESUME HERE — 🔵 PHASE 17 (JENKINS): **Parts 0–3 are DONE (Aug 20, 2026). Next is Part 4 — deploy to the Swarm.**
 
 ✅ **A `git push` to `production/home-lab-setup` now builds Jenkins unattended** (Part 3 closed
-~7:12 PM, write-up **J-P10**, snapshot `j03-gitlab-wired` verified). ⏳ **Chapters 1 and 2 are
-written; Chapter 3 is owed.** ⏳ **Trap T1 was deferred out of Part 3 into Part 4/5 — moved, not
-dropped.**
+~7:12 PM, write-up **J-P10**, snapshot `j03-gitlab-wired` verified). ✅ **Chapters 1, 2 and 3 are all
+written and built to DOCX — documentation is CAUGHT UP with the build for the first time this phase.**
+⏳ **Trap T1 was deferred out of Part 3 into Part 4/5 — moved, not dropped.**
+
+🆕 **Ledger rows J7 and J8 were added while writing Chapter 3** — compromises already taken but never
+recorded. **J8 is the important one:** 🚨 **the repo Jenkins clones contains plaintext credentials**,
+and it is a **live mirror**, not a stale copy — `PASSWORDS.md` in the workspace grew 14,854 → 16,781 B
+during the session, so ⭐ **the notifyCommit token was in it within the hour**. ⛔ **Still do not clean the
+workspace or the controller cache — Part 7 input.**
 
 🔻 **AND THE DELIVERY MODEL WAS REPLANNED at ~4:30 PM (log entry J-P7) — read that before Part 3.**
 Parts **4 and 5 are swapped** (deploy now precedes build), and there are two new hard rules, **B10**

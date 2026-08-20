@@ -1,0 +1,57 @@
+// Jenkins ch03 fig2 — T5: two copies of the repo on disk, and the single directory gating each.
+// Rendered: dot -Tpng -Gdpi=150 ch03_fig2_what_checkout_left.dot -o ../images/ch03_fig2_what_checkout_left.png
+// Keep width <= 1155px at 150dpi and smallest type >= 10pt (education/tools/figcheck.py).
+//
+// Deliberately NOT a table: the point is structural — two different kinds of work, done by two
+// different UIDs, each producing a copy, each fenced by exactly one parent directory.
+// A first draft carried the gates as their own rank of nodes and came out 1366px wide; folding
+// the gate text into the two boxes removed the rank and 211px with it.
+
+digraph what_checkout_left {
+    rankdir=TB;
+    graph [fontname="Helvetica", fontsize=13, margin=0.12, nodesep=0.40, ranksep=0.45];
+    node  [fontname="Helvetica", fontsize=12, shape=box, style="filled,rounded", penwidth=1.1];
+    edge  [fontname="Helvetica", fontsize=11, penwidth=1.4];
+
+    repo [fillcolor="#E2EFDA", color="#548235", label=<
+<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="2">
+<TR><TD ALIGN="LEFT"><B>production/home-lab-setup</B> &#8212; PRIVATE</TD></TR>
+<TR><TD ALIGN="LEFT"><FONT POINT-SIZE="11">PASSWORDS.md, github_credentials.md,</FONT></TD></TR>
+<TR><TD ALIGN="LEFT"><FONT POINT-SIZE="11">working/phase16/swarm_deploy_ed25519</FONT></TD></TR>
+</TABLE>>];
+
+    ctrl [fillcolor="#FCE4E4", color="#C00000", label=<
+<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="2">
+<TR><TD ALIGN="LEFT"><B>CONTROLLER, uid jenkins</B></TD></TR>
+<TR><TD ALIGN="LEFT"><FONT POINT-SIZE="11">caches/git-8444&#8230;</FONT></TD></TR>
+<TR><TD ALIGN="LEFT"><FONT POINT-SIZE="11">31 MB, mode 755</FONT></TD></TR>
+<TR><TD ALIGN="LEFT"><B><FONT POINT-SIZE="11">nobody planned this copy</FONT></B></TD></TR>
+<TR><TD ALIGN="LEFT"><FONT POINT-SIZE="11">gate: must be uid jenkins</FONT></TD></TR>
+</TABLE>>];
+
+    agent [fillcolor="#FCE4E4", color="#C00000", label=<
+<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="2">
+<TR><TD ALIGN="LEFT"><B>AGENT, uid 1001</B></TD></TR>
+<TR><TD ALIGN="LEFT"><FONT POINT-SIZE="11">workspace/home-lab-setup_main</FONT></TD></TR>
+<TR><TD ALIGN="LEFT"><FONT POINT-SIZE="11">50 MB, files mode 664</FONT></TD></TR>
+<TR><TD ALIGN="LEFT"><B><FONT POINT-SIZE="11">persists between builds</FONT></B></TD></TR>
+<TR><TD ALIGN="LEFT"><FONT POINT-SIZE="11">gate: parent dir is 750</FONT></TD></TR>
+</TABLE>>];
+
+    note [shape=note, fillcolor="#FFF2CC", color="#BF8F00", label=<
+<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="2">
+<TR><TD ALIGN="LEFT"><B>The deploy key was read-only, project-scoped,</B></TD></TR>
+<TR><TD ALIGN="LEFT"><B>pinned, and deleted from disk.</B></TD></TR>
+<TR><TD ALIGN="LEFT"><B>None of it helped.</B></TD></TR>
+<TR><TD ALIGN="LEFT"><FONT POINT-SIZE="11">0 executors stops BUILDS &#8212; and indexing</FONT></TD></TR>
+<TR><TD ALIGN="LEFT"><FONT POINT-SIZE="11">is not a build.</FONT></TD></TR>
+</TABLE>>];
+
+    repo -> ctrl  [color="#C00000", label=" branch\l indexing\l"];
+    repo -> agent [color="#C00000", label=" checkout\l scm\l"];
+
+    { rank=same; ctrl; agent; }
+    { rank=same; note; }
+
+    agent -> note [style=invis];
+}
