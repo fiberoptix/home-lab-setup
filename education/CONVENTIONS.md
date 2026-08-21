@@ -135,6 +135,42 @@ lesson — and then name the LESSON, not the application's private details** (An
 The phase file keeps the full detail as the working record. The chapter carries only what a reader who
 has never seen this application would still learn something from.
 
+### 🚨 A chapter is a PROCEDURE, not the story of the day you built it
+
+⭐ **Andrew, Aug 20, 2026**, after reading a draft and rejecting its shape: *"I'd like to be able to
+re-read this and fill MY context with success and warnings rather than re-read traps."*
+
+**Write the sequence that worked**, in the order it should be done:
+
+1. **Numbered steps**, each one a thing you actually do.
+2. **Every step ends with how to confirm it took effect** — and the confirmation should check
+   *something other than the screen used to make the change*. This is where a track earns its keep.
+3. **Tripping points are marked at the step, not collected at the end.** ⭐ **A warning is only useful
+   at the moment you could still act on it**; the same warning in a "problems we hit" appendix is
+   trivia.
+
+**Problems absolutely stay in** — they are most of the value. **Reframe them, do not remove them:**
+*"paste the whole public-key line, including the `ssh-ed25519` prefix — a bare base64 body looks right
+and is silently rejected"* is worth more than a retelling of the twenty minutes it cost, and it is
+worth more **at Step 1** than in a chapter-end postmortem.
+
+🚨 **Keep the track's internal pedagogy out of chapter prose.** Planted-trap identifiers, "this one
+could not fire", markers that only mean something to whoever planned the phase — **that machinery
+belongs in the phase file**, which is where the teaching is designed. The two documents have different
+jobs: the phase file records *how the material was produced*, the chapter is *the material*.
+
+⚠️ **The failure mode this rule exists to prevent is not tone — it is omission.** The Jenkins track's
+chapter 3 was first drafted as a narrative built around its planted traps, and **three real setup
+mistakes were missing from it** — a malformed key paste, an unclicked "Enter directly", and deleting a
+private key before confirming the credential had saved. All three had cost real time. **None of them
+fit the narrative's spine, so none of them were written down.** ⭐ **A framing that decides what counts
+as interesting will quietly filter your evidence**, which is the one thing "only document what you
+actually ran" cannot protect you from on its own.
+
+📌 A **conceptual** section before the steps is fine and often necessary — the shape of the thing, why
+it is built this way. **Reference sections after the steps are fine too.** It is the *middle* that
+should read as a runbook.
+
 ### ⭐ "Lab vs PROD" callouts
 
 The material is written in a home lab and read by someone working on an enterprise platform. **The

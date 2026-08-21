@@ -74,7 +74,7 @@ house failure mode. Do not do it.**
 | Touching this | Read this FIRST | You will be WRONG without it |
 |---|---|---|
 | 🟢 **Docker Swarm** (VMs .191–.193), the swarm CI pipeline, `education/docker-swarm/` | `phases/phase16_docker_swarm.md` (**4137 ln — grep it, never read it whole**) | **Hard rule B1: NEVER retag/push production Capricorn images.** All 7 parts done and all 7 planted traps CLOSED (C7 last, Aug 19) — do NOT "re-fix" them; the drills are spent and their write-ups are the value. **8 chapters**, the last being the Swarm↔k8s crib sheet, whose per-row **provenance marks (S / K / 🤖 / recited)** are the device to reuse for any future cross-track writing. Also holds the P-numbered prediction log **P1–P61**, ledger **L1–L23** (lab-vs-PROD compromises), and the `s01→s07` snapshot chain (⭐ **s07 is the first with the C4 fix; s06 predates it**) |
-| 🔵 **Jenkins (VM 185 `.185`), the Jenkins↔GitLab↔Swarm pipeline, `education/jenkins/`** | `phases/phase17_jenkins.md` | ⭐ **Weighting is Andrew's and is NOT Phase 16's:** install + configure + wire it up, and above all **Part 6 — bad deployments and recovery — is the centre of gravity.** The Phase 16 security charter is **Part 7 and secondary**; it is also **scoped** — only L21, L22, L12(partial) and the agent's privilege are in scope, because L1/L2/L3 are registry/Swarm work Jenkins cannot fix. 🎭 The phase is written as a **firm-supplied build standard**, so every spec line is marked 🔧 MECHANICS (rely on it) or 📐 CONVENTION (an AI invention standing in for the firm — **never quote it as what their firm does**). **8 planted traps T1–T8, do-not-fix before they fire**; T7 (a pinned, keystore-held key that still grants a full shell) fires *after* the deploy looks hardened. **A1/A2 settled: bookmark `http://192.168.1.185:8080/`, no DNS, no TLS.** No TLS is ledger row **J1** (accepted knowingly — a CI session cookie is a credential to everything Jenkins can deploy). **No DNS is cosmetic *because the address is static*** — the cost only appears if `.185` moves, when four things need hand-editing (Jenkins URL, webhook, agent, bookmark — the OAuth redirect is gone with A8); in a chapter that is a Lab-vs-PROD **table row, not a callout**, per CONVENTIONS' "wrong, not merely smaller" threshold. ⚠️ **T8 is NOT caused by skipping DNS** (the plan misattributed it once): GitLab blocks webhooks by **resolved address**, so a hostname on `192.168.1.185` is blocked identically. Two hard rules you cannot infer from the code: **Jenkins deploys the stack `capricorn-jenkins`, NEVER `capricorn`** (the Phase 16 GitLab pipeline stays alive as the comparison, and must be neutered rather than deleted if it is ever silenced), and 🚨 **B10 — Jenkins pushes images ONLY to the `lab` group, NEVER `production/*`, because QA `.180` and PROD `.184` pull `production/capricorn/<svc>:latest` and an overwrite there SHIPS TO PRODUCTION.** ⚠️ **Parts 4 and 5 were swapped Aug 20** — deploy precedes build so both CI systems ship identical artifacts; restoring the old order destroys the comparison |
+| 🔵 **Jenkins (VM 185 `.185`), the Jenkins↔GitLab↔Swarm pipeline, `education/jenkins/`** | `phases/phase17_jenkins.md` | ⭐ **Weighting is Andrew's and is NOT Phase 16's:** install + configure + wire it up, and above all **Part 6 — bad deployments and recovery — is the centre of gravity.** The Phase 16 security charter is **Part 7 and secondary**; it is also **scoped** — only L21, L22, L12(partial) and the agent's privilege are in scope, because L1/L2/L3 are registry/Swarm work Jenkins cannot fix. 🎭 The phase is written as a **firm-supplied build standard**, so every spec line is marked 🔧 MECHANICS (rely on it) or 📐 CONVENTION (an AI invention standing in for the firm — **never quote it as what their firm does**). **8 planted traps T1–T8, do-not-fix before they fire** — ⚠️ **but the plan has MOVED as of Aug 20: T5 and T8 have FIRED (J-P9/J-P10), T4 CANNOT fire because the vendor now requires the token, and T1 is deferred to Part 4/5. Read the Part 3 entry before assuming any trap is still pending**; T7 (a pinned, keystore-held key that still grants a full shell) fires *after* the deploy looks hardened. **A1/A2 settled: bookmark `http://192.168.1.185:8080/`, no DNS, no TLS.** No TLS is ledger row **J1** (accepted knowingly — a CI session cookie is a credential to everything Jenkins can deploy). **No DNS is cosmetic *because the address is static*** — the cost only appears if `.185` moves, when four things need hand-editing (Jenkins URL, webhook, agent, bookmark — the OAuth redirect is gone with A8); in a chapter that is a Lab-vs-PROD **table row, not a callout**, per CONVENTIONS' "wrong, not merely smaller" threshold. ⚠️ **T8 is NOT caused by skipping DNS** (the plan misattributed it once): GitLab blocks webhooks by **resolved address**, so a hostname on `192.168.1.185` is blocked identically. Two hard rules you cannot infer from the code: **Jenkins deploys the stack `capricorn-jenkins`, NEVER `capricorn`** (the Phase 16 GitLab pipeline stays alive as the comparison, and must be neutered rather than deleted if it is ever silenced), and 🚨 **B10 — Jenkins pushes images ONLY to the `lab` group, NEVER `production/*`, because QA `.180` and PROD `.184` pull `production/capricorn/<svc>:latest` and an overwrite there SHIPS TO PRODUCTION.** ⚠️ **Parts 4 and 5 were swapped Aug 20** — deploy precedes build so both CI systems ship identical artifacts; restoring the old order destroys the comparison |
 | 🔵 **Any education track / chapter / diagram / docx** | `education/CONVENTIONS.md` + `education/METHOD.md` + that track's `README.md` | Figures must clear a **10pt** floor (`figcheck.py`) and raw aspect ratio sets rendered font size; the highlight pass targets **~20%** (raised from 15% Aug 19, 2026) measured **per section, not per chapter**, and a **top-up pass with a list of only-unmarked phrases is the normal workflow** — the old "never re-run `highlight.py`" rule applies solely to re-running the SAME list; chapter H1 format is fixed. Inventing a format per track is explicitly forbidden. 🚨 **Two traps you will otherwise walk into, both now IN `CONVENTIONS.md` (moved out of this file Aug 19, 2026): (a) a rebuild rewrites EVERY `.docx` via zip timestamps, so commit the one you changed and `git checkout` the rest or the track's history becomes unreviewable; (b) the highlight pass SKIPS tables and code blocks, so a load-bearing fact in a table cell is invisible to a highlights-only reader — restate it in prose.** ⚠️ **This row replaced ~200 lines that summarised `CONVENTIONS.md`/`METHOD.md` here.** Do not re-summarise them — read them; `CURSOR_RULES` already makes both mandatory before touching study material |
 | **k3s / Redpanda / OpenSearch** (VM 186) | `phases/phase14_k8s_redpanda_poc.md` (1720 ln) | Phase CLOSED. 🚨 **`.186` is RUNNING and DELIBERATELY FROZEN** — `unattended-upgrades` masked, **not** in `refresh.sh`; do not patch it and **never** run `k3s-uninstall.sh` to "get a clean cluster". ⛔ **The Aug 20 verbatim demotion at the END of the file is the ONLY copy of ~40 findings** (local-path PV layout, `ALLOWVOLUMEEXPANSION=false`, the `Error:137` OOM signature, consumer-rebalance timings) — re-deriving them is days. ⚠️ **Paths moved to `education/k8s-k3s-redpanda/` Aug 12 — every `education/<x>` reference in the file's *CLOSING RECORD* section is PRE-MOVE and stale by design** (demoted verbatim from `current_phase.md` Aug 20, and editing it would have made the copy unverifiable). Holds the quorum/leaderless alerting findings |
 | **The `/education` tree itself** (moving, renaming, restructuring) **or any highlight pass** | `phases/phase15_education_program.md` (480 ln) | ⚠️ That file is a **RECORD, not a plan** — §3 is already executed and §1 describes the *pre-move* tree. **Re-running it would undo the current layout.** ⛔ **§8 is the highlight-pass method** and is not optional reading before marking a chapter: it holds the per-section measurement rule and the `**`-straddle bug that prints literal asterisks in the `.docx`. Marking from instinct reproduces both |
@@ -244,12 +244,27 @@ It had been accumulating since Aug 13. **When you write a new handoff, move the 
   ⚠️ Also **do not "tidy" these**: the `zz-executor-proof` job is a deliberate liveness probe,
   `credentials.xml` being world-readable and the agent having no `docker` access are **Part 5/7**
   material (T2 and the hardening charter), not oversights.
-  🔵 **PART 3 half done (Aug 20): the clone works, the webhook does not exist yet.** Multibranch job
+  ✅ **PART 3 IS DONE (Aug 20) — a `git push` builds Jenkins unattended.** Snapshot
+  **`j03-gitlab-wired`**. Multibranch job
   **`home-lab-setup`**, Script Path `education/jenkins/Jenkinsfile`, SSH URL, credential
   `gitlab-home-lab-setup-readonly` (username **`git`** — GitLab authenticates every SSH user as `git`).
   GitLab deploy key id=3, **`CAN_PUSH=false` verified in the DB**. ✅ **Host keys PINNED via *Manually
   provided keys*** (ed25519 + RSA, read off `.181`'s own `/etc/ssh/`, **not** trust-on-first-use) —
-  **charter item L22, paid early.**
+  **charter item L22, paid early.** Trigger = GitLab project hook →
+  `http://192.168.1.185:8080/git/notifyCommit?url=…&token=…` (token in `PASSWORDS.md`, SHA-256 hashed
+  in Jenkins, **in a query string over plain HTTP — a secret in a URL is a secret in a log**).
+  🚨 **Three prohibitions here you CANNOT infer from the config, each of which looks like the fix:**
+  ⛔ **Never fill GitLab's webhook "Secret token" field** — GitLab sends it as an `X-Gitlab-Token`
+  **header** and `notifyCommit` only ever reads a `token` **query parameter**, so filling it secures
+  **nothing while appearing to.** It is blank on purpose. ⛔ **Never tick GitLab's global "allow
+  requests to the local network"** — the correct fix is the outbound allow-list, which holds exactly
+  `{192.168.1.185:8080}` with the global flag still `f`; ticking the box opens the whole LAN.
+  ⛔ **Never set `NOTIFY_COMMIT_ACCESS_CONTROL=disabled`** to clear a 401 — the token is required by
+  design in git plugin 5.10.1 and disabling it reopens the endpoint to anything that can reach the port.
+  ⚠️ **Two trap-plan changes: T4 CANNOT FIRE as planted** (the vendor now requires that token, the
+  second vendor-closed trap after the matrix lockout) and 🔻 **T1 was DEFERRED to Part 4/5 by Andrew —
+  moved, not dropped.** ⚠️ **The build cause reads `Branch indexing`, never "GitLab"** — Jenkins does
+  not record who triggered it, so **build history is not an audit trail.**
   ⛔ **DO NOT DELETE the agent workspace `/home/jenkins-agent/agent/workspace/home-lab-setup_main/` or
   the controller cache `/var/lib/jenkins/caches/git-*`.** 🅒 **Trap T5 fired there (J-P9) and they are
   Chapter 3's evidence.** 🚨 **Both hold `PASSWORDS.md` and the plaintext Swarm key
@@ -264,18 +279,19 @@ It had been accumulating since Aug 13. **When you write a new handoff, move the 
   📐 **Registry = GitLab's own, standing in for the Artifactory his firm uses** (ledger J3 — same VM as
   the git server, plain HTTP, no scanning, no signing). ⭐ **The swap to a real artifact store is a
   hostname and a credential, not a redesign** — an OCI registry is an OCI registry.
-  📖 **Education track 3 opened: `education/jenkins/` — README + chapter 1 written Aug 20** (there is
-  deliberately **no chapter 0**; Part 0 is assumed plumbing, decision P1).
+  📖 **Education track 3: `education/jenkins/` — README + chapters 1, 2 and 3 written Aug 20**, all
+  built to DOCX (there is deliberately **no chapter 0**; Part 0 is assumed plumbing, decision P1).
+  📐 **DECISION A12 (Andrew, Aug 20) — now a rule for ALL tracks in `education/CONVENTIONS.md`:
+  a chapter is the BUILD PROCEDURE — numbered steps, each with how to CONFIRM it took effect, and
+  tripping points marked AT the step. ⛔ Trap bookkeeping (`T4`, 🅒, "the trap that could not fire")
+  stays in the phase file.** Chapter 3 was rewritten end-to-end to that shape the same evening.
   ⛔ **Part 0 step 1 is already DONE and is irreversible: VM 185 `vm-openclaw-1` was destroyed** on
   Andrew's instruction with **no backup and no snapshot** — see `phase11_openclaw.md` → "CLOSED". VMID
-  185 and `.185` are reassigned to `vm-jenkins-1`. ⭐ **Andrew's weighting: install + configure Jenkins,
-  wire it to GitLab and the Swarm, and above all LEARN TO FIX BAD DEPLOYMENTS** the way Phase 16 did on
-  GitLab CI — that is Part 6 and it is the centre of gravity. The Phase 16 hardening charter is **Part 7,
-  required but secondary**, and **scoped** to L21 + L22 + L12(partial) + agent privilege. 🎭 The phase
-  runs as a **firm-supplied build standard** (Andrew's framing) with every spec line marked 🔧 mechanics
-  or 📐 invented convention — a deliberate deviation from `METHOD.md` that gets folded back in **only if
+  185 and `.185` are reassigned to `vm-jenkins-1`. 📌 **Andrew's weighting and the firm-supplied-build-
+  standard framing are in the PHASE INDEX row above — not repeated here.** The one thing that row does
+  not say: the framing is a **deliberate deviation from `METHOD.md`** that gets folded back in **only if
   it proves out.**
-  ⭐ **Eight cross-phase rules earned here, worth more than the phase that produced them:**
+  ⭐ **Nine cross-phase rules earned here, worth more than the phase that produced them:**
   1. **Before destroying anything, read its config AND grep the docs for what depended on it.** The
      pre-destroy read of VM 185 caught a **wrong core count** (12, recorded as 8) and two facts it
      silently invalidated: it was the **only VM running Tailscale**, and one of only two with PVE
@@ -287,7 +303,12 @@ It had been accumulating since Aug 13. **When you write a new handoff, move the 
      rely on the reader inferring the date.
   3. **Do not generalise a product's policy from one subsystem's behaviour.** Measured on `.181`:
      GitLab **blocks** project webhooks to private addresses while **allowing** system hooks to the
-     same target. "GitLab blocks LAN egress" is false as stated.
+     same target. "GitLab blocks LAN egress" is false as stated. ⭐ **Aug 20 found a SECOND, independent
+     asymmetry in the same setting:** with the flag off and the allow-list empty, GitLab **delivered a
+     project webhook to its own address** (`.181`) and **refused** `.185`. So the policy varies by
+     *subsystem* **and** by *which local address you name* — ⚠️ *the self-address exemption is inferred
+     from behaviour, not read from source.* **Two exceptions to one "rule" is the signal that you are
+     summarising, not describing.**
   4. ⭐ **PROVE THE NEGATIVE BEFORE YOU BUILD THE POSITIVE** (Aug 20). To verify a boundary, first
      demonstrate the failure it should cause, *while the thing that would mask it does not yet exist*.
      Jenkins: controller set to 0 executors, then a job run **with no agent attached** — it sat in the
@@ -323,6 +344,17 @@ It had been accumulating since Aug 13. **When you write a new handoff, move the 
      **Effort spent on how the pipeline authenticates buys nothing if the repo contains credentials.**
      ⚠️ The instinctive fix (`cleanWs()`) does not work either: the next checkout recreates them.
      Real answers are narrow checkout, a repo with no secrets, or an ephemeral agent.
+     ⭐ **And it is LIVE, not a stale artefact:** the workspace copy of `PASSWORDS.md` grew
+     14,854 → 16,781 B between two builds, so **every credential committed later arrives automatically.**
+  9. 🚨 **A FRAMING THAT DECIDES WHAT IS INTERESTING WILL SILENTLY FILTER YOUR EVIDENCE** (Aug 20).
+     Jenkins chapter 3 was first drafted as a narrative built around the phase's planted traps, and
+     **three real setup failures were missing from it** — a malformed public-key paste, an unclicked
+     *Enter directly*, and shredding a private key before confirming the credential had saved. All
+     three had cost real time; none fitted the story's spine, so none were written down. ⭐ **This is
+     the gap "only document what you actually ran" cannot close on its own** — that rule governs
+     whether a fact is TRUE, not whether it gets RECORDED. ✅ **Countermeasure, now `CONVENTIONS.md`
+     policy (A12): write the artefact as the PROCEDURE, so the organising principle is "what does the
+     next person do", which has no opinion about which failures are interesting.**
 
 - **🟢 COMPLETE — Phase 16: Docker Swarm** (`phases/phase16_docker_swarm.md`) — all 7 parts, all 7
   traps, 8 chapters, closed Aug 19, 2026 with the Swarm↔Kubernetes crib sheet (chapter 8). Only two

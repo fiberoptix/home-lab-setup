@@ -287,10 +287,12 @@ missing five VMs and understates GitLab's RAM. Historical phase files 2/4/5/7 le
 ✅ **A `git push` to `production/home-lab-setup` now builds Jenkins unattended** (Part 3 closed
 ~7:12 PM, write-up **J-P10**, snapshot `j03-gitlab-wired` verified). ✅ **Chapters 1, 2 and 3 are all
 written and built to DOCX — documentation is CAUGHT UP with the build for the first time this phase.**
-🆕 **DECISION A12 (Aug 20): chapters are written as a BUILD PROCEDURE with warnings, never as a trap
-narrative.** Chapter 3 was rewritten to that shape the same evening. ⛔ **Trap bookkeeping (`T4`, `T5`,
-`T8`, 🅒) stays in the phase file and out of chapter prose** — the two documents have different jobs.
-Ch1 and Ch2 checked, already clean.
+🆕 **DECISION A12 (Aug 20), now a rule for ALL tracks in `education/CONVENTIONS.md`: a chapter is the
+BUILD PROCEDURE** — numbered steps, each with **how to confirm it took effect**, tripping points marked
+**at the step**. ⛔ **Trap bookkeeping (`T4`, `T5`, `T8`, 🅒) stays in the phase file and out of chapter
+prose.** Chapter 3 was rewritten end-to-end that evening (19.8% density, applied via `highlight.py`).
+Ch1 and Ch2 checked, already clean. 🚨 **The argument was OMISSION, not tone** — the narrative draft had
+silently dropped three real setup failures because they were not traps. Cross-phase **principle 9**.
 ⏳ **Trap T1 was deferred out of Part 3 into Part 4/5 — moved, not dropped.**
 
 🆕 **Ledger rows J7 and J8 were added while writing Chapter 3** — compromises already taken but never

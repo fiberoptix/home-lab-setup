@@ -164,8 +164,14 @@ success and warnings rather than re-read traps."*
 
 ⚠️ **Chapters 1 and 2 were checked and are already clean** — the single word *"trap"* in Chapter 2 §7
 means *pitfall for later*, which is the warning register Andrew asked for. **No retrofit needed.**
-🔲 **Open question deliberately NOT actioned:** whether this belongs in `education/CONVENTIONS.md` as a
-rule for **all** tracks, rather than just Phase 17.
+✅ **PROMOTED TO ALL TRACKS the same evening** (Andrew, Aug 20): A12 now lives in
+`education/CONVENTIONS.md` as *"A chapter is a PROCEDURE, not the story of the day you built it"*,
+under "What belongs in a chapter". ⭐ **The argument that carried it was not tone but OMISSION** — the
+narrative draft had silently dropped three real setup failures (malformed key paste, unclicked *Enter
+directly*, shredding the key before the credential saved) because they were not traps and so did not
+fit the story. 🚨 **That is the gap `CONVENTIONS.md`'s "only document what you actually ran" cannot
+close**, since that rule governs whether a fact is true, not whether it gets recorded. Now
+cross-phase **principle 9** in `MEMORY.md`.
 
 ✅ **A1 + A2 answered Aug 19, 2026: bookmark the IP, no TLS.** Both are reasonable for a LAN lab and
 both have consequences that are now written down rather than absorbed silently:
