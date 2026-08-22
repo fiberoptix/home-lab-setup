@@ -81,6 +81,7 @@ house failure mode. Do not do it.**
 | **vm-www-1 (.184), Traefik, PROD Capricorn hosting** | `phases/phase7_local_www.md` (1508 ln) | Network architecture is load-bearing and marked CRITICAL in that file; `.184` deliberately **never contacts the registry** (images arrive via `docker load`) |
 | **Proxmox host config, kernels, ZFS pools, backups** | `phases/phase13_fable_proxmox_audit.md` (551 ln) + `phases/phase1b_*` | Kernel pinning is deliberate; a 50G thick zvol with refreservation sits on `vm-critical`. See also the BACKUP DIRECTIVE in `CURSOR_RULES` — **backups go to NAS, never NVMe** |
 | 🔧 **Physical hardware — RAM/DIMMs, drives, serials, part numbers, storage capacity, PCIe slots** (either workstation) | `phases/phase0_hardware.md` → **Memory Configuration** + **Storage Capacity Audit** | **RAM:** both boxes are at 4-of-6 channels (Z6 *and* Z8, verified Aug 19 2026) — ⛔ **the Z8 is NOT a DIMM donor.** `phase13` PERF-3's slot numbers were **wrong** (free = `CPU0-DIMM3/4`) and its price is **~10x stale** (32GB DDR4 ≈ **$300** → the "$50–80" fix is ~$600). **STORAGE: no purchase needed — only 137 GiB is written across 3.24 TiB (4%).** ⭐ `vm-critical`'s scary **70.9% is `refreservation`, not data — `zpool alloc` is 7.5%**; both VM pools are thick (`sparse` unset/0). ⚠️ **`nvmeXn1` names in the docs DRIFT — identify drives by serial.** Bigger risk than capacity: the **Swarm cluster + its `s01–s06` snapshots sit on a no-redundancy stripe**, and **only VM 181 has a scheduled backup** |
+| 🔧 **Building or re-building ANY host — the `www/` build standard** | `phases/phase2_host_setup_automation.md` (Ubuntu/Debian) **+ `phases/phase2b_fedora_host_setup.md`** (Fedora, built Aug 21 2026 on `.196`) | 🔀 **RENAMED Aug 21, 2026: the trees are `www/ubuntu/` and `www/fedora/`, served from `.195` at `/ubuntu/` and `/fedora/`** (was `www/scripts/` at `/scripts/` and `www/scripts_fedora/` at `/scripts_fedora/` — ⚠️ note that this very sentence had its *historical* names silently rewritten to the new ones by an over-broad edit, and read "was `www/ubuntu/` at `/scripts/`" for a day; when you rename a thing, the prose *describing* the rename is the easiest casualty). ⭐ **Start at `http://192.168.1.195/`** — `www/index.html` carries every command with copy buttons and rewrites the address to whatever host you browsed it on, so **link the page rather than pasting commands**. **Bootstrap is TWO steps — `wget`/`curl -fsSLO` the file, THEN `bash host_setup.sh`**; a single-*line* form exists (`cd "$(mktemp -d)" && wget -q .../host_setup.sh && bash host_setup.sh`, verified) but it discards the scripts, and keeping them is the point since re-running them is the repair path. ⛔ **Never `curl \| bash` or `bash <(curl ...)`** — the first puts the script on stdin so `read -p` eats the next byte of the script itself (measured: `REPLY='e'`, run aborted, `cho: command not found`); the second makes `SCRIPT_DIR` resolve to the unwritable `/dev/fd` so every sub-script download fails. ⛔ **Do not try to make them pipe-safe:** stdin is inherited by every sub-script, and `setup_smb_mount.sh`'s own `read -rsp` would hit the same bug at the point where it writes a **wrong credential file**. ⭐ **Old `/scripts/*` URLs still work via 301s in `nginx.conf`** — kept because the old `SCRIPT_SERVER` is baked into `host_setup.sh` copies on every built host and into eight phase files' verbatim build commands, so ⚠️ **a `/scripts/` URL in a phase file is history, not a bug to fix.** They are parallel implementations of ONE standard, so ⚠️ **a fix made in one tree is not in the other — that asymmetry is the single biggest hazard here.** 🚨 **`smb_credentials` lives at `www/smb_credentials`, ABOVE both trees, and must NEVER be moved back inside one:** `docker-compose` bind-mounts `ubuntu/` and `fedora/` into nginx but not `www/`, so above the mount the NAS password cannot be served *at all* (⚠️ this clause said `scripts/`/`scripts_fedora/` until Aug 21 — a *second* rename casualty in the very row that warns about them; `index.html` is mounted as a **single file** for the same reason, since mounting `www/` as the web root would drag the credential back in). ⭐ The lesson that produced that layout is worth more than the layout: **two independent protections written months apart (an `.gitignore` absolute path and an nginx `location =`) BOTH failed the instant a second directory appeared. Path-specific safety rules silently do not cover new paths — look for that pattern elsewhere.** 🚨 **`containerd-snapshotter: false` + an `overlay2` assertion are now in BOTH `setup_docker.sh` files (Aug 21), but every host built BEFORE that date still ships the broken containerd image store** — it pushes parent-before-child OCI indexes and the GitLab registry rejects them with `blob unknown to registry`. It is a **race**, so a one-image job passes and looks like proof the daemon is fine; only `.182` was ever fixed, by hand. **Fleet retrofit is still OPEN.** Fedora-only gotchas: the bootstrap uses **`curl`, not `wget`** (wget is absent from a stock Workstation, so the documented Ubuntu one-liner fails at the very first command), and **`sshd` is not enabled by default**, so a new Fedora box needs one command typed at the console before it is reachable. ⛔ **`--no-nas` for prod-local/DMZ hosts** — a uniform build standard otherwise plants NAS credentials on hosts the network design isolates (the `.184` finding). 🚨 **NEVER run `host_setup.sh` from inside `www/ubuntu/` or `www/fedora/`** — it downloads sub-scripts next to itself and nginx serves those same inodes, so `wget -O`/`curl -o` truncate them and then read back their own zeros: **all 7 Ubuntu sub-scripts + `anysphere.gpg` hit 0 bytes in one run, Aug 21 2026.** Both trees now refuse to start there, and downloads are **atomic** (`.part` + `mv`) because *any* failed download used to leave an empty file where a working script was |
 | **Firewall, port-forwards, public exposure** | `phases/phase12_network_segmentation.md` (200 ln) | Perimeter is deliberately closed to everything but the WWW box; open ports listed there include ones flagged for removal |
 | **GitLab / runner / CI** | `phases/phase3_gitlab_server.md`, `phase4_gitlab_runner.md`, `phase5_ci_cd_pipelines.md` | The runner is **privileged with the host Docker socket mounted** — any job on it is effectively root on the runner host (ledger L19) |
 | **SonarQube** | `phases/phase6_sonarqube.md` (625 ln) | — |
@@ -920,7 +921,8 @@ It had been accumulating since Aug 13. **When you write a new handoff, move the 
 - **NOTE:** The Proxmox server is a **Z6 G4** (single CPU, 128GB). The **dev workstation** we work from is a **Z8 G4** (dual Platinum 8168, 256GB). Don't confuse the two.
 - **Dev workstation guest** = `VM-UBUNTU-01`, VMware Workstation on the Z8, 24 vCPU (2 sockets x12, on idle PROC1), **Ubuntu 26.04 LTS** since Jul 25, 2026 (see CURRENT STATE). Uses `open-vm-tools`, NOT qemu-guest-agent (that's for the Proxmox VMs). Not on Tailscale.
 - **Jun 18, 2026: kernel fully un-stuck.** Went 6.17.2-1 → 6.17.13-13 → **7.0.6-2-pve** (all NVMe-clean), full host upgrade to PVE 9.2.3, all package holds removed. 7.0.6-2 tested via --next-boot, then made permanent and confirmed it boots autonomously (2 reboots clean). 6.17.13-13 kept as fallback. See current_phase.md + phase1b.
-- Script server running at http://192.168.1.195/scripts/
+- Script server running at **http://192.168.1.195/** (landing page with the copy-paste bootstrap
+  commands), trees at http://192.168.1.195/ubuntu/ and http://192.168.1.195/fedora/
 - **GitLab CE LIVE at http://192.168.1.181** (root/[See PASSWORDS.md])
 - **GitLab Runner LIVE at 192.168.1.182** (gitlab-runner-1, **v19.2.1** as of a job log Aug 19, 2026 —
   Phase 4 installed **v18.7.2**, so the runner has been upgraded underneath us, presumably by apt.
@@ -960,7 +962,7 @@ It had been accumulating since Aug 13. **When you write a new handoff, move the 
 
 ### 🖥️ COCKPIT — now STANDARD on every Ubuntu server we build (Andrew's call, Aug 20, 2026)
 
-⭐ **Don't hand-install it — it is baked into the build.** `www/scripts/setup_cockpit.sh` runs in
+⭐ **Don't hand-install it — it is baked into the build.** `www/ubuntu/setup_cockpit.sh` runs in
 **Phase 1 of `host_setup.sh`**, alongside SSH and sudo (it is an *access* method, not a tool: if a
 later step wedges the box, Cockpit is already a second way in). Full write-up in
 `phases/phase2_host_setup_automation.md` § "3. setup_cockpit.sh". The notes below are the *why*, kept
@@ -1106,7 +1108,7 @@ below was tested, not inferred. **There are two routes**, and they differ in one
 ⚠️ **Clone GitLab, NOT GitHub — GitHub has no credentials at all.** `PASSWORDS.md` is gitignored, so
 it is **absent from GitHub's `main`** along with every other secret. The **GitLab mirror is the
 plaintext snapshot** and is the only place that carries `PASSWORDS.md`, `github_credentials.md`,
-`proxmox/credentials`, `proxmox/nas_credentials` and `www/scripts/smb_credentials`. **No private keys
+`proxmox/credentials`, `proxmox/nas_credentials` and `www/smb_credentials`. **No private keys
 are tracked in either remote** (verified) — that is deliberate and should stay true.
 
 ### Route B — tailnet into the dev box, then drive the pve **GUI** (no credential clone needed)
@@ -1310,22 +1312,150 @@ project: `project/phases/phase25_all_states_tax_brackets.md`, "CI incident".
 
 ## SCRIPT SERVER
 
-**URL:** http://192.168.1.195/scripts/  
+⭐ **START HERE: http://192.168.1.195/** — a landing page (`www/index.html`, added Aug 21, 2026)
+that carries every command below with copy buttons. It rewrites the address to whatever host you
+browsed it on, so it stays correct from any interface without anyone editing a hardcoded IP. **Send
+people to the page instead of pasting commands into chat**, because a pasted command is a copy that
+goes stale silently.
+
+**Trees:** http://192.168.1.195/ubuntu/ and http://192.168.1.195/fedora/ (**renamed Aug 21, 2026**
+from `/scripts/` and `/scripts_fedora/`; the old paths still 301-redirect). Both stay browsable via
+`autoindex` for grabbing a single script by hand; `index index.html` wins at `/` only.
 **Restart:** `cd www && ./run_www.sh`
 
-**Setup new host:** 
+**Setup new host — Ubuntu / Debian:**
 ```bash
-wget http://192.168.1.195/scripts/host_setup.sh
-chmod +x host_setup.sh
-./host_setup.sh
+wget http://192.168.1.195/ubuntu/host_setup.sh
+bash host_setup.sh
 ```
 
-**Or one-liner:**
+**Setup new host — Fedora** (`curl`, because stock Fedora Workstation has **no wget**):
 ```bash
-wget http://192.168.1.195/scripts/host_setup.sh && chmod +x host_setup.sh && ./host_setup.sh
+curl -fsSLO http://192.168.1.195/fedora/host_setup.sh
+bash host_setup.sh
 ```
+
+Flags: `--no-nas` on a DMZ / prod-local host; `--hostname <name>` on **either distro** (was
+Fedora-only until Aug 21, 2026). `--hostname` does three things, and the two beyond the obvious one
+are why it is not just `hostnamectl`: it fixes the `/etc/hosts` entry (`hostnamectl` never touches
+it, and a stale one makes **every subsequent `sudo` print `unable to resolve host`**), and it writes
+`preserve_hostname: true` for cloud-init, without which **an Ubuntu clone silently reverts to its
+`qm clone --name` hostname at the next reboot** — long after the build, when nobody connects the two
+events.
+
+**`--server` (BOTH distros, added Aug 21, 2026)** skips Chrome and Cursor and the GNOME steps on a
+headless host, keeping the CLI tools and shell aliases. Rarely needed by hand: **the auto-detection
+was fixed at the same time and now does this on its own.**
+
+🚨 **The bug it fixed had been installing 1.44 GB of desktop software on every server.** The gate in
+`host_setup.sh` was `gnome-shell || gsettings` — and `gsettings` ships in `libglib2.0-bin`, which
+headless hosts pull in as a dependency, so the test passed on machines with no desktop. Measured on
+`vm-jenkins-1` (.185), headless: `gnome-shell` **absent**, `gsettings` **present**, and
+`cursor` **1012.4 MB** + `google-chrome-stable` **430.8 MB** both installed.
+⭐ **What hid it: the summary block tested `gnome-shell` ALONE**, so a server installed 1.4 GB and
+then printed *no line at all* about the desktop step. **Two tests for the same question, disagreeing,
+and the quieter one was the one reporting to the human** — when two conditions describe the same
+thing they must be the same expression, not two that happen to agree today. Both now read one
+variable. ✅ **Fleet cleanup DONE on `.185` Aug 21, 2026:** purged both, **5.7 G → 4.2 G (1.5 G
+back)**, Jenkins stayed `active` and answered `200` throughout. `.181`–`.184` genuinely have
+desktops; `.186` is clean, so the fleet is now correct.
+⚠️ **`apt-get autoremove` was deliberately NOT run** — it wanted **100 packages / 382 MB**, all the
+X11 and GTK libraries Chrome and Cursor dragged in. Safe on its face (`gcc`, `cc` and `make` are
+already absent, and nothing manually-installed depends on them) but this is a **CI host**: headless
+browser testing (Selenium, Playwright, `chrome --headless`) needs exactly those libraries, so
+stripping them from a build server to save 382 MB on a 58 G disk is the wrong trade. Left in place
+**on purpose** — do not "finish the cleanup" without deciding that question first.
+
+**Fedora `--server` (added the same day)** covers the same ground with two deliberate differences:
+it **still masks the systemd sleep targets** (a server needs that *more* than a desktop — nobody is
+sitting in front of it to wake it up) and it is **exempt from the D-Bus session-bus requirement**,
+without which `--server` would refuse to run on precisely the headless hosts it exists for.
+⭐ **The Fedora tree never had the 1.44 GB bug** — its gate has always tested `gnome-shell` alone. So
+no Fedora host was ever given Chrome by accident; the flag there is parity, not repair.
+
+⚠️ `setup_hostname.sh` is the **only** script in either tree built entirely from distro-neutral
+commands (`hostnamectl`, `sed`, `getent`). Every other script self-guards by accident, dying on a
+missing `dnf` or `apt-get`; this one will run on the wrong distro and *succeed at doing the wrong
+thing*, so both copies now check `/etc/fedora-release` explicitly. **Proven the hard way: the Fedora
+copy was run on the Ubuntu dev box and renamed it.**
+
+**One-liner, if you want to paste a single thing** — verified working Aug 21, 2026 (ran it, answered
+`n`, all 8 sub-scripts landed in the temp dir):
+```bash
+cd "$(mktemp -d)" && wget -q http://192.168.1.195/ubuntu/host_setup.sh && bash host_setup.sh
+```
+⚠️ It is one *line*, not one *stream* — that distinction is the whole point. The trade-off is that it
+throws the scripts away; prefer the two-step form, because the scripts are all idempotent and
+**re-running them on the host is the normal repair path.**
+
+🚨 **Never pipe this script into bash.** `curl … | bash` is the reflex, and it is the one form that
+cannot work here. Both stream-based shortcuts are broken, measured Aug 21, 2026 and re-confirmed
+when the landing page was written:
+- `curl … | bash` — the script arrives **on stdin**, so `read -p` at the confirmation prompt
+  consumes the next **byte of the script**. Observed: `REPLY='e'` taken from the following `echo`,
+  the run aborted, and bash reported `cho: command not found` because the line had been eaten.
+- `bash <(curl -s …)` — `BASH_SOURCE[0]` is `/dev/fd/63`, so `SCRIPT_DIR` resolves to **`/dev/fd`**,
+  which is not writable. `host_setup.sh` downloads its sub-scripts next to itself, so **every
+  download fails.**
+
+⛔ **Do not "fix" this by making the scripts pipe-safe.** It looks like a two-line change to the one
+`read -p` in `host_setup.sh`, but stdin is inherited by every sub-script it invokes, and
+`setup_smb_mount.sh` has its own `read -rsp` for the NAS password — so the same bug reappears
+further in, at the point where it would silently write a **wrong credential file**. Landing the
+script in a real file fixes the whole chain at once.
 
 **Note:** The main script automatically downloads all sub-scripts (setup_ssh.sh, setup_docker.sh, etc.) before running them.
+
+### 🚨 `host_setup.sh` ATE THE SCRIPT LIBRARY (Aug 21, 2026) — both trees now refuse to run there
+
+**Ran `bash ubuntu/host_setup.sh` with the working directory inside `www/`. All seven Ubuntu
+sub-scripts plus `anysphere.gpg` went to 0 bytes in one run.**
+
+The mechanism, and it is worth understanding rather than just avoiding:
+1. `host_setup.sh` sets `SCRIPT_DIR` to **its own location** and downloads its sub-scripts *next to
+   itself* — by design, so a built host keeps them for re-runs.
+2. `wget -O <file>` **truncates the destination when it opens it**, before the transfer starts.
+3. nginx serves `www/ubuntu/` **straight off disk via a bind mount** — the served copy and the
+   source copy are *the same inode*.
+
+So wget emptied each file and then asked nginx for it, and nginx faithfully returned the zero bytes
+wget had just written. **`host_setup.sh` survived only because it is not in its own download list.**
+
+⭐ **The general shape: a program that fetches its inputs into its own source directory, from a
+server backed by that same directory, will eat itself.** The two halves are individually reasonable
+and only lethal in combination — which is why neither looked like a risk when written.
+
+**Two fixes, and the second matters more than the incident:**
+- **A guard.** Both orchestrators now refuse to run if `../nginx.conf` *and* `../docker-compose.yml`
+  sit beside them — the reliable signature of the source tree. Verified: exits 1 with an explanation
+  and a `mktemp -d` command to use instead.
+- **Atomic downloads.** Every download now goes to `.<script>.part` and is `mv`'d into place only
+  after success *and* a non-empty check. Previously **any** failed download replaced a working
+  script with an empty file — and the case that hurts is the one the script is *for*: re-running on
+  a host to repair it, where a momentary network blip would leave eight empty scripts and no clue
+  that was what happened. **Fedora had the identical `curl -o` flaw** and escaped the incident only
+  because its distro guard exits first on a Debian host. Luck is not a control; both are fixed.
+
+⚠️ **Recovery worked only by accident.** The zeroed files were untracked-or-modified in git, so
+`git checkout` would have restored **pre-session** content and silently lost the evening's work —
+and `www/ubuntu/setup_hostname.sh` was **untracked entirely**, so git had nothing at all. What saved
+it was that earlier bootstrap tests had downloaded complete sets into `/tmp/tmp.*/`, one of them
+timestamped **after** the last edit. ⭐ **Commit before testing something that writes to the repo.**
+
+**Three rules from that evening that outlive the script server:**
+- ⭐ **Destructive-by-default output is a data-loss bug waiting for a bad network.** `wget -O` and
+  `curl -o` truncate the destination *before* the transfer, so a failed fetch leaves nothing where a
+  good file was. Any fetch-to-replace needs **temp file then `mv`**. The tell is that it only shows
+  up on the *failure* path, so testing the happy path forever proves nothing.
+- ⭐ **A 301 is a promise you can never take back**, because browsers cache it with no expiry and do
+  not re-ask. Only issue one to clients that will not hold you to it (`wget`/`curl` do not cache);
+  for anything a browser might touch, redirect with `302` or add `Cache-Control`. ⚠️ Corollary: when
+  a cached redirect is already loose, **serve content at the stale target** — redirecting it back to
+  the correct URL is an infinite loop, since the client bounces the correct URL straight back.
+- ⭐ **A safety check whose SCOPE is wider than its REASON reads as the feature being broken.** The
+  Fedora D-Bus guard exists because `gsettings` without a bus silently writes to nowhere — but it
+  gated the *whole script*, so `--server` would have refused to run on exactly the headless hosts it
+  was built for. **Scope a guard to the operation that needs it, not to the program that contains it.**
 
 **After reboot:** Run `update` from terminal to apply system updates.
 
@@ -1559,7 +1689,7 @@ copy-and-validate job, not an edit. A full clone of a 100 GB zvol with ~15 GB us
    ⭐ **Verify the fix on the generated unit, not the fstab line:** `systemctl show <unit> -p RequiredBy
    -p WantedBy` must show **`RequiredBy=` empty** — that is what proves a dead NAS can no longer
    block boot.
-   ✅ **FIXED AT SOURCE Aug 20, 2026:** `www/scripts/setup_smb_mount.sh` wrote `_netdev` but **not**
+   ✅ **FIXED AT SOURCE Aug 20, 2026:** `www/ubuntu/setup_smb_mount.sh` wrote `_netdev` but **not**
    `nofail`, so *every* VM ever built by it carried it. New builds are safe, and the whole lab was
    swept the same day — **all 9 VMs + the dev workstation now show `RequiredBy=` empty.**
    🧠 **The lesson that generalises:** when a per-VM fix works, go ask whether the *builder* has the
@@ -1691,7 +1821,7 @@ zfs set compression=lz4 <pool-name>
 ### Guest OS Setup
 After VM creation, run setup script:
 ```bash
-wget http://192.168.1.195/scripts/host_setup.sh
+wget http://192.168.1.195/ubuntu/host_setup.sh
 bash host_setup.sh
 ```
 Installs: Docker, SSH keys, passwordless sudo, NAS mount, insecure-registry config, sysbench
@@ -2085,9 +2215,17 @@ There is NO git-crypt and NO encryption — safety on GitHub comes purely from .
   it is a separate snapshot history built by push_gitlab.sh, not a problem to reconcile.
 - **Ignored-and-therefore-GitHub-safe:** PASSWORDS.md, github_credentials.md, proxmox/credentials,
   proxmox/nas_credentials, /working/, /ddns/, *.pem, *.key, *.crt, .env*,
-  www/scripts/smb_credentials  (verify: `git check-ignore <f>`).
-- **smb_credentials:** `www/scripts/smb_credentials` holds `SMB_PASSWORD='...'`; gitignored (GitHub
-  never sees it) but rides the GitLab mirror, so a LAN clone lets setup_smb_mount.sh run unattended.
+  www/smb_credentials  (verify: `git check-ignore <f>`).
+- **smb_credentials:** 🚨 **MOVED Aug 21, 2026 — it is `www/smb_credentials` now, NOT
+  `www/ubuntu/smb_credentials`.** Holds `SMB_PASSWORD='...'`; gitignored (GitHub never sees it) but
+  rides the GitLab mirror, so a LAN clone lets setup_smb_mount.sh run unattended. ⛔ **Do not move it
+  back into a script tree.** `www/docker-compose.yml` bind-mounts `www/ubuntu` and
+  `www/fedora` into the nginx script server but never `www/`, so above the mount the NAS
+  password is *unreachable* rather than merely *denied* — the deny rule hid the contents but
+  `autoindex` still advertised the filename. Both `setup_smb_mount.sh` scripts read the new path
+  first and still accept the old ones. ⭐ **The move also silently emptied `push_github.sh`'s
+  sensitive-path gate** (it skips paths that do not exist), which is why that script now also does a
+  **name-based sweep** for credential-named files anywhere in the tree.
 - **Secret hygiene:** NEVER put real passwords/tokens in tracked files (they go public on GitHub).
   History was purged once already (git filter-repo) after a leak — keep it clean.
 - **Branch:** `main` only (docs/scripts repo — no CI/CD or registry like Capricorn).

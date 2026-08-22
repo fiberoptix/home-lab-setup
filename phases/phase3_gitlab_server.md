@@ -54,6 +54,13 @@ GitLab CE will be our central DevOps platform providing:
   bash <(curl -s http://192.168.1.195/scripts/host_setup.sh)
   ```
   This installs: SSH, passwordless sudo, Docker, Git, NAS mount
+
+  ⚠️ **Historical record — do NOT copy that command.** It is left as typed, because this is a
+  record of the Dec 2025 build. On **Aug 21, 2026** the process-substitution form was found to be
+  **broken for `host_setup.sh`**: `BASH_SOURCE[0]` is `/dev/fd/63`, so `SCRIPT_DIR` resolves to the
+  unwritable `/dev/fd` and the download-first step fails. (It worked here only because the script
+  was simpler then.) **Current form is two steps — `wget`/`curl` the file, then `bash host_setup.sh`
+  — see `phases/phase2_host_setup_automation.md`.**
 - [x] Verify SSH access from DEV machine:
   ```bash
   ssh agamache@192.168.1.181

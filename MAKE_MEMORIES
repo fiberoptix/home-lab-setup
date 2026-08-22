@@ -95,7 +95,7 @@ actually read, so the claim is checkable.
 
 === 4. Check before writing ===
 - /proxmox/credentials
-- /www/scripts/
+- /www/ubuntu/ and /www/fedora/   (renamed from /www/scripts/ and /www/scripts_fedora/ Aug 21 2026)
 - /phases/
 - MEMORY.md PHASE INDEX - is it still accurate after this session?
 

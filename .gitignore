@@ -11,8 +11,20 @@ github_credentials.md
 /ddns/
 /proxmox/credentials
 /proxmox/nas_credentials
-# SMB password file read by www/scripts/setup_smb_mount.sh (GitHub-ignored, GitLab-mirrored)
-/www/scripts/smb_credentials
+# SMB password file read by setup_smb_mount.sh (GitHub-ignored, GitLab-mirrored).
+#
+# Canonical location since Aug 21, 2026 is www/smb_credentials -- ABOVE the script
+# trees, because docker-compose bind-mounts www/ubuntu and www/fedora into nginx
+# but never www/ itself. A file that is not mounted cannot be served, listed by
+# autoindex, or leaked by a future location block someone adds without thinking.
+/www/smb_credentials
+# Kept as the second layer, and matched with a WILDCARD on purpose. The original
+# rule was the absolute path /www/scripts/smb_credentials, which silently failed to
+# cover www/scripts_fedora/ the moment a second distro tree appeared -- and would
+# have failed again on Aug 21 when the trees were renamed to www/ubuntu and
+# www/fedora. The wildcard survived both changes without an edit; the absolute path
+# would have gone quiet twice. Any stray per-tree copy stays ignored.
+/www/*/smb_credentials
 *.pem
 *.key
 *.crt

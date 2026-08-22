@@ -73,12 +73,24 @@ fi
 ok "no tracked file has a secret-looking name"
 
 # --- 3. known sensitive paths are still ignored ------------------------------
+#
+# NOTE ON `[ -e "$p" ] || continue`: a path that does not exist is skipped, which
+# is correct (not every machine has every file) but means THIS LIST GOES QUIET WHEN
+# A FILE MOVES rather than complaining. On Aug 21, 2026 smb_credentials moved from
+# www/scripts/ to www/, and this gate stopped covering it without a word -- the
+# third time in two days that a path-specific safety rule silently failed to follow
+# a file (the others were .gitignore and the nginx deny rule). Hence step 3b below,
+# which checks by NAME and cannot be outrun by a move.
 SENSITIVE=(
   PASSWORDS.md
   github_credentials.md
   proxmox/credentials
   proxmox/nas_credentials
-  www/scripts/smb_credentials
+  www/smb_credentials                # canonical since Aug 21, 2026
+  www/ubuntu/smb_credentials         # stray-copy check (tree renamed from www/scripts)
+  www/fedora/smb_credentials         # ditto (renamed from www/scripts_fedora)
+  www/scripts/smb_credentials        # pre-rename names, kept for old working copies
+  www/scripts_fedora/smb_credentials
   working
   ddns
 )
@@ -92,6 +104,22 @@ if [ ${#MISSING_IGNORE[@]} -gt 0 ]; then
   fail "the paths above exist but are NO LONGER gitignored. Fix .gitignore first."
 fi
 ok "all ${#SENSITIVE[@]} known sensitive paths are ignored (or absent)"
+
+# --- 3b. the same check, by NAME, wherever the file lives --------------------
+# A list of paths protects the paths you thought of. This finds every file whose
+# NAME says it holds a credential, anywhere in the tree, and asserts each one is
+# ignored. It is what would have caught the move above on the day it happened.
+UNIGNORED=()
+while IFS= read -r f; do
+  git check-ignore -q "$f" || UNIGNORED+=("$f")
+done < <(find . -type f \
+              \( -name 'smb_credentials' -o -name '*credentials*' -o -name '.smbcredentials' \) \
+              -not -path './.git/*' -printf '%P\n' 2>/dev/null)
+if [ ${#UNIGNORED[@]} -gt 0 ]; then
+  printf '       %s\n' "${UNIGNORED[@]}"
+  fail "the credential-named files above are NOT gitignored, wherever they came from."
+fi
+ok "every credential-named file in the tree is ignored (name-based sweep)"
 
 # --- 4. scan the outgoing diff for secret CONTENT ----------------------------
 git fetch -q "$REMOTE" "$BRANCH" 2>/dev/null || warn "could not fetch $REMOTE/$BRANCH; scanning full history instead"

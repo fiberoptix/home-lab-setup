@@ -96,17 +96,31 @@ apt update -qq
 apt install -y cifs-utils
 
 # Resolve the SMB password. Priority:
-#   1. SMB_PASSWORD env var (if you exported one)
-#   2. smb_credentials file sitting NEXT TO this script (gitignored; present on the
-#      private GitLab mirror, so a LAN clone "just works" with no prompt)
-#   3. interactive prompt (fallback)
+#   1. SMB_CRED_FILE / SMB_PASSWORD env var, if you set one
+#   2. www/smb_credentials -- ONE LEVEL ABOVE this script. This is the canonical
+#      location as of Aug 21, 2026 and it is deliberate: docker-compose bind-mounts
+#      www/ubuntu into nginx, so a credential file sitting NEXT TO this script was
+#      inside a directory published over HTTP to the whole LAN. A deny rule hid the
+#      contents but autoindex still listed the filename. Above the mount, it cannot
+#      be served at all -- the container has no path to it.
+#   3. the old next-to-the-script location, so an existing clone keeps working
+#   4. interactive prompt
+#
+# NOTE: this file is NEVER downloaded by host_setup.sh. On a freshly built host
+# there is no candidate and the prompt is the expected path.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SMB_CRED_FILE="${SMB_CRED_FILE:-$SCRIPT_DIR/smb_credentials}"
 SMB_PASSWORD="${SMB_PASSWORD:-}"
-if [ -z "$SMB_PASSWORD" ] && [ -f "$SMB_CRED_FILE" ]; then
-    # shellcheck disable=SC1090
-    . "$SMB_CRED_FILE"
-    echo "    Loaded SMB password from $SMB_CRED_FILE"
+if [ -z "$SMB_PASSWORD" ]; then
+    for cand in "${SMB_CRED_FILE:-}" \
+                "$SCRIPT_DIR/../smb_credentials" \
+                "$SCRIPT_DIR/smb_credentials"; do
+        if [ -n "$cand" ] && [ -f "$cand" ]; then
+            # shellcheck disable=SC1090
+            . "$cand"
+            echo "    Loaded SMB password from $cand"
+            break
+        fi
+    done
 fi
 
 # Step 2: Create credentials file (secure)

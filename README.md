@@ -128,7 +128,7 @@ A lot has shipped since the initial CI/CD milestone:
 - ✅ QA Host at 192.168.1.180 (vm-docker-qa-1, VMID 180, auto-start)
 - ✅ WWW/PROD at 192.168.1.184 (Traefik + Let's Encrypt, Capricorn PROD + splash, auto-start)
 - ✅ Container Registry at gitlab.gothamtechnologies.com:5050 (operational)
-- ✅ Script server at http://192.168.1.195/scripts/ (host setup automation)
+- ✅ Script server at http://192.168.1.195/ — landing page + `/ubuntu/` and `/fedora/` trees (host setup automation, two distro build standards)
 - 🔁 `refresh` command: parallel update + reboot of all lab VMs, disconnect-proof via tmux
 - ⛔ OpenClaw AI agent at .185 — **destroyed Aug 19, 2026**; VMID 185 / `.185` being rebuilt as `vm-jenkins-1`
 
@@ -234,13 +234,36 @@ Username: admin
 ```
 
 ### Setup New Host
+
+Open **http://192.168.1.195/** on the new machine — the landing page lists the current command for
+each distro with a copy button, and rewrites the address to whatever host you reached it on. It is
+the copy to trust; the ones below are here for when you cannot open a browser.
+
 ```bash
-# Download and run setup script
-wget http://192.168.1.195/scripts/host_setup.sh
+# Download, THEN run. Not sudo -- the script escalates on its own.
+wget http://192.168.1.195/ubuntu/host_setup.sh      # Ubuntu / Debian
 bash host_setup.sh
 
+# Fedora (stock Fedora has no wget):
+#   curl -fsSLO http://192.168.1.195/fedora/host_setup.sh
+#   bash host_setup.sh
+
 # Includes: SSH keys, sudo config, Cockpit web admin, Docker, SMB mount
+
+# Flags, all valid on either distro:
+#   --no-nas            DMZ / prod-local host that must not reach the NAS
+#   --hostname <name>   set the hostname (also fixes /etc/hosts, pins cloud-init)
+#   --server            headless host: no Chrome, no Cursor, no GNOME settings.
+#                       Usually unnecessary -- auto-detected from gnome-shell.
 ```
+
+⚠️ Do not run `host_setup.sh` from inside `www/ubuntu/` or `www/fedora/`. It downloads its
+sub-scripts next to itself, and nginx serves those same files off disk, so it overwrites the library
+with truncated copies of itself. Both scripts now refuse to start there; see phase2 for the detail.
+
+⛔ **Never `curl … | bash`.** The script arrives on stdin, so the confirmation prompt's `read` eats
+the next byte of the script itself. If you want a single line, keep the file real:
+`cd "$(mktemp -d)" && wget -q http://192.168.1.195/ubuntu/host_setup.sh && bash host_setup.sh`
 
 Every server gets **Cockpit** at `https://<host>:9090` (log in with the system
 password, not an SSH key — it authenticates via PAM). Self-signed cert, so use Chrome

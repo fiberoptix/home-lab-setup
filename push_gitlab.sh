@@ -137,8 +137,13 @@ if [ "$DRY_RUN" = "1" ]; then
   echo "--dry-run: built snapshot ${COMMIT:0:12} (\"$MSG\")"
   echo "  $(git ls-tree -r --name-only "$COMMIT" | wc -l) files would go to ${GITLAB_REMOTE}/${GITLAB_BRANCH}"
   echo "  including these normally-ignored paths:"
+  # smb_credentials is matched by NAME, not by a fixed path. On Aug 21, 2026 it
+  # moved from www/scripts/ to www/, and the tree itself was then renamed to
+  # www/ubuntu/ -- two path changes in one day. A hardcoded path would have
+  # quietly dropped it out of this listing rather than reporting the change;
+  # the name-based form needed no edit for either.
   git ls-tree -r --name-only "$COMMIT" \
-    | grep -E '^(PASSWORDS\.md|github_credentials\.md|proxmox/(credentials|nas_credentials)|www/scripts/smb_credentials|working/|ddns/)' \
+    | grep -E '^(PASSWORDS\.md|github_credentials\.md|proxmox/(credentials|nas_credentials)|working/|ddns/)|(^|/)smb_credentials$' \
     | sed 's/^/    /' || echo "    (none found - unexpected, check .gitignore)"
   echo "Nothing pushed."
   exit 0

@@ -7,7 +7,25 @@ services:
     ports:
       - "80:80"
     volumes:
-      - ./scripts:/usr/share/nginx/html/scripts:ro
+      # Renamed Aug 21, 2026: ./scripts -> ./ubuntu and ./scripts_fedora -> ./fedora,
+      # so the served URLs are /ubuntu/ and /fedora/. nginx.conf keeps 301s from the
+      # old paths, because host_setup.sh copies already on built hosts have the old
+      # SCRIPT_SERVER baked in.
+      #
+      # A sibling directory is invisible to nginx unless it is mounted too -- only
+      # ./scripts was bind-mounted, so adding a second distro tree to the repo did
+      # not make it servable until this second line existed.
+      #
+      # NOTE what is deliberately NOT here: www/ itself. The NAS credential file
+      # lives at www/smb_credentials, one level above both trees, so the container
+      # has no path to it at all. Do not add a `- .:/...` mount for convenience.
+      - ./ubuntu:/usr/share/nginx/html/ubuntu:ro
+      - ./fedora:/usr/share/nginx/html/fedora:ro
+      # The landing page is mounted as a SINGLE FILE, not by mounting www/ as the
+      # web root. Mounting the directory would be the obvious way to serve an
+      # index.html and it would drag www/smb_credentials into the container with
+      # it -- undoing the whole reason the credential file was moved up here.
+      - ./index.html:/usr/share/nginx/html/index.html:ro
       - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
     restart: unless-stopped
 

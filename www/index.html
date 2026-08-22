@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Host Configuration Script Library</title>
+<style>
+  :root {
+    --bg:#16171a; --panel:#1e2024; --panel2:#24262b; --line:#31343b;
+    --fg:#e6e4ee; --dim:#a2a6b0; --accent:#7cc4ff; --ok:#7ee081; --warn:#ffb35c; --bad:#ff7b72;
+    --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--fg);
+    font:16px/1.6 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+  }
+  .wrap{max-width:920px; margin:0 auto; padding:48px 24px 96px}
+  header{border-bottom:1px solid var(--line); padding-bottom:24px; margin-bottom:36px}
+  h1{margin:0 0 8px; font-size:29px; letter-spacing:-.02em}
+  .sub{color:var(--dim); margin:0; font-size:17px}
+  h2{font-size:15px; text-transform:uppercase; letter-spacing:.09em; color:var(--dim);
+     margin:44px 0 14px; font-weight:600}
+  .card{background:var(--panel); border:1px solid var(--line); border-radius:10px;
+        padding:20px 22px; margin-bottom:16px}
+  .card h3{margin:0 0 4px; font-size:19px}
+  .card h3 .tag{font:600 11px/1 var(--mono); letter-spacing:.06em; color:var(--bg);
+                background:var(--accent); padding:4px 7px; border-radius:4px;
+                vertical-align:3px; margin-left:9px; text-transform:uppercase}
+  .card p.why{color:var(--dim); font-size:14.5px; margin:0 0 14px}
+  pre{
+    position:relative; background:#101114; border:1px solid var(--line); border-radius:8px;
+    padding:14px 52px 14px 16px; margin:0; overflow-x:auto;
+    font:14px/1.7 var(--mono); color:#dfe6f0;
+  }
+  pre .c{color:#6f7681}
+  button.copy{
+    position:absolute; top:9px; right:9px; background:var(--panel2); color:var(--dim);
+    border:1px solid var(--line); border-radius:6px; padding:5px 9px;
+    font:600 11px var(--mono); cursor:pointer; letter-spacing:.04em;
+  }
+  button.copy:hover{color:var(--fg); border-color:#4b4f58}
+  button.copy.done{color:var(--ok); border-color:var(--ok)}
+  .note{font-size:14px; color:var(--dim); margin:12px 0 0}
+  .flags{display:grid; grid-template-columns:auto 1fr; gap:6px 16px; margin:0;
+         font-size:14.5px; align-items:baseline}
+  .flags dt{font-family:var(--mono); color:var(--accent); font-size:13.5px; white-space:nowrap}
+  .flags dd{margin:0; color:var(--dim)}
+  .danger{background:#2a1d1d; border:1px solid #5e3230; border-radius:10px; padding:20px 22px}
+  .danger h3{margin:0 0 10px; font-size:17px; color:var(--bad)}
+  .danger code{font-family:var(--mono); font-size:13.5px; background:#3a2523;
+               padding:2px 5px; border-radius:4px; color:#ffb4ae}
+  .danger ol{margin:12px 0 0; padding-left:22px; color:var(--dim); font-size:14.5px}
+  .danger ol li{margin-bottom:9px}
+  .danger strong{color:var(--fg)}
+  .browse{display:flex; gap:12px; flex-wrap:wrap}
+  .browse a{
+    flex:1 1 240px; display:block; text-decoration:none; color:inherit;
+    background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:16px 18px;
+  }
+  .browse a:hover{border-color:var(--accent); background:var(--panel2)}
+  .browse .p{font:600 15px var(--mono); color:var(--accent); margin-bottom:3px}
+  .browse .d{font-size:13.5px; color:var(--dim)}
+  footer{margin-top:56px; padding-top:20px; border-top:1px solid var(--line);
+         color:#767b85; font-size:13px}
+  footer code{font-family:var(--mono)}
+  a{color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>Host Configuration Script Library</h1>
+  <p class="sub">
+    Build any new lab machine to the same standard with one paste. Serving from
+    <code id="host">192.168.1.195</code>.
+  </p>
+</header>
+
+<p style="color:var(--dim); margin:0 0 8px; font-size:15px">
+  Pick your distro, paste into a terminal <strong style="color:var(--fg)">on the new machine</strong>.
+  Not <code style="font-family:var(--mono);font-size:13.5px">sudo</code> — the script escalates on its own.
+</p>
+
+<h2>Ubuntu / Debian</h2>
+<div class="card">
+  <h3>Two steps <span class="tag">recommended</span></h3>
+  <p class="why">Leaves the scripts on the box. Every script is idempotent, so re-running is
+     the normal way to repair a host.</p>
+<pre><button class="copy">copy</button><code data-cmd="ubuntu-2">wget http://HOST/ubuntu/host_setup.sh
+bash host_setup.sh</code></pre>
+</div>
+<div class="card">
+  <h3>One line</h3>
+  <p class="why">Runs in a throwaway directory, so it leaves nothing behind.</p>
+<pre><button class="copy">copy</button><code data-cmd="ubuntu-1">cd "$(mktemp -d)" &amp;&amp; wget -q http://HOST/ubuntu/host_setup.sh &amp;&amp; bash host_setup.sh</code></pre>
+</div>
+
+<h2>Fedora</h2>
+<div class="card">
+  <h3>Two steps <span class="tag">recommended</span></h3>
+  <p class="why"><code style="font-family:var(--mono);font-size:13.5px">curl</code>, not
+     <code style="font-family:var(--mono);font-size:13.5px">wget</code>: a stock Fedora Workstation
+     has no wget, so the Ubuntu line fails at the very first command. wget arrives later, during
+     the desktop step.</p>
+<pre><button class="copy">copy</button><code data-cmd="fedora-2">curl -fsSLO http://HOST/fedora/host_setup.sh
+bash host_setup.sh</code></pre>
+</div>
+<div class="card">
+  <h3>One line</h3>
+<pre><button class="copy">copy</button><code data-cmd="fedora-1">cd "$(mktemp -d)" &amp;&amp; curl -fsSLO http://HOST/fedora/host_setup.sh &amp;&amp; bash host_setup.sh</code></pre>
+</div>
+
+<h2>Options</h2>
+<div class="card">
+  <dl class="flags">
+    <dt>--no-nas</dt>
+    <dd>Skip the NAS mount entirely. Required on a DMZ or prod-local host: the network design
+        forbids it reaching the NAS, and a uniform build would otherwise plant NAS credentials
+        on a machine that can never use them.</dd>
+    <dt>--hostname &lt;name&gt;</dt>
+    <dd>Set the static hostname. Available on <strong>both</strong> distros since Aug 21, 2026.
+        It also fixes the matching <code style="font-family:var(--mono)">/etc/hosts</code> entry —
+        which <code style="font-family:var(--mono)">hostnamectl</code> does not touch, and whose
+        absence makes every later <code style="font-family:var(--mono)">sudo</code> print
+        <em>unable to resolve host</em> — and pins the name so cloud-init cannot revert it at the
+        next reboot. Needed on Fedora because ISO installs inherit
+        <code style="font-family:var(--mono)">localhost-live</code> from the installer; needed on
+        Ubuntu for renames and for hosts installed from an ISO rather than cloned.</dd>
+    <dt>--server</dt>
+    <dd><strong>Both</strong> distros since Aug 21, 2026. Headless host: skips Google Chrome
+        (~431 MB) and Cursor (~1012 MB), plus the resolution, dock, terminal-profile, keyring and
+        autologin steps. Still installs the CLI tools and shell aliases, which matter more on a
+        server than on a desktop — and on Fedora it still masks the systemd sleep targets, which a
+        server needs <em>more</em> than a desktop does, since nobody is sitting in front of it to
+        wake it up.
+        <em>Usually unnecessary</em> — the build auto-detects a headless host and does this on its
+        own. The flag is for forcing server treatment on a machine that has a desktop.</dd>
+    <dt>-h, --help</dt>
+    <dd>Print the usage and exit without touching anything.</dd>
+  </dl>
+  <p class="note">The script downloads its sub-scripts, shows you what it got, and asks once
+     before changing anything.</p>
+</div>
+
+<h2>Do not pipe this into bash</h2>
+<div class="danger">
+  <h3>&#9888; <code>curl … | bash</code> is broken for this script</h3>
+  <p style="margin:0; color:var(--dim); font-size:14.5px">
+    It is the usual idiom and it is the one form that does not work here. Both shortcuts fail,
+    and both were measured rather than assumed:
+  </p>
+  <ol>
+    <li><code>curl … | bash</code> — the script arrives <strong>on stdin</strong>, so the
+        confirmation prompt's <code>read</code> consumes the next <strong>byte of the script
+        itself</strong>. Observed: the reply came back as <code>e</code>, taken from the following
+        <code>echo</code>; the run aborted, and bash then reported
+        <code>cho: command not found</code> because the line had been eaten.</li>
+    <li><code>bash &lt;(curl … )</code> — <code>host_setup.sh</code> downloads its sub-scripts next
+        to itself, using <code>dirname "${BASH_SOURCE[0]}"</code>. Under process substitution that
+        resolves to <strong><code>/dev/fd</code></strong>, which is not writable, so
+        <strong>every download fails</strong>.</li>
+  </ol>
+  <p style="margin:14px 0 0; color:var(--dim); font-size:14.5px">
+    Downloading to a real file fixes both. That is all the one-liners above are doing.
+  </p>
+</div>
+
+<h2>Browse the scripts</h2>
+<div class="browse">
+  <a href="/ubuntu/"><div class="p">/ubuntu/</div>
+     <div class="d">Ubuntu &amp; Debian build standard. Download individual scripts by hand.</div></a>
+  <a href="/fedora/"><div class="p">/fedora/</div>
+     <div class="d">Fedora build standard. Same layout, dnf instead of apt.</div></a>
+</div>
+
+<footer>
+  Each tree has one <code>host_setup.sh</code> orchestrator plus the per-concern scripts it
+  calls — hostname, SSH, sudo, Cockpit, Docker, the NAS mount and the desktop. Any of them can be
+  run on its own. Editing a script here publishes it immediately; nginx serves the directory straight
+  off disk. A machine you already built keeps whatever it downloaded at build time, so a change
+  here affects <em>future</em> builds only.
+</footer>
+
+</div>
+
+<script>
+// Rewrite HOST to whatever address you actually reached this page on, so the commands are
+// correct from any interface or hostname rather than pinned to one hardcoded IP.
+(function () {
+  var host = window.location.host || '192.168.1.195';
+  document.getElementById('host').textContent = host;
+  document.querySelectorAll('code[data-cmd]').forEach(function (el) {
+    el.textContent = el.textContent.replace(/HOST/g, host);
+  });
+  document.querySelectorAll('button.copy').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var code = btn.parentNode.querySelector('code');
+      var text = code.textContent;
+      var done = function () {
+        btn.textContent = 'copied'; btn.classList.add('done');
+        setTimeout(function () { btn.textContent = 'copy'; btn.classList.remove('done'); }, 1400);
+      };
+      // navigator.clipboard needs a secure context. This is plain HTTP on a LAN, so it is
+      // undefined in most browsers here -- the textarea fallback is the path that actually runs.
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(text).then(done);
+      } else {
+        var ta = document.createElement('textarea');
+        ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta); ta.select();
+        try { document.execCommand('copy'); done(); } catch (e) { btn.textContent = 'select it'; }
+        document.body.removeChild(ta);
+      }
+    });
+  });
+})();
+</script>
+</body>
+</html>
