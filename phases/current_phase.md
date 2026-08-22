@@ -2,13 +2,53 @@
 
 **Updated:** August 21, 2026 - 10:45 PM EDT
 
-📏 **Size report, Aug 21:** MEMORY.md **2280** (+123 this session, from 2157) · this file **2343**
-(+0 until now). ⚠️ **This file is badly out of spec and has been for months:** the procedure says it
-holds **one** RESUME HERE block *at the top* and **one** session handoff. It currently holds **~35
-session blocks back to January 2026**, and RESUME HERE is buried at **line ~285**. Nothing was
-demoted tonight **on purpose** — there was a large uncommitted changeset in the tree, and
-`MAKE_MEMORIES` step 2e says commit *before* demoting so any loss is one `git show` away. **This is
-the next memory-maintenance job**, and it is the highest-value one available.
+## 🔲 START HERE NEXT SESSION — fix THIS file (Andrew asked to be reminded, Aug 21, 2026)
+
+**The job:** this file is badly out of spec and has been for months. `MAKE_MEMORIES` says it holds
+**one** `▶️ RESUME HERE` block *at the top* and **one** session handoff. It currently holds **~35
+session blocks going back to January 2026**, and **`RESUME HERE` is at line 386** — the one block you
+must read first is the one you have to scroll to find.
+
+**Why it was not done Aug 21:** there was a large uncommitted changeset in the tree, and step 2e says
+**commit before demoting** so any loss is one `git show` away. That is now true — everything is
+committed and pushed to both remotes — so the demotion is safe to start cold.
+
+🚨 **The measurement that changes the plan. Do NOT skip this.** The demotion candidates are **not**
+duplicated in their phase files, so **this is a COPY-then-verify job, not a delete job.** Measured
+Aug 21 with exact-line matching:
+
+| Block in this file | Size | Substantive lines NOT already in the target phase file |
+|---|---|---|
+| `✅ Phase 15 — The Education Program` | 422 | **320 of 320** → `phase15_education_program.md` |
+| `🟢 PREVIOUS — PHASE 16 CLOSED` | 199 | **158 of 158** → `phase16_docker_swarm.md` |
+| `✅ Phase 7 COMPLETE: Local WWW` | 172 | **86 of 90** → `phase7_local_www.md` |
+| `✅ DONE — Phase 12: Network Perimeter` | 60 | **40 of 40** → `phase12_network_segmentation.md` |
+
+Demoting all four reclaims **~850 lines** and would leave `RESUME HERE` as the top block, which is
+the shape the procedure asks for. ⛔ **But every one of those lines exists ONLY here.** Deleting
+first — the instinct, since these are all closed phases and "surely the phase file covers it" — would
+be exactly the silent loss `MAKE_MEMORIES` calls the worst failure mode this project has. Precedent:
+the Aug 20 Phase 14 demotion found **44 distinctive strings that existed only in the MEMORY copy.**
+
+**Order of operations, one block at a time, committing between each (step 2e):**
+1. Copy the block **verbatim** into its phase file. Do not summarise — the exact-line count above is
+   the check, and summarising sets it to zero.
+2. Verify it landed: `grep -cF` a distinctive line in the target **from the shell**, not from a
+   read-back. ⚠️ This repo is on **CIFS** — see the MEMORY.md gotcha.
+3. Only then delete it here, and read **every** removed line:
+   `git diff phases/current_phase.md | rg '^-' | rg -v '^---'`
+4. **Commit.** Then start the next block.
+
+⚠️ **Verify your verification tool before trusting it.** The first pass at the table above reported
+**100% missing for all four blocks**, which was a broken check, not a finding: it stripped markdown
+(`*`, `` ` ``, `_`) out of the search key but not out of the file being searched. A positive control —
+searching a file for its *own* lines — found only **7 of 25**, which is what exposed it. ⭐ **A
+coverage number is worthless until the tool has been shown to find something it should find.**
+
+---
+
+📏 **Size report, Aug 21 (post-session):** MEMORY.md **2295** (+138) · this file **2404** (+61).
+Both grew; nothing was demoted. That is the trigger this reminder exists to answer.
 
 📉 **MEMORY.md SHRANK for the first time on record: 2414 → 2099** (Aug 20). The closed Phase 14
 k3s/Redpanda block (331 lines, 14 % of an always-loaded file, subject explicitly out of scope) was
