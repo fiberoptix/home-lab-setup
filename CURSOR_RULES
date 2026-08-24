@@ -85,15 +85,76 @@ study material, not a production app. Capricorn is not.
    f. If ANY warnings exist:
       - STOP and ask user: "How do you want to proceed? (pull/push/stash/review changes)"
       - DO NOT continue until user responds
-4. ✅ Quick Context:
+4. ✅ Quick Context:  ⚠️ ORIENTATION ONLY - MEMORY.md is authoritative, this is not.
+   (Corrected Aug 24, 2026, authorised in writing by Andrew. It had said "6 VMs: GitLab, Runner, QA
+    Host, SonarQube, Monitoring, Traefik" and "Dual-access: Tailscale VPN" and "Phase 5 CI/CD" as
+    the headline. All three were wrong: Monitoring was NEVER BUILT, Traefik is not a VM, no host runs
+    Tailscale since OpenClaw was destroyed Aug 19, and the current phase is 17. ⭐ This is the same
+    defect as the `Quick Reference` table deleted from current_phase.md that morning - a stale
+    summary presented as current reference - but WORSE POSITIONED, because it is the first
+    substantive thing a cold session reads and it seeds the mental model before MEMORY.md corrects
+    it. ⛔ A convenience copy of a fact is a second place for that fact to go stale. Keep this list
+    SHORT and pointing elsewhere; do not grow it.)
    - Building Proxmox VE 9.1 DevOps/QA lab on HP Z6 G4
-   - 6 VMs: GitLab, Runner, QA Host, SonarQube, Monitoring, Traefik
+   - Proxmox host .150 + these VMs (⛔ read MEMORY.md -> IPs & HOSTS for the real state, incl. which
+     are `onboot 0` and which are awaiting destroy):
+       .180 QA (`vm-docker-qa-1`, plain docker compose - NOT swarm, NOT k8s)
+       .181 GitLab   .182 Runner   .183 SonarQube
+       .184 WWW (`vm-www-1`) - Traefik + Capricorn PROD + splash. Traefik RUNS HERE, it is not a VM
+       .185 Jenkins (`vm-jenkins-1`, Phase 17)
+       .186 k3s/Redpanda POC - the ONLY Kubernetes in this lab
+       .191/.192/.193 `docker-swarm-1/2/3` (Phase 16)
+       .195 this dev box - also the script server (`www/run_www.sh`)
    - ZFS storage: local-zfs (rpool1), vm-critical (rpool2), vm-ephemeral (rpool3)
-   - Dual-access: Tailscale VPN (admin) + Public HTTPS (QA testing)
-   - Capricorn = unified finance app (retired Finance/Portfolio/Retirement managers)
-   - Domain: gothamtechnologies.com (AWS Route53)
-   - Proxmox Web UI: https://192.168.1.150:8006 (root/[See PASSWORDS.md])
-   - Phase 5 CI/CD: ✅ COMPLETE (QA + GCP automated deployments operational)
+   - Access: LAN + Public HTTPS via Traefik on .184. ⛔ NO Tailscale anywhere - OpenClaw was the only
+     host running it and it was destroyed Aug 19, 2026
+   - Capricorn = unified finance app (retired Finance/Portfolio/Retirement managers). NOT ours to
+     refactor - see PROJECT SCOPE above
+   - Domain: gothamtechnologies.com (AWS Route53). `cap.*` = PROD-local on .184;
+     `capricorn.*` = GCP, on-demand only
+   - Proxmox Web UI: https://192.168.1.150:8006 (root/[See PASSWORDS.md - ON DEMAND, not at boot])
+   - CURRENT PHASE: 17 (Jenkins). Parts 0-3 done; Part 4 = deploy to the Swarm. Phases 0-16 closed.
+
+=== ASKING THE AI TO FIND OR FOCUS ON SOMETHING ===
+(Added Aug 24, 2026. Edit of THIS file authorised in writing by Andrew that day, for this section
+ only, when he asked how to phrase retrieval requests now that pruning has moved volume into the
+ phase files behind pointers.)
+
+There is NO special syntax and none is wanted. Andrew's boot pattern is:
+
+    "action CURSOR_RULES"  +  "pay special attention to <area>"
+
+That is sufficient and it is the intended design: the "pay special attention to" clause feeds the
+LOAD-BEFORE-TOUCH step above. The PHASE INDEX in MEMORY.md maps area -> file -> what you get WRONG
+without it, so naming the AREA is BETTER than naming a file - the index may route to two files where
+Andrew would have named one.
+
+TWO DIFFERENT REQUESTS, and they need different things from him:
+
+  1. FOCUS ("we're on the Jenkins build today")  -> a LOAD. Name the area, the index does the rest.
+
+  2. FIND ("go find that time we did blah")      -> a SEARCH. This one is a `grep`, so it succeeds or
+     fails on whether Andrew supplied ONE LITERAL ANCHOR - a string that would actually appear in
+     the text.
+       STRONG anchors: an IP or last octet (`.184`), a hostname, a filename, a rule/trap/ledger ID
+         (`B10`, `T5`, `J8`, `A12`), a commit SHA, a fragment of an error message, a tool or package
+         name, a date or phase number.
+       WEAK on its own: "the networking thing", "that time it broke". Still workable - the AI
+         keyword-hunts - but it is GUESSING.
+
+  🚨 THE FAILURE MODE IS NOT "THE AI FINDS NOTHING". It is the AI finding nothing and reporting that
+  as "it isn't there." An anchor is what makes a NEGATIVE result trustworthy. ⭐ Same house rule as
+  everywhere else in this project: a measurement is worthless until the instrument has been shown to
+  find something it should find. If a search comes back empty, SAY which files and which strings were
+  searched, so the negative is checkable rather than merely asserted.
+  ⚠️ And if the only anchor is vague, ask for the ERA instead ("around when we built the WWW server")
+  - dates and phase numbers are anchors too, and this repo is heavily dated.
+
+STATE THE INTENDED OUTCOME, because loading is cheap and acting is not. Three of them:
+    "just tell me what it says"      -> read + summarise, change nothing
+    "load it and stand by"           -> read, hold context, await instruction
+    "load it and go"                 -> read, then act
+DEFAULT when unstated: read and summarise, change NOTHING.
 
 === DIRECTORY RULES ===
 - NEVER write outside project directory on this host

@@ -2318,15 +2318,40 @@ file, `Blockers: ready for Phase 7` during Phase 17. Small, and the only ones th
 
 ---
 
-## FILES TO READ
+## REFERENCE INDEX — ⛔ NOT a boot list. `CURSOR_RULES` decides what loads when.
 
-1. `PASSWORDS.md` - All credentials
-2. `SYSTEM_VERIFICATION.md` - Complete hardware inventory, drive serials, VM configs (Jan 14, 2026)
-3. `/phases/current_phase.md` - Current work status
-4. `/phases/phase0_hardware.md` - Hardware specs and BIOS settings
-5. `/phases/phase1_proxmox.md` - ZFS configuration and best practices
-   - `/phases/phase1a_proxmox_upgrade_fail_rollback.md` - Jan 12 kernel failure + rollback
-   - `/phases/phase1b_proxmox_kernel_upgrade_safe_try.md` - planned reversible kernel upgrade
-6. `/phases/phase5_ci_cd_pipelines.md` ✅ COMPLETE
-7. `/phases/phase6_sonarqube.md` ✅ COMPLETE
-8. `/phases/phase11_openclaw.md` ✅ COMPLETE
+🔻 **Retitled Aug 24, 2026. It was called `FILES TO READ`, and that title was actively dangerous.**
+
+**What was wrong:** this section listed **eight** files with **`PASSWORDS.md` as item 1**, while the
+`CURSOR_RULES` startup checklist says load *"ALWAYS these two, and ONLY these two, at boot"* and marks
+credentials **⛔ ON DEMAND ONLY — do NOT read at boot**, because *"credentials do not belong in
+context 'just in case'."* Two authorities, flatly contradicting each other.
+
+🚨 **And the stale one won, because it is the one you hit first.** `MEMORY.md` *is* loaded at boot, so
+every cold session reached a heading reading "FILES TO READ" that told it to pull the credential file
+in immediately — reversing a decision Andrew made and authorised in writing on **Aug 19, 2026**, in
+the very rewrite that trimmed boot to two files. ⭐ **This is the third instance of one pattern found
+on Aug 24 alone** (the others: `MAKE_MEMORIES` step 2e vs the never-commit rule, and `CURSOR_RULES`
+item 4's stale VM list). ⛔ **Two files stating the same rule is one file too many. State it once and
+point at it** — which is why this section is now an index and names its owner in the heading.
+
+⚠️ **Why the credential rule earns its strictness:** ledger row **J8** — `PASSWORDS.md` is force-added
+into the **GitLab mirror** by `push_gitlab.sh` (`git add -f -A`), and that is the repo **Jenkins
+clones**. It is a *live* mirror, not a stale copy: it grew 14,854 → 16,781 B during the Part 3 session,
+so a token written to it was in Jenkins' reach within the hour. **Confirmed still on-demand by Andrew,
+Aug 24, 2026.**
+
+**Where to actually look** (the routing table with the *cost of skipping* is the **PHASE INDEX** near
+the top of this file — prefer it over this list):
+
+| File | Holds |
+|---|---|
+| `CURSOR_RULES` | ⭐ **Boot order, scope, git routing. The authority for what loads when.** |
+| `PASSWORDS.md` | All credentials. ⛔ **On demand only** — never at boot |
+| `SYSTEM_VERIFICATION.md` | Hardware inventory, drive serials, VM configs (Jan 14, 2026) |
+| `phases/current_phase.md` | ▶️ **`RESUME HERE` block at the top** — read that, not the whole file |
+| `phases/phase0_hardware.md` | Hardware specs and BIOS settings |
+| `phases/phase1_proxmox.md` | ZFS configuration and best practices |
+| `phases/phase1a_*` / `phase1b_*` | Jan 12 kernel failure + rollback / the reversible retry |
+| `phases/phase17_jenkins.md` | 🔵 **Current phase.** Hard rules B10/B11, traps T1–T8 |
+| `education/CONVENTIONS.md` + `METHOD.md` | **Both** are mandatory before any study material |
