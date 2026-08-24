@@ -201,3 +201,21 @@ AFTER updating memory files, ALWAYS follow this workflow:
 ❌ "action MAKE_MEMORIES" = UPDATE files only, NOT commit
 
 ✅ Exception: User explicitly says "commit everything" or "commit these changes"
+
+🔻 CARVE-OUT FOR DEMOTIONS ONLY (Andrew's call, Aug 24, 2026) — the rules above and step 2e
+   CONTRADICTED EACH OTHER, and it surfaced the first time a prune actually ran:
+
+     step 2e   : "COMMIT before demoting the next block, so any loss is one `git show` away"
+     this block: "action MAKE_MEMORIES = UPDATE files only, NOT commit"
+
+   Both cannot be obeyed during a prune. ⭐ THE RESOLUTION: for demotions the commit IS THE SAFETY
+   MECHANISM, not a publishing step - it is what makes a mistake recoverable instead of permanent.
+   So during step 2:
+     ✅ Commits between demoted blocks are REQUIRED and PRE-APPROVED. Do not stop to ask.
+     ❌ PUSHING still requires asking, exactly as above. Local commits are recovery; a push is
+        publication, and only the second one is irreversible.
+
+   ⚠️ Note WHY this sat undetected: the two rules only conflict when a demotion actually happens, and
+   for seven months none did. A contradiction on a path nobody walks is invisible - the same reason
+   the "makes you wince" trigger survived. ⭐ Rules that have never been executed are UNTESTED, not
+   correct. When you first run a dormant procedure, expect to find its contradictions.
