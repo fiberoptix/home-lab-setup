@@ -2127,56 +2127,21 @@ Carries the `9.9.8 → 26.1.0` upgrade and its **mandatory database wipe** (whic
 token issued beforehand), and the first-scan baseline — **test-app 86 LOC clean, Capricorn 28k LOC
 gate PASSED with 639 issues**, because a default gate scores *new* code, not the existing body.
 
-## ✅ Completed Previous Session (Jan 11, 2026 - Morning Session)
+## 📦 Oldest block demoted Aug 24, 2026 — the Jan 11 CI/CD build session
 
-**GitHub Repository Setup (9:00 AM):**
-- Published home-lab-setup to GitHub
-- Created comprehensive README with hardware specs
-- Multiple refinements (hardware cost, Z8 G4, rpool naming)
-- 8 commits total to GitHub
+*"Completed Previous Session (Jan 11, 2026 — Morning Session)"* is now in
+`phases/phase5_ci_cd_pipelines.md` → *The build session itself*. It was the **oldest block in this
+file**. Five items had no other home, two of which are still load-bearing:
 
-**Phase 5 - Test App CI/CD (10:00 AM - 11:30 AM):**
-- Created test-app (nginx + animated HTML splash page)
-- Built 3-stage pipeline: build → push → deploy
-- Fixed Docker API version (docker:27 not docker:24.0)
-- Configured CI/CD variables in GitLab
-- Setup SSH keys for deployment
-- **SUCCESS:** http://192.168.1.180:8080 deployed via pipeline!
+- 🚨 **The `prod` → `qa` refactoring** — `run-prod.sh` → `run-qa.sh`, `docker-compose.prod.yml` →
+  `docker-compose.qa.yml`, `Dockerfile.*.prod` → `Dockerfile.*.qa`. ⭐ **A `.qa` suffix in Capricorn
+  is not a variant of prod, it is the RENAMED prod.** Ten days later Phase 7 gave "prod" a real
+  meaning (`.184`), so `prod` in any Phase-5-era filename means **QA `.180`**.
+- ⚠️ **`.gitignore` was blocking `lib/`**, silently excluding four `lib/api-client.ts` files. Failed
+  at build time on the runner, never locally. Same shape as the later `smb_credentials` rules.
 
-**Capricorn CI/CD Integration (11:45 AM - 1:35 PM):**
-- Setup dual-remote configuration (GitHub + GitLab)
-- Created "production" group in GitLab
-- Established branch strategy (develop → QA, production → GCP)
-- **CRITICAL REFACTORING:** Renamed all "prod" → "qa" for clarity
-  - run-prod.sh → run-qa.sh
-  - docker-compose.prod.yml → docker-compose.qa.yml
-  - Dockerfile.*.prod → Dockerfile.*.qa
-  - Updated all text: "PROD Environment" → "QA Environment (192.168.1.180)"
-- Fixed .gitignore blocking lib/ directories (4 missing API files!)
-- Created docker-compose.qa.deploy.yml (registry-based deployment)
-- Built Capricorn .gitlab-ci.yml pipeline (QA + GCP stages)
-- Fixed SSH key loading in pipeline
-- **SUCCESS QA:** Capricorn auto-deploys to http://192.168.1.180:5001
-- **SUCCESS GCP:** Capricorn deploys to http://capricorn.gothamtechnologies.com
-- Added GCP deployment stage (manual trigger on production branch)
-- Installed all tools in pipeline: terraform, gcloud, kubectl, docker buildx
-- Fixed service account key file creation
-- Added git to prerequisites (removes buildx warning)
-
-**Issues Resolved:**
-1. Docker API version mismatch (docker:24.0 → docker:27)
-2. Registry authentication (CI/CD variables)
-3. SSH key deployment (runner to QA host)
-4. YAML script syntax (nested strings)
-5. Missing lib/api-client.ts files (.gitignore blocking lib/)
-6. SSH key format in CI/CD variable
-7. Naming confusion (PROD → QA refactoring)
-8. Build stages not running on production branch
-9. Tool installation (terraform, gcloud, kubectl in Alpine)
-10. Service account key file creation from variable
-11. Git missing for docker buildx metadata
-
----
+Also the `develop` → QA / `production` → GCP branch strategy, the 8 README commits, and the
+eleven-issue list from getting the first pipeline green.
 
 ## 📦 Five trailing sections demoted Aug 24, 2026
 

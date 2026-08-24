@@ -373,3 +373,46 @@ documentation were updated. (The dual-remote GitHub-safe / GitLab-full split cam
 - A **"Blockers"** section reading *"None. Phase 6 complete, ready for Phase 7!"* — stale by ten
   phases; Phase 17 is current.
 
+---
+
+## The build session itself — demoted from `current_phase.md` (Aug 24, 2026)
+
+From *"Completed Previous Session (Jan 11, 2026 — Morning Session)"*, the **oldest block in
+`current_phase.md`**. Five of its items were in no other file.
+
+**GitHub repo published (9:00 AM):** `home-lab-setup` to GitHub with a README carrying the hardware
+specs; refined several times over **8 commits** (hardware cost, Z8 G4, rpool naming).
+
+**test-app pipeline (10:00–11:30 AM):** nginx + animated HTML splash, three stages
+**build → push → deploy**, CI/CD variables and deploy SSH keys configured.
+✅ Deployed to `http://192.168.1.180:8080` by pipeline.
+
+**Capricorn CI/CD (11:45 AM–1:35 PM):** dual-remote (GitHub + GitLab), the **`production` group**
+created in GitLab, and the branch strategy that still governs the project — **`develop` → QA,
+`production` → GCP**. ✅ QA auto-deploy to `:5001`; ✅ GCP deploy as a **manual** trigger on
+`production`. The pipeline installs `terraform`, `gcloud`, `kubectl` and `docker buildx` itself.
+
+🚨 **The `prod` → `qa` refactoring, and why the filenames look the way they do.** Everything named
+*prod* that actually meant *QA* was renamed in one pass: `run-prod.sh` → **`run-qa.sh`**,
+`docker-compose.prod.yml` → **`docker-compose.qa.yml`**, `Dockerfile.*.prod` → **`Dockerfile.*.qa`**,
+and the strings *"PROD Environment"* → *"QA Environment (192.168.1.180)"*. A separate
+`docker-compose.qa.deploy.yml` was added for registry-based deploys.
+⭐ **Worth knowing before touching Capricorn:** a `.qa` suffix there is not a variant of prod, it is
+the *renamed* prod, done because the old naming actively misled. ⚠️ This predates the real
+PROD-local server (`.184`, Phase 7) by ten days — so **"prod" in Capricorn now means `.184`, and
+`.qa` means `.180`**, and any file still saying `prod` in a Phase-5-era context means QA.
+
+⚠️ **The gotcha that cost real time: `.gitignore` was blocking `lib/`**, which silently excluded
+**four `lib/api-client.ts` API files** from the repo. The build failed on missing modules that were
+present locally. ⭐ **A `.gitignore` pattern broad enough to catch a source directory fails at
+BUILD time on the runner and never on the developer's machine** — the files are right there when you
+look. Same family as the later `smb_credentials` rules: a path-shaped rule catching more than intended.
+
+**Eleven issues resolved that day**, kept because the list is a fair picture of what a first pipeline
+actually costs: Docker API mismatch (`docker:24.0` → **`docker:27`**); registry auth via CI/CD
+variables; SSH key deployment from runner to QA host; YAML nested-string syntax; the missing
+`lib/api-client.ts` files; SSH key *format* inside a CI/CD variable; the PROD→QA naming confusion;
+build stages not running on the `production` branch; installing terraform/gcloud/kubectl on Alpine;
+creating the GCP service-account key file from a variable; and `git` missing for `docker buildx`
+metadata.
+
