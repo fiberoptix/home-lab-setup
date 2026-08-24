@@ -954,11 +954,39 @@ It had been accumulating since Aug 13. **When you write a new handoff, move the 
 | Proxmox | .150 | ✅ Running — `ssh root@192.168.1.150`, key auth ✅ (via `authorized_keys2`, Aug 12 2026) |
 | **QA** | **.180** | ✅ LIVE — **VMID 180, hostname `vm-docker-qa-1`** as of Aug 20, 2026. **Capricorn QA server** (`:5001` frontend, `:5002` backend, auto-deploy on `develop` push), plain `docker compose` — NOT Swarm. ⛔ **The only Kubernetes in this lab is k3s on VM 186.** The old misnamed `vm-kubernetes-1` (VMID 200) was cloned to this one and is now **stopped, `onboot 0`, awaiting destroy after ~Sept 3, 2026** |
 | GitLab | .181 | ✅ LIVE |
-| Runner | .182 | ✅ LIVE (gitlab-runner-1) |
+| Runner | .182 | ✅ LIVE — **VM name is `vm-gitrun-1`**, not `gitlab-runner-1`. ⚠️ `gitlab-runner-1` is the **GitLab runner registration name**, which is a different thing and was listed here as the hostname until Aug 24, 2026. `qm` and `ssh` need `vm-gitrun-1` |
 | SonarQube | .183 | ✅ LIVE (vm-sonarqube-1, v26.1.0) |
 | **WWW** | **.184** | **✅ LIVE (vm-www-1, Traefik, Capricorn PROD, Splash)** — 🚫 **PROD-LOCAL: no NAS mount, no `/mnt/DevShare`, no `.smbcredentials`** (removed Aug 20, 2026; Phase 12 DMZ blocks the LAN). Rebuild it with **`host_setup.sh --no-nas`** |
 | **~~OpenClaw~~ → Jenkins** | **.185** | ⛔ **OpenClaw DESTROYED Aug 19, 2026 (totally gone).** VMID 185 + `.185` reassigned to `vm-jenkins-1` — Phase 17 |
-| **K8s/Redpanda POC** | **.186** | **🔵 BUILT July 25, 2026 (vm-k8-redpanda-1, Phase 14 sandbox) — `ssh agamache@192.168.1.186`, key auth ✅.** 🖥️ **Cockpit web UI at `https://192.168.1.186:9090/`** (added Aug 20, 2026) — log in with the `agamache` fleet password, self-signed cert so click through the warning. ⚠️ **`onboot 0`, so it is offline until you `qm start 186`** |
+| **K8s/Redpanda POC** | **.186** | **🔵 BUILT July 25, 2026 (vm-k8-redpanda-1, Phase 14 sandbox) — `ssh agamache@192.168.1.186`, key auth ✅.** 🖥️ **Cockpit web UI at `https://192.168.1.186:9090/`** (added Aug 20, 2026) — log in with the `agamache` fleet password, self-signed cert so click through the warning. ⚠️ **`onboot 0` — CONFIRMED still 0 on Aug 24, 2026, but it was RUNNING when measured.** `onboot 0` means it will not come back after a host reboot; it does **not** mean it is off now. Check, do not assume |
+| **SWARM** | **.191 .192 .193** | ✅ **`docker-swarm-1/2/3` — VMIDs 191/192/193, all three RUNNING and `Ready/Active` (measured Aug 24, 2026 via `docker node ls` on `.191`).** `docker-swarm-1` is **Leader**, the other two `Reachable`; engine **29.7.2**. 2 vCPU / 4 GB / 40 GB on **`vm-ephemeral`** each. ⚠️ **All three are `onboot 0`** — a host reboot leaves the whole Swarm down, and `vm-ephemeral` is the pool that gets rebuilt, so treat this cluster as **disposable by design**. 🚨 **Phase 17 Part 4 deploys HERE**, as stack **`capricorn-jenkins`** — ⛔ never `capricorn`, which is the Phase 16 GitLab-CI stack kept alive as the comparison. Full detail: `phases/phase16_docker_swarm.md` |
+| Dev box / script server | **.195** | ✅ **THIS machine** — where the AI runs, the repo lives (on **CIFS**, see the gotcha below), and the **host-setup script server** is served from (`cd www && ./run_www.sh`, landing page at `http://192.168.1.195/`). ⚠️ **Not a Proxmox VM**, so it never appears in `qm list` — which is why a session looking for `.195` there concludes it is remote and unreachable. It is not |
+| ~~vm-kubernetes-1~~ | (VMID 200) | ⛔ **STOPPED, `onboot 0`, awaiting destroy after ~Sept 3, 2026.** The original misnamed QA box, cloned to VMID 180. **No `.180` address any more** — do not confuse it with the live QA server |
+
+✅ **VERIFIED LIVE Aug 24, 2026** — `qm list` and `qm config` on `.150`, plus `docker node ls` on
+`.191`. Not transcribed from a phase file. Also present and deliberately not given a row:
+**VMID 9000** `tmpl-ubuntu-2404-cloudinit` (stopped — it is a template; see **CLOUD-INIT TEMPLATE**).
+
+🔻 **What that check corrected, because the errors are the instructive part:**
+- ⭐ **The three Swarm nodes were MISSING ENTIRELY**, having lived only in `phase16` since Phase 16
+  closed. **Phase 17 Part 4 deploys to them** — so the next thing to be built targeted hosts absent
+  from the file that is supposed to be authoritative on hosts. ⛔ **Closing a phase must not retire
+  its INFRASTRUCTURE into the phase file.** A phase file is the right home for the narrative and the
+  wrong home for a live address; the demotion rules in `MAKE_MEMORIES` route a *live rule* to its
+  proper home for exactly this reason, and a running VM is the same kind of thing.
+- **`.182` was listed as hostname `gitlab-runner-1`.** The VM is **`vm-gitrun-1`**; `gitlab-runner-1`
+  is the *runner registration* name. Two different namespaces, one of them useless to `qm` and `ssh`.
+- **`.186`'s note read as though `onboot 0` meant "currently off".** It was **running**. `onboot 0`
+  is a statement about the *next host reboot*, not about now.
+- **`.195` had no row at all** despite being the machine everything runs from — the same gap that
+  produced the Aug 21 wrong inference that the script server was unreachable and needed Andrew to
+  restart it. It is not a Proxmox VM, so `qm list` will never show it.
+
+⚠️ **The pattern in all four: this table drifted where the lab CHANGED SHAPE**, not where facts got
+old. Nobody mistyped an IP; hosts were added, renamed, cloned and re-scoped, and the table was only
+ever updated for the host the session happened to be touching. ⭐ **Re-measure the whole table
+occasionally rather than the row you are looking at** — the rows you are *not* looking at are exactly
+the ones that go quietly wrong.
 
 ### 🖥️ COCKPIT — now STANDARD on every Ubuntu server we build (Andrew's call, Aug 20, 2026)
 

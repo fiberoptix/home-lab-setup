@@ -638,6 +638,11 @@ Phase 6 was never started.
 
 **Phase 6 implementation (Jan 12, 6:00–9:00 PM):**
 - ✅ Created `vm-sonarqube-1` (192.168.1.183, 6 GB RAM, 30 GB vm-critical, 4 CPU)
+  ⚠️ **The 6 GB is the AS-BUILT figure and is no longer current** — raised to 8 GB during the Jan 12
+  infrastructure-optimisation pass ("improves scan performance for 28k LOC projects"), and
+  **measured at 12 GB on Aug 24, 2026** (`qm config 183`). Disk and vCPU are unchanged at 30 GB / 4.
+  ⭐ Noted because the *plan table* higher up this file still says "RAM | 6GB | SonarQube minimum",
+  which was a requirement, not a record — and a requirement that was outgrown twice.
 - ✅ Ran `host_setup.sh` (Docker, SSH, sudo, NAS, registry config)
 - ✅ Installed SonarQube via Docker
 - 🚨 **UPGRADED 9.9.8 (`lts-community`) → 26.1.0 (`community`) during the build**, because the older
