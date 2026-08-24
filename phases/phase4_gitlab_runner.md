@@ -224,3 +224,22 @@ After Runner is working → **Phase 5: CI/CD Pipelines** (deploy to QA)
 - `/phases/phase5_ci_cd_pipelines.md` - Pipeline configuration
 - `/phases/phase7_cloud_deploy.md` - AWS/GCP deployment
 
+---
+
+## Origin date — demoted from `current_phase.md` (Aug 24, 2026)
+
+**December 13, 2025** — `gitlab-runner-1` installed at **192.168.1.182**, Docker executor configured
+with the socket mount, test pipeline verified: standard jobs worked, **DIND did not** and was left
+for later.
+
+⚠️ **This date existed in exactly one place** — a "Previous Sessions" list at the bottom of
+`current_phase.md` — and was recorded nowhere in `phases/` or `MEMORY.md`. It is preserved here
+because the demotion check asked whether the *knowledge* was held somewhere appropriate rather than
+whether the text was duplicated; a verbatim-text check would have reported "not duplicated" for the
+whole block and a coverage check would have reported "covered" for the surrounding CI/CD content.
+**The install date was the one genuinely unique fact in 57 lines of otherwise stale or wrong text.**
+
+⭐ Its lasting relevance: the **socket mount** decided here is what
+`MEMORY.md` → *GITLAB RUNNER* still warns about — it is root-equivalent on `.182`, and the Phase 16
+security ledger (L19) prices it. The DIND gap noted that day is *why* the socket mount was kept.
+

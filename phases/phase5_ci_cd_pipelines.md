@@ -325,3 +325,51 @@ After Phase 5 complete → **Ready for Production Applications**
 **Infrastructure Status:** Ready for production application deployment  
 **Next Phase:** Deploy Capricorn or add quality/monitoring tools
 
+---
+
+## Closing record — demoted from `current_phase.md` (Aug 24, 2026)
+
+Copied verbatim from a "Key Achievements" section that sat at the bottom of `current_phase.md` for
+seven months. Preserved because the **DEV/QA/GCP definition below was recorded nowhere else** —
+`grep` found it in no other phase file and not in `MEMORY.md`.
+
+**Complete CI/CD Infrastructure:**
+- ✅ GitLab Server verified (git push/pull, Container Registry)
+- ✅ GitLab Runner verified (Docker builds, registry push, SSH deploy)
+- ✅ Test app pipeline working (validation complete)
+- ✅ **Capricorn pipeline working** (production application deployed!)
+
+**Deployment Clarity Established:**
+- **DEV** = Local workstation development
+- **QA** = vm-kubernetes-1 @ 192.168.1.180 (automated CI/CD)
+- **GCP** = Google Cloud Platform (real production)
+
+🚨 **The QA line above is HISTORICALLY accurate and CURRENTLY WRONG — that is why it was worth
+deleting from `current_phase.md` rather than leaving it there.** As of **Aug 20, 2026** `.180` is
+**VMID 180, `vm-docker-qa-1`**, running plain `docker compose`, **not Kubernetes and not Swarm**. The
+misnamed `vm-kubernetes-1` was VMID 200, was cloned to this one, and is stopped awaiting destroy.
+⛔ **The only Kubernetes in this lab is k3s on VM 186.** `MEMORY.md` → *IPs & HOSTS* is authoritative.
+
+⭐ **Why this one mattered more than its size.** A stale *fact* is a nuisance; this was a stale
+**definition of the environments**, sitting under a heading that reads as current reference. Anyone
+reading "QA = vm-kubernetes-1" would go looking for a Kubernetes QA box that has not existed since
+August, and `MEMORY.md` carries an explicit prohibition against exactly that inference. Same shape as
+cross-phase rule 2 — *a superseded directive in a history log is more dangerous than a stale fact,
+because a future session can act on it.*
+
+**One more date from the same demoted section, also recorded nowhere else:**
+**January 8, 2026** — the GitHub repository was set up and published, and the hardware specs and
+documentation were updated. (The dual-remote GitHub-safe / GitLab-full split came later, June 18
+2026 — see `MEMORY.md` → *HOME-LAB-SETUP REPO*.)
+
+**Also deleted in the same pass, and deliberately not preserved:**
+- A **"Next Steps"** section still offering *"Phase 7 Options — Option A: Monitoring Stack
+  (Prometheus + Grafana), Option B: Traefik + SSL"* as an open choice. **Option B was chosen and
+  built**; Traefik has been live on `.184` since January (120 mentions in `phase7_local_www.md`).
+  📌 The only part not superseded: **Prometheus/Grafana was never built and is still unbuilt** — the
+  one live idea in that section, noted here so the road-not-taken survives the deletion.
+- A **"Quick Reference"** VM table listing 4 hosts, labelling `.180` as *"QA/K8s"*. The lab has 9.
+  A wrong duplicate of `MEMORY.md` → *IPs & HOSTS*.
+- A **"Blockers"** section reading *"None. Phase 6 complete, ready for Phase 7!"* — stale by ten
+  phases; Phase 17 is current.
+

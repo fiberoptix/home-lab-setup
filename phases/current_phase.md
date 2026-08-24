@@ -2388,60 +2388,22 @@ plan is in **`phases/phase1b_proxmox_kernel_upgrade_safe_try.md`**.
 
 ---
 
-## Key Achievements
+## 📦 Five trailing sections demoted Aug 24, 2026
 
-**Complete CI/CD Infrastructure:**
-- ✅ GitLab Server verified (git push/pull, Container Registry)
-- ✅ GitLab Runner verified (Docker builds, registry push, SSH deploy)
-- ✅ Test app pipeline working (validation complete)
-- ✅ **Capricorn pipeline working** (production application deployed!)
+`Key Achievements`, `Previous Sessions`, `Next Steps`, `Quick Reference` and `Blockers` — 57 lines of
+vestigial template that had sat at the bottom of this file since January — were removed here.
 
-**Deployment Clarity Established:**
-- **DEV** = Local workstation development
-- **QA** = vm-kubernetes-1 @ 192.168.1.180 (automated CI/CD)
-- **GCP** = Google Cloud Platform (real production)
+**Where they went:** the three facts that existed nowhere else are preserved —
+`phases/phase5_ci_cd_pipelines.md` → *Closing record* (the CI/CD achievements, the **DEV/QA/GCP
+environment definition**, the Jan 8 2026 repo-publish date, and the note that **Prometheus/Grafana
+was never built**), and `phases/phase4_gitlab_runner.md` → *Origin date* (the **Dec 13 2025** runner
+install, socket mount, DIND gap).
 
----
-
-## Previous Sessions
-
-**January 8, 2026:**
-- GitHub repository setup and published
-- Updated hardware specs and documentation
-
-**December 13, 2025:**
-- GitLab Runner (gitlab-runner-1) installed @ 192.168.1.182
-- Docker executor configured with socket mount
-- Test pipeline verified (standard jobs work, DIND needs work)
-
----
-
-## Next Steps
-
-**Phase 7 Options:**
-- **Option A:** Monitoring Stack (Prometheus + Grafana)
-  - System metrics, application monitoring, dashboards
-- **Option B:** Traefik + SSL (public HTTPS access)
-  - Reverse proxy, automatic SSL certificates
-
-**Future Work:**
-- Gmail SMTP: Email notifications for GitLab (low priority)
-- Review SonarQube findings and improve code quality
-- Consider setting `allow_failure: false` for quality gates
-
----
-
-## Quick Reference
-
-| VM | IP | Status |
-|----|-----|--------|
-| QA/K8s | .180 | ✅ |
-| GitLab | .181 | ✅ LIVE |
-| Runner | .182 | ✅ LIVE |
-| SonarQube | .183 | ✅ LIVE (v26.1.0) |
-
----
-
-## Blockers
-
-None. Phase 6 complete, ready for Phase 7!
+🚨 **Why these went first rather than the biggest blocks:** three of the five were not merely stale,
+they were **wrong in ways a future session could act on** — a `Next Steps` section still offering a
+choice between Prometheus and Traefik when Traefik has been live on `.184` since January, a
+`Quick Reference` table listing 4 of 9 VMs and labelling `.180` as *"QA/K8s"* when `MEMORY.md`
+carries an explicit prohibition against that exact inference, and `Blockers: ready for Phase 7` while
+Phase 17 is current. ⭐ **Size is the wrong sort order for this cleanup. Sort by how badly a block
+could mislead**, which is cross-phase rule 2: *a superseded directive in a history log is more
+dangerous than a stale fact.*
