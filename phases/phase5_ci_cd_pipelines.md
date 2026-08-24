@@ -389,8 +389,11 @@ specs; refined several times over **8 commits** (hardware cost, Z8 G4, rpool nam
 
 **Capricorn CI/CD (11:45 AM–1:35 PM):** dual-remote (GitHub + GitLab), the **`production` group**
 created in GitLab, and the branch strategy that still governs the project — **`develop` → QA,
-`production` → GCP**. ✅ QA auto-deploy to `:5001`; ✅ GCP deploy as a **manual** trigger on
-`production`. The pipeline installs `terraform`, `gcloud`, `kubectl` and `docker buildx` itself.
+`production` → GCP**. ✅ QA auto-deploy to `http://192.168.1.180:5001`; ✅ GCP deploy as a **manual** trigger on
+`production`, reaching **`http://capricorn.gothamtechnologies.com`**. The pipeline installs
+`terraform`, `gcloud`, `kubectl` and `docker buildx` itself.
+⚠️ **That GCP hostname is still live and is NOT the primary any more** — Phase 7 moved production to
+`.184` behind `cap.gothamtechnologies.com`, leaving `capricorn.*` as the on-demand GCP instance.
 
 🚨 **The `prod` → `qa` refactoring, and why the filenames look the way they do.** Everything named
 *prod* that actually meant *QA* was renamed in one pass: `run-prod.sh` → **`run-qa.sh`**,
