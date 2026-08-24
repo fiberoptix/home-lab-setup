@@ -1,17 +1,231 @@
 # Current Phase
 
-**Updated:** August 21, 2026 - 10:45 PM EDT
+**Updated:** August 24, 2026 - 11:55 AM EDT
 
-## 🔲 START HERE NEXT SESSION — fix THIS file (Andrew asked to be reminded, Aug 21, 2026)
+📐 **Shape, and how to keep it:** `▶️ RESUME HERE` is the **first block** as of Aug 24 — it had been
+at line 389 under six stale session blocks, so the one thing you must read first was the one you had
+to scroll to find. **Keep it first.** Below it, newest session first. `MAKE_MEMORIES` step 0 now
+counts blocks (spec: 2) and step 2 demotes at least one per pass, so this file drains instead of
+growing — see that file for why the previous append-only version went undetected for seven months.
 
-**The job:** this file is badly out of spec and has been for months. `MAKE_MEMORIES` says it holds
-**one** `▶️ RESUME HERE` block *at the top* and **one** session handoff. It currently holds **~35
-session blocks going back to January 2026**, and **`RESUME HERE` is at line 386** — the one block you
-must read first is the one you have to scroll to find.
+## ▶️ RESUME HERE — 🔵 PHASE 17 (JENKINS): **Parts 0–3 are DONE (Aug 20, 2026). Next is Part 4 — deploy to the Swarm.**
 
-**Why it was not done Aug 21:** there was a large uncommitted changeset in the tree, and step 2e says
-**commit before demoting** so any loss is one `git show` away. That is now true — everything is
-committed and pushed to both remotes — so the demotion is safe to start cold.
+✅ **A `git push` to `production/home-lab-setup` now builds Jenkins unattended** (Part 3 closed
+~7:12 PM, write-up **J-P10**, snapshot `j03-gitlab-wired` verified). ✅ **Chapters 1, 2 and 3 are all
+written and built to DOCX — documentation is CAUGHT UP with the build for the first time this phase.**
+🆕 **DECISION A12 (Aug 20), now a rule for ALL tracks in `education/CONVENTIONS.md`: a chapter is the
+BUILD PROCEDURE** — numbered steps, each with **how to confirm it took effect**, tripping points marked
+**at the step**. ⛔ **Trap bookkeeping (`T4`, `T5`, `T8`, 🅒) stays in the phase file and out of chapter
+prose.** Chapter 3 was rewritten end-to-end that evening (19.8% density, applied via `highlight.py`).
+Ch1 and Ch2 checked, already clean. 🚨 **The argument was OMISSION, not tone** — the narrative draft had
+silently dropped three real setup failures because they were not traps. Cross-phase **principle 9**.
+⏳ **Trap T1 was deferred out of Part 3 into Part 4/5 — moved, not dropped.**
+
+🆕 **Ledger rows J7 and J8 were added while writing Chapter 3** — compromises already taken but never
+recorded. **J8 is the important one:** 🚨 **the repo Jenkins clones contains plaintext credentials**,
+and it is a **live mirror**, not a stale copy — `PASSWORDS.md` in the workspace grew 14,854 → 16,781 B
+during the session, so ⭐ **the notifyCommit token was in it within the hour**. ⛔ **Still do not clean the
+workspace or the controller cache — Part 7 input.**
+
+🔻 **AND THE DELIVERY MODEL WAS REPLANNED at ~4:30 PM (log entry J-P7) — read that before Part 3.**
+Parts **4 and 5 are swapped** (deploy now precedes build), and there are two new hard rules, **B10**
+(registry write scope) and **B11** (SHA tags). Nothing was built during the replan; it was all
+discussion, and it changed the plan enough that acting on the pre-4 PM version would be wrong.
+
+**Read `phases/phase17_jenkins.md` before touching anything Jenkins-related.** Where things stand:
+
+⛔ **ALREADY DONE AND IRREVERSIBLE — VM 185 `vm-openclaw-1` is destroyed.** Andrew ordered it killed
+with **no backup** (declined on purpose) and none existed; no snapshot had ever been taken. Verified
+gone: config file, ZFS volumes, and `/etc/pve/firewall/185.fw`. **Do not look for a way to restore it —
+there isn't one, and that was the decision.** Full record: `phase11_openclaw.md` → "CLOSED". It gave
+back **16 GB and 12 cores** (⚠️ the resource table had said 8 cores). Two facts it invalidated, both
+corrected in `MEMORY.md`: **no VM runs Tailscale any more**, and **only `.184` still has PVE firewall
+rules.**
+
+✅ **A1 and A2 both answered Aug 19: no DNS — bookmark `http://192.168.1.185:8080/` — and no TLS in the
+lab.** Nothing in the plan is open now.
+
+- **No TLS is ledger row J1**, accepted knowingly. It is a real compromise: the session cookie of a CI
+  controller is a credential to everything it can deploy.
+- **No DNS is cosmetic — because the address is static.** The one caveat: if `.185` ever moves, five
+  things need hand-editing (Jenkins URL, webhook URL, agent config, bookmark — the OAuth redirect is
+  gone now that A8 killed OAuth). In the
+  chapter it is a Lab-vs-PROD **table row**, not a callout — smaller, not wrong.
+- 🚨 **Trap T8 is NOT a consequence of skipping DNS**, though this file said so for one revision.
+  **GitLab blocks webhooks by RESOLVED ADDRESS**, so a hostname pointing at `192.168.1.185` is blocked
+  identically. T8 exists because the controller is on a private network at all.
+- ✅ **T8's precondition is now VERIFIED (🤖 AI-executed, read-only) — the trap CAN fire.** Measured on
+  `.181`: `allow_local_requests_from_web_hooks_and_services = false`, allow-list empty. Checked because
+  **Phase 16's C2 could not fire at all** and nobody had looked. ⭐ **Bonus finding worth keeping:
+  system hooks are ALLOWED to reach local addresses while project webhooks are BLOCKED — same instance,
+  same target.** So "GitLab blocks outbound LAN requests" is false as a general statement; it depends on
+  which subsystem asks. Full detail: `phase17_jenkins.md` → log entry **J-P1**.
+
+~~🔲 **NEXT ACTION — Part 0, steps 2–5.**~~ ✅ **SUPERSEDED Aug 20 — Parts 0 and 1 are both complete.**
+🙋 **Andrew ran every command himself**, one step at a time, at his request.
+
+**Where Jenkins actually is right now** (all verified against the API and `ps`, not read off a screen):
+
+| | |
+|---|---|
+| Jenkins | **2.568.2 LTS** on Java **21.0.11**, `http://192.168.1.185:8080/` (URL saved correctly) |
+| Login | local admin `agamache` — credentials in `PASSWORDS.md`. ⛔ **NOT a "break-glass account"** — that phrasing was wrong and is corrected in J-P6. Real break-glass is **root on the host** editing `config.xml` with Jenkins **stopped first** |
+| Authorization | ✅ **matrix-based since Part 2**: `agamache → Overall/Administer`, `authenticated → Overall/Read`. The wizard's "any authenticated user has full control" default is closed |
+| Executors | controller **0**, node `jenkins-agent-1` **2**, label `swarm-deploy` |
+| Agent | SSH → `127.0.0.1` as OS user `jenkins-agent` (no sudo, no extra groups), host key **pinned**, private key **only** in the Jenkins credential store |
+| Plugins | 73 installed from **6** deliberate choices, plus `ssh-slaves` added by hand |
+
+📓 Findings written up as **J-P3** (expired apt key + undeclared Java dependency), **J-P4** (the plugin
+list problem), **J-P5** (the split, and what the agent can still read). New ledger row **J2**
+(agent co-located with the controller). A5's transport question is closed in the plan.
+
+🔲 **NEXT ACTIONS, in order:**
+
+1. ✅ **Snapshot `j02-jenkins-up` taken** (VM shut down for it, restarted clean).
+2. ✅ **Chapter 1 and the track README are written** (`education/jenkins/`), figure rendered and
+   `figcheck`-clean, DOCX built. ⚠️ **The track is now indexed in `education/README.md` as track 3**,
+   so a future session should update that row as chapters land.
+3. ✅ **Part 2 DONE and RESHAPED — see J-P6.** 🔻 **OAuth was DROPPED for good (decision A8)**, because
+   Andrew's firm uses GitHub and because coupling the login to GitLab puts an instrument inside the
+   system Part 6 exists to break. Auth is now **local accounts + matrix authorization**
+   (`agamache → Administer`, `authenticated → Overall/Read`). Two attempts to lock ourselves out both
+   **failed by design** — matrix-auth pre-seeds and then silently restores your own `Administer`,
+   with no UI warning and nothing in the log. 📕 The **break-glass runbook is written but ⚠️ NOT
+   rehearsed**; it is marked `recited`, not `verified`.
+4. ✅ **DELIVERY MODEL REPLANNED (J-P7, ~4:00–4:35 PM) — discussion only, nothing built.** Andrew's
+   correction started it: this lab has **three** delivery paths, not two. `production/capricorn`'s own
+   pipeline ships the real app to QA `.180` and PROD `.184`; this repo's `.gitlab-ci.yml` is the Phase
+   16 exercise; Jenkins is the third. **The registry-overwrite hazard is invisible until you count
+   three.** Decisions **A9/A10/A11** closed, rules **B10/B11** added, ledger rows **J3/J4** written,
+   and **Parts 4 and 5 swapped.**
+5. ✅ **PART 3 BUILD WORK IS DONE (Aug 20, ~7:12 PM) — a `git push` now builds Jenkins unattended.**
+   🙋 Andrew ran every step. Snapshot **`j03-gitlab-wired`** taken 19:12:08, ✅ verified with
+   `qm listsnapshot`. **Full write-up: J-P10.** ⏳ **Only Chapter 3 is still owed for this part.**
+   - ✅ **Webhook working:** GitLab project hook →
+     `http://192.168.1.185:8080/git/notifyCommit?url=…&token=…`. Three green builds on `main`
+     (#3 at 19:10 triggered by a real push, not a button).
+   - 🚨 **The Jenkins token is in a QUERY STRING over plain HTTP** — it is in GitLab's stored config,
+     GitLab's delivery log, and every access log on the path. ⭐ **A secret in a URL is a secret in a
+     log.** Value is in `PASSWORDS.md`; rotate it freely, it is low-trust by construction.
+   - ⚠️ **GitLab's webhook "Secret token" field is deliberately BLANK and must stay that way** — it is
+     sent as a *header* and `notifyCommit` only reads a *query parameter*. **Filling it in secures
+     nothing while looking like it does.** Fourth name collision of the phase.
+   - ⚠️ **GitLab outbound allow-list is `{192.168.1.185:8080}` and the global "allow local network"
+     box is still OFF.** ⛔ **Do not tick that box** to fix a future webhook — add the host:port.
+   - ⛔ **T4 could not fire** (git plugin requires a token by default) and ⏳ **T1 was DEFERRED to
+     Part 4/5 at Andrew's request.** Both recorded in J-P10 — T1 is **moved, not dropped.**
+   - ⭐ **Two traps in a row have now been closed by their vendors** (J-P6 matrix lockout, J-P10
+     tokenless `notifyCommit`). **Treat folklore warnings as stale until measured.**
+   **The clone half, done earlier the same day (~5:30 PM) and still the load-bearing detail:**
+   - ✅ **Deploy key:** GitLab key id=3 `jenkins-185-readonly` on `production/home-lab-setup`,
+     **`CAN_PUSH=false` verified in the database**, not read off the checkbox. Jenkins credential
+     **`gitlab-home-lab-setup-readonly`** (username **`git`**), private half deleted from `.185`.
+   - ✅ **Host keys PINNED** — *Manually provided keys*, both ed25519 and RSA, **read off `.181`'s own
+     `/etc/ssh/` over an already-trusted channel rather than trust-on-first-use.** ⭐ This is charter
+     item **L22 paid down early**, and Jenkins' default **failed closed** where Phase 16's script had
+     `StrictHostKeyChecking=no` and would have connected to anything.
+   - ✅ **Job `home-lab-setup`** — Multibranch, SSH URL, Script Path `education/jenkins/Jenkinsfile`.
+   - 🅒 **T5 FIRED and is BIGGER than planted — see J-P9.** ⛔ **DO NOT clean the workspace or the
+     controller's git cache** — they are Chapter 3's evidence and a Part 7 input.
+   - ✅ **`Jenkinsfile` branch bug fixed** (commit `9a97f47`): `git rev-parse --abbrev-ref HEAD`
+     returned `HEAD` because Jenkins checks out by SHA. Now prints `env.BRANCH_NAME` **and** keeps the
+     git command beside it so the log shows both. ⭐ **The original guard was against the command
+     FAILING; it never fired, because the command SUCCEEDED and returned something useless.**
+6. 🔲 **Then Part 4 — DEPLOY (this used to be Part 5).** Reuse
+   `education/docker-swarm/scripts/deploy_swarm.sh` **unchanged** with `STACK=capricorn-jenkins`,
+   against the **existing `:latest` images**, so the only variable versus Phase 16 is the CI system.
+   ⚠️ **Needs `education/jenkins/manifests/capricorn-jenkins.stack.yml` on ports 5011/5012** — the
+   Phase 16 manifest's 5001/5002 are `mode: ingress` and two stacks cannot share them.
+7. 🔲 **Then Part 5 — BUILD AND PUSH (this used to be Part 4).** ✅ **Step 1 is ALREADY DONE — built
+   early on Aug 20, harmlessly, because a namespace produces no artifacts.** Group **`lab`** and
+   project **`lab/capricorn-swarm`** exist; push target is
+   `gitlab.gothamtechnologies.com:5050/lab/capricorn-swarm/<image>`; group deploy token
+   `jenkins-lab-push` is in `PASSWORDS.md`, **expires 2026-12-31**.
+   ✅ **B10 is PROVEN, not recited (J-P8)** — measured at the registry's auth service: `push,pull` on
+   `lab/`, **`pull` only** on `production/capricorn`. ⚠️ **The `pull` is not a scope leak:
+   `production/capricorn` is an INTERNAL project, so every authenticated identity can read it —
+   a token scope grants, it does not fence.**
+   ⏳ **Still owed here:** the end-to-end `docker push` denial, SHA tagging (B11), the two-job split,
+   a registry cleanup policy, and **T2** (the `docker` group).
+   ✅ **`insecure-registries` is ALREADY SET on `.185`** — `/etc/docker/daemon.json` contains
+   `["gitlab.gothamtechnologies.com:5050"]`, written by the standard build. ⚠️ **An earlier note in
+   this file claimed it was missing; that was asserted, not measured.** The build standard handles it,
+   which is the Cockpit/`nofail` pattern again: **a fix folded into `host_setup.sh` keeps paying on
+   every host built afterwards.**
+   📌 **Diarised hazard:** `jenkins-lab-push` and `swarm-lab-pull` **expire at the same instant**
+   (2026-12-31 05:00 UTC). Jenkins will fail loudly at build time; the Swarm fails **silently at the
+   next task reschedule**. Correlated expiry = two variables changing at once.
+
+🚨 **The one rule that escapes the lab if you get it wrong: B10.** Everything else in this phase fails
+locally. Pushing a Jenkins-built image over `production/capricorn/<svc>:latest` reaches **PROD `.184`**
+on the next pull.
+
+⚠️ **Do not "fix" what looks unfinished.** `passwordauthentication yes` on `.185`'s sshd, the
+world-readable `credentials.xml`, and the agent's lack of Docker access are all **Part 4/7 material or
+deliberate** — see the trap table before touching any of them.
+
+📌 **Everything the build needs, and what it costs to skip each one** (verified Aug 19, 9:40 PM — do not
+re-probe, just use them):
+
+| Need | Where / value | Cost of not reading it |
+|---|---|---|
+| The clone recipe | `MEMORY.md` → **CLOUD-INIT TEMPLATE (VM 9000)** | 🚨 **The template disk is 3.5 GB, so `qm resize` is MANDATORY**, and the filesystem only follows if cloud-init's `growpart` fires. **Verify `df -h /` from inside the guest.** If it silently doesn't fire, the VM dies on its first big `docker pull` with an error about *image layers*, not disk space — a genuinely confusing 20 minutes |
+| `host_setup.sh` | `wget http://192.168.1.195/scripts/host_setup.sh` → ✅ **HTTP 200, served right now** | The script server is **this dev box**; if it is ever down, start it with `cd www && ./run_www.sh`. It auto-downloads its own sub-scripts (`setup_ssh.sh`, `setup_docker.sh`) |
+| Proxmox access | ✅ **`ssh root@192.168.1.150` works keyless from this box** | Don't go hunting in `PASSWORDS.md`; it is not needed for this |
+| GitLab access | ✅ **`ssh agamache@192.168.1.181` works keyless, and `sudo` is passwordless there** | Needed in Part 3; `sudo gitlab-psql` is how J-P1 was measured |
+| ⛔ Do NOT | look for VM 185 to destroy | **It is already gone.** Part 0 step 1 is DONE |
+
+⭐ **The weighting is Andrew's and differs from Phase 16 — do not silently restore the first draft's
+ordering.** *"The most important aspects are that we install, configure Jenkins, we hook it up to
+GitLab and the docker-swarm, and we learn about deploying and fixing bad deployments like we did in
+phase16 with GitLab."* So **Part 6 (bad deployments and recovery) is the centre of gravity**, and the
+Phase 16 hardening charter is **Part 7 — required, but secondary**. The charter is also **scoped on the
+record** to L21 + L22 + L12(partial) + agent privilege; its literal wording ("every recited row")
+covers six rows, three of which are registry/Swarm work Jenkins cannot fix.
+
+🎭 **The phase runs as a firm-supplied build standard**, at Andrew's request — as if the employer handed
+over the spec. 🚨 **The AI does not know their real standard**, so every line is marked 🔧 **MECHANICS**
+(true of Jenkins anywhere, and we test it) or 📐 **CONVENTION** (an AI invention standing in for the
+firm). **Never quote a 📐 item as "what their firm does."** This is a deliberate deviation from
+`METHOD.md` and gets folded back in only if it proves out.
+
+🅒 **Eight planted traps, T1–T8, ⛔ do-not-fix before they fire.** The one worth knowing in advance:
+**T7 fires *after* the deploy looks hardened** — the pinned, keystore-held key still has no `command=`
+restriction, so it grants a full interactive shell on all three managers.
+
+🚨 **Hard rule B2: Jenkins deploys the stack `capricorn-jenkins`, NEVER `capricorn`.** The Phase 16
+GitLab pipeline stays alive and untouched as the comparison — that is why Andrew chose a separate name.
+
+---
+
+## 🧹 MEMORY MAINTENANCE — started Aug 24, 2026, and now self-draining
+
+**Status: in progress, and no longer dependent on anyone remembering.** 🙋 Andrew, Aug 24: *"what
+changes should we make today to cleanup a little and get back on a good track each time we
+MAKE_MEMORIES"* — so the session went after the **mechanism**, not just the mess.
+
+**Done Aug 24:**
+- ✅ `▶️ RESUME HERE` moved to the top (verified a pure reorder: identical sorted content, same line
+  count, checked again *after* the write because this repo is on CIFS).
+- ✅ **39 → 35 blocks**, 2447 → 2409 lines. Five vestigial trailing sections demoted; three facts
+  that existed nowhere else were copied out first (see that block below).
+- ✅ `MAKE_MEMORIES` amended so the drain is structural: step 0 counts **blocks**, the demotion
+  trigger is a **number** instead of *"whenever the size report makes you wince"*, step 2b routes
+  content **three ways** (promote a live rule / copy history / delete what is covered), and any tool
+  used to justify a deletion needs a **positive control** first.
+
+**Backlog: 35 blocks, spec is 2.** At one demotion per `MAKE_MEMORIES` pass this converges slowly but
+monotonically, and more per pass is fine **as long as each one is committed separately** — the safety
+invariant is the commit between blocks, not a cap on the count.
+
+⭐ **The finding worth carrying forward.** The old process was not being skipped out of laziness; it
+was **unenforceable as written**. Step 0 measured *lines* while the spec for this file states a *block
+count*, so a proxy stood in for the rule and never fired — 2444 lines reads as a big file, not a
+violated one. And the trigger was a **judgement** (*"makes you wince"*), which is the first thing a
+session under time pressure spends, with the cost landing on some later session. **Every individual
+decision to skip was locally reasonable, which is why it ran for seven months and twelve consecutive
+commits without a single decrease.** ⛔ *If a spec states a number, measure that number; if you want a
+step to happen reliably, gate it on something a script can print.*
 
 🔻 **CORRECTED Aug 24, 2026 — the Aug 21 version of this block overstated the risk, and would have
 sent you down a slow, wrong path. What it said, and why it was wrong, is worth keeping:**
@@ -383,196 +597,6 @@ destroyed), `refresh.sh` comment — **and re-deployed to `/usr/local/bin/refres
 byte-identical to the repo copy beforehand and is again now.** `SYSTEM_VERIFICATION.md` was **banner-ed
 as a stale historical snapshot rather than edited** — it is a dated Jan 14, 2026 report, and it is
 missing five VMs and understates GitLab's RAM. Historical phase files 2/4/5/7 left untouched.
-
----
-
-## ▶️ RESUME HERE — 🔵 PHASE 17 (JENKINS): **Parts 0–3 are DONE (Aug 20, 2026). Next is Part 4 — deploy to the Swarm.**
-
-✅ **A `git push` to `production/home-lab-setup` now builds Jenkins unattended** (Part 3 closed
-~7:12 PM, write-up **J-P10**, snapshot `j03-gitlab-wired` verified). ✅ **Chapters 1, 2 and 3 are all
-written and built to DOCX — documentation is CAUGHT UP with the build for the first time this phase.**
-🆕 **DECISION A12 (Aug 20), now a rule for ALL tracks in `education/CONVENTIONS.md`: a chapter is the
-BUILD PROCEDURE** — numbered steps, each with **how to confirm it took effect**, tripping points marked
-**at the step**. ⛔ **Trap bookkeeping (`T4`, `T5`, `T8`, 🅒) stays in the phase file and out of chapter
-prose.** Chapter 3 was rewritten end-to-end that evening (19.8% density, applied via `highlight.py`).
-Ch1 and Ch2 checked, already clean. 🚨 **The argument was OMISSION, not tone** — the narrative draft had
-silently dropped three real setup failures because they were not traps. Cross-phase **principle 9**.
-⏳ **Trap T1 was deferred out of Part 3 into Part 4/5 — moved, not dropped.**
-
-🆕 **Ledger rows J7 and J8 were added while writing Chapter 3** — compromises already taken but never
-recorded. **J8 is the important one:** 🚨 **the repo Jenkins clones contains plaintext credentials**,
-and it is a **live mirror**, not a stale copy — `PASSWORDS.md` in the workspace grew 14,854 → 16,781 B
-during the session, so ⭐ **the notifyCommit token was in it within the hour**. ⛔ **Still do not clean the
-workspace or the controller cache — Part 7 input.**
-
-🔻 **AND THE DELIVERY MODEL WAS REPLANNED at ~4:30 PM (log entry J-P7) — read that before Part 3.**
-Parts **4 and 5 are swapped** (deploy now precedes build), and there are two new hard rules, **B10**
-(registry write scope) and **B11** (SHA tags). Nothing was built during the replan; it was all
-discussion, and it changed the plan enough that acting on the pre-4 PM version would be wrong.
-
-**Read `phases/phase17_jenkins.md` before touching anything Jenkins-related.** Where things stand:
-
-⛔ **ALREADY DONE AND IRREVERSIBLE — VM 185 `vm-openclaw-1` is destroyed.** Andrew ordered it killed
-with **no backup** (declined on purpose) and none existed; no snapshot had ever been taken. Verified
-gone: config file, ZFS volumes, and `/etc/pve/firewall/185.fw`. **Do not look for a way to restore it —
-there isn't one, and that was the decision.** Full record: `phase11_openclaw.md` → "CLOSED". It gave
-back **16 GB and 12 cores** (⚠️ the resource table had said 8 cores). Two facts it invalidated, both
-corrected in `MEMORY.md`: **no VM runs Tailscale any more**, and **only `.184` still has PVE firewall
-rules.**
-
-✅ **A1 and A2 both answered Aug 19: no DNS — bookmark `http://192.168.1.185:8080/` — and no TLS in the
-lab.** Nothing in the plan is open now.
-
-- **No TLS is ledger row J1**, accepted knowingly. It is a real compromise: the session cookie of a CI
-  controller is a credential to everything it can deploy.
-- **No DNS is cosmetic — because the address is static.** The one caveat: if `.185` ever moves, five
-  things need hand-editing (Jenkins URL, webhook URL, agent config, bookmark — the OAuth redirect is
-  gone now that A8 killed OAuth). In the
-  chapter it is a Lab-vs-PROD **table row**, not a callout — smaller, not wrong.
-- 🚨 **Trap T8 is NOT a consequence of skipping DNS**, though this file said so for one revision.
-  **GitLab blocks webhooks by RESOLVED ADDRESS**, so a hostname pointing at `192.168.1.185` is blocked
-  identically. T8 exists because the controller is on a private network at all.
-- ✅ **T8's precondition is now VERIFIED (🤖 AI-executed, read-only) — the trap CAN fire.** Measured on
-  `.181`: `allow_local_requests_from_web_hooks_and_services = false`, allow-list empty. Checked because
-  **Phase 16's C2 could not fire at all** and nobody had looked. ⭐ **Bonus finding worth keeping:
-  system hooks are ALLOWED to reach local addresses while project webhooks are BLOCKED — same instance,
-  same target.** So "GitLab blocks outbound LAN requests" is false as a general statement; it depends on
-  which subsystem asks. Full detail: `phase17_jenkins.md` → log entry **J-P1**.
-
-~~🔲 **NEXT ACTION — Part 0, steps 2–5.**~~ ✅ **SUPERSEDED Aug 20 — Parts 0 and 1 are both complete.**
-🙋 **Andrew ran every command himself**, one step at a time, at his request.
-
-**Where Jenkins actually is right now** (all verified against the API and `ps`, not read off a screen):
-
-| | |
-|---|---|
-| Jenkins | **2.568.2 LTS** on Java **21.0.11**, `http://192.168.1.185:8080/` (URL saved correctly) |
-| Login | local admin `agamache` — credentials in `PASSWORDS.md`. ⛔ **NOT a "break-glass account"** — that phrasing was wrong and is corrected in J-P6. Real break-glass is **root on the host** editing `config.xml` with Jenkins **stopped first** |
-| Authorization | ✅ **matrix-based since Part 2**: `agamache → Overall/Administer`, `authenticated → Overall/Read`. The wizard's "any authenticated user has full control" default is closed |
-| Executors | controller **0**, node `jenkins-agent-1` **2**, label `swarm-deploy` |
-| Agent | SSH → `127.0.0.1` as OS user `jenkins-agent` (no sudo, no extra groups), host key **pinned**, private key **only** in the Jenkins credential store |
-| Plugins | 73 installed from **6** deliberate choices, plus `ssh-slaves` added by hand |
-
-📓 Findings written up as **J-P3** (expired apt key + undeclared Java dependency), **J-P4** (the plugin
-list problem), **J-P5** (the split, and what the agent can still read). New ledger row **J2**
-(agent co-located with the controller). A5's transport question is closed in the plan.
-
-🔲 **NEXT ACTIONS, in order:**
-
-1. ✅ **Snapshot `j02-jenkins-up` taken** (VM shut down for it, restarted clean).
-2. ✅ **Chapter 1 and the track README are written** (`education/jenkins/`), figure rendered and
-   `figcheck`-clean, DOCX built. ⚠️ **The track is now indexed in `education/README.md` as track 3**,
-   so a future session should update that row as chapters land.
-3. ✅ **Part 2 DONE and RESHAPED — see J-P6.** 🔻 **OAuth was DROPPED for good (decision A8)**, because
-   Andrew's firm uses GitHub and because coupling the login to GitLab puts an instrument inside the
-   system Part 6 exists to break. Auth is now **local accounts + matrix authorization**
-   (`agamache → Administer`, `authenticated → Overall/Read`). Two attempts to lock ourselves out both
-   **failed by design** — matrix-auth pre-seeds and then silently restores your own `Administer`,
-   with no UI warning and nothing in the log. 📕 The **break-glass runbook is written but ⚠️ NOT
-   rehearsed**; it is marked `recited`, not `verified`.
-4. ✅ **DELIVERY MODEL REPLANNED (J-P7, ~4:00–4:35 PM) — discussion only, nothing built.** Andrew's
-   correction started it: this lab has **three** delivery paths, not two. `production/capricorn`'s own
-   pipeline ships the real app to QA `.180` and PROD `.184`; this repo's `.gitlab-ci.yml` is the Phase
-   16 exercise; Jenkins is the third. **The registry-overwrite hazard is invisible until you count
-   three.** Decisions **A9/A10/A11** closed, rules **B10/B11** added, ledger rows **J3/J4** written,
-   and **Parts 4 and 5 swapped.**
-5. ✅ **PART 3 BUILD WORK IS DONE (Aug 20, ~7:12 PM) — a `git push` now builds Jenkins unattended.**
-   🙋 Andrew ran every step. Snapshot **`j03-gitlab-wired`** taken 19:12:08, ✅ verified with
-   `qm listsnapshot`. **Full write-up: J-P10.** ⏳ **Only Chapter 3 is still owed for this part.**
-   - ✅ **Webhook working:** GitLab project hook →
-     `http://192.168.1.185:8080/git/notifyCommit?url=…&token=…`. Three green builds on `main`
-     (#3 at 19:10 triggered by a real push, not a button).
-   - 🚨 **The Jenkins token is in a QUERY STRING over plain HTTP** — it is in GitLab's stored config,
-     GitLab's delivery log, and every access log on the path. ⭐ **A secret in a URL is a secret in a
-     log.** Value is in `PASSWORDS.md`; rotate it freely, it is low-trust by construction.
-   - ⚠️ **GitLab's webhook "Secret token" field is deliberately BLANK and must stay that way** — it is
-     sent as a *header* and `notifyCommit` only reads a *query parameter*. **Filling it in secures
-     nothing while looking like it does.** Fourth name collision of the phase.
-   - ⚠️ **GitLab outbound allow-list is `{192.168.1.185:8080}` and the global "allow local network"
-     box is still OFF.** ⛔ **Do not tick that box** to fix a future webhook — add the host:port.
-   - ⛔ **T4 could not fire** (git plugin requires a token by default) and ⏳ **T1 was DEFERRED to
-     Part 4/5 at Andrew's request.** Both recorded in J-P10 — T1 is **moved, not dropped.**
-   - ⭐ **Two traps in a row have now been closed by their vendors** (J-P6 matrix lockout, J-P10
-     tokenless `notifyCommit`). **Treat folklore warnings as stale until measured.**
-   **The clone half, done earlier the same day (~5:30 PM) and still the load-bearing detail:**
-   - ✅ **Deploy key:** GitLab key id=3 `jenkins-185-readonly` on `production/home-lab-setup`,
-     **`CAN_PUSH=false` verified in the database**, not read off the checkbox. Jenkins credential
-     **`gitlab-home-lab-setup-readonly`** (username **`git`**), private half deleted from `.185`.
-   - ✅ **Host keys PINNED** — *Manually provided keys*, both ed25519 and RSA, **read off `.181`'s own
-     `/etc/ssh/` over an already-trusted channel rather than trust-on-first-use.** ⭐ This is charter
-     item **L22 paid down early**, and Jenkins' default **failed closed** where Phase 16's script had
-     `StrictHostKeyChecking=no` and would have connected to anything.
-   - ✅ **Job `home-lab-setup`** — Multibranch, SSH URL, Script Path `education/jenkins/Jenkinsfile`.
-   - 🅒 **T5 FIRED and is BIGGER than planted — see J-P9.** ⛔ **DO NOT clean the workspace or the
-     controller's git cache** — they are Chapter 3's evidence and a Part 7 input.
-   - ✅ **`Jenkinsfile` branch bug fixed** (commit `9a97f47`): `git rev-parse --abbrev-ref HEAD`
-     returned `HEAD` because Jenkins checks out by SHA. Now prints `env.BRANCH_NAME` **and** keeps the
-     git command beside it so the log shows both. ⭐ **The original guard was against the command
-     FAILING; it never fired, because the command SUCCEEDED and returned something useless.**
-6. 🔲 **Then Part 4 — DEPLOY (this used to be Part 5).** Reuse
-   `education/docker-swarm/scripts/deploy_swarm.sh` **unchanged** with `STACK=capricorn-jenkins`,
-   against the **existing `:latest` images**, so the only variable versus Phase 16 is the CI system.
-   ⚠️ **Needs `education/jenkins/manifests/capricorn-jenkins.stack.yml` on ports 5011/5012** — the
-   Phase 16 manifest's 5001/5002 are `mode: ingress` and two stacks cannot share them.
-7. 🔲 **Then Part 5 — BUILD AND PUSH (this used to be Part 4).** ✅ **Step 1 is ALREADY DONE — built
-   early on Aug 20, harmlessly, because a namespace produces no artifacts.** Group **`lab`** and
-   project **`lab/capricorn-swarm`** exist; push target is
-   `gitlab.gothamtechnologies.com:5050/lab/capricorn-swarm/<image>`; group deploy token
-   `jenkins-lab-push` is in `PASSWORDS.md`, **expires 2026-12-31**.
-   ✅ **B10 is PROVEN, not recited (J-P8)** — measured at the registry's auth service: `push,pull` on
-   `lab/`, **`pull` only** on `production/capricorn`. ⚠️ **The `pull` is not a scope leak:
-   `production/capricorn` is an INTERNAL project, so every authenticated identity can read it —
-   a token scope grants, it does not fence.**
-   ⏳ **Still owed here:** the end-to-end `docker push` denial, SHA tagging (B11), the two-job split,
-   a registry cleanup policy, and **T2** (the `docker` group).
-   ✅ **`insecure-registries` is ALREADY SET on `.185`** — `/etc/docker/daemon.json` contains
-   `["gitlab.gothamtechnologies.com:5050"]`, written by the standard build. ⚠️ **An earlier note in
-   this file claimed it was missing; that was asserted, not measured.** The build standard handles it,
-   which is the Cockpit/`nofail` pattern again: **a fix folded into `host_setup.sh` keeps paying on
-   every host built afterwards.**
-   📌 **Diarised hazard:** `jenkins-lab-push` and `swarm-lab-pull` **expire at the same instant**
-   (2026-12-31 05:00 UTC). Jenkins will fail loudly at build time; the Swarm fails **silently at the
-   next task reschedule**. Correlated expiry = two variables changing at once.
-
-🚨 **The one rule that escapes the lab if you get it wrong: B10.** Everything else in this phase fails
-locally. Pushing a Jenkins-built image over `production/capricorn/<svc>:latest` reaches **PROD `.184`**
-on the next pull.
-
-⚠️ **Do not "fix" what looks unfinished.** `passwordauthentication yes` on `.185`'s sshd, the
-world-readable `credentials.xml`, and the agent's lack of Docker access are all **Part 4/7 material or
-deliberate** — see the trap table before touching any of them.
-
-📌 **Everything the build needs, and what it costs to skip each one** (verified Aug 19, 9:40 PM — do not
-re-probe, just use them):
-
-| Need | Where / value | Cost of not reading it |
-|---|---|---|
-| The clone recipe | `MEMORY.md` → **CLOUD-INIT TEMPLATE (VM 9000)** | 🚨 **The template disk is 3.5 GB, so `qm resize` is MANDATORY**, and the filesystem only follows if cloud-init's `growpart` fires. **Verify `df -h /` from inside the guest.** If it silently doesn't fire, the VM dies on its first big `docker pull` with an error about *image layers*, not disk space — a genuinely confusing 20 minutes |
-| `host_setup.sh` | `wget http://192.168.1.195/scripts/host_setup.sh` → ✅ **HTTP 200, served right now** | The script server is **this dev box**; if it is ever down, start it with `cd www && ./run_www.sh`. It auto-downloads its own sub-scripts (`setup_ssh.sh`, `setup_docker.sh`) |
-| Proxmox access | ✅ **`ssh root@192.168.1.150` works keyless from this box** | Don't go hunting in `PASSWORDS.md`; it is not needed for this |
-| GitLab access | ✅ **`ssh agamache@192.168.1.181` works keyless, and `sudo` is passwordless there** | Needed in Part 3; `sudo gitlab-psql` is how J-P1 was measured |
-| ⛔ Do NOT | look for VM 185 to destroy | **It is already gone.** Part 0 step 1 is DONE |
-
-⭐ **The weighting is Andrew's and differs from Phase 16 — do not silently restore the first draft's
-ordering.** *"The most important aspects are that we install, configure Jenkins, we hook it up to
-GitLab and the docker-swarm, and we learn about deploying and fixing bad deployments like we did in
-phase16 with GitLab."* So **Part 6 (bad deployments and recovery) is the centre of gravity**, and the
-Phase 16 hardening charter is **Part 7 — required, but secondary**. The charter is also **scoped on the
-record** to L21 + L22 + L12(partial) + agent privilege; its literal wording ("every recited row")
-covers six rows, three of which are registry/Swarm work Jenkins cannot fix.
-
-🎭 **The phase runs as a firm-supplied build standard**, at Andrew's request — as if the employer handed
-over the spec. 🚨 **The AI does not know their real standard**, so every line is marked 🔧 **MECHANICS**
-(true of Jenkins anywhere, and we test it) or 📐 **CONVENTION** (an AI invention standing in for the
-firm). **Never quote a 📐 item as "what their firm does."** This is a deliberate deviation from
-`METHOD.md` and gets folded back in only if it proves out.
-
-🅒 **Eight planted traps, T1–T8, ⛔ do-not-fix before they fire.** The one worth knowing in advance:
-**T7 fires *after* the deploy looks hardened** — the pinned, keystore-held key still has no `command=`
-restriction, so it grants a full interactive shell on all three managers.
-
-🚨 **Hard rule B2: Jenkins deploys the stack `capricorn-jenkins`, NEVER `capricorn`.** The Phase 16
-GitLab pipeline stays alive and untouched as the comparison — that is why Andrew chose a separate name.
 
 ---
 

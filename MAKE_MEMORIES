@@ -87,8 +87,15 @@ phases/phaseX_*.md (the working record - where the volume belongs):
   batching that 2e forbids - batching is several deletions sharing one commit, where a mistake is
   unrecoverable because there is no intermediate state to go back to.
 
-  📌 BACKLOG, as of Aug 24, 2026: 39 blocks, 21 of them dated Jan-July 2026. Steady state is 2.
-     Update this number when you demote, so the next session can see whether this is converging.
+  📌 BACKLOG. Steady state is 2. Update this line every time you demote, so the next session can see
+     whether this is actually converging rather than having to re-derive it.
+       Aug 24, 2026 (start of pass) : 39 blocks, 21 dated Jan-July 2026
+       Aug 24, 2026 (after pass 1)  : 35 blocks, 21 dated Jan-July 2026
+     ⚠️ Note what that pair shows: the first demotion took FOUR blocks off the count and moved the
+     stale-block number NOT AT ALL, because the five sections removed were undated template
+     leftovers ("Key Achievements", "Next Steps", "Blockers") rather than dated session logs. The
+     count went down and the backlog of genuinely old material did not. ⭐ Track BOTH numbers, or a
+     pass that cleared the easiest material will read as progress against the hard part.
 
   ⛔ THE OLD TRIGGER WAS "whenever the size report makes you wince." IT NEVER FIRED, NOT ONCE, IN
   SEVEN MONTHS. It is worth understanding why, because it reads like a perfectly sensible instruction:
