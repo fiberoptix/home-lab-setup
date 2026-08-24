@@ -13,37 +13,40 @@ must read first is the one you have to scroll to find.
 **commit before demoting** so any loss is one `git show` away. That is now true — everything is
 committed and pushed to both remotes — so the demotion is safe to start cold.
 
-🚨 **The measurement that changes the plan. Do NOT skip this.** The demotion candidates are **not**
-duplicated in their phase files, so **this is a COPY-then-verify job, not a delete job.** Measured
-Aug 21 with exact-line matching:
+🔻 **CORRECTED Aug 24, 2026 — the Aug 21 version of this block overstated the risk, and would have
+sent you down a slow, wrong path. What it said, and why it was wrong, is worth keeping:**
 
-| Block in this file | Size | Substantive lines NOT already in the target phase file |
-|---|---|---|
-| `✅ Phase 15 — The Education Program` | 422 | **320 of 320** → `phase15_education_program.md` |
-| `🟢 PREVIOUS — PHASE 16 CLOSED` | 199 | **158 of 158** → `phase16_docker_swarm.md` |
-| `✅ Phase 7 COMPLETE: Local WWW` | 172 | **86 of 90** → `phase7_local_www.md` |
-| `✅ DONE — Phase 12: Network Perimeter` | 60 | **40 of 40** → `phase12_network_segmentation.md` |
+It reported that the four demotion candidates were "**not** duplicated in their phase files" — 320 of
+320 substantive lines absent from `phase15_education_program.md`, 158 of 158 from `phase16`, and so on
+— and concluded that **"every one of those lines exists ONLY here"**, making this high-risk
+archaeology where a delete means permanent loss.
 
-Demoting all four reclaims **~850 lines** and would leave `RESUME HERE` as the top block, which is
-the shape the procedure asks for. ⛔ **But every one of those lines exists ONLY here.** Deleting
-first — the instinct, since these are all closed phases and "surely the phase file covers it" — would
-be exactly the silent loss `MAKE_MEMORIES` calls the worst failure mode this project has. Precedent:
-the Aug 20 Phase 14 demotion found **44 distinctive strings that existed only in the MEMORY copy.**
+⭐ **The numbers were right and the conclusion was wrong, because the question was wrong.** An
+exact-line comparison answers *"is this text duplicated?"* The question that decides whether a delete
+is safe is *"is this knowledge preserved somewhere appropriate?"* — and those give opposite answers
+here. Checked Aug 24: the Phase 15 block's load-bearing content — the **"Andrew runs the commands"
+driver split**, the one-command loop, the repetition rule — was **already in
+`education/METHOD.md`**, in its correct home, promoted there at the time it was decided. The text was
+never duplicated; the knowledge was never at risk. Most of that 422-line block is the *story of
+deciding* rules that already live where they belong.
 
-**Order of operations, one block at a time, committing between each (step 2e):**
-1. Copy the block **verbatim** into its phase file. Do not summarise — the exact-line count above is
-   the check, and summarising sets it to zero.
-2. Verify it landed: `grep -cF` a distinctive line in the target **from the shell**, not from a
-   read-back. ⚠️ This repo is on **CIFS** — see the MEMORY.md gotcha.
-3. Only then delete it here, and read **every** removed line:
-   `git diff phases/current_phase.md | rg '^-' | rg -v '^---'`
-4. **Commit.** Then start the next block.
+🚨 **Both failures in that Aug 21 analysis were TOOL failures, not knowledge failures**, and that is
+the durable lesson: the first version of the comparison reported *100% missing for all four blocks*
+because it stripped markdown (`*`, `` ` ``, `_`) out of the search key but not out of the file being
+searched. A positive control — searching a file for its **own** lines — found only **7 of 25**, which
+is what exposed it. ⭐ **A coverage number is worthless until the tool has been shown to find
+something it should find**, and even a *correct* tool is worthless if it answers the wrong question.
 
-⚠️ **Verify your verification tool before trusting it.** The first pass at the table above reported
-**100% missing for all four blocks**, which was a broken check, not a finding: it stripped markdown
-(`*`, `` ` ``, `_`) out of the search key but not out of the file being searched. A positive control —
-searching a file for its *own* lines — found only **7 of 25**, which is what exposed it. ⭐ **A
-coverage number is worthless until the tool has been shown to find something it should find.**
+✅ **The process now enforces this so it does not depend on remembering.** `MAKE_MEMORIES` was
+amended Aug 24: step 0 counts **blocks** (not just lines), the demotion trigger is **mechanical**
+(more than 2 blocks → demote at least one this pass, commit after each), step 2b routes content
+**three ways** (promote a live rule / copy history / delete what is covered), and any tool used to
+justify a deletion needs a **positive control** first.
+
+**Order of operations per block** — unchanged and still right: copy or promote first, verify from the
+**shell** (this repo is on **CIFS**, see the MEMORY.md gotcha), then delete, then read every removed
+line with `git diff phases/current_phase.md | rg '^-' | rg -v '^---'`, then **commit** before
+starting the next block.
 
 ---
 
