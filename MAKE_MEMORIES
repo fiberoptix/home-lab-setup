@@ -92,6 +92,14 @@ phases/phaseX_*.md (the working record - where the volume belongs):
        Aug 24, 2026 (start of pass) : 39 blocks, 21 dated Jan-July 2026, 2447 lines
        Aug 24, 2026 (after pass 1)  : 35 blocks, 21 dated Jan-July 2026, 2409 lines
        Aug 24, 2026 (after pass 2)  : 34 blocks, 19 dated Jan-July 2026, 2212 lines
+       Aug 24, 2026 (after pass 3)  : 29 blocks, 16 dated Jan-July 2026, 2114 lines
+
+  ⛔ WRITE ONE APPENDED DEMOTION LOG, NOT A NOTE PER DEMOTION. Passes 1-4 each left a "demoted from
+     here" marker block behind, which is the obvious and natural thing to write. Result: the block
+     count sat at 34 across two whole demotions while 300+ lines left the file - the markers replaced
+     the blocks they described, one for one. Consolidating four markers into a single table took it
+     34 -> 29 immediately. ⭐ IF YOUR CLEANUP EMITS ONE ARTEFACT PER UNIT OF WORK, THE ARTEFACTS
+     BECOME THE BACKLOG. current_phase.md now has ONE "📦 DEMOTION LOG" block; add a table row to it.
      ⚠️ Note what that pair shows: the first demotion took FOUR blocks off the count and moved the
      stale-block number NOT AT ALL, because the five sections removed were undated template
      leftovers ("Key Achievements", "Next Steps", "Blockers") rather than dated session logs. The

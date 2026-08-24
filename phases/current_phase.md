@@ -1931,17 +1931,28 @@ Next rotation: before Feb 6, 2028
 
 ---
 
-## 📦 Two Phase 7 blocks demoted Aug 24, 2026
+## 📦 DEMOTION LOG — Aug 24, 2026 (one block, on purpose)
 
-*"✅ Phase 7 COMPLETE"* (173 lines) and *"🌐 Phase 7 Implementation … ARCHIVED"* (60 lines) were
-removed here. **`phases/phase7_local_www.md` → *Salvage from two `current_phase.md` blocks*** holds
-the five commit SHAs and the one design decision (**two manual deploy buttons**) that existed in no
-other file. Everything else was already in that file, in more detail — the `Mixed Content` /
-`api.ts` fix, NAT hairpinning, the `capricorn_capricorn-network` dual-network Traefik problem,
-`bullpup.ddns.net`, Route53, the G3100 forwarding.
+⚠️ **This block exists because the first four demotions each left a marker block behind, so the block
+count sat at 34 while 300+ lines left the file.** A per-demotion note is the obvious thing to write
+and it quietly defeats the metric the whole exercise is gated on. ⭐ **If your cleanup emits one
+artefact per unit of work, the artefacts become the backlog.** One log, appended to.
 
-⭐ **A verbatim-line check flagged 86 of those lines as having "no home" and the real residue was six
-items.** The check finds candidates; it cannot decide. Somebody has to read them.
+| Demoted from here | Lines | Went to | Salvaged because it was nowhere else |
+|---|---|---|---|
+| `Key Achievements`, `Previous Sessions`, `Next Steps`, `Quick Reference`, `Blockers` | 57 | `phase5`, `phase4` | Dec 13 2025 runner install + socket mount; **DEV/QA/GCP environment definition**; Jan 8 2026 repo publish; Prometheus/Grafana never built |
+| `✅ Phase 7 COMPLETE` + `🌐 Phase 7 … ARCHIVED` | 233 | `phase7_local_www.md` | 5 commit SHAs; the **two manual deploy buttons** decision |
+| `✅ Completed This Session (Jan 12-13)` | 32 | `phase6_sonarqube.md` | First-scan baseline (**86 LOC / 28k LOC**); the `9.9.8→26.1.0` **database wipe** invalidating every prior token |
+| `✅ Completed Previous Session (Jan 11)` | 51 | `phase5_ci_cd_pipelines.md` | **`prod`→`qa` refactoring**; **`.gitignore` blocking `lib/`**; branch strategy; the 11-issue list |
+| `✅ COMPLETE: Phase 5` (status stub) | 7 | — | nothing; `phase5` covers it |
+| `🔥 Critical Incident: Proxmox Kernel` | 9 | — | nothing; it was **already just a pointer** to `phase1a`/`phase1b`, both referenced from `MEMORY.md` |
+
+**Two findings from doing it, both in `MEMORY.md` → MEMORY MAINTENANCE:**
+- ⭐ **A verbatim-line check finds CANDIDATES, not verdicts.** It flagged **86 of 173** Phase 7 lines
+  as homeless; reading them left **six** real items. Acting on the 86 either way would have been wrong.
+- ⭐ **Sort by how badly a block could MISLEAD, not by size.** The 57-line batch went first because
+  three of those sections were *wrong* — a settled Prometheus-vs-Traefik choice presented as open, a
+  VM table contradicting an explicit prohibition, and `ready for Phase 7` during Phase 17.
 
 ## 📋 Documentation Verification & Standardization (Jan 14, 2026 - 3:15-4:30 PM)
 
@@ -2101,64 +2112,3 @@ items.** The check finds candidates; it cannot decide. Somebody has to read them
 - Ensures consistency, performance, and reliability across the infrastructure
 
 ---
-
-## 🔥 Critical Incident: Proxmox Kernel Issue (Jan 12, 2026)
-
-**Moved.** Full write-up of the failed `6.17.2-1 → 6.17.4-2` upgrade, NVMe-timeout
-boot failure, and rollback now lives in
-**`phases/phase1a_proxmox_upgrade_fail_rollback.md`**. The forward-looking safe-retry
-plan is in **`phases/phase1b_proxmox_kernel_upgrade_safe_try.md`**.
-
----
-
-## ✅ COMPLETE: Phase 5 - CI/CD Pipelines (QA + GCP Both Working!)
-
-**Infrastructure:** Production-ready with full automation (QA + GCP)
-**Status:** Phases 0-5 complete, automated deployments to QA and GCP operational
-
----
-
-## 📦 Phase 6 completion record demoted Aug 24, 2026
-
-*"Completed This Session (Jan 12-13, 2026)"* — the SonarQube build — is now in
-`phases/phase6_sonarqube.md` → *What was actually built*. ⚠️ **It closed a real gap:** that file
-ended at "awaiting Andrew's input", so the only evidence Phase 6 was ever *finished* was this block.
-Carries the `9.9.8 → 26.1.0` upgrade and its **mandatory database wipe** (which invalidated every
-token issued beforehand), and the first-scan baseline — **test-app 86 LOC clean, Capricorn 28k LOC
-gate PASSED with 639 issues**, because a default gate scores *new* code, not the existing body.
-
-## 📦 Oldest block demoted Aug 24, 2026 — the Jan 11 CI/CD build session
-
-*"Completed Previous Session (Jan 11, 2026 — Morning Session)"* is now in
-`phases/phase5_ci_cd_pipelines.md` → *The build session itself*. It was the **oldest block in this
-file**. Five items had no other home, two of which are still load-bearing:
-
-- 🚨 **The `prod` → `qa` refactoring** — `run-prod.sh` → `run-qa.sh`, `docker-compose.prod.yml` →
-  `docker-compose.qa.yml`, `Dockerfile.*.prod` → `Dockerfile.*.qa`. ⭐ **A `.qa` suffix in Capricorn
-  is not a variant of prod, it is the RENAMED prod.** Ten days later Phase 7 gave "prod" a real
-  meaning (`.184`), so `prod` in any Phase-5-era filename means **QA `.180`**.
-- ⚠️ **`.gitignore` was blocking `lib/`**, silently excluding four `lib/api-client.ts` files. Failed
-  at build time on the runner, never locally. Same shape as the later `smb_credentials` rules.
-
-Also the `develop` → QA / `production` → GCP branch strategy, the 8 README commits, and the
-eleven-issue list from getting the first pipeline green.
-
-## 📦 Five trailing sections demoted Aug 24, 2026
-
-`Key Achievements`, `Previous Sessions`, `Next Steps`, `Quick Reference` and `Blockers` — 57 lines of
-vestigial template that had sat at the bottom of this file since January — were removed here.
-
-**Where they went:** the three facts that existed nowhere else are preserved —
-`phases/phase5_ci_cd_pipelines.md` → *Closing record* (the CI/CD achievements, the **DEV/QA/GCP
-environment definition**, the Jan 8 2026 repo-publish date, and the note that **Prometheus/Grafana
-was never built**), and `phases/phase4_gitlab_runner.md` → *Origin date* (the **Dec 13 2025** runner
-install, socket mount, DIND gap).
-
-🚨 **Why these went first rather than the biggest blocks:** three of the five were not merely stale,
-they were **wrong in ways a future session could act on** — a `Next Steps` section still offering a
-choice between Prometheus and Traefik when Traefik has been live on `.184` since January, a
-`Quick Reference` table listing 4 of 9 VMs and labelling `.180` as *"QA/K8s"* when `MEMORY.md`
-carries an explicit prohibition against that exact inference, and `Blockers: ready for Phase 7` while
-Phase 17 is current. ⭐ **Size is the wrong sort order for this cleanup. Sort by how badly a block
-could mislead**, which is cross-phase rule 2: *a superseded directive in a history log is more
-dangerous than a stale fact.*
