@@ -2281,6 +2281,43 @@ There is NO git-crypt and NO encryption — safety on GitHub comes purely from .
 
 ---
 
+## MEMORY MAINTENANCE — why the demotion step never ran (Aug 24, 2026)
+
+`current_phase.md` is specified to hold **one** `▶️ RESUME HERE` block at the top and **one** session
+handoff. On Aug 24 it held **39 blocks**, 21 dated January-July, with `RESUME HERE` at **line 389**.
+Its line count had gone **2067 → 2444 over twelve consecutive commits without a single decrease** —
+the same runaway this file had in June, and the demotion step added then was supposed to prevent it.
+
+**It ran every session and could not see the breach.** Fixed in `MAKE_MEMORIES`; three rules survive
+the specific file:
+
+- ⭐ **If a spec states a number, MEASURE THAT NUMBER.** Step 0 measured *lines* while the rule was a
+  *block count*. A proxy stood in for the spec, and **2444 lines reads as a big file rather than a
+  violated rule** — the number was honest, reported every session, and carried no signal. A file with
+  a countable rule and no count of it is unenforced no matter how diligently something adjacent is
+  measured. Same shape as *probe the capability you are about to use, not a proxy*.
+- ⭐ **A process step whose trigger is an OPINION is an optional step.** The trigger was "whenever the
+  size report makes you wince". It never fired once in seven months, and not through laziness:
+  wincing is a judgement, judgement is the first thing a session under time pressure spends, and the
+  cost lands on a *later* session. **Every individual skip was locally reasonable.** Gate anything you
+  want to happen reliably on something a script can print.
+- ⭐ **A line-level coverage check finds CANDIDATES, not verdicts.** Demoting the Phase 7 blocks, a
+  verbatim comparison flagged **86 of 173 lines as having "no home"** — reading them showed almost all
+  were prose restating facts `phase7_local_www.md` gives in different words, and the real residue was
+  **five commit SHAs and one sentence**. ⚠️ Ask *"is the knowledge preserved somewhere appropriate?"*,
+  not *"is this text duplicated?"* — those give **opposite** answers. The Phase 15 block reads as
+  320/320 lines missing, yet its load-bearing content was already in `education/METHOD.md`.
+  And **validate the tool before trusting it**: the first version of that check reported 100% missing
+  because it stripped markdown from the search key but not the searched file, caught only by a
+  positive control that found 7 of 25 of a file's own lines.
+
+📌 **Sort demotions by how badly a block could MISLEAD, not by size.** The first pass took the five
+trailing template sections — `Next Steps` still offering a Prometheus-vs-Traefik choice settled in
+January, a `Quick Reference` table naming `.180` "QA/K8s" against an explicit prohibition in this
+file, `Blockers: ready for Phase 7` during Phase 17. Small, and the only ones that could be *acted on*.
+
+---
+
 ## FILES TO READ
 
 1. `PASSWORDS.md` - All credentials
