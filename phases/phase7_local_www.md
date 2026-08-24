@@ -1506,3 +1506,37 @@ None - all questions resolved! Ready for implementation.
 
 **Phase 7 Planning Complete:** January 22, 2026  
 **Ready for:** User review and approval before implementation
+
+---
+
+## Salvage from two `current_phase.md` blocks demoted Aug 24, 2026
+
+Two Phase 7 blocks — *"✅ Phase 7 COMPLETE"* (173 lines) and *"🌐 Phase 7 Implementation … ARCHIVED"*
+(60 lines) — were removed from `current_phase.md`. **233 lines, and only the five items below needed
+saving**, because this file is the thorough record and already carries every substantive fact: the
+`Mixed Content` failure and the `api.ts` protocol auto-detection (6 and 3 mentions here), the
+NAT hairpinning fix, the `capricorn_capricorn-network` / `172.19.0.0/16` dual-network Traefik problem
+(8 and 9 mentions), `bullpup.ddns.net` with its `108.6.178.182` address, Route53, the G3100 port
+forwarding, and the localhost routing labels.
+
+**Commit SHAs that existed in no other file:**
+
+| Commit | What it did |
+|---|---|
+| `92c389a` | Phase 7 planning — local WWW server to replace GCP hosting |
+| `46846d7` | Enhance `setup_desktop.sh`: file-manager preferences + sysbench fix |
+| `95f0dda` | Capricorn README → point to `cap.*` as the primary production URL |
+| `218110b` | Reworded *"GCP Backup"* → *"GCP Instance"*, available on-demand for public demos |
+| `2b64657` | Emphasise `cap.*` as primary, GCP on-demand only; merged to `develop` **and** `production` |
+
+**And one design decision recorded nowhere else:** the pipeline was specified as **two manual
+buttons** — *"Deploy to Local PROD"* and *"Deploy to GCP PROD"* — rather than automatic promotion.
+⭐ That is the ancestor of the `deploy_prod_local` job, and the reason PROD deployment here is
+gated on a human click while QA auto-deploys on a `develop` push.
+
+⚠️ **Method note, because the numbers are counter-intuitive.** A verbatim-line comparison flagged
+**86 of block A's lines as having "no home"**, which reads like 86 lines about to be lost. They were
+almost entirely *prose describing facts this file states in different words* — the useful residue was
+five commit SHAs and one sentence. ⭐ **The line-level check is the right way to find CANDIDATES and
+the wrong way to decide; someone has to read them.** Deleting on the strength of that 86 would have
+been wrong, and *keeping* 233 lines on the strength of it would have been equally wrong.

@@ -89,8 +89,9 @@ phases/phaseX_*.md (the working record - where the volume belongs):
 
   📌 BACKLOG. Steady state is 2. Update this line every time you demote, so the next session can see
      whether this is actually converging rather than having to re-derive it.
-       Aug 24, 2026 (start of pass) : 39 blocks, 21 dated Jan-July 2026
-       Aug 24, 2026 (after pass 1)  : 35 blocks, 21 dated Jan-July 2026
+       Aug 24, 2026 (start of pass) : 39 blocks, 21 dated Jan-July 2026, 2447 lines
+       Aug 24, 2026 (after pass 1)  : 35 blocks, 21 dated Jan-July 2026, 2409 lines
+       Aug 24, 2026 (after pass 2)  : 34 blocks, 19 dated Jan-July 2026, 2212 lines
      ⚠️ Note what that pair shows: the first demotion took FOUR blocks off the count and moved the
      stale-block number NOT AT ALL, because the five sections removed were undated template
      leftovers ("Key Achievements", "Next Steps", "Blockers") rather than dated session logs. The
