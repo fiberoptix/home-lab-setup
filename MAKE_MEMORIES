@@ -10,8 +10,23 @@ Run this BEFORE writing anything, and PUT THE OUTPUT IN YOUR MESSAGE:
   wc -l MEMORY.md phases/current_phase.md
   git show HEAD:MEMORY.md | wc -l
   git show HEAD:phases/current_phase.md | wc -l
+  grep -c '^## ' phases/current_phase.md          # ← BLOCK COUNT. Spec is 2.
 
-Report as: "MEMORY.md 2363 (+33 this session) · current_phase.md 3505 (+43)".
+Report as: "MEMORY.md 2363 (+33) · current_phase.md 3505 (+43), 39 blocks (spec 2)".
+
+🚨 THE BLOCK COUNT WAS ADDED Aug 24, 2026, AND IT IS THE POINT OF THIS STEP NOW.
+  Measured that day: current_phase.md held 39 session blocks against a spec of 2, with 21 of them
+  dated January-July 2026. Line history over the previous twelve commits: 2067 -> 2444, MONOTONIC,
+  never once decreasing - the identical pattern this file already diagnosed for MEMORY.md above.
+  ⭐ WHY IT STAYED INVISIBLE FOR SEVEN MONTHS, and this is the transferable part:
+  THE MEASUREMENT DID NOT MEASURE WHAT THE SPEC CONSTRAINED. MEMORY.md's spec is loose ("do not grow
+  forever"), so a line count is the right instrument for it. current_phase.md's spec is exact - ONE
+  handoff plus ONE resume block - and nobody ever counted blocks. A line count is a PROXY for that
+  spec, and the proxy never fired, because 2444 lines looks like a big file rather than a violated
+  rule. Step 0 existed, ran every session, reported an honest number, and still could not see the
+  breach. Same shape as the house rule "probe the capability you are about to use, not a proxy":
+  ⛔ if a spec states a number, MEASURE THAT NUMBER. A file with a countable rule and no count of it
+  is unenforced no matter how diligently something adjacent is measured.
 
 WHY THIS EXISTS - the measurement that forced it:
   MEMORY.md went 1873 -> 2330 lines between Aug 13 and Aug 19, 2026. Fifteen consecutive commits
@@ -57,11 +72,59 @@ phases/phaseX_*.md (the working record - where the volume belongs):
 
 === 2. DEMOTION (the step that was missing) ===
 
-Do this whenever EITHER is true: a phase closes, or the size report in step 0 makes you wince.
+🚨 THE TRIGGER IS MECHANICAL. NO JUDGEMENT. (rewritten Aug 24, 2026)
 
-  a. Pick the largest block in MEMORY.md's CURRENT STATE belonging to a CLOSED or dormant phase.
-  b. Confirm the phase file already covers it:  rg '<a distinctive phrase>' phases/phaseX_*.md
-     If it does NOT, COPY the content there FIRST and verify it landed before deleting anything.
+  IF step 0 reports MORE THAN 2 BLOCKS in current_phase.md, demote AT LEAST ONE - the oldest -
+  during THIS pass, and COMMIT AFTER EACH ONE. Never zero. Then continue with the rest.
+
+  "At least one" is what makes the process DRAIN: every pass adds one handoff and removes one or more
+  blocks, so the file is net-zero-or-better BY CONSTRUCTION rather than append-only by construction.
+
+  ⚠️ THE SAFETY INVARIANT IS THE COMMIT BETWEEN BLOCKS, NOT A CAP ON THE COUNT. An earlier draft of
+  this rule said "exactly one" to force the minimum, which would have been a mistake in the other
+  direction: at one per pass a 39-block backlog needs ~37 passes, i.e. months, so the rule would
+  stop the bleeding and never converge. Doing five blocks with a commit after each is NOT the
+  batching that 2e forbids - batching is several deletions sharing one commit, where a mistake is
+  unrecoverable because there is no intermediate state to go back to.
+
+  📌 BACKLOG, as of Aug 24, 2026: 39 blocks, 21 of them dated Jan-July 2026. Steady state is 2.
+     Update this number when you demote, so the next session can see whether this is converging.
+
+  ⛔ THE OLD TRIGGER WAS "whenever the size report makes you wince." IT NEVER FIRED, NOT ONCE, IN
+  SEVEN MONTHS. It is worth understanding why, because it reads like a perfectly sensible instruction:
+  wincing is a judgement, judgement is exactly what a session under time pressure spends first, and
+  the cost of skipping it lands on some future session rather than this one. Every individual decision
+  to skip was locally reasonable. ⭐ A PROCESS STEP WHOSE TRIGGER IS AN OPINION IS AN OPTIONAL STEP.
+  If you want something to happen reliably, gate it on a number a script can print.
+
+  Also still true: demote whenever a phase closes, whatever the block count says.
+
+  a. Pick the block: the OLDEST in current_phase.md, or the largest closed/dormant-phase block in
+     MEMORY.md's CURRENT STATE.
+  b. ROUTE IT - three outcomes, not one. Read the block and sort its content:
+       LIVE RULE  -> it still governs behaviour today. PROMOTE it to its proper home (MEMORY.md,
+                     education/METHOD.md, education/CONVENTIONS.md), do NOT bury it in a phase file.
+                     A rule filed as history is a rule that stops being followed.
+       HISTORY    -> narrative, measurements, session log. COPY VERBATIM into the phase file.
+       COVERED    -> the knowledge already lives somewhere appropriate. Delete, no copy needed.
+     Most blocks are a mix, so expect to split one block across all three.
+
+  ⚠️ ASK "IS THE KNOWLEDGE PRESERVED SOMEWHERE APPROPRIATE?", NOT "IS THIS TEXT DUPLICATED?"
+     Those are different questions and they give opposite answers. Measured Aug 21-24, 2026 on the
+     Phase 15 block: an exact-line comparison said 320 of 320 substantive lines were absent from
+     phase15_education_program.md, which framed the demotion as high-risk archaeology. It was not.
+     The block's load-bearing content - the "Andrew runs the commands" driver split, the one-command
+     loop, the repetition rule - was ALREADY in education/METHOD.md, in its correct home, promoted
+     there at the time. The text was not duplicated; the knowledge was safe.
+     ⭐ A verbatim-text check answers a question about STORAGE. You need the answer about MEANING.
+
+  🚨 AND VALIDATE THE TOOL BEFORE TRUSTING ITS NUMBER. The first version of that comparison reported
+     "100% missing" for all four candidate blocks. It was broken, not alarming: it stripped markdown
+     (* ` _ #) out of the search key but not out of the file being searched, so it was looking for
+     text that could not exist. A POSITIVE CONTROL exposed it - searching a file for its OWN lines
+     found only 7 of 25. ⛔ Any script you write to justify a deletion must first be shown to find
+     something it should find. A coverage number from an unvalidated tool is worse than no number,
+     because it licenses a delete.
   c. Replace the block in MEMORY.md with a PHASE INDEX row (see format below).
   d. VERIFY, from the shell, not from a read-back (this repo is on CIFS - see MEMORY.md gotcha):
        wc -l MEMORY.md
