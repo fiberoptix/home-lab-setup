@@ -623,3 +623,44 @@ After SonarQube working → **Phase 7: Monitoring Stack** (Prometheus + Grafana)
 **Created:** January 12, 2026  
 **Ready for Review:** Yes - awaiting Andrew's input on questions above  
 **Estimated Time:** 1-2 hours total (VM creation + setup + integration + testing)
+
+---
+
+## What was actually built — demoted from `current_phase.md` (Aug 24, 2026)
+
+⚠️ **Note the gap this closes:** everything above is the *plan*, ending at "awaiting Andrew's input".
+The record of the phase actually being **completed** lived only in a `current_phase.md` session block
+titled *"Completed This Session (Jan 12-13, 2026)"*. A reader of this file alone would have concluded
+Phase 6 was never started.
+
+**Phase 6 planning (Jan 12, 5:00–5:56 PM)** — VM specs settled at `.183`, 6 GB RAM, 30 GB on
+`vm-critical` (rpool2).
+
+**Phase 6 implementation (Jan 12, 6:00–9:00 PM):**
+- ✅ Created `vm-sonarqube-1` (192.168.1.183, 6 GB RAM, 30 GB vm-critical, 4 CPU)
+- ✅ Ran `host_setup.sh` (Docker, SSH, sudo, NAS, registry config)
+- ✅ Installed SonarQube via Docker
+- 🚨 **UPGRADED 9.9.8 (`lts-community`) → 26.1.0 (`community`) during the build**, because the older
+  version announced itself as "no longer active". ⛔ **The upgrade required WIPING THE DATABASE** —
+  the formats are incompatible — and the Docker tag changed from `sonarqube:lts-community` to
+  `sonarqube:community`. ⚠️ **Every token issued before the wipe was invalidated by it**, which is why
+  the token had to be regenerated and re-added to GitLab afterwards. The new version also enforces a
+  **12-character minimum** admin password.
+- ✅ Projects and tokens created for **test-app** and **Capricorn** (values in `PASSWORDS.md`)
+- ✅ GitLab CI/CD variables added (`SONAR_HOST`, `SONAR_TOKEN`) — ⚠️ **the first attempt used a
+  truncated name (`SONAR_`) and had to be corrected to `SONAR_HOST`**
+- ✅ `scan` stage added to `test-app/.gitlab-ci.yml` and to Capricorn's on the `develop` branch
+- ✅ **Both pipelines scanning, both Quality Gates PASSED**
+
+**First-scan baseline, recorded nowhere else** — useful as the before-picture for any later
+code-quality comparison:
+
+| Project | Size | Result |
+|---|---|---|
+| test-app | **86 LOC** | 0 bugs, 0 security issues |
+| Capricorn | **28k LOC** | Quality Gate **PASSED** with 5 security, 144 reliability and 490 maintainability issues identified |
+
+⭐ **That Capricorn row is the point of the exercise, and it is easy to misread.** The gate **passed**
+while the scanner reported **639 issues**, because a default gate scores *new* code, not the existing
+body of it. **A green gate is a statement about the delta, not about the codebase.** Same family as
+the false-greens work in Phase 16 — the signal was accurate and the intuitive reading of it was wrong.

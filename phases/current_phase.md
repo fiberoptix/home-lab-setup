@@ -204,18 +204,28 @@ GitLab pipeline stays alive and untouched as the comparison — that is why Andr
 changes should we make today to cleanup a little and get back on a good track each time we
 MAKE_MEMORIES"* — so the session went after the **mechanism**, not just the mess.
 
-**Done Aug 24:**
-- ✅ `▶️ RESUME HERE` moved to the top (verified a pure reorder: identical sorted content, same line
-  count, checked again *after* the write because this repo is on CIFS).
-- ✅ **39 → 35 blocks**, 2447 → 2409 lines. Five vestigial trailing sections demoted; three facts
-  that existed nowhere else were copied out first (see that block below).
+**Done Aug 24 (six commits, `ab6ebe9`…`fbce77f`, pushed to both remotes):**
 - ✅ `MAKE_MEMORIES` amended so the drain is structural: step 0 counts **blocks**, the demotion
   trigger is a **number** instead of *"whenever the size report makes you wince"*, step 2b routes
-  content **three ways** (promote a live rule / copy history / delete what is covered), and any tool
-  used to justify a deletion needs a **positive control** first.
+  content **three ways** (promote a live rule / copy history / delete what is covered), any tool used
+  to justify a deletion needs a **positive control** first, and a **backlog log** records both the
+  block count and the stale-block count after every pass.
+- ✅ `▶️ RESUME HERE` moved to the top from **line 389**, where it sat under six stale blocks.
+  Verified a pure reorder *before* applying — identical sorted content, identical line count — then
+  re-checked *after* the write because this repo is on **CIFS**: all **190 lines survive**, and the
+  only absent lines are the nine deliberately rewritten.
+- ✅ **Pass 1 — five vestigial trailing sections** (`Key Achievements`, `Previous Sessions`,
+  `Next Steps`, `Quick Reference`, `Blockers`). **39 → 35 blocks.** Three facts existing nowhere else
+  were copied out first: the **Dec 13 2025** runner install → `phase4`, and the **DEV/QA/GCP
+  environment definition** plus the **Jan 8 2026** repo-publish date → `phase5`.
+- ✅ **Pass 2 — both Phase 7 blocks** (173 + 60 lines). **35 → 34 blocks, 2409 → 2212 lines.** Five
+  commit SHAs and the *two manual deploy buttons* decision salvaged → `phase7_local_www.md`.
+- ✅ Durable lessons recorded in `MEMORY.md` → **MEMORY MAINTENANCE**.
 
-**Backlog: 35 blocks, spec is 2.** At one demotion per `MAKE_MEMORIES` pass this converges slowly but
-monotonically, and more per pass is fine **as long as each one is committed separately** — the safety
+**Backlog: 34 blocks / 19 dated Jan-July, spec is 2.** ⚠️ **Track both numbers.** Pass 1 took four
+blocks off the total and moved the stale count **not at all**, because it cleared undated template
+leftovers rather than session logs — so the total alone would have read as progress against the hard
+part. More than one demotion per pass is fine **as long as each is committed separately**; the safety
 invariant is the commit between blocks, not a cap on the count.
 
 ⭐ **The finding worth carrying forward.** The old process was not being skipped out of laziness; it
@@ -2108,37 +2118,14 @@ plan is in **`phases/phase1b_proxmox_kernel_upgrade_safe_try.md`**.
 
 ---
 
-## ✅ Completed This Session (Jan 12-13, 2026)
+## 📦 Phase 6 completion record demoted Aug 24, 2026
 
-**Phase 6 Planning (5:00 PM - 5:56 PM):**
-- Created comprehensive `/phases/phase6_sonarqube.md` plan
-- VM specs: .183, 6GB RAM, 30GB disk on vm-critical (rpool2)
-
-**Phase 6 Implementation (6:00 PM - 9:00 PM):**
-- ✅ Created vm-sonarqube-1 (192.168.1.183, 6GB RAM, 30GB vm-critical, 4 CPU)
-- ✅ Ran host_setup.sh (Docker, SSH, sudo, NAS, registry config)
-- ✅ Installed SonarQube container (Docker)
-- ✅ **UPGRADED:** 9.9.8 (lts-community) → 26.1.0 (community latest)
-  - Old version showed "no longer active" warning
-  - Had to wipe database (incompatible formats)
-  - Changed Docker tag from `sonarqube:lts-community` to `sonarqube:community`
-- ✅ Changed admin password: [See PASSWORDS.md] (12 chars required in new version)
-- ✅ Created test-app project in SonarQube
-- ✅ Generated test-app token: [See PASSWORDS.md]
-- ✅ Created Capricorn project in SonarQube
-- ✅ Generated Capricorn token: [See PASSWORDS.md]
-- ✅ Added CI/CD variables to GitLab (SONAR_HOST, SONAR_TOKEN)
-- ✅ Fixed variable naming issues (SONAR_ → SONAR_HOST)
-- ✅ Updated token after database wipe
-- ✅ Added scan stage to test-app/.gitlab-ci.yml
-- ✅ Added scan stage to Capricorn/.gitlab-ci.yml (develop branch)
-- ✅ **BOTH PIPELINES WORKING:** Scans complete, Quality Gates PASSED!
-
-**Results:**
-- test-app: 86 LOC, 0 bugs, 0 security issues ✨
-- Capricorn: 28k LOC, Quality Gate PASSED (5 security, 144 reliability, 490 maintainability issues identified)
-
----
+*"Completed This Session (Jan 12-13, 2026)"* — the SonarQube build — is now in
+`phases/phase6_sonarqube.md` → *What was actually built*. ⚠️ **It closed a real gap:** that file
+ended at "awaiting Andrew's input", so the only evidence Phase 6 was ever *finished* was this block.
+Carries the `9.9.8 → 26.1.0` upgrade and its **mandatory database wipe** (which invalidated every
+token issued beforehand), and the first-scan baseline — **test-app 86 LOC clean, Capricorn 28k LOC
+gate PASSED with 639 issues**, because a default gate scores *new* code, not the existing body.
 
 ## ✅ Completed Previous Session (Jan 11, 2026 - Morning Session)
 
