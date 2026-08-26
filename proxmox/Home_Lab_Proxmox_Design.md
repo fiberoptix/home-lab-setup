@@ -22,7 +22,7 @@ This document outlines a complete **FREE DevOps/QA home lab infrastructure** pro
 **Total Software Cost:** $0  
 **Monthly Operating Cost:** ~$15-20 (electricity)  
 **Commercial Equivalent Value:** ~$70-100/month  
-**Actual Hardware:** 128GB RAM, 24 CPU cores (48 threads), 3.5TB ZFS storage
+**Actual Hardware:** **192GB RAM** (6x 32GB, all 6 channels — upgraded from 128GB Aug 26, 2026), 24 CPU cores (48 threads), 3.5TB ZFS storage
 
 ---
 
@@ -44,7 +44,7 @@ This document outlines a complete **FREE DevOps/QA home lab infrastructure** pro
 ┌──────────────────────────────────────────────────────────────────┐
 │              Proxmox VE Host (HP Z6 G4)                          │
 │              192.168.1.150                                        │
-│              128GB RAM, 24 CPU Cores (48 threads)                │
+│              192GB RAM, 24 CPU Cores (48 threads)                │
 │              3x ZFS Pools (3.5TB usable)                         │
 ├──────────────────────────────────────────────────────────────────┤
 │                                                                   │
@@ -112,7 +112,7 @@ This document outlines a complete **FREE DevOps/QA home lab infrastructure** pro
 
 TOTAL RESOURCES:
 • VMs: 6 (Traefik, GitLab, Runner, SonarQube, Monitoring, QA)
-• RAM: 49GB allocated (128GB available - 79GB headroom)
+• RAM: 104GB allocated (192GB available - 87GB headroom)  [live Aug 26, 2026]
 • CPU: 21 cores allocated (48 threads available)
 • Storage: 3.5TB usable (3x ZFS pools)
 • Cost: $0 (all open source software)
@@ -127,7 +127,7 @@ TOTAL RESOURCES:
 | Component | Specification |
 |-----------|---------------|
 | **CPU** | Intel Xeon Platinum 8168 (24 cores / 48 threads) |
-| **RAM** | 128GB DDR4 ECC (4x 32GB) |
+| **RAM** | **192GB** DDR4 ECC (6x 32GB, all 6 channels — upgraded Aug 26, 2026) |
 | **Boot Storage** | 2x 500GB NVMe (motherboard M.2 slots) |
 | **VM Storage** | 4x 1TB NVMe (HP Z Turbo Drive Quad Pro) |
 | **Network** | 2x 1GbE onboard NICs |
@@ -287,11 +287,12 @@ Private (Tailscale VPN only):
 | Item | Cost |
 |------|------|
 | HP Z6 G4 | $0 (already owned) |
-| 128GB RAM | $0 (already installed) |
+| 128GB RAM (original 4x 32GB) | $0 (already installed) |
+| **+2x 32GB RAM → 192GB** | **~$600** (bought + installed Aug 26, 2026 — fills all 6 channels) |
 | 6x NVMe SSDs | $0 (already owned) |
 | HP Z Turbo Drive Quad Pro | $0 (already owned) |
 | APC BR1500MS2 UPS | ~$300 (ordered) |
-| **TOTAL** | **~$300** |
+| **TOTAL** | **~$900** |
 
 ### Recurring Costs
 

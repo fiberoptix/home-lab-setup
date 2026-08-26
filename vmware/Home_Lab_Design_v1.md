@@ -1,5 +1,21 @@
 # Home Lab DevOps Environment Design v1.0
 
+> ## ⛔ SUPERSEDED — VMware ESXi was NEVER BUILT. This is an abandoned plan.
+>
+> Kept as a design record only. **The lab runs Proxmox VE**, not ESXi. Current documents:
+> `proxmox/Home_Lab_Proxmox_Design.md`, and **`MEMORY.md` for anything live**.
+>
+> **Nothing in this file describes a real machine.** Two traps in particular:
+>
+> - 🚨 **Every IP here is fiction.** This plan puts the hypervisor at `192.168.1.50` and VMs at
+>   `.51`–`.56`. The real host is **`.150`** and the real VMs are **`.180`–`.186`, `.191`–`.193`**.
+>   Do not act on any address in this document.
+> - **The hardware line is stale twice over:** it says "48 CPU cores" (the Z6 is a *single* 8168 —
+>   24 cores / 48 *threads*; the 48-core figure belongs to the dual-CPU **Z8** dev workstation) and
+>   **128GB RAM, which became 192GB on Aug 26, 2026** (6x 32GB, all six channels).
+>
+> RAM figures below are left at their December 2025 values because they record what was planned then.
+
 **Created:** December 8, 2025  
 **Updated:** December 8, 2025 (Final Design)  
 **Target Platform:** VMware ESXi on HP Z6 G4  

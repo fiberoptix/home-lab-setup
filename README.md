@@ -39,7 +39,7 @@ A lot has shipped since the initial CI/CD milestone:
 
 - 🌐 **Local Production Server (Phase 7):** Stood up `vm-www-1` with **Traefik** + **Let's Encrypt** SSL, hosting **Capricorn PROD** at `https://cap.gothamtechnologies.com` and a public splash page at `https://www.gothamtechnologies.com`. Replaced paid GCP hosting → **~$400/year saved**. Solved Docker multi-network routing, HTTPS mixed-content, and NAT hairpinning along the way.
 - 🔍 **SonarQube Code Quality (Phase 6):** Upgraded to v26.1.0 and wired quality gates into the CI/CD pipelines for both test-app and Capricorn (28k LOC scanned, gate passing).
-- 🤖 **OpenClaw AI Agent (Phase 11):** Built an AI agent server reachable over Tailscale Serve HTTPS with a Telegram bot. *(Now retired — kept here for reference; auto-start disabled.)*
+- 🤖 **OpenClaw AI Agent (Phase 11):** Built an AI agent server reachable over Tailscale Serve HTTPS with a Telegram bot. ⛔ ***VM destroyed Aug 19, 2026** — not retired, not dormant, gone. Its VMID and IP now belong to Jenkins. Write-up kept as history only.*
 - 🔁 **Parallel VM `refresh` tooling:** One command updates **and** reboots every lab VM in parallel with a live status dashboard, made **disconnect-proof** via a `tmux` self-wrap (survives a dropped Proxmox web console and is re-attachable).
 - 🔐 **Fleet hardening:** ed25519 SSH key auth deployed to all VMs, passwords pulled out of docs into a git-ignored store, and a persistent SSHFS mount for remote work.
 - 🧩 **Proxmox kernel saga → resolved:** A bad `6.17.4-2` kernel once broke NVMe boot on this Z6 G4 (rolled back + pinned `6.17.2-1`). Researched the regression, then performed a **reversible, console-gated upgrade** (`proxmox-boot-tool --next-boot`) through `6.17.13-13` and finally to **`7.0.6-2-pve`**, alongside a full **PVE 9.1 → 9.2.3** upgrade. Two clean validation reboots, zero NVMe errors. See [`phases/phase1a_*`](phases/phase1a_proxmox_upgrade_fail_rollback.md) (failure/rollback) and [`phases/phase1b_*`](phases/phase1b_proxmox_kernel_upgrade_safe_try.md) (safe upgrade + results).
@@ -53,7 +53,7 @@ A lot has shipped since the initial CI/CD milestone:
 | Component | Specification |
 |-----------|---------------|
 | **CPU** | Intel Xeon Platinum 8168 (24 cores / 48 threads @ 2.7GHz, single socket) |
-| **RAM** | 128GB DDR4 ECC (4x 32GB) |
+| **RAM** | **192GB** DDR4 ECC (6x 32GB, all 6 channels populated — upgraded Aug 26, 2026) |
 | **Boot Storage** | 2x 500GB NVMe (ZFS mirror) |
 | **VM Storage** | 4x 1TB NVMe (HP Z Turbo Drive Quad Pro) |
 | **Network** | 2x 1GbE onboard NICs |
@@ -68,18 +68,37 @@ A lot has shipped since the initial CI/CD milestone:
 
 ## 🏗️ Infrastructure Architecture
 
-**5 Virtual Machines (Currently Active):**
+**10 Virtual Machines (running)** — read live from `qm config` on **Aug 26, 2026**:
 
-| VM | Purpose | RAM | Disk | Storage Pool | IP |
-|----|---------|-----|------|--------------|-----|
-| **QA Host / K8s** | Deployed applications (Capricorn QA) | 8GB | 100GB | vm-ephemeral | .180 |
-| **GitLab** | Git + CI/CD + Registries | 24GB | 500GB | vm-critical | .181 |
-| **Runner** | CI/CD job execution | 12GB | 100GB | vm-ephemeral | .182 |
-| **SonarQube** | Code quality & security | 12GB | 30GB | vm-critical | .183 |
-| **WWW / PROD** | Traefik + Capricorn PROD + splash | 8GB | 50GB | vm-critical | .184 |
+| VMID | Name | Purpose | RAM | Cores | Disk | Pool | IP | onboot |
+|---|---|---|---|---|---|---|---|---|
+| 180 | `vm-docker-qa-1` | Deployed applications (Capricorn QA) | 12GB | 8 | 100GB | vm-ephemeral | .180 | ✅ 1 |
+| 181 | `vm-gitlab-1` | Git + CI/CD + container registry | 24GB | 8 | 500GB | vm-critical | .181 | ✅ 1 |
+| 182 | `vm-gitrun-1` | GitLab CI job execution | 12GB | 8 | 100GB | vm-ephemeral | .182 | ✅ 1 |
+| 183 | `vm-sonarqube-1` | Code quality & security scanning | 12GB | 4 | 30GB | vm-critical | .183 | ✅ 1 |
+| 184 | `vm-www-1` | Traefik + Capricorn PROD + splash | 8GB | 8 | 50GB | vm-critical | .184 | ✅ 1 |
+| 185 | `vm-jenkins-1` | **Jenkins controller + agent** (Phase 17) | 8GB | 4 | 60GB | vm-critical | .185 | ✅ 1 |
+| 186 | `vm-k8-redpanda-1` | k3s + Redpanda PoC (Phase 14) | 16GB | 8 | 300GB | vm-ephemeral | .186 | ⚠️ **0** |
+| 191 | `docker-swarm-1` | Swarm **leader** (Phase 16) | 4GB | 2 | 40GB | vm-ephemeral | .191 | ⚠️ **0** |
+| 192 | `docker-swarm-2` | Swarm manager | 4GB | 2 | 40GB | vm-ephemeral | .192 | ⚠️ **0** |
+| 193 | `docker-swarm-3` | Swarm manager | 4GB | 2 | 40GB | vm-ephemeral | .193 | ⚠️ **0** |
 
-**Retired:**
-- **OpenClaw** (.185) — AI agent server (Tailscale + Telegram). Decommissioned; auto-start disabled.
+**Stopped on purpose — do not start:**
+
+| VMID | Name | Why |
+|---|---|---|
+| 200 | `vm-kubernetes-1` | Superseded; cloned to 180. Awaiting destroy |
+| 9000 | `tmpl-ubuntu-2404-cloudinit` | The cloud-init **template** — must stay stopped |
+
+🚨 **Four VMs are `onboot=0` and will NOT restart after a host reboot:** **186, 191, 192, 193.** They
+run normally but come back **stopped**, so a power event silently leaves the Swarm down. Restart with
+`for v in 186 191 192 193; do qm start $v; sleep 5; done`, then confirm the cluster actually re-formed
+with `docker node ls` — three stopped VMs are not a Swarm until all three are up.
+
+⛔ **OpenClaw is gone and is not coming back.** `vm-openclaw-1` was destroyed on Aug 19, 2026
+(`qm destroy 185 --purge`, no backup, no snapshot). **VMID 185 and `192.168.1.185` were reused for
+`vm-jenkins-1`.** Any OpenClaw-era address, port, token or URL you find in an old note does not point
+at a dead host — **it points at Jenkins.** History only: `phases/phase11_openclaw.md`.
 
 **Planned:**
 - **Monitoring** — Prometheus + Grafana (Phase 8)
@@ -89,15 +108,25 @@ A lot has shipped since the initial CI/CD milestone:
 - NUMA: Disabled (single-socket optimization)
 - Disk: `iothread=1,discard=on,cache=none,aio=native` (optimized for ZFS + NVMe)
 - Network: `firewall=1` (all VMs protected)
-- Boot: `onboot=1` (auto-start on Proxmox boot)
+- Boot: `onboot=1` for the six core services — ⚠️ **but 186/191/192/193 are `onboot=0`** (see above)
 
-**Resource Utilization:**
-- ~64 GB of 128 GB RAM allocated across the active VMs (headroom for more)
-- 28 of 48 vCPUs (plenty of headroom)
+**Resource Utilization** (measured live Aug 26, 2026):
+- **104 GB of 192 GB RAM** allocated across the ten running VMs (54%), ~87 GB free
+- **42 of 48 vCPU threads** assigned — CPU, not RAM, is now the tighter constraint
+
+> **`MEMORY.md` remains authoritative** for the host/IP inventory. This table is a convenience copy and
+> will drift; when the two disagree, believe `MEMORY.md` — or better, re-read `qm config` from `.150`.
 
 **Dual-Access Strategy:**
-- 🔒 **Tailscale VPN** - Admin access to ALL services (GitLab, SonarQube, Grafana)
-- 🌐 **Public HTTPS** - QA application testing only (infrastructure stays private)
+- 🔒 **Tailscale VPN** — admin access to all services (GitLab, SonarQube, Jenkins, Grafana)
+- 🌐 **Public HTTPS** — QA application testing only (infrastructure stays private)
+
+> ⚠️ **How Tailscale actually reaches the VMs — no VM runs it.** The **Proxmox host `.150` is a subnet
+> router** advertising `192.168.1.0/24`, so tailnet devices address `192.168.1.x` directly. `.185` was
+> once the only VM running a Tailscale client, and **it was destroyed with OpenClaw**, so remote access
+> now depends *entirely* on that one subnet route. 🚨 **If `.150` is down or its route is unapproved,
+> remote admin access to every VM is gone** — there is no second path. Worth remembering before any
+> host reboot.
 
 ---
 
@@ -116,7 +145,7 @@ A lot has shipped since the initial CI/CD milestone:
 | 6 | CI/CD Pipelines | ✅ Complete |
 | 6b | SonarQube Integration | ✅ Complete |
 | 7 | Local WWW / PROD Server (Traefik + SSL) | ✅ Complete |
-| 11 | OpenClaw AI Agent Server | ✅ Built (now retired) |
+| 11 | OpenClaw AI Agent Server | ⛔ Built, then **DESTROYED Aug 19, 2026** (VMID/IP reused by Jenkins) |
 | 8 | Monitoring Stack (Prometheus + Grafana) | ⏳ Next |
 | 10 | Backup Configuration | ⏳ Planned |
 
@@ -130,7 +159,7 @@ A lot has shipped since the initial CI/CD milestone:
 - ✅ Container Registry at gitlab.gothamtechnologies.com:5050 (operational)
 - ✅ Script server at http://192.168.1.195/ — landing page + `/ubuntu/` and `/fedora/` trees (host setup automation, two distro build standards)
 - 🔁 `refresh` command: parallel update + reboot of all lab VMs, disconnect-proof via tmux
-- ⛔ OpenClaw AI agent at .185 — **destroyed Aug 19, 2026**; VMID 185 / `.185` being rebuilt as `vm-jenkins-1`
+- ⛔ OpenClaw AI agent at .185 — **destroyed Aug 19, 2026**; VMID 185 / `.185` **rebuilt as `vm-jenkins-1`, now in service** (Phase 17)
 
 **Applications Deployed via CI/CD:**
 - ⚪ Test App: was http://192.168.1.180:8080 (pipeline validation, Phase 5) — **no longer deployed**; nothing listens on 8080 as of Aug 20, 2026. The pipeline it proved out is still in use
@@ -165,7 +194,7 @@ home-lab-setup/
 │   ├── phase5_ci_cd_pipelines.md # CI/CD implementation
 │   ├── phase6_sonarqube.md      # Code quality integration
 │   ├── phase7_local_www.md      # Local WWW/PROD server (Traefik + SSL)
-│   └── phase11_openclaw.md      # AI agent server (retired)
+│   └── phase11_openclaw.md      # AI agent server (VM DESTROYED Aug 2026 — history only)
 │
 ├── proxmox/                     # Proxmox documentation
 │   ├── Home_Lab_Proxmox_Build_Plan.md    # Master build checklist

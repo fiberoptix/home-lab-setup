@@ -3,12 +3,15 @@
 > ## ⛔ HISTORICAL SNAPSHOT — DO NOT TRUST THE NUMBERS BELOW
 >
 > This is a **point-in-time report from January 14, 2026**, deliberately left unedited. It was accurate
-> that day and is badly stale now. Known drift as of **August 20, 2026**:
+> that day and is badly stale now. Known drift as of **August 26, 2026**:
 >
+> - 🆕 **The host itself changed.** Every "of 128GB" figure below is now wrong: the Z6 was upgraded to
+>   **192GB (6x 32GB, all 6 channels)** on **Aug 26, 2026**. So "40GB of 128GB (31%)" is doubly stale —
+>   both the numerator and the denominator moved. Live figure: **104 GB of 192 GB (54%)**.
 > - The VM table is **missing 184, 186, 191, 192, 193** entirely, and still lists **VMID 200
 >   (`vm-kubernetes-1`)**, which was cloned to **VMID 180 (`vm-docker-qa-1`)** and stopped.
 > - GitLab shows **16 GB**; it is **24 GB** now. Several other RAM figures also grew.
-> - **185** was OpenClaw, then destroyed, and is being rebuilt as `vm-jenkins-1`.
+> - **185** was OpenClaw, then destroyed, and is now **`vm-jenkins-1`** — built and in service.
 >
 > **`MEMORY.md` is the single live source of truth for VMs, IPs, and resources.** Read this file only
 > to see what was true in January 2026.

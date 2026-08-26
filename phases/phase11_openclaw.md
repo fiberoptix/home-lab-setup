@@ -4,7 +4,19 @@
 it was retired; **the VM was killed and removed on Aug 19, 2026 and is totally gone.** See the
 **"CLOSED" section at the end of this file** for the evidence. Everything
 below documents a machine that no longer exists — read it as history, not as configuration.
-**Nothing here is reachable.**  
+**Nothing here is reachable.**
+
+> 🚨 **VMID 185 and `192.168.1.185` WERE REUSED — they now belong to `vm-jenkins-1`.**
+>
+> This is the trap in an otherwise-dead document. Every `185` in this file — the IP, the VMID, the
+> firewall rules, the SSH host key, `http://192.168.1.185:1885` — **still resolves, but to Jenkins.**
+> A stale reference does not fail with "host unreachable"; it quietly reaches the wrong machine.
+>
+> Before acting on *anything* below, confirm which host you are actually talking to. Jenkins:
+> `phases/phase17_jenkins.md`. ⛔ **Do not "revive" OpenClaw at `.185`** — that address is occupied.
+>
+> **No backup and no snapshot were taken** (Andrew declined the final vzdump). Nothing here is
+> recoverable; do not go looking for an archive.  
 **Depends On:** Phase 2 (Host Setup Automation), Phase 7 (WWW/Script Server)  
 **Goal:** Deploy a self-hosted OpenClaw AI agent server with Tailscale VPN access and Telegram integration
 

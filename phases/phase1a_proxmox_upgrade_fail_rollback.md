@@ -1,7 +1,7 @@
 # Phase 1a: Proxmox Kernel Upgrade Failure & Rollback (Jan 12, 2026)
 
 **Status:** ✅ RESOLVED (host pinned/held on stable kernel)
-**Host:** HP Z6 G4 @ 192.168.1.150 (single Xeon Platinum 8168, 128GB, Intel VMD + NVMe)
+**Host:** HP Z6 G4 @ 192.168.1.150 (single Xeon Platinum 8168, 128GB *as configured at the time — **192GB since Aug 26, 2026***, Intel VMD + NVMe)
 **Related:** forward-looking retry plan in `phases/phase1b_proxmox_kernel_upgrade_safe_try.md`
 
 > Moved here from `current_phase.md` (Jun 18, 2026) to keep the kernel history with

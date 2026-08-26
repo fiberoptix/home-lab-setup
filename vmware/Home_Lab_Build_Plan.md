@@ -1,5 +1,17 @@
 # Home Lab Build Plan
 
+> ## ⛔ SUPERSEDED — VMware ESXi was NEVER BUILT. This is an abandoned plan.
+>
+> The lab runs **Proxmox VE**. The build plan that was actually executed is
+> `proxmox/Home_Lab_Proxmox_Build_Plan.md`; **`MEMORY.md` is authoritative for anything live**.
+>
+> 🚨 **The IP table below is fiction** — it puts the hypervisor at `192.168.1.50` and VMs at
+> `.51`–`.56`. The real host is **`.150`**, with VMs at **`.180`–`.186`** and **`.191`–`.193`**.
+>
+> Note the unchecked `- [ ] Install 128GB RAM` item below never applied to this plan: the RAM was
+> installed on the Proxmox build, and the host went to **192GB on Aug 26, 2026** (6x 32GB, all six
+> memory channels populated).
+
 **Target:** Complete DevOps QA environment on HP Z6 G4 + VMware ESXi  
 **Approach:** Phase by phase, R&D → Test → Verify → Move on
 

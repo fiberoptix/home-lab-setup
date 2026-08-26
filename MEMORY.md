@@ -861,10 +861,12 @@ It had been accumulating since Aug 13. **When you write a new handoff, move the 
   - **Audit discoveries:** host runs Tailscale (100.108.209.77, `pve` on tailnet); idle Quadro
     P2000 GPU (nouveau, passthrough candidate); SNC enabled in BIOS → 2 NUMA nodes (64G each);
     only 4/6 memory channels populated (⚠️ **slot numbers in that audit are wrong — corrected in
-    `phase0_hardware.md`; the free slots are `CPU0-DIMM3/4`**); fallback kernel 6.17.2-1 no longer
+    `phase0_hardware.md`; the free slots were `CPU0-DIMM3/4`** — ✅ **both filled Aug 26, 2026, so the
+    host is now 6/6 channels at 192GB**); fallback kernel 6.17.2-1 no longer
     on ESPs.
   - **✅ Console visit DONE (Jul 9, 12:53 PM):** SNC disabled in BIOS (host is now 1 flat
-    NUMA node / 128GB) AND kernel **7.0.14-4-pve pin-tested + made PERMANENT pin** (booted
+    NUMA node / 128GB *as measured that day — 192GB since Aug 26, 2026; still 1 flat node*)
+    AND kernel **7.0.14-4-pve pin-tested + made PERMANENT pin** (booted
     clean 1st try: 6/6 NVMe, 0 errors, pools ONLINE, VMs up, public site 200). Fallbacks on
     ESPs: 7.0.6-2 + 6.17.13-x. Slot 5 Bifurcation x4x4x4x4 unaffected (it, not SNC, drives
     the quad-NVMe card — Andrew's question, answered from hp-bioscfg).
@@ -917,8 +919,15 @@ It had been accumulating since Aug 13. **When you write a new handoff, move the 
     is STATIC IP (SSH allowlist rule safe). Related Capricorn work: `unified_ui_DEV_PROD_GCP`
     `project/phases/phase22*` (app has NO auth + is the sole public door → app hardening matters).
 
-- Proxmox running at 192.168.1.150 (HP Z6 G4: single Xeon Platinum 8168 24c/48t, 128GB RAM, ZFS) — **PVE 9.2.4**, kernel **7.0.14-4-pve** (pinned + tested Jul 9, 2026; SNC disabled → single NUMA node)
-- **NOTE:** The Proxmox server is a **Z6 G4** (single CPU, 128GB). The **dev workstation** we work from is a **Z8 G4** (dual Platinum 8168, 256GB). Don't confuse the two.
+- Proxmox running at 192.168.1.150 (HP Z6 G4: single Xeon Platinum 8168 24c/48t, **192GB RAM**, ZFS) — **PVE 9.2.4**, kernel **7.0.14-4-pve** (pinned + tested Jul 9, 2026; SNC disabled → single NUMA node)
+- **RAM upgraded 128GB → 192GB on Aug 26, 2026** (6x 32GB Hynix `HMA84GR7AFR4N-VK`, all six identical).
+  Filled the two free slots `CPU0-DIMM3`/`DIMM4`, so **all 6 memory channels are now populated** at
+  1 DIMM per channel and the clock **stayed at 2666 MT/s** (verified via `Configured Memory Speed`).
+  ⛔ **This is the hard ceiling for the box** — 6 slots, 1 CPU, all full. More RAM on `.150` means
+  64GB modules (replace all six) or a second CPU. Plan VM sizing against a fixed 192GB.
+  ⚠️ Any future stick must be **Registered (RDIMM) ECC**; LRDIMM/unbuffered will not POST and the
+  failure mimics a dead board. Detail + slot map: `phases/phase0_hardware.md`.
+- **NOTE:** The Proxmox server is a **Z6 G4** (single CPU, **192GB**, 6/6 channels). The **dev workstation** we work from is a **Z8 G4** (dual Platinum 8168, 256GB, still only 4 of 6 channels per socket). Don't confuse the two.
 - **Dev workstation guest** = `VM-UBUNTU-01`, VMware Workstation on the Z8, 24 vCPU (2 sockets x12, on idle PROC1), **Ubuntu 26.04 LTS** since Jul 25, 2026 (see CURRENT STATE). Uses `open-vm-tools`, NOT qemu-guest-agent (that's for the Proxmox VMs). Not on Tailscale.
 - **Jun 18, 2026: kernel fully un-stuck.** Went 6.17.2-1 → 6.17.13-13 → **7.0.6-2-pve** (all NVMe-clean), full host upgrade to PVE 9.2.3, all package holds removed. 7.0.6-2 tested via --next-boot, then made permanent and confirmed it boots autonomously (2 reboots clean). 6.17.13-13 kept as fallback. See current_phase.md + phase1b.
 - Script server running at **http://192.168.1.195/** (landing page with the copy-paste bootstrap
@@ -942,7 +951,7 @@ It had been accumulating since Aug 13. **When you write a new handoff, move the 
 - **Cost Savings:** ~$400/year by replacing GCP hosting
 - **README Files:** Both projects direct users to cap.* as primary production URL
 - **Phase 11 ~~COMPLETE~~ RETIRED:** OpenClaw AI Agent Server was live at `.185` (Tailscale Serve, Telegram) → ⛔ **VM destroyed Aug 19, 2026, totally gone.**
-- **`refresh` command on Proxmox:** Parallel update + reboot of all 5 VMs (.180-.184), live status display. See REFRESH SCRIPT section. ⭐ **Phase 17 adds `.185` (Jenkins) to the allow-list** — and `unattended-upgrades` stays masked there on purpose, so `refresh` is the only patching path for a host that must not restart mid-build.
+- **`refresh` command on Proxmox:** Parallel update + reboot of **all 6 VMs (.180–.185)**, live status display. See REFRESH SCRIPT section. ✅ **`.185` (Jenkins) was ADDED Aug 20, 2026 — verified live in `/usr/local/bin/refresh.sh` on Aug 26** (the `VMS=()` array lists .180 through .185). This line previously said "5 VMs (.180-.184)" and described the Jenkins addition as still pending. ⚠️ **`.186` and the Swarm nodes `.191–.193` are deliberately NOT in the array** and are never patched by `refresh` — they must be updated by hand. And `unattended-upgrades` stays masked on Jenkins on purpose, so `refresh` is the only patching path for a host that must not restart mid-build.
 - Next: Phase 8 (Monitoring Stack)
 
 ---
@@ -1077,8 +1086,16 @@ password as fallback, and **password-only** access from any other machine (lapto
 | **.182 vm-gitrun-1** | `agamache` | ✅ | ✅ | ✅ via subnet route |
 | **.183 vm-sonarqube-1** | `agamache` | ✅ | ✅ | ✅ via subnet route |
 | **.184 vm-www-1** | `agamache` | ✅ | ✅ | ✅ — see the firewall note below |
-| **.185** | — | ⛔ **vm-openclaw-1 DESTROYED Aug 19, 2026.** Address free; Phase 17 rebuilds it as `vm-jenkins-1` | — | — |
+| **.185 vm-jenkins-1** | `agamache` | ✅ | ✅ | ✅ via subnet route — ⛔ **this is Jenkins now, NOT OpenClaw.** `vm-openclaw-1` was destroyed Aug 19, 2026 and the VMID + address were reused. Re-verified by key login Aug 26, 2026 |
 | **.186 vm-k8-redpanda-1** | `agamache` | ✅ | ✅ | ✅ via subnet route |
+| **.191 docker-swarm-1** | `agamache` | ✅ | ✅ | ✅ via subnet route |
+| **.192 docker-swarm-2** | `agamache` | ✅ | ✅ | ✅ via subnet route |
+| **.193 docker-swarm-3** | `agamache` | ✅ | ✅ | ✅ via subnet route |
+
+⭐ **Rows for `.185` and the three Swarm nodes added Aug 26, 2026.** The matrix had been frozen at its
+Aug 12 shape, so it still described `.185` as a destroyed VM awaiting rebuild and omitted the Swarm
+entirely. All four were re-verified that day by real key logins (`ssh -o BatchMode=yes`, which cannot
+fall back to a password — so a success proves key auth rather than merely proving reachability).
 
 Every VM reports `passwordauthentication yes` with `agamache` holding a usable password
 (`passwd -S` → `P`), and the host the same for `root`. **Proven by test, not by reading config** —
@@ -1520,11 +1537,19 @@ timestamped **after** the last edit. ⭐ **Commit before testing something that 
 # - Or use cache=writeback with aio=threads (default, but higher CPU)
 ```
 
-### 🚨 AUTOSTART POLICY (Andrew, Aug 20, 2026) — only FIVE VMs come back after a host reboot
-**`onboot 1`: 180, 181, 182, 183, 184. Everything else is `onboot 0` and starts by hand** — that means
-**186 (k3s POC) and 191/192/193 (the Docker Swarm)**, all four flipped from `1` to `0` on Aug 20, plus
-200 (retired) and 9000 (template, never set). Rule of thumb: **the always-on service tier autostarts;
-lab/POC gear does not.**
+### 🚨 AUTOSTART POLICY (Andrew, Aug 20, 2026) — only **SIX** VMs come back after a host reboot
+**`onboot 1`: 180, 181, 182, 183, 184, 185. Everything else is `onboot 0` and starts by hand** — that
+means **186 (k3s POC) and 191/192/193 (the Docker Swarm)**, all four flipped from `1` to `0` on Aug 20,
+plus 200 (retired) and 9000 (template, never set). Rule of thumb: **the always-on service tier
+autostarts; lab/POC gear does not.**
+
+> ✅ **Corrected + PROVEN BY A REAL REBOOT, Aug 26, 2026.** This heading said "FIVE" and omitted 185,
+> which contradicted the Jenkins note further down in this very section — the file argued with itself.
+> The host was powered down for the RAM upgrade and came back with **exactly 180–185 running (six)**
+> and **186, 191, 192, 193 stopped**, so the policy is now confirmed by observation rather than by
+> reading config. All four `onboot 0` guests were up *before* the shutdown and still came back down:
+> ⚠️ **`onboot` describes the next boot, not current state** — "it's running now" tells you nothing
+> about whether it will return.
 
 **Boot ORDER, set the same day** (`qm set <id> --startup order=N,up=S`; `up` = seconds to wait *after*
 starting that VM before continuing):
@@ -1622,13 +1647,21 @@ hurts most (GitLab, the runner) were in the `enabled` group.
 - **Docker Swarm nodes (191/192/193):** **4 GB each, 12 GB total** — built Aug 13, 2026, and funded
   exactly by the 16 GB VM 186 gave back the day before. Swarm's control plane is light; CPU
   (2 vCPU each) is the binding constraint, not RAM.
-- **Total Allocated (updated Aug 19, 2026, after 185 was destroyed):** **96 GB of 128 GB (75%)**, and
-  now the paper number and the real number agree — the 16 GB that used to be "allocated but powered
-  off" is genuinely released. vCPU drops to **38 of 48 threads assigned**, so the 1.04:1 overcommit
-  is **gone**. ⭐ **Phase 17's `vm-jenkins-1` takes 8 GB / 4 vCPU**, leaving the lab at **104 GB (81%)
-  and 42 threads** — still under-committed on CPU for the first time since the Swarm build. Host
-  measured **33 GB free** right after the destroy. ⚠️ Budget from here: **there is no dormant VM left
-  to harvest.** The next 16 GB has to come from right-sizing something that is running.
+- **Total Allocated — ⭐ RE-BASED Aug 26, 2026 after the RAM upgrade: 104 GB of 192 GB (54%)**,
+  measured live from `qm config` across the ten running VMs, with **~87 GB free**. vCPU sits at
+  **42 of 48 threads**.
+  - *Prior reading (Aug 19, 2026, after 185 was destroyed):* 96 GB of 128 GB (75%), rising to
+    **104 GB (81%)** once Phase 17's `vm-jenkins-1` took its 8 GB / 4 vCPU. **The allocation did not
+    change on Aug 26 — the denominator did.** Same 104 GB, 81% → 54%.
+  - ✅ **The old budget warning is retired.** It read: *"there is no dormant VM left to harvest — the
+    next 16 GB has to come from right-sizing something that is running."* That was true at 128 GB and
+    is why the sticks were bought. At 192 GB there is roughly **87 GB of genuine headroom**, so new
+    VMs no longer require taking RAM from an existing one.
+  - ⚠️ **But the ceiling is now physical, not financial.** 192 GB is the maximum this board reaches
+    with 32 GB modules (6 slots, 1 CPU, all full). When *this* fills, the answer is not another pair
+    of sticks — it is 64 GB modules or a second CPU. Treat 192 GB as fixed when sizing.
+  - Note vCPU is still **42 of 48 threads assigned**; the RAM upgrade bought no CPU headroom, and CPU
+    was already the binding constraint on the Swarm nodes.
 
 ---
 

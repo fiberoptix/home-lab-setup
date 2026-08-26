@@ -13,7 +13,7 @@
 | Component | Specification |
 |-----------|---------------|
 | CPU | Intel Xeon Platinum 8168 (24 cores / 48 threads) |
-| RAM | 128GB DDR4 ECC (4x32GB) |
+| RAM | **192GB** DDR4 ECC (6x32GB, all 6 channels — upgraded from 128GB on Aug 26, 2026) |
 | Storage | 2x500GB NVMe (motherboard M.2) + 4x1TB NVMe (HP Z Turbo Drive Quad Pro) |
 | Network | 2x 1GbE onboard (e1000e + i40e drivers) |
 | PCIe Card | HP Z Turbo Drive Quad Pro (passive bifurcation adapter) |

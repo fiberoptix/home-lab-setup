@@ -18,11 +18,11 @@ smartctl, zpool/zfs/zdb, arc_summary, pvesm, pve-firewall, sshd -T, ss, apt, jou
 |------|-------|
 | Node | `pve` — HP Z6 G4, BIOS P60 v02.96 (2025-06-05) |
 | CPU | 1x Xeon Platinum 8168 (24c/48t), intel_pstate, governor=performance, turbo ON |
-| RAM | 128 GB (4x 32GB DDR4-2666) — **only 4 of 6 channels populated** (see PERF-3) |
+| RAM | 128 GB (4x 32GB DDR4-2666) — **only 4 of 6 channels populated** (see PERF-3) — *audit-time snapshot; **192 GB / 6 of 6 channels since Aug 26, 2026**, PERF-3 now closed* |
 | Kernel | 7.0.6-2-pve (pinned), PVE 9.2.3, ZFS 2.4.2, up 20 days — *audit-time snapshot; by end of day Jul 9: PVE 9.2.4, kernel 7.0.14-4-pve pinned, SNC off* |
 | Microcode | 0x2007108 (intel-microcode 3.20251111.1 installed) |
 | Pools | rpool (mirror, 2% used), vm-critical (mirror, 71% incl. reservations), vm-ephemeral (stripe, 11%) |
-| VMs | 181/182/183/184/200 running; 185 (OpenClaw, retired) stopped, onboot=0 |
+| VMs | 181/182/183/184/200 running; 185 (OpenClaw, retired) stopped, onboot=0 — *audit-time snapshot; **now ten running: 180–186, 191–193**, with 185 = `vm-jenkins-1` and 200 stopped* |
 | Health | All pools ONLINE 0 errors; all 6 NVMe: 0–1% wear, 0 media errors, temps 25–36°C; no failed systemd units; NTP synced (chrony) |
 
 **Overall:** the host is in good shape — storage healthy, kernel policy sound, firewall
@@ -101,13 +101,27 @@ Only `keyboard: en-us`. Missing useful (non-critical) settings: `email_from` (co
 OPS-1 is fixed), and no explicit `migration:` network (irrelevant single-node).
 **Fix:** optional; set `email_from` when mail relay lands. **Risk: none.**
 
-### MISC-5 — Leftover artifacts from retired OpenClaw (VM 185) (LOW)
+### MISC-5 — Leftover artifacts from retired OpenClaw (VM 185) (LOW) — ✅ **RESOLVED Aug 19, 2026**
 
 OpenClaw is retired, but VM 185 still exists (stopped, onboot=0, **cores now 12** — docs say 8),
 holds a **50G thick zvol with 50.8G refreservation on vm-critical**, and `185.fw` remains.
 **Fix (after Andrew confirms nothing on it is wanted):** take a final vzdump to NAS, then
 `qm destroy 185` + remove `185.fw` → frees ~51G of reserved space on the critical pool.
 **Risk: destructive — needs explicit approval.**
+
+✅ **Done Aug 19, 2026 — `qm destroy 185 --purge`.** Andrew approved the destroy and **declined the
+final vzdump**, so this finding's own safety step was deliberately skipped: there is **no backup and
+no snapshot**. The VM is unrecoverable. That was the accepted decision, recorded here so nobody
+searches for an archive that does not exist.
+
+⚠️ **The ~51G did not stay freed.** VMID 185 and `192.168.1.185` were reused within the day for
+**`vm-jenkins-1`**, which took **60G on the same `vm-critical` pool**. Net effect on that pool was
+*negative* — about 9G worse than before the cleanup.
+
+🚨 **The reuse is the part that outlives this finding.** Because both the VMID and the IP came back
+under a new identity, any OpenClaw-era note, bookmark, firewall rule, token or `known_hosts` entry
+referencing `185` now resolves to **Jenkins**, not to nothing. A stale reference here fails *silently
+and wrongly* rather than loudly. History: `phases/phase11_openclaw.md`; the rebuild: `phase17_jenkins.md`.
 
 ### MISC-6 — Lingering snapshots (LOW)
 
@@ -180,7 +194,7 @@ vzdump), destroy + recreate the pool with `-o ashift=12` + lz4, move disks back.
 ~30–60 min of Runner/QA downtime. Also fixes MISC-6's snapshot placement.
 **Risk: medium (data moves) — schedule deliberately.**
 
-### PERF-3 — Only 4 of 6 memory channels populated (MEDIUM — hardware $$)
+### PERF-3 — Only 4 of 6 memory channels populated (MEDIUM — hardware $$) — ✅ **RESOLVED Aug 26, 2026**
 
 dmidecode: 4x 32GB DDR4-2666 in ~~CPU0-DIMM1..4; DIMM5/6 empty~~. Skylake-SP has **6 memory
 channels per socket** — the current layout gives ~2/3 of the platform's memory bandwidth.
@@ -193,9 +207,10 @@ biggest hardware perf lever available.~~
 🚨 **CORRECTED + SUPERSEDED Aug 19, 2026 — re-verified from live `dmidecode` on `.150`. Two errors
 above; see `phases/phase0_hardware.md` → Memory Configuration for the full record.**
 
-1. ⚠️ **The slot numbers were WRONG (struck through).** Populated are **`CPU0-DIMM1`, `DIMM2`,
-   `DIMM5`, `DIMM6`**; the **free slots are `CPU0-DIMM3` and `CPU0-DIMM4`.** Channel count (4 of 6)
-   was right. Acting on the old text means opening the case and finding the "empty" slots occupied.
+1. ⚠️ **The slot numbers were WRONG (struck through).** Populated were **`CPU0-DIMM1`, `DIMM2`,
+   `DIMM5`, `DIMM6`**; the **free slots were `CPU0-DIMM3` and `CPU0-DIMM4`** — *both filled Aug 26,
+   2026, so **no slot is free now***. Channel count (4 of 6) was right. Acting on the old text meant
+   opening the case and finding the "empty" slots occupied.
    Parts: Hynix `HMA84GR7AFR4N-VK`, 32GB, 2 ranks, all running at full rated 2666.
 2. 💰 **The price is stale by ~10x.** 32GB DDR4-2666 ECC RDIMM is **~$300 each** as of Aug 19, 2026
    (Andrew), not $25–40 — DDR4 is EOL and DRAM output has moved to DDR5, so the trend is upward.
@@ -213,10 +228,45 @@ recoverable for **$0**. Free levers first, in order:
 ⛔ **And do not solve it by moving DIMMs from the Z8** — that box was verified the same day at
 **4 of 6 channels per socket too**, so it is not a surplus donor. Full reasoning in `phase0_hardware.md`.
 
+---
+
+#### ✅ CLOSED Aug 26, 2026 — bought and installed
+
+Andrew fitted **2x 32GB into `CPU0-DIMM3` and `CPU0-DIMM4`**. The host is now **192GB with all 6 of 6
+channels populated**, and `Configured Memory Speed` reads **2666 MT/s on all six** — the clock held,
+because six DIMMs on six channels is still **1 DIMM per channel**. All six modules are the identical
+Hynix `HMA84GR7AFR4N-VK`, so the new pair matched the original four exactly.
+
+The install took minutes and needed nothing unseated — **directly because the slot-number correction
+above was made first.** Had anyone acted on the original struck-through "DIMM5/6 empty" text, they
+would have opened the case to find those slots occupied.
+
+**Scorecard on this finding's own advice:**
+
+| Advice given | Outcome |
+|---|---|
+| Slot numbers `DIMM1..4`, `5/6` empty | ❌ **Wrong** — caught Aug 19 before any hardware was touched |
+| 4 of 6 channels, ~2/3 of bandwidth | ✅ Correct diagnosis |
+| "~$50–80 for the pair" | ❌ **~10x low** — real cost ~$600 |
+| "Do NOT buy yet, measure first" | ⚖️ **Overtaken** — bought anyway, and it was the right call |
+
+⚖️ **Why "don't buy" was reasonable but got overruled:** it argued the *bandwidth* case was unproven,
+which was true and **remains true — no STREAM or `mbw` number was ever taken, and the 4-channel
+baseline is now permanently gone, so that comparison can never be made on this box.** But it treated
+*capacity* as separately solvable for $0 via `zfs_arc_max`. Capacity turned out to be the binding
+problem: the lab hit **104 GB of 128 GB (81%)** once `vm-jenkins-1` was built, with **no dormant VM
+left to harvest**. 192GB drops that to **54% with ~87 GB free**, which no ARC tuning could have
+delivered. The purchase bought headroom that was actually needed; the bandwidth gain is a bonus that
+was never measured and now can't be.
+
+⛔ **This lever is fully spent.** Six slots, one CPU, all full — the Z6 is at its 32GB-module ceiling.
+Future RAM means 64GB modules (all six replaced) or a second CPU. **The Z8 half of the original
+finding is still open** at 4 of 6 channels per socket.
+
 ### PERF-4 — Sub-NUMA Clustering is ON; docs assume single NUMA node (INFO/LOW) — ✅ FIXED Jul 9
 *(12:48–12:54 PM maintenance window, Andrew at console: staged kernel 7.0.14-4 as one-shot
 `--next-boot` → shut down all VMs → host powered off → Andrew set BIOS "Sub-NUMA Clustering"
-→ Disable → booted clean FIRST TRY on 7.0.14-4: **NUMA now 1 node / flat 128GB**, all 6 NVMe
+→ Disable → booted clean FIRST TRY on 7.0.14-4: **NUMA now 1 node / flat 128GB** *(192GB since Aug 26, 2026; still 1 flat node)*, all 6 NVMe
 present, 0 NVMe errors, Slot 5 Bifurcation still x4x4x4x4 (confirmed unrelated to SNC — see
 below), all pools ONLINE, 5 VMs auto-started, public site 200. Made **7.0.14-4-pve the
 permanent pin**; 7.0.6-2 + 6.17.13-x remain as ESP fallbacks. Skipped the second

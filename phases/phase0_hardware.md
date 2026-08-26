@@ -21,7 +21,7 @@ drifted, and "70% full" turned out to be 7.5% written. **Re-read the hardware be
 | Component | Specification |
 |-----------|---------------|
 | CPU | Intel Xeon Platinum 8168 (24 cores / 48 threads) |
-| RAM | 128GB DDR4 ECC (4x 32GB DIMMs) — **4 of 6 channels; slot map + parts in Memory Configuration below** |
+| RAM | **192GB** DDR4 ECC (6x 32GB DIMMs) — **all 6 channels populated** as of Aug 26, 2026; slot map + parts in Memory Configuration below |
 | Boot Storage | 2x WD Blue SN5100 500GB NVMe (motherboard M.2 slots) |
 | VM Storage | 4x Lexar SSD NM620 1TB NVMe (HP Z Turbo Drive Quad Pro PCIe card) |
 | Network | 2x 1GbE onboard NICs (Intel e1000e + i40e) |
@@ -44,19 +44,37 @@ so the dev VM cannot see the real DIMMs and `.115` has no SSH/WinRM (RDP or cons
 |------|------|-------------|-----|-------|------|
 | CPU0-DIMM1 | 32GB | HMA84GR7AFR4N-VK | Hynix | 2666 MT/s (configured 2666) | 2 |
 | CPU0-DIMM2 | 32GB | HMA84GR7AFR4N-VK | Hynix | 2666 MT/s (configured 2666) | 2 |
-| **CPU0-DIMM3** | **EMPTY** | — | — | — | — |
-| **CPU0-DIMM4** | **EMPTY** | — | — | — | — |
+| **CPU0-DIMM3** | **32GB** | HMA84GR7AFR4N-VK | Hynix | 2666 MT/s (configured 2666) | 2 |
+| **CPU0-DIMM4** | **32GB** | HMA84GR7AFR4N-VK | Hynix | 2666 MT/s (configured 2666) | 2 |
 | CPU0-DIMM5 | 32GB | HMA84GR7AFR4N-VK | Hynix | 2666 MT/s (configured 2666) | 2 |
 | CPU0-DIMM6 | 32GB | HMA84GR7AFR4N-VK | Hynix | 2666 MT/s (configured 2666) | 2 |
 
-**128GB total, 4 of 6 channels populated.** All sticks run at their full rated 2666 (no downclock).
-NUMA: 1 flat node since SNC was disabled Jul 9, 2026. Usage at audit: **125 GiB total, 91 GiB used,
-33 GiB available, swap 0** (ZFS ARC counts as *used*, not cache, on Linux).
+**192GB total, all 6 of 6 channels populated** (upgraded Aug 26, 2026 — DIMM3 and DIMM4 filled).
+All sticks run at their full rated 2666 (no downclock), confirmed by `Configured Memory Speed`, not
+just the rated speed. NUMA: 1 flat node since SNC was disabled Jul 9, 2026. Usage after upgrade:
+**187 GiB total, 104 GB allocated to running VMs (54%), ~87 GB free** (ZFS ARC counts as *used*,
+not cache, on Linux, so `free` will drift upward as ARC warms).
 
-⚠️ **This corrects `phase13` PERF-3**, which recorded the DIMMs as `CPU0-DIMM1..4` with 5/6 empty.
-It is the reverse: **1, 2, 5, 6 are populated and 3, 4 are free.** The channel count (4 of 6) and
+⭐ **The upgrade bought bandwidth, not just capacity.** The 8168 has six channels; going from four to
+six at **one DIMM per channel** is the configuration that *holds* 2666. Filling the same six slots
+with a second stick each (2 DIMMs per channel) is what would have forced a downclock — so 192GB is
+the sweet spot for this board, and the hard ceiling for a single-CPU Z6 anyway.
+
+✅ **All six modules are the identical part** (`HMA84GR7AFR4N-VK`, 2Rx4 Registered ECC). The Aug 2026
+pair matched the original four exactly, so there is no mixed-rank or mixed-vendor behaviour to
+reason about. **Any future addition must also be Registered (RDIMM) ECC** — an LRDIMM or unbuffered
+stick will not POST alongside these, and the symptom looks like a dead board rather than bad memory.
+
+⚠️ **This corrected `phase13` PERF-3**, which recorded the DIMMs as `CPU0-DIMM1..4` with 5/6 empty.
+It was the reverse: **1, 2, 5, 6 were populated and 3, 4 were free.** The channel count (4 of 6) and
 PERF-3's conclusion were right; the slot names were not. Anyone opening the case with the old text
-would install in occupied slots.
+would have installed into occupied slots.
+
+**That correction is exactly what made the Aug 26 upgrade a ten-minute job** — the two new sticks went
+straight into 3 and 4 with nothing to unseat. Keep the warning on the record even though all six slots
+are now full: it is the reason the install was uneventful, and the same class of error (trusting a
+slot map that was never read from live SMBIOS) is the one to guard against next time. Re-read
+`dmidecode -t 17` before opening any case; do not trust this table's age.
 
 ### HP Z8 G4 — dev workstation (192.168.1.115)
 
@@ -86,19 +104,28 @@ was **correct**.
 on the Z8). Both are 32GB x4 ECC RDIMM at 2666, so either part is usable in either machine; a mixed
 fleet already exists and works.
 
-### Both boxes are under-populated — this is not a redistribution problem
+### The Z6 is now fully populated; the Z8 still is not
+
+**Status change Aug 26, 2026.** This section originally read "*Both* boxes are under-populated." The
+Z6 half is now **closed** — it was fixed by buying 2x 32GB rather than by moving sticks, which is the
+outcome the decision below argued for. The Z8 half is still open.
 
 | | Z6 G4 | Z8 G4 |
 |---|---|---|
 | Cores contending | 24c/48t | **48c/96t** |
-| Channels live | 4 of 6 | 4 of 6 **per socket** |
-| To reach full channels | +2x 32GB → 192GB | +4x 32GB → 384GB |
-| Slots to fill | `CPU0-DIMM3`, `CPU0-DIMM4` | `DIMM5` + `DIMM8` on **each** CPU |
-| Hard ceiling | 192GB (6 slots, 1 CPU) | 1.5TB+ |
+| Channels live | ✅ **6 of 6** (was 4 of 6) | ⚠️ 4 of 6 **per socket** |
+| To reach full channels | ✅ **done** — +2x 32GB → 192GB, Aug 26, 2026 | +4x 32GB → 384GB |
+| Slots to fill | ✅ none — `CPU0-DIMM3`/`DIMM4` filled | `DIMM5` + `DIMM8` on **each** CPU |
+| Hard ceiling | **192GB — now AT the ceiling** (6 slots, 1 CPU) | 1.5TB+ |
+
+⛔ **The Z6 cannot grow again without a forklift.** Six slots, one CPU, all full at the largest module
+the existing set uses. More RAM on `.150` from here means either 64GB RDIMMs (replacing all six, and
+verify the 8168/Z6 BIOS supports them before buying) or a second CPU to unlock the CPU1 bank. Plan VM
+allocations against a **hard 192GB**, not against "we can add more later."
 
 HP's guidance: *"install memory in sets of 6 for single CPU configurations or 12 for dual CPU"*, and
 *"unbalanced RAM population can reduce memory bandwidth by up to 33% from its maximum potential."*
-The Z6 has 4 where it wants 6; the Z8 has 8 where it wants 12.
+The Z6 had 4 where it wants 6 — **now 6, resolved Aug 26, 2026.** The Z8 still has 8 where it wants 12.
 
 ### ⛔ Do NOT move DIMMs from the Z8 to the Z6 (decision, Aug 19, 2026)
 
@@ -130,6 +157,21 @@ waiting probably costs more, which is the one honest argument for buying sooner.
 
 ### ⚠️ Recommendation: buy NOTHING yet — the free levers are untested
 
+> 🕐 **SUPERSEDED Aug 26, 2026 — the Z6 pair was bought and installed.** Kept because the reasoning is
+> still the right reasoning, and the part of it that was *not* about price still applies.
+>
+> **What this section got right and is still true:** the bandwidth gain has still **never been
+> measured** — there is still no STREAM or `mbw` number in this repo, so "the upgrade made it faster"
+> remains channel-count arithmetic and HP's 33% claim, not an observation of our workloads. If that
+> number ever matters, benchmark it; the 4-channel baseline is now **gone forever**, so a before/after
+> comparison is no longer possible on this box.
+>
+> **What overtook it:** the argument was "capacity is the real problem and capacity may be recoverable
+> for $0 via `zfs_arc_max`." Capacity was indeed the real problem — and 192GB solves it outright,
+> taking the host from 96 of 128GB allocated (75%, uncomfortably tight) to **104 of 192GB (54%)** with
+> ~87GB free. The free levers below were never completed, so they remain worth doing on their own
+> merits; they are now optimisations rather than a way to avoid a purchase.
+
 PERF-3 called 6-channel population *"the single biggest hardware perf lever available"* when it cost
 $50–80. At **$600** for the Z6 pair, it no longer clears the bar, for two reasons:
 
@@ -138,6 +180,9 @@ $50–80. At **$600** for the Z6 pair, it no longer clears the bar, for two reas
   bandwidth" and HP's 33% are *channel-count arithmetic*, not observations of our workloads — and
   GitLab, the runner, SonarQube and ZFS are I/O and CPU bound long before they are bandwidth bound.
 - **The Z6's real problem is capacity (91 of 125 GiB used), and capacity may be recoverable for $0.**
+  → ✅ *This half was right about the diagnosis and wrong about the remedy: capacity **was** the real
+  problem, but it was solved by the purchase on Aug 26, 2026 rather than by ARC tuning. Now 104 of
+  187 GiB.*
 
 **Do these first, in order — all free:**
 1. **Check `zfs_arc_max` on the Z6.** ⚠️ **Not yet measured** (see the SSH note below). Older PVE
@@ -265,8 +310,11 @@ report of *committed* capacity. It is not a capacity problem, and 71% is not a n
 
 ### 🔲 Free levers, if the 70.9% number is bothersome (cleanups, NOT fixes)
 
-1. **Delete VM 185 (`vm-openclaw-1`)** — retired, stopped, `onboot=0`, phase closed. Frees a 50 GiB
-   reservation → `vm-critical` drops to ~63%.
+1. ~~**Delete VM 185 (`vm-openclaw-1`)** — retired, stopped, `onboot=0`, phase closed. Frees a 50 GiB
+   reservation → `vm-critical` drops to ~63%.~~ ✅ **DONE Aug 19, 2026** (`qm destroy 185 --purge`, no
+   backup). ⚠️ **But the space did not stay free:** VMID 185 and `.185` were immediately reused for
+   **`vm-jenkins-1`**, which took **60 GiB** on the same `vm-critical` pool — *more* than OpenClaw's
+   50 GiB. Treat this lever as **spent**, not available.
 2. **Drop the reservation on GitLab's oversized disk** — instant, no data movement, reversible:
    `zfs set refreservation=none vm-critical/vm-181-disk-0`, then `sparse 1` on the storage so future
    disks are thin. ⚠️ **The trade is real:** thin allows overcommit, and a *full* ZFS pool is far

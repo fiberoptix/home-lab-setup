@@ -1387,7 +1387,7 @@ Proved the nightly vzdump of VM 181 restores to a **fully working GitLab** (full
 
 1. **SNC disabled in BIOS** (Andrew at console, F10 → "Sub-NUMA Clustering" → Disable) and
    **kernel 7.0.14-4-pve pin-tested via `--next-boot` in the same reboot.** Booted clean
-   first try: **NUMA now 1 flat node / 128GB**, all 6 NVMe behind VMD, 0 NVMe errors, pools
+   first try: **NUMA now 1 flat node / 128GB** *(192GB since Aug 26, 2026; still 1 flat node)*, all 6 NVMe behind VMD, 0 NVMe errors, pools
    ONLINE, 5 VMs auto-started, public site 200. Slot 5 Bifurcation x4x4x4x4 + VROC untouched
    (confirmed: bifurcation, NOT SNC, drives the quad-NVMe card).
 2. **7.0.14-4-pve made the PERMANENT pin** (was 7.0.6-2 since Jun 18). Fallbacks on ESPs:

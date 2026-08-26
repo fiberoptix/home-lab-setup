@@ -131,8 +131,14 @@ same pipeline shape, just smaller.
 > 16 GB on Aug 12, 2026** — see [Right-sized Aug 12](#-right-sized-aug-12-2026--32-gb--16-gb-16-vcpu--8-vcpu)
 > below for the measurements and the verification.
 
-**Host headroom note:** VM 185 (OpenClaw, 16 GB / 12 cores) is dormant with `onboot=0` and stays
-that way. If it were ever started alongside this VM, headroom gets tight — don't.
+**Host headroom note:** ~~VM 185 (OpenClaw, 16 GB / 12 cores) is dormant with `onboot=0` and stays
+that way. If it were ever started alongside this VM, headroom gets tight — don't.~~
+
+⛔ **OBSOLETE — the warning no longer applies, for two separate reasons.** OpenClaw was **destroyed**
+on Aug 19, 2026, so there is no dormant VM to accidentally start; VMID 185 is now **`vm-jenkins-1`**
+(8 GB / 4 cores), which runs **continuously** rather than dormant. And the host went from 128 GB to
+**192 GB** on Aug 26, 2026, so the headroom this note was rationing no longer needs rationing —
+104 GB of 192 GB allocated with ~87 GB free.
 
 ### Measured after Part 4 (Jul 27) — the projections were far too pessimistic
 

@@ -33,7 +33,9 @@
 
 ## Phase 1: Hardware & Proxmox Installation ✅ COMPLETE
 
-- [x] Install 128GB RAM (4x32GB)
+- [x] Install 128GB RAM (4x32GB) — *slots `CPU0-DIMM1/2/5/6`*
+- [x] **Upgrade to 192GB (+2x32GB in `CPU0-DIMM3/4`) — Aug 26, 2026.** Fills all 6 memory channels;
+      clock held at 2666 MT/s. **Board is now at its ceiling** — 6 slots, 1 CPU, all full.
 - [x] Install 2x500GB NVMe in onboard M.2 slots
 - [x] Install HP Z Turbo Drive Quad Pro in PCIe slot
 - [x] Install 4x1TB NVMe in HP Turbo card

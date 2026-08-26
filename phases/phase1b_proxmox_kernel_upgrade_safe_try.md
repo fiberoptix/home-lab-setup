@@ -70,7 +70,7 @@ then pinned `6.17.2-1-pve`, held `proxmox-default-kernel` +
 
 ## Hardware context (verified Jun 18, 2026)
 
-- **Host:** HP **Z6 G4**, single Xeon Platinum 8168 (24c/48t), 128 GB RAM
+- **Host:** HP **Z6 G4**, single Xeon Platinum 8168 (24c/48t), 128 GB RAM *at the time — **192 GB since Aug 26, 2026***
 - **Intel VMD ENABLED** (`8086:201d` x2, `vmd` module loaded) — NVMe sits behind VMD
   (PCI domains `10000:`/`10001:`). This is the configuration the 6.17 regression
   hits hardest.
