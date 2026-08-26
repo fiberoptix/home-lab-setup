@@ -294,6 +294,39 @@ with truncated copies of itself. Both scripts now refuse to start there; see pha
 the next byte of the script itself. If you want a single line, keep the file real:
 `cd "$(mktemp -d)" && wget -q http://192.168.1.195/ubuntu/host_setup.sh && bash host_setup.sh`
 
+### 💾 Offline / USB build kits (both distros) — when the script server is unreachable
+
+🚨 **The script server cannot build the machine it runs on.** `192.168.1.195` is a VMware guest on the
+Z8 workstation, so dual-booting that Z8 into Fedora takes Windows down, which takes VMware down, which
+takes the script server down — at exactly the moment the new install wants to fetch from it.
+
+`www/fedora_local/` and `www/ubuntu_local/` are **self-contained kits** for that case. `host_setup.sh`
+detects that its sub-scripts are already beside it and skips the network entirely:
+
+```bash
+cd www && ./make_local_kits.sh --with-creds   # builds BOTH kits (omit the flag to leave the
+                                              # NAS password out; the script prompts instead)
+cp -r www/fedora_local /path/to/usb/          # carry it
+
+# on the new Fedora box
+cp -r /run/media/$USER/<LABEL>/fedora_local ~/fedora_local
+cd ~/fedora_local && bash host_setup.sh --hostname AGAMACHE-FEDORA-WKS
+```
+
+It prints `OFFLINE MODE`. Internet is still needed for Docker, Chrome and Cursor (all public repos) —
+but nothing on the lab network is.
+
+⛔ **Never hand-edit `www/*_local/*.sh`** — they are generated copies. Edit the source tree and
+regenerate. `./make_local_kits.sh --check` tells you whether a kit has gone stale, which matters
+because a drifted kit builds hosts from bugs you already fixed.
+
+🔑 **The Ubuntu kit carries one extra file: `anysphere.gpg`**, Cursor's apt key, mirrored locally
+because the official URL 403s. A scripts-only copy looks complete but isn't — the offline check counts
+the key as required and refuses to claim offline without it.
+
+⚠️ With `--with-creds` the kit holds the **plaintext NAS password**, and FAT32/exFAT sticks cannot
+enforce `0600` — treat the USB as a secret, or leave the credential out.
+
 Every server gets **Cockpit** at `https://<host>:9090` (log in with the system
 password, not an SSH key — it authenticates via PAM). Self-signed cert, so use Chrome
 or Firefox; the Cursor built-in browser cannot get past the warning.

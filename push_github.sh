@@ -89,6 +89,12 @@ SENSITIVE=(
   www/smb_credentials                # canonical since Aug 21, 2026
   www/ubuntu/smb_credentials         # stray-copy check (tree renamed from www/scripts)
   www/fedora/smb_credentials         # ditto (renamed from www/scripts_fedora)
+  www/fedora_local/smb_credentials   # USB build kits, added Aug 26, 2026. GENERATED copies,
+  www/ubuntu_local/smb_credentials   # so these are the 4th and 5th places the same secret can
+                                     # exist -- and a generator can mint new ones without anyone
+                                     # updating this list. Exactly the failure the note above
+                                     # describes, which is why step 3b's name-based sweep is the
+                                     # real protection and this list is only defence in depth.
   www/scripts/smb_credentials        # pre-rename names, kept for old working copies
   www/scripts_fedora/smb_credentials
   working

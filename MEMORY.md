@@ -932,6 +932,26 @@ It had been accumulating since Aug 13. **When you write a new handoff, move the 
 - **Jun 18, 2026: kernel fully un-stuck.** Went 6.17.2-1 → 6.17.13-13 → **7.0.6-2-pve** (all NVMe-clean), full host upgrade to PVE 9.2.3, all package holds removed. 7.0.6-2 tested via --next-boot, then made permanent and confirmed it boots autonomously (2 reboots clean). 6.17.13-13 kept as fallback. See current_phase.md + phase1b.
 - Script server running at **http://192.168.1.195/** (landing page with the copy-paste bootstrap
   commands), trees at http://192.168.1.195/ubuntu/ and http://192.168.1.195/fedora/
+- 🚨 **THE SCRIPT SERVER CANNOT BUILD ITS OWN HOST.** `.195` is `VM-UBUNTU-01`, a **VMware guest on the
+  Z8 workstation**. So: build on the Z8 → needs the script server → needs `.195` → needs VMware →
+  needs **Windows booted**. Dual-booting the Z8 into Fedora, or reinstalling the dev box, breaks that
+  cycle — the machine being built and the machine serving the scripts are **the same hardware**. No
+  retry or startup delay fixes a cycle.
+  - ✅ **Solved Aug 26, 2026 with offline kits.** `host_setup.sh` (BOTH distros) checks whether every
+    file in its `SCRIPTS` manifest is already beside it; if so it prints `OFFLINE MODE` and touches
+    the network **zero times**. Build them: `cd www && ./make_local_kits.sh --with-creds` →
+    `www/fedora_local/` and `www/ubuntu_local/`. Copy a folder to USB and it is a complete build kit.
+  - ⭐ The check is **all-or-nothing** and names what is missing when it declines. A half-copied USB
+    running some real scripts and skipping others is a failure that looks like success.
+  - ⛔ **Never hand-edit `www/*_local/*.sh`** — GENERATED copies. Edit `www/<distro>/`, then re-run the
+    generator. `./make_local_kits.sh --check` reports drift; a stale kit builds hosts from bugs you
+    already fixed.
+  - 🔑 **Ubuntu kits carry `anysphere.gpg` and Fedora kits do not** — Cursor's apt key URL 403s so the
+    Ubuntu tree mirrors it. A scripts-only Ubuntu copy looks complete but is not; the check catches it.
+  - ⚠️ With `--with-creds` a kit holds the **plaintext NAS password**, and FAT32/exFAT cannot enforce
+    `0600`. Treat the stick as a secret or omit the flag and let the script prompt. The kit dirs are
+    NOT served by nginx and the credential IS gitignored — both verified, incl. a positive control.
+  - Detail: `phases/phase2_host_setup_automation.md` → *Offline / USB build kits*.
 - **GitLab CE LIVE at http://192.168.1.181** (root/[See PASSWORDS.md])
 - **GitLab Runner LIVE at 192.168.1.182** (gitlab-runner-1, **v19.2.1** as of a job log Aug 19, 2026 —
   Phase 4 installed **v18.7.2**, so the runner has been upgraded underneath us, presumably by apt.

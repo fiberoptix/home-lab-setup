@@ -691,3 +691,108 @@ Created a test VM to validate all scripts:
 - `/proxmox/credentials` - All passwords
 - `/proxmox/Home_Lab_Proxmox_Design.md` - VM architecture plan
 
+
+---
+
+## Offline / USB build kits — the script server cannot build its own host (Aug 26, 2026)
+
+### The problem, stated exactly
+
+The script server is `http://192.168.1.195/`. `.195` is **`VM-UBUNTU-01`, a VMware guest on the Z8
+workstation**. So the dependency chain is:
+
+> new Fedora build on the Z8 → needs the script server → needs `.195` → needs VMware →
+> needs Windows → **needs the Z8 to be booted into Windows, not Fedora**
+
+🚨 **The machine being built and the machine serving the scripts are the same physical box.** This is
+not an ordering problem that a retry or a startup delay can fix. It is a cycle, and the only way out
+is to carry the scripts in.
+
+This surfaced when Andrew added an M.2 to the Z8 to dual-boot Fedora. It would equally have bitten any
+reinstall of the dev box itself.
+
+### The fix: offline mode in both orchestrators
+
+`host_setup.sh` (both distros) now checks whether **every** file in its `SCRIPTS` manifest is already
+present and non-empty next to it. If so it prints `OFFLINE MODE`, uses them, and **touches the network
+zero times**. Otherwise it downloads exactly as before.
+
+⭐ **The check is ALL-OR-NOTHING, deliberately.** A partial set falls back to downloading. A directory
+holding four real scripts and three absent ones is far more likely to be a broken copy than an intended
+kit, and silently running the four is a failure that *looks* like success. When it declines offline
+mode it **names the missing files**, so the diagnosis is in the output rather than in someone's head.
+
+The script-library guard (refuse to run inside `www/<distro>/`) is **not** applied in the offline
+branch. That guard exists because *downloading* into the library truncates it; offline mode writes
+nothing, so there is nothing to protect against. Scoping a guard to its actual reason rather than to
+its neighbourhood.
+
+### The kits are GENERATED, never hand-edited
+
+`www/make_local_kits.sh` builds `www/fedora_local/` and `www/ubuntu_local/`.
+
+⛔ **Two copies of eight files is a drift machine.** Fix a bug in `www/ubuntu/` and a hand-maintained
+kit quietly keeps the old version — you then build a host from a bug you already fixed, and nothing
+warns you. Hence: the kits are generated, and `--check` compares each kit byte-for-byte against its
+source and exits non-zero if stale.
+
+⭐ **The generator reads the file list out of each `host_setup.sh` (`SCRIPTS=`) rather than hardcoding
+it.** Hardcoding would create a second list to keep in step — the same drift bug, one level up. It
+also means a future asset is picked up automatically instead of being silently dropped.
+
+### 🔑 Ubuntu carries one file Fedora does not
+
+`anysphere.gpg`, Cursor's apt signing key, mirrored locally because the official URL **403s**.
+
+⚠️ **This is the Ubuntu-specific trap.** Copying "all the scripts" yields eight `.sh` files that look
+complete, but without the key Cursor's repo cannot be verified. Because the key is a member of
+`SCRIPTS`, the all-or-nothing check catches it for free — a scripts-only copy refuses offline mode and
+names `anysphere.gpg`. **Verified by test, not by reading the code.**
+
+### Verified against real distro images with the network physically disabled
+
+Every row run in a container with `--network none`, so no network path existed at all:
+
+| Distro | Test | Result |
+|---|---|---|
+| Fedora 44 | Full kit, **read-only** mount | ✅ `OFFLINE MODE`, all 7 found, reached confirm prompt |
+| Fedora 44 | `host_setup.sh` alone | ✅ falls back to download, fails, points at the kit |
+| Fedora 44 | Partial kit (3 of 8) | ✅ refuses offline, names the 5 missing |
+| Fedora 44 | Empty dir, **real server** | ✅ downloads all 7 — normal path unaffected |
+| Ubuntu 24.04 | Full kit (8 files), read-only | ✅ `OFFLINE MODE`, all 8 found |
+| Ubuntu 24.04 | Kit **missing `anysphere.gpg`** | ✅ refuses offline, names the key |
+| Ubuntu 24.04 | Empty dir, **real server** | ✅ downloads all 8 — normal path unaffected |
+
+The read-only rows matter: offline mode writes nothing into the kit, so **a kit runs straight off a
+read-only USB stick.** Copying to `~` first is still advised, only so pulling the stick cannot
+interrupt a build.
+
+The last row of each distro is the one that protects everything else — it proves the new branch did not
+break the ordinary networked build.
+
+🪲 **Incidental finding:** a bare `ubuntu:24.04` image has **no `wget`**, so the Ubuntu bootstrap line
+would fail on a truly minimal system. This is the mirror image of the known Fedora issue (stock Fedora
+has `curl` but no `wget`, which is why the Fedora tree bootstraps with `curl`). Desktop and Server ISOs
+both ship `wget`, so this is not urgent — but offline mode sidesteps it entirely, since `wget` is never
+called.
+
+### The credential, and why it is safe to put in the tree
+
+`--with-creds` copies `smb_credentials` into each kit. It lands **inside** the kit folder, which is
+valid because `setup_smb_mount.sh`'s lookup chain checks `$SCRIPT_DIR/smb_credentials` as well as
+`../smb_credentials` — a flat folder is far easier to copy correctly than a two-level layout.
+
+Three exposure checks, each **verified rather than assumed**:
+
+1. **nginx does not serve it.** `docker-compose.yml` bind-mounts only `./ubuntu`, `./fedora`,
+   `index.html` and `nginx.conf`. A new directory under `www/` is not published.
+2. **git ignores it** — `/www/*/smb_credentials` matches `www/fedora_local/smb_credentials`. Confirmed
+   with `git check-ignore`, **plus a positive control** (`README.md` in the same folder correctly comes
+   back *not* ignored, proving the check is not just saying yes to everything).
+3. **`push_github.sh` covers it** — the new path was added to `SENSITIVE` (now 12 paths), and the
+   name-based sweep would have caught it regardless.
+
+🚨 **The exposure that cannot be fixed in software:** on a **FAT32/exFAT** stick the `0600` mode does
+not stick, because those filesystems have no Unix permissions. The NAS password is then readable by
+anything that mounts the stick. Omitting `--with-creds` is fully supported — `setup_smb_mount.sh`
+prompts, at a cost of one typed password.

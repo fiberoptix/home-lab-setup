@@ -715,3 +715,34 @@ Run is now **25 OK / 2 SKIP / 0 FAIL**.
 but nginx runs as a different user inside the container and cannot. The scripts were readable to
 every check done *as the owner*, and only broke when something else tried to read them. Worth
 remembering if the real script server ever starts 403-ing after a file is re-copied.
+
+---
+
+## Offline USB kit — `www/fedora_local/` (Aug 26, 2026)
+
+Full write-up, including the Ubuntu side and the whole verification matrix, lives in
+`phase2_host_setup_automation.md` → *Offline / USB build kits*. The Fedora-specific points:
+
+**Why it was needed here first.** Andrew added an M.2 to the Z8 to dual-boot Fedora. The script server
+is `.195`, a VMware guest **on that same Z8**, so booting Fedora takes Windows down, which takes VMware
+down, which takes the script server down — exactly when the new Fedora install wants to fetch from it.
+🚨 **The box being built and the box serving the scripts are the same hardware.**
+
+**What changed in this tree.** `host_setup.sh` gained an offline branch: if all seven sub-scripts are
+already beside it, it prints `OFFLINE MODE` and never touches the network. Build the kit with
+`cd www && ./make_local_kits.sh fedora --with-creds`.
+
+⛔ **Never hand-edit `www/fedora_local/*.sh`** — generated copies. `./make_local_kits.sh --check`
+reports drift.
+
+**Fedora is better placed than Ubuntu for this**, and it is worth knowing why. Everything this tree
+installs comes from publicly fetchable endpoints — `download.docker.com`, `dl.google.com`,
+`downloads.cursor.com` — so a Fedora kit is *just* the seven scripts. The Ubuntu tree additionally has
+to carry `anysphere.gpg`, because Cursor's official apt key URL 403s and the key is mirrored locally.
+The Fedora RPM repo and its key were both verified fetchable (HTTP 200) back when this tree was
+written, and that decision is what keeps the offline kit small and complete.
+
+**Verified on Fedora 44 with `--network none`:** full kit from a **read-only** mount reached the
+confirm prompt in `OFFLINE MODE`; a partial kit correctly refused offline and named the missing files;
+and an empty directory against the real server still downloaded all seven, proving the networked path
+was not broken by the change.
