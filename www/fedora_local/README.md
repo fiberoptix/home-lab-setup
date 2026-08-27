@@ -42,6 +42,12 @@ bash host_setup.sh --hostname AGAMACHE-FEDORA-WKS
 It prints **`OFFLINE MODE`** and lists the seven sub-scripts it found. If you see
 `-- Downloading all scripts` instead, the copy is incomplete — see *Troubleshooting*.
 
+✅ **Proven in production Aug 26, 2026** — this kit built `AGAMACHE-FEDORA-WKS` bare-metal on the Z8
+with the script server powered off. Clean run apart from one keyring bug, since fixed.
+
+🔑 **Uppercase hostnames are preserved** — `AGAMACHE-FEDORA-WKS` applied exactly as typed. Measured on
+that build, which settled an earlier guess that systemd lowercases static hostnames.
+
 **Flags:** `--hostname <name>` (use it — Fedora ISO installs inherit `localhost-live`),
 `--no-nas` (skip the NAS mount), `--server` (headless: skip Chrome, Cursor and GNOME settings —
 **not** what you want on Fedora Workstation).

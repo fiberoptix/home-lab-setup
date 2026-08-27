@@ -952,6 +952,43 @@ It had been accumulating since Aug 13. **When you write a new handoff, move the 
     `0600`. Treat the stick as a secret or omit the flag and let the script prompt. The kit dirs are
     NOT served by nginx and the credential IS gitignored — both verified, incl. a positive control.
   - Detail: `phases/phase2_host_setup_automation.md` → *Offline / USB build kits*.
+  - ✅ **PROVEN IN PRODUCTION Aug 26, 2026** — the Fedora kit built `AGAMACHE-FEDORA-WKS` bare-metal on
+    the Z8 with the script server powered off. The `--network none` container tests predicted real
+    behaviour accurately.
+
+### AGAMACHE-FEDORA-WKS — Fedora on the Z8 G4 (built Aug 26, 2026)
+
+- **Fedora Workstation on a new M.2 in the HP Z8 G4**, dual-boot, **Windows stays the default OS**.
+- 🚨 **This host and `VM-UBUNTU-01` (.195, the dev box + script server) CANNOT BE UP AT THE SAME TIME.**
+  They share the Z8: `.195` is a VMware guest under Windows. Booting Fedora powers down Windows, which
+  powers down `.195`. If you can reach the repo on `.195`, `AGAMACHE-FEDORA-WKS` is off by definition —
+  do not try to SSH to it and do not treat it as lab infrastructure.
+- Built with the **offline USB kit**, not the script server (see above — the server is on the same box).
+- 🔑 **Hostname uppercase is PRESERVED** — `AGAMACHE-FEDORA-WKS` applied exactly as typed. This was
+  MEASURED, and it corrects an earlier *guess* that systemd lowercases static hostnames. It is the only
+  non-lowercase host in the lab; deliberate, and harmless since DNS is case-insensitive.
+  - ⭐ Lesson: the guess went untested for hours because the only available test was renaming the dev
+    box — the exact accident already recorded in `setup_hostname.sh`. **Never test hostname behaviour
+    on a machine you need.** A disposable install answered it for free.
+- Build was **clean apart from one bug**: the login-keyring step was a false green (below).
+
+### ⭐ FALSE GREEN CLASS: a check that runs BEFORE the thing that breaks it proves nothing
+
+- Aug 26, 2026, found on the Z8 build. `setup_desktop.sh` deleted `login.keyring`, wrote
+  `default`=`login`, then verified **only** that `default` read back — a read that always succeeds
+  because the script had just written it. Reported `ok` while leaving a pointer to a keyring that did
+  not exist.
+- 🚨 **gnome-keyring then created `Default_keyring` and rewrote `default` SEVEN MINUTES LATER**, the
+  first time Chrome stored a secret. Autologin cannot unlock it, so the prompt came back.
+- This is a **new class** vs. earlier false greens. Those reported success for work never attempted.
+  Here the work WAS done and verified — then undone by another process, after the test window closed.
+- Fix: write a real empty unencrypted `login.keyring`, remove ALL other `*.keyring`, and verify three
+  things (default correct, login.keyring well-formed, **no stray keyring**). Fixed in BOTH trees.
+- ⭐ The replacement check was proved able to FAIL against five broken states plus a positive control.
+  The original bug survived precisely because its check could not fail.
+- ⚠️ The first fix gave the stray-keyring arm to Fedora only. Ubuntu was brought to parity — **"fix one
+  tree, forget the other" is this project's most repeated mistake.**
+- Detail: `phases/phase2_host_setup_automation.md` → *The login keyring step was a false green*.
 - **GitLab CE LIVE at http://192.168.1.181** (root/[See PASSWORDS.md])
 - **GitLab Runner LIVE at 192.168.1.182** (gitlab-runner-1, **v19.2.1** as of a job log Aug 19, 2026 —
   Phase 4 installed **v18.7.2**, so the runner has been upgraded underneath us, presumably by apt.

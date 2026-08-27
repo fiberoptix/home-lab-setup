@@ -746,3 +746,69 @@ written, and that decision is what keeps the offline kit small and complete.
 confirm prompt in `OFFLINE MODE`; a partial kit correctly refused offline and named the missing files;
 and an empty directory against the real server still downloaded all seven, proving the networked path
 was not broken by the change.
+
+---
+
+## ✅ FIRST BARE-METAL BUILD — `AGAMACHE-FEDORA-WKS` on the Z8 G4 (Aug 26, 2026)
+
+The Fedora build standard's first use on real hardware, and the first end-to-end test of the offline
+USB kit. **Result: clean, once one bug was fixed.**
+
+### What was built
+
+| | |
+|---|---|
+| Machine | **HP Z8 G4** workstation (the box that also hosts `VM-UBUNTU-01`) |
+| Disk | **new M.2**, installed for this purpose |
+| Boot | **dual-boot with Windows — Windows remains the default OS** |
+| Hostname | **`AGAMACHE-FEDORA-WKS`** |
+| Method | **offline USB kit** (`www/fedora_local/`), no script server involved |
+
+⚠️ **This host is normally OFF.** It shares hardware with `VM-UBUNTU-01`, so the Fedora box and the dev
+box / script server **can never run at the same time**. Booting one powers down the other. Do not
+expect to reach `AGAMACHE-FEDORA-WKS` from the lab — if you can read this repo from `.195`, that host
+is off by definition.
+
+### The offline kit worked
+
+This was the whole point of building it: the script server is a VMware guest on the same Z8, so it was
+powered off during the build. The kit carried all seven scripts in, printed `OFFLINE MODE`, and
+contacted nothing on the lab network. Internet-sourced packages (Docker, Chrome, Cursor) installed
+normally from their public repos.
+
+✅ **The container tests predicted the real behaviour accurately.** `--network none` on a Fedora 44
+image was a faithful stand-in for "the lab is unreachable."
+
+### 🔑 Measured fact: uppercase hostnames are preserved
+
+`AGAMACHE-FEDORA-WKS` was applied **as typed — the uppercase survived.** This is worth recording
+because it was an open question: during planning it was *speculated* that systemd lowercases static
+hostnames, and that guess could not be tested safely, since the only test available was renaming the
+dev box — the exact accident already recorded in `setup_hostname.sh`. The speculation was flagged as
+unverified at the time, and the real build settled it.
+
+⚠️ Note the naming inconsistency this creates: every other host in the lab is lowercase
+(`vm-jenkins-1`, `docker-swarm-1`). `AGAMACHE-FEDORA-WKS` is deliberate, not a mistake, and DNS is
+case-insensitive so nothing breaks.
+
+⭐ **Do not test hostname behaviour on a machine you need.** The question stayed open for hours rather
+than risk it, and a disposable install answered it for free.
+
+### The one bug: the login keyring step was a false green
+
+Full analysis in `phase2_host_setup_automation.md` → *The login keyring step was a false green*. In
+brief: the step deleted `login.keyring`, wrote `default`, verified only `default`, and reported `ok` —
+leaving a pointer to a keyring that did not exist. gnome-keyring then created `Default_keyring` and
+rewrote `default` **seven minutes later**, when Chrome first stored a secret, bringing back the unlock
+prompt the step exists to remove.
+
+🚨 **Nothing available at script-run time could have caught this.** Every check was true when it ran;
+the breakage arrived minutes afterwards from another process. Fixed in both trees, and the replacement
+check was proved able to fail against five distinct broken states.
+
+### Everything else passed
+
+No other defects. Notably the pieces most recently reworked all held up on real hardware: the measured
+(non-hardcoded) closing summary, the `--server` auto-detection correctly choosing **desktop** mode on
+Workstation, `setup_hostname.sh`'s validation and `/etc/hosts` handling, and the NAS mount finding
+`smb_credentials` inside the flat kit folder.

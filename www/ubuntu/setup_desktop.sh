@@ -347,19 +347,30 @@ fi
 
 # Step 11: Disable login keyring prompt
 step "Disabling login keyring prompt..."
-# Remove existing keyring to reset it with no password
-if [ -d ~/.local/share/keyrings ]; then
-    rm -f ~/.local/share/keyrings/login.keyring
-    rm -f ~/.local/share/keyrings/user.keystore
-    echo "    Removed existing keyring files"
-fi
-# Create empty password keyring (auto-unlocks on login)
-mkdir -p ~/.local/share/keyrings
-cat > ~/.local/share/keyrings/default << 'EOF'
-login
+# ---------------------------------------------------------------------------
+# Writing `default` = login WITHOUT creating login.keyring is a false green.
+# Measured on AGAMACHE-FEDORA-WKS, Aug 26 2026: the write read back correctly,
+# then gnome-keyring saw no login.keyring, created Default_keyring, and rewrote
+# `default` the first time a desktop app stored a secret. Same gnome-keyring
+# on Ubuntu, so the Fedora finding is carried here rather than left as the
+# "fix one tree, forget the other" hole.
+#
+# The login keyring must actually exist, in the unencrypted text format
+# gnome-keyring accepts with no password. Other *.keyring files have to go.
+# ---------------------------------------------------------------------------
+KR="$HOME/.local/share/keyrings"
+mkdir -p "$KR"
+rm -f "$KR"/*.keyring "$KR"/user.keystore
+cat > "$KR/login.keyring" <<'EOF'
+[keyring]
+display-name=login
+ctime=0
+mtime=0
+lock-on-idle=false
+lock-after=false
 EOF
-echo "    Set default keyring to 'login' with no password"
-echo "    (Keyring will auto-unlock on next login)"
+printf 'login\n' > "$KR/default"
+echo "    Wrote empty unencrypted login.keyring; default points at it"
 
 fi   # ← end of the desktop-only block opened before Chrome (--server skips it all)
 
@@ -588,9 +599,23 @@ else
     say_na "Dock icons (no org.gnome.shell schema)"
 fi
 
-[ "$(cat ~/.local/share/keyrings/default 2>/dev/null)" = "login" ] \
-    && say_ok "Login keyring: default 'login', auto-unlock" \
-    || say_warn "Login keyring: ~/.local/share/keyrings/default is not 'login'"
+# The stray-keyring arm matters more than it looks. gnome-keyring is what
+# rewrites `default` and mints a Default_keyring, and on AGAMACHE-FEDORA-WKS it
+# did so SEVEN MINUTES after the step reported success -- i.e. potentially after
+# this very summary ran. Checking only `default` and `login.keyring` would miss a
+# second keyring appearing, which is the exact shape of the bug this replaced.
+# Kept identical to the Fedora tree on purpose: an asymmetric check is how one
+# tree keeps a bug the other already fixed.
+KR_OTHER=$(find "$HOME/.local/share/keyrings" -maxdepth 1 -type f -name '*.keyring' \
+           ! -name 'login.keyring' 2>/dev/null || true)
+if [ "$(cat ~/.local/share/keyrings/default 2>/dev/null)" = "login" ] \
+   && grep -q '^\[keyring\]' ~/.local/share/keyrings/login.keyring 2>/dev/null \
+   && [ -z "$KR_OTHER" ]; then
+    say_ok "Login keyring: empty unencrypted 'login', auto-unlock"
+else
+    say_warn "Login keyring: default/login.keyring bad, or a stray keyring exists"
+    [ -n "$KR_OTHER" ] && echo "         stray: $(echo $KR_OTHER | tr '\n' ' ')"
+fi
 fi
 
 ALIAS_MISSING=""

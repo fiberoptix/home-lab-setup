@@ -796,3 +796,92 @@ Three exposure checks, each **verified rather than assumed**:
 not stick, because those filesystems have no Unix permissions. The NAS password is then readable by
 anything that mounts the stick. Omitting `--with-creds` is fully supported — `setup_smb_mount.sh`
 prompts, at a cost of one typed password.
+
+---
+
+## The login keyring step was a false green (Aug 26, 2026)
+
+Found by **running the Fedora build on real hardware** — the Z8 workstation, `AGAMACHE-FEDORA-WKS`.
+Fixed in both distro trees.
+
+### What the code did
+
+```bash
+mkdir -p ~/.local/share/keyrings
+rm -f ~/.local/share/keyrings/login.keyring ~/.local/share/keyrings/user.keystore
+echo "login" > ~/.local/share/keyrings/default
+[ "$(cat ~/.local/share/keyrings/default)" = "login" ] && ok "keyring reset"
+```
+
+It **deleted** `login.keyring`, wrote `default`, then verified only that `default` read back. That
+read always succeeds — the script had just written the file. So the step reported `ok` every time,
+having left the keyring directory containing nothing but a pointer to a keyring that does not exist.
+
+### 🚨 Why it took real hardware to catch
+
+gnome-keyring then finds no `login.keyring`, creates `Default_keyring`, and **rewrites `default` to
+point at it** — the first time any desktop app stores a secret. On the Z8 that happened **seven
+minutes after the script finished**, when Chrome or Cursor first saved something. Autologin has no
+password to unlock that new keyring with, so the unlock prompt this step exists to remove comes back.
+
+⭐ **The failure was time-shifted out of the test window.** Every check the script could make at the
+moment it ran was true. Nothing short of using the desktop afterwards would show it. This is a
+different class of bug from the earlier false greens (which reported success for work that was never
+attempted) — here the work *was* attempted, verified, and then undone by another process minutes later.
+**A verification that runs before the thing that breaks it proves nothing.**
+
+### The fix
+
+Write a real, empty, unencrypted keyring in the text format gnome-keyring accepts with no password,
+remove **all** other `*.keyring` files so the running daemon cannot keep using one, and verify three
+things instead of one:
+
+```bash
+KR="$HOME/.local/share/keyrings"
+rm -f "$KR"/*.keyring "$KR"/user.keystore
+cat > "$KR/login.keyring" <<'INNER'
+[keyring]
+display-name=login
+ctime=0
+mtime=0
+lock-on-idle=false
+lock-after=false
+INNER
+printf 'login\n' > "$KR/default"
+```
+
+Verified: `default` is `login`, **`login.keyring` exists and is well-formed**, and **no other keyring
+exists**.
+
+### Proof the new check can actually fail
+
+The old bug survived because its check could not fail. So the replacement was tested against five
+broken states in a throwaway `$HOME`, plus a positive control:
+
+| State | Verdict |
+|---|---|
+| `login.keyring` missing — *the old bug exactly* | ✅ FAIL |
+| `default` points at `Default_keyring` | ✅ FAIL |
+| Stray second keyring left behind | ✅ FAIL |
+| `login.keyring` present but malformed | ✅ FAIL |
+| No `default` file at all | ✅ FAIL |
+| Correct state (positive control) | ✅ ok |
+
+Reproduced the original too: the old logic printed `ok — keyring reset` with only `default` on disk
+and no `login.keyring`. The false green is confirmed, not inferred.
+
+### ⚠️ The asymmetry that nearly shipped
+
+The first fix gave **Fedora** the stray-keyring arm and **Ubuntu** only the two-arm check. Both write
+sides remove strays, so it looked harmless — except a stray reappearing *after* the write is precisely
+the behaviour just discovered, and the summary may well run after it. Ubuntu was brought to parity.
+
+⭐ **Fix one tree, forget the other, is this project's most repeated mistake.** Ubuntu got the fix
+here even though the bug was found on Fedora, because it is the same gnome-keyring on both.
+
+### Kit discipline, first real outing
+
+All four files (`www/fedora/`, `www/ubuntu/`, and both `_local` kits) moved together, and
+`./make_local_kits.sh --check` confirms both kits are byte-identical to their sources. ✅ The generated-kit
+rule survived its first real change — which is the case it was built for, since a hand-maintained kit
+would now be shipping the false green.

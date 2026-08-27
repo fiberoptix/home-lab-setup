@@ -550,15 +550,40 @@ fi
 
 # ===========================================================================
 step "Disabling the login keyring prompt..."
-mkdir -p ~/.local/share/keyrings
-rm -f ~/.local/share/keyrings/login.keyring ~/.local/share/keyrings/user.keystore
-echo "login" > ~/.local/share/keyrings/default
-if [ "$(cat ~/.local/share/keyrings/default 2>/dev/null)" = "login" ]; then
-    res_ok "Keyring: default set to 'login' with no password (auto-unlock)"
-    echo "    OK:   keyring reset"
+# ---------------------------------------------------------------------------
+# Writing `default` = login WITHOUT creating login.keyring is a false green.
+# Measured on AGAMACHE-FEDORA-WKS, Aug 26 2026: the write read back correctly,
+# then gnome-keyring saw no login.keyring, created Default_keyring, and rewrote
+# `default` seven minutes later -- the first time Chrome or Cursor stored a
+# secret. Autologin then has no password to unlock that keyring with, which is
+# the prompt this step exists to remove.
+#
+# The login keyring must actually exist, in the unencrypted text format
+# gnome-keyring accepts with no password. Other *.keyring files have to go,
+# or the running daemon will keep using them.
+# ---------------------------------------------------------------------------
+KR="$HOME/.local/share/keyrings"
+mkdir -p "$KR"
+rm -f "$KR"/*.keyring "$KR"/user.keystore
+cat > "$KR/login.keyring" <<'EOF'
+[keyring]
+display-name=login
+ctime=0
+mtime=0
+lock-on-idle=false
+lock-after=false
+EOF
+printf 'login\n' > "$KR/default"
+
+OTHER=$(find "$KR" -maxdepth 1 -type f -name '*.keyring' ! -name 'login.keyring' 2>/dev/null || true)
+if [ "$(cat "$KR/default" 2>/dev/null)" = "login" ] \
+   && grep -q '^\[keyring\]' "$KR/login.keyring" 2>/dev/null \
+   && [ -z "$OTHER" ]; then
+    res_ok "Keyring: empty unencrypted 'login' (auto-unlock)"
+    echo "    OK:   login.keyring written; default points at it"
 else
-    res_fail "Keyring -- could not write ~/.local/share/keyrings/default"
-    echo "    FAIL: write failed"
+    res_fail "Keyring -- default or login.keyring did not read back"
+    echo "    FAIL: default='$(cat "$KR/default" 2>/dev/null)' files: $(ls -1 "$KR" 2>/dev/null | tr '\n' ' ')"
 fi
 
 fi   # ← end of the desktop-only block opened before Chrome (--server skips it)
