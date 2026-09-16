@@ -1364,6 +1364,11 @@ cannot silently change a job's toolchain.
 - Source list: `/etc/apt/sources.list.d/runner_gitlab-runner.list` (uses `signed-by=`)
 - Fingerprint: `F6403F65 44A38863 DAA0B6E0 3F01618A 51312F3F`
 - **Current expiration: Feb 6, 2028** (rotated May 23, 2026 after the old copy expired Feb 27, 2026)
+- ⭐ **The non-obvious bit, and why the fix is a re-download rather than a new source list:
+  packagecloud-style repos RE-ISSUE THE SAME KEYPAIR with a later expiry date.** The fingerprint is
+  unchanged (`F6403F65…51312F3F`) — only the embedded expiry moved. So `EXPKEYSIG` here means *"your copy
+  of the key is stale"*, **not** *"the key was replaced"*, and nothing in `sources.list.d/` needs editing.
+  Generalises to any packagecloud-hosted repo (GitLab, GitLab Runner, and others).
 - Backup of expired key: `/etc/apt/keyrings/runner_gitlab-runner-archive-keyring.gpg.bak.20260523`
 
 **Refresh procedure (when EXPKEYSIG appears again ~early 2028):**
@@ -1937,6 +1942,16 @@ rebooted, but GitLab (slow Omnibus reconfigure) finished apt but never got to
 - `/root/.ssh/known_hosts` pre-populated for .180–.184
 
 **Reboot detection trick:** `init 6` exits SSH with ambiguous exit code (often 0) and the VM stays reachable for ~5-90s before sshd dies. Don't rely on ssh exit code — compare `/proc/uptime` before vs after.
+⭐ **That ambiguity is WHY the 180s grace window exists** (promoted from the May 23, 2026 build record):
+`init 6` returns 0 while shutdown proceeds asynchronously, so a naive check sees "still reachable with the
+old uptime" and calls it `FAILED` when it is merely mid-shutdown. **The grace window is not politeness, it
+is the only way to distinguish a slow shutdown from a genuine apt failure that never rebooted.**
+🚨 **And do not "simplify" the sentinel files back into a `wait` loop.** The first draft used
+`for vm in "${!PIDS[@]}"; do wait ...; done`, and **bash iterates an associative array in HASH order, not
+completion order** — so fast VMs' `[DONE]` lines could not print until GitLab's 9-minute run finished, and
+the display looked hung. Each subshell now drops a **sentinel file** and the poll loop computes every VM's
+state independently. ⭐ **The general rule: bash associative-array iteration order is arbitrary — never use
+it to sequence work or output.**
 
 **Created:** May 23, 2026 (this session, see `phases/current_phase.md`)
 
