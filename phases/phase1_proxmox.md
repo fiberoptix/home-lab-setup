@@ -268,3 +268,59 @@ smartctl -a /dev/nvme0n1
 - `/proxmox/Home_Lab_Proxmox_Storage.md` - Storage configuration details
 - `/proxmox/Home_Lab_Proxmox_Design.md` - Full architecture plan
 
+---
+
+## DEMOTED VERBATIM FROM `current_phase.md` — Sep 16, 2026
+
+The two January 2026 session blocks below were moved here from `phases/current_phase.md`, which is
+specified to hold one `RESUME HERE` block plus one session handoff. They are **history, kept as a
+record of what was actually done**. Every live rule they contain already lives in its proper home:
+the disk flags and CPU/firewall/autostart standard in `MEMORY.md` → **VM CONFIGURATION STANDARD**,
+current RAM allocations in `MEMORY.md` → **RAM Allocation Strategy**, drive serials in
+`phase0_hardware.md`, and `sysbench` in `phase2_host_setup_automation.md`.
+
+🚨 **READ THIS BEFORE COPYING ANY COMMAND OUT OF THE FIRST BLOCK: its `cache=writeback` is
+SUPERSEDED and applying it today would be a mistake.** `cache=writeback` and `aio=native` are
+**incompatible** — `aio=native` needs `cache.direct=on` while `writeback` is buffered — so the
+standard is **`cache=none` with `aio=native`**, as recorded in `MEMORY.md` → VM CONFIGURATION
+STANDARD. The Jan 12 block lists both together because that pairing was not yet understood.
+⭐ This is why a closed session block is worth demoting rather than leaving in place: it reads like
+an instruction, it is nine months old, and nothing in its own text says it stopped being true.
+
+### 🎯 Infrastructure Optimization (Jan 12, 2026 - 9:00-9:30 PM)
+
+**What:** Standardized and optimized all 4 VMs for performance and reliability
+
+**Resource Reallocation:**
+- GitLab: 16 GB (no change - keep high)
+- Runner: 16 GB → **8 GB** (over-provisioned, saves 8 GB)
+- SonarQube: 6 GB → **8 GB** (improves scan performance for 28k LOC projects)
+- Kubernetes: 16 GB → **8 GB** (only using 2.6 GB with Capricorn running)
+- **Total:** 54 GB → 40 GB allocated (14 GB freed, 86 GB available)
+
+**Standardized Configuration (Applied to All VMs):**
+1. ✅ CPU type: `host` (was mixed x86-64-v2-AES and host)
+2. ✅ Firewall: Enabled on all (SonarQube was missing it)
+3. ✅ Auto-start: Enabled on all (only SonarQube had it)
+4. ✅ ISO unmount: Removed Desktop ISO from SonarQube
+5. ✅ Disk optimizations:
+   - `discard=on` - TRIM for ZFS space reclamation
+   - `cache=writeback` - 10-30% faster disk writes
+   - `aio=native` - Lower CPU overhead, better I/O performance
+
+**Performance Impact:**
+- Disk write speed: 10-30% improvement
+- CPU overhead: 5-10% reduction
+- ZFS efficiency: Better space management
+- System reliability: Auto-recovery after Proxmox reboot
+
+**Guest OS Standardization:**
+- ✅ `sysbench` installed on all VMs
+- ✅ Bash alias added: `sysbench` → runs CPU benchmark with all cores
+- ✅ Updated `setup_desktop.sh` to include sysbench for future VMs
+
+**Why This Matters:**
+- All future VMs will be built with this standard configuration
+- Documented in MEMORY.md "VM CONFIGURATION STANDARD" section
+- Ensures consistency, performance, and reliability across the infrastructure
+
