@@ -1078,13 +1078,24 @@ sudo ip neigh del <ip> dev <iface>; ping -c1 -W1 <ip} >/dev/null 2>&1; ip neigh 
 ✅ **Validated with a positive control before being trusted:** `.150` reports OCCUPIED by ARP while failing
 5/5 pings. ⭐ **A sweep that cannot distinguish "absent" from "quiet" is not a measurement.**
 
-⏳ **RESERVED, NOT BUILT (Phase 18, Sep 16, 2026): VMIDs 201–205 → `.201–.205`, plus VIP `.206` which has
-NO VM behind it.** ✅ **All six re-verified FREE BY ARP, Sep 16 4:12 PM** — not merely quiet to ping. ⛔ Do not allocate those to anything else. ⚠️ **They are reserved, not verified** — see the
-DHCP warning in the PHASE INDEX row.
-🏠 **`.199` and `.200` and `.202` are HOUSEHOLD devices, not lab infrastructure, identified by MAC Sep 16,
-2026:** `.200` = **Apple** (the Mac mini running Plex — the docs were right, and now there is evidence),
-`.199` = **D&M Holdings / Denon** AV receiver, which moved there from `.202`. ⭐ **Recorded because three
-sessions' worth of address hunting went into two devices nobody had ever written down.**
+✅ **BUILT Sep 16, 2026 — the Phase 18 Kubernetes nodes are LIVE:** `vm-k8s-cka-control-1/2/3` at
+**`.201`/`.202`/`.203`** and `vm-k8s-cka-worker-1/2` at **`.204`/`.205`** (VMIDs match the last octet),
+2 vCPU / 4 GB / 40 GB each on `vm-ephemeral`, all **`onboot 0`** — so **a host reboot leaves this cluster
+down**, exactly like the Swarm. ⏳ **`.206` is RESERVED for the kube-vip VIP and has NO VM behind it** — do
+not allocate it, and do not hunt for it in `qm list`.
+⚠️ **State: Kubernetes PACKAGES installed and INERT** (v1.35.8, apt-held; containerd running with CRI
+enabled) — **but NO CLUSTER.** The kubelet is deliberately `inactive` until `kubeadm init` runs.
+📖 Built by **`education/k8s-cka-prep/scripts/k8s-setup.sh`** — self-contained and re-runnable; `--check`
+reports state without changing anything.
+
+🏠 **HOUSEHOLD devices on this subnet, not lab infrastructure** (identified by MAC, Sep 16 2026 — recorded
+because three sessions of address hunting went into devices nobody had written down):
+**`.200` = Apple**, the Mac mini running Plex — the docs were right and there is now evidence.
+**`.231` = D&M Holdings / Denon** AV receiver.
+🔻 **The Denon MOVED TWICE and earlier revisions of this file were left contradicting themselves — it is
+on `.231` now.** It sat on `.202` for months, was briefly hand-assigned `.199` **by mistake**, and landed
+on `.231` once set back to DHCP. ⛔ **So `.199` is free and `.202` is now `vm-k8s-cka-control-2`** — any note
+calling either of those a household device is stale.
 ✅ **DHCP POOL CONFIRMED `.221–.250`, and the earlier alarm was WRONG — corrected Sep 16, 2026, 3:47 PM.**
 Andrew set the Denon back to DHCP and it took **`.231`**, inside the pool (second data point: `.230`).
 🔻 **`.199` was NOT the router handing out an out-of-pool address — Andrew had assigned it BY HAND, by
