@@ -93,6 +93,17 @@ phases/phaseX_*.md (the working record - where the volume belongs):
        Aug 24, 2026 (after pass 1)  : 35 blocks, 21 dated Jan-July 2026, 2409 lines
        Aug 24, 2026 (after pass 2)  : 34 blocks, 19 dated Jan-July 2026, 2212 lines
        Aug 24, 2026 (after pass 3)  : 29 blocks, 16 dated Jan-July 2026, 2114 lines
+       Sep 16, 2026 (after pass 4)  : 24 blocks, 12 dated Jan-July 2026, 1919 lines
+
+  ✅ IT IS CONVERGING, AND THAT IS NOW DEMONSTRABLE RATHER THAN HOPED: 39 -> 24 blocks and
+     21 -> 12 stale across four passes, every reading LOWER than the one before it. Compare the
+     twelve consecutive commits before Aug 24, which never decreased once. ⭐ The point of keeping
+     this list is that "is the cleanup working?" became a question you ANSWER instead of a question
+     you re-derive - and note that both columns moved this time, unlike pass 1 which cleared the easy
+     undated leftovers and moved the stale count not at all.
+     ⚠️ Pass 4 ran three weeks after pass 3 because the project sat idle, not because the trigger
+     failed - it fired on the first session back. A mechanical trigger survives a gap; a judgement
+     one would not have.
 
   ⛔ WRITE ONE APPENDED DEMOTION LOG, NOT A NOTE PER DEMOTION. Passes 1-4 each left a "demoted from
      here" marker block behind, which is the obvious and natural thing to write. Result: the block

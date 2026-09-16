@@ -2477,7 +2477,7 @@ the top of this file — prefer it over this list):
 | `SYSTEM_VERIFICATION.md` | Hardware inventory, drive serials, VM configs (Jan 14, 2026) |
 | `phases/current_phase.md` | ▶️ **`RESUME HERE` block at the top** — read that, not the whole file |
 | `phases/phase0_hardware.md` | Hardware specs and BIOS settings |
-| `phases/phase1_proxmox.md` | ZFS configuration and best practices |
+| `phases/phase1_proxmox.md` | ZFS configuration and best practices — plus, since Sep 16, 2026, the two demoted **January 2026** session blocks. ⚠️ The Jan 12 one prescribes `cache=writeback`, which is **superseded** (incompatible with `aio=native`; use `cache=none`); its own section header says so |
 | `phases/phase1a_*` / `phase1b_*` | Jan 12 kernel failure + rollback / the reversible retry |
 | `phases/phase17_jenkins.md` | 🔵 **Current phase.** Hard rules B10/B11, traps T1–T8 |
 | `education/CONVENTIONS.md` + `METHOD.md` | **Both** are mandatory before any study material |
