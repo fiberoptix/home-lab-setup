@@ -8,12 +8,20 @@ to scroll to find. **Keep it first.** Below it, newest session first. `MAKE_MEMO
 counts blocks (spec: 2) and step 2 demotes at least one per pass, so this file drains instead of
 growing — see that file for why the previous append-only version went undetected for seven months.
 
-## ▶️ RESUME HERE — 🔵 PHASE 17 (JENKINS): **Parts 0–3 are DONE (Aug 20, 2026). Next is Part 4 — deploy to the Swarm.**
+## ⏸️ PHASE 17 (JENKINS) IS **ON HOLD** as of Sep 16, 2026 — resume at Part 4. **A NEW PROJECT IS STARTING.**
 
-🗓️ **Sep 16, 2026 — Jenkins was NOT advanced today.** That session destroyed VM 200 and ran a memory
-pass; see the session block below. ⏳ **Andrew flagged that a NEW PROJECT may start and that Jenkins
-may go ON HOLD — that is not decided, so Part 4 below is still the next action.** If it is decided,
-change this line; do not leave Part 4 reading as imminent.
+🛑 **READ THIS BEFORE THE PLAN BELOW.** 🙋 **Andrew put Phase 17 on hold on Sep 16, 2026 to start a new
+project.** ⛔ **On hold means PAUSED, not closed and not superseded:** every hard rule below still
+binds (above all **B10**), the eight planted traps stay unfixed, `.185` keeps running, and the resume
+point is **Part 4 — deploy to the Swarm**. **Do not finish, tidy or "just close out" any of it on your
+own initiative** — the half-built state is the recorded state and Chapter 3's evidence lives in it.
+⚠️ **The new project has no phase file yet and its scope was not captured on Sep 16** — the session
+ended after the VM 200 destroy and the memory pass. **Ask Andrew what it is; do not infer it.**
+⚠️ **`CURSOR_RULES` item 4 still reads "CURRENT PHASE: 17 (Jenkins)".** That file may not be edited
+without Andrew's written authorisation, so it was left alone and **this block is the newer authority**.
+Flagged to him Sep 16, 2026.
+
+📌 **Everything from here down is the Jenkins plan, preserved intact for the resume.**
 ✅ **Part 4's Swarm prerequisite is ALREADY MET** — all three nodes were measured running and
 `Ready/Active` (Leader `docker-swarm-1`) with the Phase 16 `capricorn` stack green, so **no
 `qm start 191 192 193` is needed** despite the `onboot 0` warning elsewhere. Re-measure before relying
@@ -210,9 +218,19 @@ GitLab pipeline stays alive and untouched as the comparison — that is why Andr
 ## 🧹 SESSION Sep 16, 2026 — VM 200 destroyed, and the memory drain restarted after 3 weeks idle
 
 🙋 **Andrew: "Let's do B and then C. We might start a new project today and put Jenkins on hold."**
-⏳ **The hold is NOT a decision yet** — Phase 17 Part 4 (deploy to the Swarm) is still the next Jenkins
-action, and nothing in the Jenkins plan was touched today. If a new project does start, say so in the
-`RESUME HERE` block above rather than leaving Part 4 reading as imminent.
+✅ **DECIDED later the same session — Phase 17 IS ON HOLD** and he asked for it recorded before
+anything else. Nothing in the Jenkins plan was touched or advanced today; it is paused where it stood.
+Marked in five places: this file's top block, `MEMORY.md` (CURRENT STATE, PHASE INDEX, PHASES table,
+REFERENCE INDEX) and `phase17_jenkins.md`'s status header.
+🔻 **Found while doing it: `phase17_jenkins.md`'s own status header still read "Parts 0, 1 and 2 are
+DONE… Next is Part 3"** — Part 3 had closed on **Aug 20** (J-P10, snapshot `j03-gitlab-wired`), so the
+phase file had been three weeks stale in the one field a resuming session reads first, while
+`MEMORY.md` and this file both had it right. ⭐ **A status header is what a cold session trusts most
+and what a working session updates last.** Corrected in the same edit that recorded the hold.
+⚠️ **`CURSOR_RULES` item 4 still says "CURRENT PHASE: 17 (Jenkins)" and was deliberately NOT edited** —
+that file needs Andrew's written authorisation. **Flagged to him; it is the one remaining contradiction
+on the boot path**, and it is the *first* substantive thing a cold session reads, which is exactly the
+failure mode that file's own Aug 24 correction note describes.
 
 🔍 **Boot check found the lab healthier than the docs predicted.** `MEMORY.md` warns that the Swarm is
 `onboot 0` and comes back down after any host reboot, making `qm start 191 192 193` a Part 4

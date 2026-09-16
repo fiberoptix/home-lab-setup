@@ -1,8 +1,19 @@
 # Phase 17 — Jenkins: build the controller, wire it to GitLab, and deploy Capricorn *properly*
 
-**Status:** 🔵 **IN PROGRESS — Parts 0, 1 and 2 are DONE (Aug 20, 2026). Next is Part 3.**
+**Status:** ⏸️ **ON HOLD as of Sep 16, 2026 (Andrew's call)** — a new project takes priority. The phase
+is **paused, not abandoned or closed**: nothing here is superseded, and it resumes at the same place.
+**Parts 0, 1, 2 AND 3 are DONE (Aug 20, 2026). The resume point is Part 4 — deploy to the Swarm.**
+⚠️ **This line said "Parts 0, 1 and 2 are DONE… Next is Part 3" until Sep 16, 2026 — Part 3 had in
+fact closed on Aug 20 (write-up J-P10, snapshot `j03-gitlab-wired`), and this file's own status
+header was the last place still saying otherwise.** ⭐ **A phase file's status line is the thing a
+resuming session trusts most and the thing a working session updates last.** Check it against
+`MEMORY.md` and `current_phase.md` before believing it.
 ⚠️ **Parts 4 and 5 were SWAPPED on Aug 20 (deploy now precedes build) — read J-P7 before restoring any
 earlier ordering.**
+📌 **On resume, re-measure before acting:** the Swarm nodes are `onboot 0`, so confirm all three are
+`Ready/Active` rather than assuming (they were up on Sep 16 despite the host having rebooted Aug 26).
+The `jenkins-lab-push` and `swarm-lab-pull` tokens **both expire 2026-12-31**, so a resume after that
+date starts with two dead credentials failing in different ways.
 **Created:** August 19, 2026
 **Owner:** Andrew
 **Track:** `education/jenkins/` (chapter numbering restarts at 01 — see `education/CONVENTIONS.md`)
