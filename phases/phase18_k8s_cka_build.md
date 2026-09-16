@@ -416,6 +416,24 @@ against one snapshot, **expect certificate expiry to appear as mysterious TLS or
 after a rollback**, and recognise it instead of chasing it. `kubeadm certs check-expiration` is the
 instrument.
 
+### 🆕 A HIGH-VALUE TARGET THAT ONLY BECAME POSSIBLE TONIGHT
+
+⭐ **The Swarm track's chapter 8 — the Swarm↔Kubernetes crib sheet — contains SEVEN rows marked
+`recited`**, meaning *neither lab had tested them*. Examples: *"neither lab tested drain against a
+quorum workload"*, *"neither was exercised in either lab"*.
+
+✅ **A real multi-node `kubeadm` cluster now exists, so those rows can be converted from RECITED to
+VERIFIED.** ⭐ **This is the single best-value piece of work available**, for three reasons: it is
+bounded (seven specific claims), it upgrades an existing artefact rather than starting a new one, and
+**a Swarm-to-Kubernetes comparison backed by two real clusters is worth far more than either track
+alone.** ⛔ It also fixes the one thing chapter 8 apologises for.
+
+📌 **Sequence it after Stage 2** — the claims need a working HA cluster to test against, and several
+involve draining nodes and losing quorum, which is Stage 3 drill territory anyway.
+⚠️ **Keep the provenance marks honest when doing it:** a row moves to verified **only** when it was
+actually exercised here, and the S / K / 🤖 marking convention exists precisely so nothing recited can
+later be quoted as experience.
+
 ### Stage 3 — CKA administration, one task type per chapter → **chapters 05+**
 
 **Only now does exam material get opened.** Each chapter takes **one class of administrative task**,
