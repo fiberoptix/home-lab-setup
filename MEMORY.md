@@ -981,12 +981,20 @@ It had been accumulating since Aug 13. **When you write a new handoff, move the 
     ⛔ **`ffmpeg`, `sox` and `normalize-audio` are NOT installed on this box**; the gain stage is pure
     stdlib Python because of that. ⚠️ **`audioop` was REMOVED in Python 3.13**, so amplitude measurement
     uses `wave` + `array` directly.
-  - 🔲 **UNEXPLAINED, recorded honestly:** Andrew heard a large volume drop when speed changed to 0.9.
-    **Measured: the three speed variants were identical in level** (peak 100%, RMS 14.1% at 0.9/1.0/1.2),
-    and `vctk` speaker 13 is *louder* than the `lessac` he called normal. **Neither speed nor model
-    explains it**, so something varied at playback. Two orphaned PipeWire sink-inputs were found and
-    `module-stream-restore` was reloaded to clear any remembered per-app volume. **If it recurs, look at
-    the playback path, not at Piper.**
+  - 🚑 **IF PIPER SUDDENLY SOUNDS QUIET, RESTART THE AUDIO STACK — do not chase Piper.** Diagnosed
+    Sep 16, 2026: Andrew heard a large volume drop mid-session, and **a reboot restored it to full
+    loudness.** So it was a transient degradation somewhere in the **playback path**, not in the audio
+    Piper produces.
+    ⭐ **Try this first, it is far cheaper than a reboot:**
+    `systemctl --user restart pipewire pipewire-pulse wireplumber`
+    ⭐ **Three hypotheses were tested and ALL THREE were wrong — worth knowing so they are not re-tested:**
+    (a) **not the speed** — the 0.9/1.0/1.2 renders measured *identical*, peak 100% and RMS 14.1% each;
+    (b) **not the voice model** — `vctk` speaker 13 measures **15.1% RMS, LOUDER** than the `lessac`
+    (14.7%) he had called normal; (c) **not orphaned sink-inputs** — `pactl list sink-inputs` reports
+    **3 of them on a freshly booted machine**, so their presence is normal and proves nothing.
+    ⭐ **The lesson: when the artefact measures identical and the perception differs, stop measuring the
+    artefact.** Two rounds of amplitude analysis could never have found this, because the WAV files were
+    never the problem.
   - ⭐ **Deliberately NOT the pip route:** this box runs **Python 3.14**, and `onnxruntime` wheels lag new
     Python releases. The bundled binary carries its own `libonnxruntime` and needs no Python at all.
   - 🚨 **NAME COLLISION — `apt install piper` INSTALLS THE WRONG SOFTWARE.** Ubuntu's `piper` package
