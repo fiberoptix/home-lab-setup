@@ -958,73 +958,17 @@ It had been accumulating since Aug 13. **When you write a new handoff, move the 
   failure mimics a dead board. Detail + slot map: `phases/phase0_hardware.md`.
 - **NOTE:** The Proxmox server is a **Z6 G4** (single CPU, **192GB**, 6/6 channels). The **dev workstation** we work from is a **Z8 G4** (dual Platinum 8168, 256GB, still only 4 of 6 channels per socket). Don't confuse the two.
 - **Dev workstation guest** = `VM-UBUNTU-01`, VMware Workstation on the Z8, 24 vCPU (2 sockets x12, on idle PROC1), **Ubuntu 26.04 LTS** since Jul 25, 2026 (see CURRENT STATE). Uses `open-vm-tools`, NOT qemu-guest-agent (that's for the Proxmox VMs). Not on Tailscale.
-- 🔊 **THE AI CAN SPEAK ON THIS BOX — `piper-say "text"`** (installed Sep 16, 2026 at Andrew's request).
-  🙋 **The convention he set: when he says "answer me in piper", speak the reply**, and **announce
-  completion out loud after a long-running task** so he need not watch the screen. Keep spoken versions to
-  a couple of sentences — reading a full reply aloud is tedious.
-  - **Wrapper:** `~/.local/bin/piper-say` (on `PATH`; accepts an argument, stdin, or a file).
-    ⭐ **It strips markdown and emoji first**, which is not cosmetic: unfiltered, TTS reads "star star" and
-    speaks emoji by name, and a fenced code block is spelled out character by character.
-  - **Engine:** Piper **1.2.0**, the **standalone GitHub binary** at `~/.local/share/piper/`, models in
-    `voices/`. **All user-local — no apt or pip packages.**
-  - 🔊 **DEFAULTS, settled by Andrew Sep 16, 2026: `en_GB-cori-high` at `length_scale 0.9`, no gain.**
-    ⚠️ **He first chose `en_GB-vctk-medium` speaker 13 and then rejected it — but that judgement was made
-    while playback was clipping at +18 dB** (see the stream-restore fault below). **Re-auditioned on a clean
-    chain, he picked `cori-high`.** ⭐ **A voice comparison run through a broken playback chain is worthless;
-    fix the chain first.**
-    - **`cori-high` is SINGLE-speaker**, so `PIPER_SPEAKER` is ignored for it. The wrapper only passes
-      `--speaker` when a model really is multi-speaker, so both kinds work.
-    - ⭐ **Prefer single-speaker HIGH models for quality:** `cori-high` (GB), `ryan-high` (US male),
-      `ljspeech-high` (US), `lessac-high` (US). 🚨 **`vctk-medium` (109 speakers) and `libritts-high`
-      (multi-speaker) split model capacity across every voice**, so they sound coarser — `libritts` despite
-      being labelled *high*. **Speaker count matters more than the quality label.**
-  - ⭐ **Speed and voice are INDEPENDENT knobs.** `PIPER_SPEED` is Piper's `length_scale` and **lower is
-    faster**; `vctk`'s own default is **1.4**, most other voices 1.0. So a voice picked "because it talks
-    fast" was really a pace preference, available on any model.
-  - 🔉 **Loudness: Piper output sits at ~14–16% RMS with peaks ALREADY at full scale**, measured across
-    eight voices — so it sounds quiet and **cannot be gained without clipping something.** `PIPER_GAIN=N`
-    normalises to N% RMS; measured cost is ~0.3% of samples clipped at 20, ~1.3% at 28, ~2.6% at 35.
-    ⚠️ **Do not reach for `paplay --volume` — it caps at 65536 (100%) and silently clamps anything higher.**
-    ⛔ **`ffmpeg`, `sox` and `normalize-audio` are NOT installed on this box**; the gain stage is pure
-    stdlib Python because of that. ⚠️ **`audioop` was REMOVED in Python 3.13**, so amplitude measurement
-    uses `wave` + `array` directly.
-  - 🚨 **IF PIPER SOUNDS LOUD-BUT-DISTORTED, OR "LOW QUALITY": CHECK THE REMEMBERED PER-APPLICATION
-    VOLUME FIRST.** `pactl list sink-inputs | rg -i 'application.name|Volume:'` while something plays.
-    **It should read `100% / 0.00 dB`.**
-    🔻 **ROOT CAUSE, found Sep 16, 2026 after four wrong turns — and the AI caused it.** A diagnostic
-    `paplay --volume=131072` (200%) was run once as a loudness test. 🚨 **PulseAudio's
-    `module-stream-restore` SAVED that volume against the application name `paplay` and re-applied it to
-    every later playback**, persisting **across reboots**. Measured effect: **+12 dB of chain gain and
-    64,360 clipped samples — 6.5% of everything.** That distortion is what "low quality" was.
-    ✅ **FIX:** while a stream is live, `pactl set-sink-input-volume <id> 100%`. Stream-restore then
-    remembers **100%**, and new streams inherit it. ✅ Verified after: chain gain **−0.0 dB**, 4 clipped
-    samples instead of 64,360.
-    ⛔ **`pactl unload-module`/`load-module module-stream-restore` does NOT clear the saved volumes** — the
-    AI claimed it did, and was wrong. Reloading re-reads the same database.
-    ⭐ **THE REAL LESSON, and it is a general one: THE PROBE MUTATED THE SYSTEM.** A one-off measurement
-    left persistent state behind and *became* the fault it was investigating. **Any diagnostic that sets a
-    volume, a flag or a config value must be undone in the same breath**, or it stops being an observation.
-    ⭐ **SECOND LESSON — the instrument was at the wrong layer for four rounds.** The WAV files were
-    measured repeatedly and were always correct and always identical, because the fault was applied
-    **downstream of them**. What found it was **capturing the sink monitor and comparing input to output**:
-    `parec -d <sink>.monitor --format=s16le --raw`, then comparing RMS against the source WAV. **Measure the
-    OUTPUT of the chain, not its input** — the input can be perfect while the output clips.
-  - 🔲 **STILL UNEXPLAINED, and NOT caused by the above** (both predate or contradict the 200% volume):
-    (a) a large perceived volume drop when speed changed to **0.9**, which occurred **before** the 200%
-    test and where the three renders measured identical; and (b) Andrew's report that **closing the GNOME
-    Sound panel makes the volume drop sharply**. ⚠️ **Do not assume these are the same fault as the
-    stream-restore one.**
-  - ⚠️ `node.pause-on-idle = false` + `session.suspend-timeout-seconds = 0` were added to
-    `~/.config/wireplumber/wireplumber.conf.d/50-alsa-config.conf` on **a theory that turned out to be
-    WRONG** (the sink was never SUSPENDED — measured IDLE → RUNNING → IDLE). They are harmless and may
-    help an emulated card, but they are **not** the fix. Andrew's original Jan 12 file is backed up beside
-    it as `50-alsa-config.conf.bak-20260916`. ⭐ Note that file already carried `api.alsa.headroom = 8192`,
-    which is unusually large — **this emulated card has a history of trouble.**
-  - ⚠️ Audio works because VMware passes an emulated **Ensoniq AudioPCI** card through to the Windows host;
-    pipewire drives it. If speech goes silent, check `pactl get-sink-mute @DEFAULT_SINK@` before anything else.
-  - ⚠️ `espeak-ng` via `spd-say` also exists and works, but Andrew rejected its quality — **use Piper**.
-  - 📌 Note against `CURSOR_RULES`' "never write outside the project directory": this lives under
-    `~/.local/`, installed on Andrew's explicit instruction.
+- 🔊 **THE AI CAN SPEAK ON THIS BOX — `piper-say "text"`** (Piper TTS, installed Sep 16, 2026 at
+  Andrew's request). Convention: **speak the reply when he says "answer me in piper", and announce
+  completion out loud after a long task.**
+  - **Voice: `en_GB-cori-high` at `length_scale 0.9`** — chosen by Andrew after auditioning. Wrapper is
+    `~/.local/bin/piper-say`; engine and voice models under `~/.local/share/piper/` (all user-local).
+  - 🚨 **IT ONLY PLAYS AT A PROPER LEVEL WHILE THE GNOME SOUND CONTROL PANEL IS ACTIVELY OPEN.** With it
+    closed the audio is far too quiet to hear. Cause not established; the panel appears to hold the
+    emulated VMware sound device open. ⚠️ **So a spoken notice can be MISSED if the panel is shut.**
+  - 📌 Full diagnostic detail — an `apt install piper` name collision, a `paplay --volume` setting that
+    persisted via `module-stream-restore` and clipped every playback, and the measurement method that
+    found it — is **deliberately not kept here.** It lives in the Sep 16, 2026 commit messages.
 - **Jun 18, 2026: kernel fully un-stuck.** Went 6.17.2-1 → 6.17.13-13 → **7.0.6-2-pve** (all NVMe-clean), full host upgrade to PVE 9.2.3, all package holds removed. 7.0.6-2 tested via --next-boot, then made permanent and confirmed it boots autonomously (2 reboots clean). 6.17.13-13 kept as fallback. See current_phase.md + phase1b.
 - Script server running at **http://192.168.1.195/** (landing page with the copy-paste bootstrap
   commands), trees at http://192.168.1.195/ubuntu/ and http://192.168.1.195/fedora/
