@@ -10,6 +10,15 @@ growing — see that file for why the previous append-only version went undetect
 
 ## ▶️ RESUME HERE — 🔵 PHASE 17 (JENKINS): **Parts 0–3 are DONE (Aug 20, 2026). Next is Part 4 — deploy to the Swarm.**
 
+🗓️ **Sep 16, 2026 — Jenkins was NOT advanced today.** That session destroyed VM 200 and ran a memory
+pass; see the session block below. ⏳ **Andrew flagged that a NEW PROJECT may start and that Jenkins
+may go ON HOLD — that is not decided, so Part 4 below is still the next action.** If it is decided,
+change this line; do not leave Part 4 reading as imminent.
+✅ **Part 4's Swarm prerequisite is ALREADY MET** — all three nodes were measured running and
+`Ready/Active` (Leader `docker-swarm-1`) with the Phase 16 `capricorn` stack green, so **no
+`qm start 191 192 193` is needed** despite the `onboot 0` warning elsewhere. Re-measure before relying
+on it; the host has not rebooted since Aug 26.
+
 ✅ **A `git push` to `production/home-lab-setup` now builds Jenkins unattended** (Part 3 closed
 ~7:12 PM, write-up **J-P10**, snapshot `j03-gitlab-wired` verified). ✅ **Chapters 1, 2 and 3 are all
 written and built to DOCX — documentation is CAUGHT UP with the build for the first time this phase.**
@@ -198,95 +207,71 @@ GitLab pipeline stays alive and untouched as the comparison — that is why Andr
 
 ---
 
-## 🧹 MEMORY MAINTENANCE — started Aug 24, 2026, and now self-draining
+## 🧹 SESSION Sep 16, 2026 — VM 200 destroyed, and the memory drain restarted after 3 weeks idle
 
-**Status: in progress, and no longer dependent on anyone remembering.** 🙋 Andrew, Aug 24: *"what
-changes should we make today to cleanup a little and get back on a good track each time we
-MAKE_MEMORIES"* — so the session went after the **mechanism**, not just the mess.
+🙋 **Andrew: "Let's do B and then C. We might start a new project today and put Jenkins on hold."**
+⏳ **The hold is NOT a decision yet** — Phase 17 Part 4 (deploy to the Swarm) is still the next Jenkins
+action, and nothing in the Jenkins plan was touched today. If a new project does start, say so in the
+`RESUME HERE` block above rather than leaving Part 4 reading as imminent.
 
-**Done Aug 24 (six commits, `ab6ebe9`…`fbce77f`, pushed to both remotes):**
-- ✅ `MAKE_MEMORIES` amended so the drain is structural: step 0 counts **blocks**, the demotion
-  trigger is a **number** instead of *"whenever the size report makes you wince"*, step 2b routes
-  content **three ways** (promote a live rule / copy history / delete what is covered), any tool used
-  to justify a deletion needs a **positive control** first, and a **backlog log** records both the
-  block count and the stale-block count after every pass.
-- ✅ `▶️ RESUME HERE` moved to the top from **line 389**, where it sat under six stale blocks.
-  Verified a pure reorder *before* applying — identical sorted content, identical line count — then
-  re-checked *after* the write because this repo is on **CIFS**: all **190 lines survive**, and the
-  only absent lines are the nine deliberately rewritten.
-- ✅ **Pass 1 — five vestigial trailing sections** (`Key Achievements`, `Previous Sessions`,
-  `Next Steps`, `Quick Reference`, `Blockers`). **39 → 35 blocks.** Three facts existing nowhere else
-  were copied out first: the **Dec 13 2025** runner install → `phase4`, and the **DEV/QA/GCP
-  environment definition** plus the **Jan 8 2026** repo-publish date → `phase5`.
-- ✅ **Pass 2 — both Phase 7 blocks** (173 + 60 lines). **35 → 34 blocks, 2409 → 2212 lines.** Five
-  commit SHAs and the *two manual deploy buttons* decision salvaged → `phase7_local_www.md`.
-- ✅ Durable lessons recorded in `MEMORY.md` → **MEMORY MAINTENANCE**.
+🔍 **Boot check found the lab healthier than the docs predicted.** `MEMORY.md` warns that the Swarm is
+`onboot 0` and comes back down after any host reboot, making `qm start 191 192 193` a Part 4
+prerequisite. Measured instead: all three nodes **running and `Ready/Active`**, `docker-swarm-1`
+Leader, and the Phase 16 `capricorn` stack green at 2/2 3/3 1/1 1/1 — started by hand after the
+Aug 26 RAM reboot (host uptime 20d 21h). **That prerequisite is already met.**
 
-**Backlog: 34 blocks / 19 dated Jan-July, spec is 2.** ⚠️ **Track both numbers.** Pass 1 took four
-blocks off the total and moved the stale count **not at all**, because it cleared undated template
-leftovers rather than session logs — so the total alone would have read as progress against the hard
-part. More than one demotion per pass is fine **as long as each is committed separately**; the safety
-invariant is the commit between blocks, not a cap on the count.
+### ⛔ VM 200 `vm-kubernetes-1` IS DESTROYED — irreversible, no backup
 
-⭐ **The finding worth carrying forward.** The old process was not being skipped out of laziness; it
-was **unenforceable as written**. Step 0 measured *lines* while the spec for this file states a *block
-count*, so a proxy stood in for the rule and never fired — 2444 lines reads as a big file, not a
-violated one. And the trigger was a **judgement** (*"makes you wince"*), which is the first thing a
-session under time pressure spends, with the cost landing on some later session. **Every individual
-decision to skip was locally reasonable, which is why it ran for seven months and twelve consecutive
-commits without a single decrease.** ⛔ *If a spec states a number, measure that number; if you want a
-step to happen reliably, gate it on something a script can print.*
+`qm destroy 200 --purge` at 1:37 PM. 🙋 Andrew declined a backup deliberately, consistent with the
+Aug 20 ruling that **QA is a deploy target, not a data store**. The rollback window had closed Sept 3
+and VM 180 had been serving QA for 27 days. ✅ **Verified gone:** config file, the `vm-200-disk-0`
+zvol, and its `pre-clone-20260820` snapshot — the one that still recorded `onboot: 1` and would have
+re-armed autostart into an IP collision on rollback. **VMID 200 is free.**
 
-🔻 **CORRECTED Aug 24, 2026 — the Aug 21 version of this block overstated the risk, and would have
-sent you down a slow, wrong path. What it said, and why it was wrong, is worth keeping:**
+✅ **The pre-destroy read is what made this cheap** — cross-phase rule 1: read the config **and** grep
+the docs for what depended on it. It found **nothing did**: no `200.fw`, no backup job, no storage
+entry, nothing in `/etc/pve` but an `.rrd` stats row, and every repo hit was either dated history or a
+doc row updated the same session. ⚠️ Worth contrasting with VM 185, where the identical read caught a
+**wrong core count** minutes before those facts became permanently unrecoverable. The read is cheap
+whether or not it finds anything; that is the argument for always doing it.
 
-It reported that the four demotion candidates were "**not** duplicated in their phase files" — 320 of
-320 substantive lines absent from `phase15_education_program.md`, 158 of 158 from `phase16`, and so on
-— and concluded that **"every one of those lines exists ONLY here"**, making this high-risk
-archaeology where a delete means permanent loss.
+📊 **The measurement worth keeping: a thick zvol's cost is not its `size=`.** The disk read
+**`USED 116G` / `REFER 14.6G`** at `size=100G`, so the destroy returned **116 GB of reservation** and
+only **14.6 GB of real blocks** — `zfs` AVAIL 1.04T → 1.16T, `zpool` ALLOC 76.7G → 62.1G.
+🚨 **And the ALLOC reading taken immediately after the destroy still said 76.7G.** Reservation is
+released synchronously; blocks are freed **asynchronously**, a few seconds later. ⭐ **A capacity check
+run the instant after a delete reports the old number and reads exactly like a delete that did
+nothing.** Two numbers, two questions, and you need to know which one you asked. Recorded in
+`MEMORY.md` → STORAGE, alongside the `phase0` finding that `vm-critical`'s alarming 70.9% is
+refreservation rather than data.
 
-⭐ **The numbers were right and the conclusion was wrong, because the question was wrong.** An
-exact-line comparison answers *"is this text duplicated?"* The question that decides whether a delete
-is safe is *"is this knowledge preserved somewhere appropriate?"* — and those give opposite answers
-here. Checked Aug 24: the Phase 15 block's load-bearing content — the **"Andrew runs the commands"
-driver split**, the one-command loop, the repetition rule — was **already in
-`education/METHOD.md`**, in its correct home, promoted there at the time it was decided. The text was
-never duplicated; the knowledge was never at risk. Most of that 422-line block is the *story of
-deciding* rules that already live where they belong.
+### 🧹 Memory pass — 29 → 24 blocks, five demotions, a commit after each
 
-🚨 **Both failures in that Aug 21 analysis were TOOL failures, not knowledge failures**, and that is
-the durable lesson: the first version of the comparison reported *100% missing for all four blocks*
-because it stripped markdown (`*`, `` ` ``, `_`) out of the search key but not out of the file being
-searched. A positive control — searching a file for its **own** lines — found only **7 of 25**, which
-is what exposed it. ⭐ **A coverage number is worthless until the tool has been shown to find
-something it should find**, and even a *correct* tool is worthless if it answers the wrong question.
+**Step 0 at open: MEMORY.md 2483 · current_phase.md 2116, 29 blocks (spec 2), 16 dated Jan–Jul.**
+Oldest-first, each one copied or proven covered before deletion, each verified from the **shell** with
+a line-by-line diff audit, each committed before the next began. Rows are in the 📦 DEMOTION LOG below.
 
-✅ **The process now enforces this so it does not depend on remembering.** `MAKE_MEMORIES` was
-amended Aug 24: step 0 counts **blocks** (not just lines), the demotion trigger is **mechanical**
-(more than 2 blocks → demote at least one this pass, commit after each), step 2b routes content
-**three ways** (promote a live rule / copy history / delete what is covered), and any tool used to
-justify a deletion needs a **positive control** first.
+⭐ **Every coverage check ran a POSITIVE CONTROL first** — a real line it must find and a fake line it
+must reject — because an unvalidated check does not merely give a bad number, it *licenses a delete*.
+This is the Aug 21 tool failure being designed against rather than remembered.
 
-**Order of operations per block** — unchanged and still right: copy or promote first, verify from the
-**shell** (this repo is on **CIFS**, see the MEMORY.md gotcha), then delete, then read every removed
-line with `git diff phases/current_phase.md | rg '^-' | rg -v '^---'`, then **commit** before
-starting the next block.
+⭐ **The find worth carrying forward: `fix_cursor_sandbox.sh` existed in NO commit and NO file.**
+Checked the working tree and the full git history; the Feb 27, 2026 block was its only record
+anywhere in the project. Its purpose, mechanism and install path were salvaged into
+`phase2_host_setup_automation.md` before the block went. 🚨 **That is Phase 2's own rule read
+backwards:** a fix folded into `host_setup.sh` keeps paying on every host built afterwards, so a fix
+applied **by hand** to six VMs and written up only in a session log is a fix **you own once** — and
+two of those six hosts have since been destroyed, taking their copies with them.
 
----
+🚨 **Two of the demoted blocks were not merely old, they were WRONG in a way a future session could
+ACT on**, which is why they went before larger ones (sort by MISLEAD, not by size):
+- The **Jan 12** block prescribes `cache=writeback` as an applied standard. It is **incompatible with
+  `aio=native`**; the real standard is `cache=none`. The destination file now says so at the top.
+- The **Phase 6 stub** claimed `.183` has 8 GB (it has 12) and pointed at *"Next: Phase 7
+  (Monitoring)"* — Phase 7 was the WWW server, and Monitoring has never been built.
 
-📏 **Size report, Aug 21 (post-session):** MEMORY.md **2295** (+138) · this file **2404** (+61).
-Both grew; nothing was demoted. That is the trigger this reminder exists to answer.
-
-📉 **MEMORY.md SHRANK for the first time on record: 2414 → 2099** (Aug 20). The closed Phase 14
-k3s/Redpanda block (331 lines, 14 % of an always-loaded file, subject explicitly out of scope) was
-**copied verbatim** into `phase14_k8s_redpanda_poc.md` and verified line-by-line — **0 removed lines
-missing** — before a single line was deleted. **44 distinctive strings existed only in the MEMORY
-copy**, so summarising would have destroyed them.
-
-📉 **This file was trimmed 3797 → 2067 lines on Aug 20** by demoting three closed-phase blocks
-(Phase 16 handoffs → `phase16`, Phase 14 closing record → `phase14`, OpenClaw logs → `phase11`).
-**Nothing was summarised or deleted — each block was copied verbatim and verified line-by-line before
-removal.** Details in `MEMORY.md` → PHASE INDEX footer.
+🔲 **Not finished: 24 blocks against a spec of 2, 12 still dated Jan–Jul.** The mechanism drains
+reliably now; the backlog is just long. Next pass takes the oldest remaining (Jan 14 → June 18 era).
 
 ---
 
@@ -1903,7 +1888,7 @@ Next rotation: before Feb 6, 2028
 
 ---
 
-## 📦 DEMOTION LOG — Aug 24, 2026 (one block, on purpose)
+## 📦 DEMOTION LOG — Aug 24 + Sep 16, 2026 (ONE block, on purpose — append a ROW, never a block)
 
 ⚠️ **This block exists because the first four demotions each left a marker block behind, so the block
 count sat at 34 while 300+ lines left the file.** A per-demotion note is the obvious thing to write
@@ -1918,6 +1903,13 @@ artefact per unit of work, the artefacts become the backlog.** One log, appended
 | `✅ Completed Previous Session (Jan 11)` | 51 | `phase5_ci_cd_pipelines.md` | **`prod`→`qa` refactoring**; **`.gitignore` blocking `lib/`**; branch strategy; the 11-issue list |
 | `✅ COMPLETE: Phase 5` (status stub) | 7 | — | nothing; `phase5` covers it |
 | `🔥 Critical Incident: Proxmox Kernel` | 9 | — | nothing; it was **already just a pointer** to `phase1a`/`phase1b`, both referenced from `MEMORY.md` |
+| **Sep 16, 2026 pass ↓** | | | |
+| `🎯 Infrastructure Optimization` (Jan 12) | 39 | `phase1_proxmox.md` | Copied verbatim. 🚨 Its `cache=writeback` is **superseded and incompatible with `aio=native`** — the standard is `cache=none`, and the destination now warns before the quote |
+| `🔐 Password Security Cleanup` (Jan 13) | 52 | — | nothing; every live rule verified present in `MEMORY.md` string-by-string. **SHAs preserved here instead:** `c71ef79`, `ad74d99`, `899d5c1` |
+| `✅ COMPLETE: Phase 6 - SonarQube` (stub) | 9 | — | nothing, and it was **wrong twice**: `.183` at 8 GB (it has 12) and *"Next: Phase 7 (Monitoring)"* — Phase 7 was the WWW server, Monitoring never built |
+| `📋 Documentation Verification` (Jan 14) | 59 | `phase1_proxmox.md` | Copied verbatim; drive serials already in `phase0`. Kept its 4 SHAs and the *rpool compression was an install mistake* story. Pool numbers flagged as a dated reading |
+| `SSH Key Auth + Cursor Sandbox` (Feb 27) | 30 | `phase2_host_setup_automation.md` | 🚨 **`fix_cursor_sandbox.sh` is in NO commit and NO file** — this block was its only record in the project. Salvaged. SSH half was covered by the ACCESS MATRIX |
+| `🧹 MEMORY MAINTENANCE` (the Aug 24 handoff) | 92 | — | nothing; its six durable rules verified present across `MEMORY.md` and `MAKE_MEMORIES`. **Superseded by the Sep 16 handoff** — this file holds ONE |
 
 **Two findings from doing it, both in `MEMORY.md` → MEMORY MAINTENANCE:**
 - ⭐ **A verbatim-line check finds CANDIDATES, not verdicts.** It flagged **86 of 173** Phase 7 lines
