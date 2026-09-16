@@ -117,6 +117,10 @@ It had been accumulating since Aug 13. **When you write a new handoff, move the 
 
 - **🎉 ANDREW GOT THE JOB (confirmed Aug 12, 2026).** The interviews happened **Aug 6 and Aug 7** and
   the outcome was an offer — **SRE / DevOps on an ORDER MANAGEMENT SYSTEM at a financial institution.**
+  🔒 **The role's actual LEVEL, the employer, and the start date are in `MEMORY_SECRET.md`** (boot
+  read, gitignored). ⛔ **Do not restate them here** — this file is public, and the level plus the
+  sector together would narrow identification. ⚠️ **The level materially changes what work is
+  valuable**, so read that file before prioritising anything career-related.
   Phase 14 existed to prepare for those interviews, so **its goal is met and it is CLOSED.** Do not
   extend it. The education material is no longer interview prep; it is **onboarding prep for the job
   he now holds**, which changes the priority from breadth-before-a-panel to depth-on-the-real-stack.
