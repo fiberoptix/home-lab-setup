@@ -480,6 +480,15 @@ after the incident is not a baseline.**
 diagnosis when something breaks. First control-plane join by hand.
 🤖 **AI:** VM cloning and `host_setup.sh`, the third control-plane join and the second worker
 (repetition rule), all writing, all scripts as committed artefacts.
-🚨 **When something breaks, the AI stays quiet until asked** (`METHOD.md`). Debugging while confused is
-both the exam skill and the job skill — and that rule survives the withdrawal of the planted traps,
-because real failures will happen anyway and they are worth just as much.
+🔻 **TROUBLESHOOTING POSTURE — settled by Andrew, Sep 16, 2026, and it DIFFERS BY STAGE:**
+
+| Stage | When something breaks |
+|---|---|
+| **0, 1, 2** (build) | ✅ **Collaborate immediately.** Both of us dig in. The deliverable is a working procedure Andrew can repeat at the firm, so time spent stuck produces nothing a reader needs |
+| **3** (exam drilling) | 🚨 **The AI stays quiet until asked.** Andrew diagnoses first |
+
+⭐ **The reason the split is right rather than merely convenient:** `METHOD.md`'s silence rule exists to
+protect a *learning* outcome, and in Stage 3 the thing being learned **is diagnosis under time pressure** —
+🟢 the CKA is entirely performance-based and Troubleshooting is 30% of the marks. Being handed the answer
+teaches the fact and skips the skill. In Stages 0–2 the outcome being protected is a **document**, and
+there the fastest correct path is the best one. **Same rule, applied where it pays.**
