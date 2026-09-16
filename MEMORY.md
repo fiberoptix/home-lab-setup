@@ -958,6 +958,26 @@ It had been accumulating since Aug 13. **When you write a new handoff, move the 
   failure mimics a dead board. Detail + slot map: `phases/phase0_hardware.md`.
 - **NOTE:** The Proxmox server is a **Z6 G4** (single CPU, **192GB**, 6/6 channels). The **dev workstation** we work from is a **Z8 G4** (dual Platinum 8168, 256GB, still only 4 of 6 channels per socket). Don't confuse the two.
 - **Dev workstation guest** = `VM-UBUNTU-01`, VMware Workstation on the Z8, 24 vCPU (2 sockets x12, on idle PROC1), **Ubuntu 26.04 LTS** since Jul 25, 2026 (see CURRENT STATE). Uses `open-vm-tools`, NOT qemu-guest-agent (that's for the Proxmox VMs). Not on Tailscale.
+- 🔊 **THE AI CAN SPEAK ON THIS BOX — `piper-say "text"`** (installed Sep 16, 2026 at Andrew's request).
+  🙋 **The convention he set: when he says "answer me in piper", speak the reply**, and **announce
+  completion out loud after a long-running task** so he need not watch the screen. Keep spoken versions to
+  a couple of sentences — reading a full reply aloud is tedious.
+  - **Wrapper:** `~/.local/bin/piper-say` (on `PATH`; accepts an argument, stdin, or a file).
+    ⭐ **It strips markdown and emoji first**, which is not cosmetic: unfiltered, TTS reads "star star" and
+    speaks emoji by name, and a fenced code block is spelled out character by character.
+  - **Engine:** Piper **1.2.0**, the **standalone GitHub binary** at `~/.local/share/piper/`, voice
+    `en_US-lessac-medium` (60 MB) in `voices/`. ~112 MB total, **all user-local — no apt or pip packages**.
+  - ⭐ **Deliberately NOT the pip route:** this box runs **Python 3.14**, and `onnxruntime` wheels lag new
+    Python releases. The bundled binary carries its own `libonnxruntime` and needs no Python at all.
+  - 🚨 **NAME COLLISION — `apt install piper` INSTALLS THE WRONG SOFTWARE.** Ubuntu's `piper` package
+    (0.8-1build1) is a **GTK app for configuring gaming mice** (a libratbag front-end), not text-to-speech.
+    ⭐ **Verified from `apt-cache show` before installing anything** — the same class of trap as Phase 17's
+    "SSH Agent" vs "SSH Build Agents" plugin mix-up. **Read the package description, not the name.**
+  - ⚠️ Audio works because VMware passes an emulated **Ensoniq AudioPCI** card through to the Windows host;
+    pipewire drives it. If speech goes silent, check `pactl get-sink-mute @DEFAULT_SINK@` before anything else.
+  - ⚠️ `espeak-ng` via `spd-say` also exists and works, but Andrew rejected its quality — **use Piper**.
+  - 📌 Note against `CURSOR_RULES`' "never write outside the project directory": this lives under
+    `~/.local/`, installed on Andrew's explicit instruction.
 - **Jun 18, 2026: kernel fully un-stuck.** Went 6.17.2-1 → 6.17.13-13 → **7.0.6-2-pve** (all NVMe-clean), full host upgrade to PVE 9.2.3, all package holds removed. 7.0.6-2 tested via --next-boot, then made permanent and confirmed it boots autonomously (2 reboots clean). 6.17.13-13 kept as fallback. See current_phase.md + phase1b.
 - Script server running at **http://192.168.1.195/** (landing page with the copy-paste bootstrap
   commands), trees at http://192.168.1.195/ubuntu/ and http://192.168.1.195/fedora/
@@ -1948,12 +1968,26 @@ accepted password *and* key SSH, guest agent active, machine-id unique.
 - After completion the pane is held so you can reconnect and read the summary
   (Enter to close, `Ctrl-b d` to detach).
 - `tmux 3.5a` is installed on Proxmox. It was installed via `apt-get download` +
-  `dpkg -i` (NOT `apt-get install`) because the held kernel
+  `dpkg -i` (NOT `apt-get install`) — the three debs were `tmux`, `libevent-core-2.1-7t64` and
+  `libjemalloc2` — because the held kernel
   (`proxmox-default-kernel`/`proxmox-kernel-6.17`) breaks apt's solver for new
   installs on the Proxmox host. Same workaround applies to future host packages
   until the kernel hold is lifted.
 - **Test hook:** `REFRESH_SELFTEST=1 refresh` runs the full machinery but the
   per-VM remote command is just `sleep 45` (no apt, no reboot) — safe to test.
+
+🚑 **IF A `refresh` RUN DIES MID-FLIGHT AND A VM UPGRADED BUT NEVER REBOOTED — how to finish it safely**
+(promoted from the Jun 18, 2026 build record; **GitLab is the one this happens to**, because its Omnibus
+reconfigure runs 6–15 min while the others finish in ~2). ⛔ **Do not just `init 6` it.** Confirm it is
+genuinely idle first, or you interrupt a reconfigure or a database migration:
+1. **`dpkg` lock free**, and no `apt` / `dpkg` / `gitlab-ctl` processes still running.
+2. **Sidekiq drained to 0** jobs.
+3. **No active background migrations.**
+4. Then `ssh agamache@.181 'sudo init 6'`, and after it returns check **all services `run:`** and
+   **`/-/readiness` → HTTP 200**.
+⭐ **The apt half completing is not the run completing.** On Jun 18 GitLab's `term.log` ended cleanly at
+18:06:42 and its uptime still read 14 days — **a successful upgrade that never rebooted looks like success
+from the log and like a failure from `uptime`.**
 
 **Lesson from Jun 18:** A `refresh` run was killed mid-flight when the Proxmox
 web console was switched to a VM VNC console. The 4 fast VMs had already

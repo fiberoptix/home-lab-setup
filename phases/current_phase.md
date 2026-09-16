@@ -1807,81 +1807,6 @@ See `phases/phase1b_proxmox_kernel_upgrade_safe_try.md` for the full procedure +
 
 ---
 
-## `refresh` made detach/reattach-safe with tmux (June 18, 2026)
-
-**Status:** COMPLETE
-**What:** Wrapped the `refresh` command in tmux so a disconnected Proxmox web
-console no longer kills an in-flight update+reboot run, and so the live status
-screen can be re-attached after switching away.
-
-### The problem (observed today)
-
-Ran `refresh`; the 4 fast VMs (.180, .182, .183, .184) updated and rebooted and
-showed `DONE` within ~5 min. GitLab (.181) is the slow one (Omnibus reconfigure
-~6-15 min). While GitLab was still reconfiguring, the user switched the Proxmox
-web UI from the **node Shell** to a **VM VNC console**. That tore down the node
-Shell's websocket → `SIGHUP` → killed `refresh.sh` **and its child SSH session
-to GitLab** before the final `sudo init 6` could fire.
-
-Result: GitLab finished its apt upgrade (clean, `term.log` ended 18:06:42) but
-**never rebooted** (uptime stayed at 14 days). Verified GitLab was idle
-(dpkg lock free, no apt/dpkg/gitlab-ctl procs, Sidekiq drained to 0, no active
-background migrations), then rebooted it manually from Proxmox
-(`ssh agamache@.181 'sudo init 6'`). Came back healthy (all services `run:`,
-`/-/readiness` → HTTP 200). All 5 VMs now updated **and** rebooted.
-
-### The fix: tmux self-wrap in refresh.sh
-
-`refresh.sh` now wraps itself in a tmux session named `refresh` (only when on a
-terminal, not already inside tmux, and tmux is installed):
-
-- **No existing session** → starts the run in a new tmux session `refresh`.
-- **Session already exists** → `exec tmux attach-session` (re-attaches to the
-  SAME running process; does NOT start a second run).
-- After the run ends, the pane is held (`read`) so a reconnecting user can read
-  the final summary (Enter to close, `Ctrl-b d` to detach anytime).
-- Non-interactive callers (no tty, e.g. cron) fall through and run directly.
-  Per-VM logs in `/tmp/refresh-<ip>.log` are written either way.
-
-Because tmux's server is reparented to PID 1, the run survives the web console
-dropping. So the workflow the user wanted now holds: type `refresh` → switch to
-a VM VNC console → come back to the node Shell → type `refresh` → land back on
-the **same** live status screen, still updating.
-
-### tmux install note (kernel-hold gotcha)
-
-`apt-get install tmux` was **blocked** by a pre-existing unmet dependency on the
-Proxmox host: `proxmox-default-kernel : Depends: proxmox-kernel-6.17` (held back
-per the kernel-pin policy — NVMe boot issue). Did **NOT** run
-`apt --fix-broken install` (would pull a new kernel). Instead installed tmux
-safely via dpkg with downloaded debs (deps already present), kernel untouched:
-```bash
-cd /tmp && apt-get download tmux libevent-core-2.1-7t64 libjemalloc2
-dpkg -i tmux*.deb libevent-core*.deb libjemalloc2*.deb   # tmux 3.5a
-```
-**Pre-existing issue to flag:** the held kernel leaves apt's solver unable to do
-normal `apt-get install` of new packages on the Proxmox host. Future package
-installs there may need the dpkg-download workaround until the kernel hold is
-lifted (Proxmox 6.17.5+ with NVMe fix).
-
-### Validation (non-destructive)
-
-Added a `REFRESH_SELFTEST=1` hook that swaps the per-VM remote command for a
-harmless `sleep 45` (no apt, no `init 6`). Used it to prove, without touching
-the VMs:
-1. Script creates the `refresh` tmux session and runs the live display.
-2. Killing the launching console (SIGHUP) leaves the session + run alive.
-3. Re-invoking `refresh` attaches to the same session (still 1 session, still 5
-   VM SSH sessions — not 10, i.e. no second run).
-
-### Files
-
-- `proxmox/build-scripts/refresh.sh` — added tmux self-wrap + selftest hook
-- Deployed to Proxmox `/usr/local/bin/refresh.sh` (md5 matches repo)
-- `tmux 3.5a` installed on Proxmox; `refresh` alias unchanged (script self-wraps)
-
----
-
 ## 📦 DEMOTION LOG — Aug 24 + Sep 16, 2026 (ONE block, on purpose — append a ROW, never a block)
 
 ⚠️ **This block exists because the first four demotions each left a marker block behind, so the block
@@ -1906,6 +1831,7 @@ artefact per unit of work, the artefacts become the backlog.** One log, appended
 | `🧹 MEMORY MAINTENANCE` (the Aug 24 handoff) | 92 | — | nothing; its six durable rules verified present across `MEMORY.md` and `MAKE_MEMORIES`. **Superseded by the Sep 16 handoff** — this file holds ONE |
 | **Sep 16, 2026 pass 5 ↓** | | | |
 | `Parallel VM Refresh Script + GitLab Runner GPG Key Fix` (May 23) | 88 | — (2 lessons PROMOTED to `MEMORY.md`) | 🚨 **Two real findings existed nowhere else and were promoted, not filed:** bash iterates an **associative array in HASH order**, which is why the script uses sentinel files rather than a `wait` loop; and **packagecloud repos re-issue the SAME keypair** with a later expiry, so `EXPKEYSIG` means a stale local copy, not a replaced key. Everything else was already in `MEMORY.md` → REFRESH SCRIPT and GITLAB RUNNER |
+| `refresh made detach/reattach-safe with tmux` (June 18) | 74 | — (1 procedure PROMOTED to `MEMORY.md`) | 🚑 **The GitLab safe-reboot checklist existed nowhere else** — dpkg lock free, no apt/dpkg/gitlab-ctl procs, Sidekiq drained, no background migrations, then `init 6` and verify `/-/readiness`. ⭐ Kept because **a successful upgrade that never rebooted looks like success in the log and failure in `uptime`.** Also folded the three tmux deb names into the existing dpkg-workaround note. Everything else was already in `MEMORY.md` → REFRESH SCRIPT |
 
 **Two findings from doing it, both in `MEMORY.md` → MEMORY MAINTENANCE:**
 - ⭐ **A verbatim-line check finds CANDIDATES, not verdicts.** It flagged **86 of 173** Phase 7 lines
