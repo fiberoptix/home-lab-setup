@@ -304,6 +304,40 @@ belongs to Stage 2.
 
 **The goal is understanding what `kubeadm` does, not getting a green `kubectl get nodes` quickly.**
 
+📖 **CHAPTER 02 TEACHING POINT — 🙋 Andrew spotted this and he is right that it is the good one:
+A NODE HAS NO ROLL UNTIL ONE COMMAND GIVES IT ONE.**
+
+✅ **Verified by measurement, Sep 16 2026, across all five:** `/etc/kubernetes/` contains only an empty
+`manifests/` directory, no PKI, no `kubelet.conf`, no `admin.conf`, no `/var/lib/etcd`, kubelet
+**enabled but inactive**, same three binaries. **A "control" node and a "worker" node are byte-for-byte
+identical.**
+
+🚨 **The hostnames `vm-k8s-cka-control-1` and `vm-k8s-cka-worker-2` are LABELS WE CHOSE. Nothing enforces
+them.** Run `kubeadm init` on `vm-k8s-cka-worker-2` and it becomes a control plane, and the name is then a
+lie that every future reader will believe. ⭐ **A hostname is documentation, not a constraint** — and that
+is a real operational hazard, not a curiosity.
+
+**The role comes from exactly one command:**
+
+| Command | What the node becomes | What appears on disk that was not there before |
+|---|---|---|
+| `kubeadm init` | **first control plane** | static pods in `/etc/kubernetes/manifests/` (etcd, apiserver, controller-manager, scheduler) · the whole `pki/` tree · `admin.conf` · `/var/lib/etcd` |
+| `kubeadm join --control-plane --certificate-key …` | **additional control plane** | the same, minus a new CA — it receives the existing one |
+| `kubeadm join` | **worker** | `kubelet.conf` and bootstrap credentials. **No manifests. No PKI beyond the CA. No etcd.** |
+
+⭐ **THE PART THAT PAYS OFF IN THE EXAM'S TROUBLESHOOTING DOMAIN (30% of the marks): the kubelet is
+IDENTICAL on a control plane and a worker.** A control plane is simply a node whose kubelet *additionally*
+runs four **static pods** — read straight off the local disk, **not** scheduled by the API server and not
+managed by it. **That is why a broken API server is repaired by editing a file in
+`/etc/kubernetes/manifests/` and waiting for the kubelet to notice**, and why `kubectl` cannot help you:
+the thing you need to fix is the thing that serves `kubectl`. ⭐ **The control plane is bootstrapped by the
+same mechanism that runs ordinary pods, one layer lower down.**
+
+⚠️ **A smaller lesson from checking this: `kubeadm init --dry-run` WROTE TO DISK**, leaving
+`/etc/kubernetes/tmp/` behind on control-1 and making it the one node that differed from the other four.
+Removed. ⭐ **Same class as the earlier audio fault — the probe mutated the system.** A flag called
+`--dry-run` still had a side effect, so "it only reads" is a claim to verify, not to assume.
+
 🚨 **Hard sequencing rule, and it is NOT optional: kube-vip must be answering BEFORE `kubeadm init`.**
 `--control-plane-endpoint` has to point at the VIP from the very first second, because the apiserver
 certificate's SANs are generated then. **Initialise without it and cp-2 and cp-3 can never join** — the
