@@ -992,9 +992,15 @@ It had been accumulating since Aug 13. **When you write a new handoff, move the 
     (b) **not the voice model** — `vctk` speaker 13 measures **15.1% RMS, LOUDER** than the `lessac`
     (14.7%) he had called normal; (c) **not orphaned sink-inputs** — `pactl list sink-inputs` reports
     **3 of them on a freshly booted machine**, so their presence is normal and proves nothing.
-    ⭐ **The lesson: when the artefact measures identical and the perception differs, stop measuring the
-    artefact.** Two rounds of amplitude analysis could never have found this, because the WAV files were
-    never the problem.
+    🔻 **Scope, confirmed after the reboot: the attenuation had been present for the ENTIRE session** —
+    Andrew reports the restored audio is louder than *the very first samples* he heard, not just louder
+    than the 0.9 render. **So every sample he judged all afternoon was uniformly quiet**, including the
+    `espeak-ng` he rejected and the eight-voice comparison he chose from. ⭐ **His voice choice still
+    stands** because it rested on *relative* differences, which a uniform attenuation does not disturb.
+    ⭐ **The lesson, and it is the sharp version: when the artefact measures identical and the perception
+    differs, stop measuring the artefact.** Two rounds of amplitude analysis could never have found this —
+    a uniform downstream loss makes every file internally consistent and every comparison correct, so the
+    measurements were not wrong, they were **answering a question that could not detect the fault.**
   - ⭐ **Deliberately NOT the pip route:** this box runs **Python 3.14**, and `onnxruntime` wheels lag new
     Python releases. The bundled binary carries its own `libonnxruntime` and needs no Python at all.
   - 🚨 **NAME COLLISION — `apt install piper` INSTALLS THE WRONG SOFTWARE.** Ubuntu's `piper` package
