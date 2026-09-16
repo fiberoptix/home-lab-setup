@@ -94,6 +94,7 @@ phases/phaseX_*.md (the working record - where the volume belongs):
        Aug 24, 2026 (after pass 2)  : 34 blocks, 19 dated Jan-July 2026, 2212 lines
        Aug 24, 2026 (after pass 3)  : 29 blocks, 16 dated Jan-July 2026, 2114 lines
        Sep 16, 2026 (after pass 4)  : 24 blocks, 12 dated Jan-July 2026, 1919 lines
+       Sep 16, 2026 (after pass 5)  : 23 blocks, 11 dated Jan-July 2026, 1912 lines
 
   ✅ IT IS CONVERGING, AND THAT IS NOW DEMONSTRABLE RATHER THAN HOPED: 39 -> 24 blocks and
      21 -> 12 stale across four passes, every reading LOWER than the one before it. Compare the

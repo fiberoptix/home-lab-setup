@@ -8,18 +8,41 @@ to scroll to find. **Keep it first.** Below it, newest session first. `MAKE_MEMO
 counts blocks (spec: 2) and step 2 demotes at least one per pass, so this file drains instead of
 growing — see that file for why the previous append-only version went undetected for seven months.
 
-## ⏸️ PHASE 17 (JENKINS) IS **ON HOLD** as of Sep 16, 2026 — resume at Part 4. **A NEW PROJECT IS STARTING.**
+## ▶️ RESUME HERE — 🔵 **PHASE 18 (KUBERNETES / CKA): the plan is written and NOTHING IS BUILT.**
 
-🛑 **READ THIS BEFORE THE PLAN BELOW.** 🙋 **Andrew put Phase 17 on hold on Sep 16, 2026 to start a new
-project.** ⛔ **On hold means PAUSED, not closed and not superseded:** every hard rule below still
-binds (above all **B10**), the eight planted traps stay unfixed, `.185` keeps running, and the resume
-point is **Part 4 — deploy to the Swarm**. **Do not finish, tidy or "just close out" any of it on your
-own initiative** — the half-built state is the recorded state and Chapter 3's evidence lives in it.
-⚠️ **The new project has no phase file yet and its scope was not captured on Sep 16** — the session
-ended after the VM 200 destroy and the memory pass. **Ask Andrew what it is; do not infer it.**
-⚠️ **`CURSOR_RULES` item 4 still reads "CURRENT PHASE: 17 (Jenkins)".** That file may not be edited
-without Andrew's written authorisation, so it was left alone and **this block is the newer authority**.
-Flagged to him Sep 16, 2026.
+**Read `phases/phase18_k8s_cka_build.md` before touching anything Kubernetes.** ~485 lines, current as of
+Sep 16, 2026.
+
+🔲 **NEXT TWO ACTIONS, in order:**
+1. 🙋 **Andrew reads the plan end to end and approves it** — the mandatory phase process requires it and he
+   has **not** done it yet. He approved individual decisions piecemeal during the session, but the plan
+   changed substantially afterwards (two goals instead of one, four stages instead of nine parts, every trap
+   withdrawn). ⛔ **Do not start building on the strength of the piecemeal approvals.**
+2. 🔲 **Then Stage 0** — provision five VMs. ⚠️ **One measurement first — see the DHCP warning below.**
+
+**Where it stands.** ✅ Spec settled: **5 VMs, VMIDs 201–205 → `.201–.205`, kube-vip VIP `.206` (NO VM
+behind it)**, 2 vCPU / 4 GB / 40 GB each on `vm-ephemeral`, **`kubeadm` v1.35** (matching the exam) with an
+upgrade to v1.36 as a drill, **Calico** CNI, 3 control planes with stacked etcd + 2 workers.
+✅ **Four stages, Andrew's own numbering:** **0** prepare the VMs · **1** install and configure Kubernetes
+step by step · **2** sign off and snapshot the baseline · **3** CKA drilling, ~10 exercises.
+⛔ **NO PLANTED TRAPS** — withdrawn deliberately; recorded as a `METHOD.md` deviation in the plan's §8.
+📖 Research lives in **`education/k8s-cka-prep/`** (5 files) — that folder is **both** the prep shelf and
+the education track. **Read its `lab-parity.md` before Stage 0**; it decides what may be installed on a node.
+
+🚨 **DHCP HAZARD — MEASURE BEFORE YOU BUILD. This is the one open technical risk.** Andrew moved the
+G3100's pool to `.221–.250`, yet when the Denon was switched to DHCP it took **`.199`** — *below* the stated
+pool. ⛔ **So "everything under `.221` is safe static space" is CONTRADICTED BY MEASUREMENT**, and
+`.201–.206` sits in that same unverified range. **Confirm the real pool, or add reservations, before
+assigning those addresses** — otherwise a DHCP client may later be handed a control-plane node's address.
+⭐ Three separate attempts to free `.202` failed on three different theories before the *device* turned out
+to be holding it. **Treat router-side assumptions here as unproven until swept.**
+
+⏸️ **PHASE 17 (JENKINS) IS ON HOLD** — paused Sep 16, 2026, **not closed and not superseded.** Every hard
+rule still binds (above all **B10**), its eight planted traps stay unfixed, `.185` keeps running, and the
+resume point is **Part 4 — deploy to the Swarm**. ⛔ **Do not finish, tidy or "close out" any of it on your
+own initiative** — the half-built state IS the recorded state and Chapter 3's evidence lives in it.
+✅ `CURSOR_RULES` item 4 was updated to Phase 18 under Andrew's **written authorisation** (that file's EDIT
+LOG entry 5), so the boot path no longer contradicts this block.
 
 📌 **Everything from here down is the Jenkins plan, preserved intact for the resume.**
 ✅ **Part 4's Swarm prerequisite is ALREADY MET** — all three nodes were measured running and
@@ -288,8 +311,45 @@ ACT on**, which is why they went before larger ones (sort by MISLEAD, not by siz
 - The **Phase 6 stub** claimed `.183` has 8 GB (it has 12) and pointed at *"Next: Phase 7
   (Monitoring)"* — Phase 7 was the WWW server, and Monitoring has never been built.
 
-🔲 **Not finished: 24 blocks against a spec of 2, 12 still dated Jan–Jul.** The mechanism drains
-reliably now; the backlog is just long. Next pass takes the oldest remaining (Jan 14 → June 18 era).
+🔲 **Not finished: 23 blocks against a spec of 2, 11 still dated Jan–Jul** — a fifth demotion ran later the
+same day (the May 23 refresh-script block; two findings **promoted** to `MEMORY.md` rather than filed as
+history). The mechanism drains reliably; the backlog is just long. Next pass takes the June 18 era.
+⚠️ **One process note from pass 5, because it is the documented tool failure recurring:** the first coverage
+check reported a fact ABSENT that was present, because the search key wrote `refresh.sh` where the file has
+it in **backticks**. ⭐ **The positive control did not catch it — the control string happened to contain no
+markdown.** A control proves the check works for strings shaped *like the control*, not for all strings.
+
+### 🔵 THEN THE DAY CHANGED DIRECTION — Jenkins on hold, Phase 18 planned
+
+🙋 **Andrew put Phase 17 on hold and opened a new phase: a 5-node HA `kubeadm` cluster for the CKA and for
+onboarding at the new job.** Recorded in five places so no stale copy can win, and `CURSOR_RULES` item 4 was
+updated under **written authorisation** — its EDIT LOG entry 5, the fifth authorised edit to that file ever.
+🔻 **Found while doing it: `phase17_jenkins.md`'s own status header still read "Next is Part 3" three weeks
+after Part 3 closed**, while `MEMORY.md` and this file both had it right. ⭐ **A status header is what a
+resuming session trusts most and what a working session updates last.**
+
+📖 **Researched the CKA rather than guessing** → `education/k8s-cka-prep/`, every claim marked 🟢 official /
+🟡 community / 🔴 contradicted. **The CNCF curriculum PDF was read directly** (sha256 `634b7937…`), which
+confirmed every domain and weight and added four details the web summaries had dropped — above all that the
+spec says *"create and manage Kubernetes clusters **using `kubeadm`**"*, naming the tool outright.
+🚨 **Two findings changed the plan.** The exam runs **v1.35**, about two minors behind upstream, so the
+original build-v1.36-upgrade-to-v1.37 choice would have practised on the wrong version. And **the curriculum
+is wider than the plan was**: Storage is **10% of the exam with zero coverage**, alongside Helm/Kustomize,
+CRDs/operators, Gateway API, HPA and Ingress.
+⭐ **That gap forced the restructure, and then dissolved in it:** once the phase split into *work*
+(Stages 0–2) and *exam* (Stage 3), the missing topics were obviously never absent from the **build** — they
+belong to the **exam** half, and a single blended track had nowhere to put them.
+🔻 **All eight planted traps were WITHDRAWN at Andrew's instruction**, recorded as a `METHOD.md` deviation.
+⚠️ Two could never have been "not planted": T1/T2 are what `setup_docker.sh` leaves on **every** lab host
+(`disabled_plugins = ["cri"]`, verified on `.191`), so they became documented Stage 0 steps.
+**Breakage moved to Stage 3 as named, repeatable exercises** — troubleshooting is 30% of the marks, and
+⭐ **an exercise can be drilled ten times where a trap fires once.**
+⛔ **A boundary was set and agreed: no recalled or leaked exam questions.** They breach the Linux Foundation
+confidentiality agreement and can invalidate a certification. Exercises come from the published curriculum —
+⭐ **which is what the exam's questions are generated from anyway**, so the practical loss is near zero.
+🗣️ **A communication lesson worth keeping:** the AI invented "Stage A/B/C" labels for a plan Andrew had
+already numbered 0–3, and he had to ask what "Stage C" meant. ⭐ **Two vocabularies for one plan is one too
+many.** Renamed to his numbering — 27 replacements across four files.
 
 ---
 
