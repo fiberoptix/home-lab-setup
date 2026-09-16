@@ -150,18 +150,31 @@ old pool's range may hold live claims by absent devices, and `.202` is proof the
 least that far. ⭐ **Same shape as this project's standing rule about instruments: the sweep answered
 "who replies to ping", not "what is allocated".**
 
-✅ **THEREFORE: allocate inside `.187–.199`, which was NEVER in any DHCP pool** — every address in
-`.150–.196` has been static lab infrastructure for the life of this project, so no lease can exist
-there. This costs a contiguous run and buys immunity from an entire class of collision.
+🙋 **Andrew, 2:37 PM: "Let's plan for VM ID's 201-205 for the new cluster, with IPs 201-205 as well."**
+He rebooted the Denon expecting that to release `.202`.
 
-| Role | VMID | Address |
-|---|---|---|
-| `vm-k8s-cka-control-1` | 187 | `192.168.1.187` |
-| `vm-k8s-cka-control-2` | 188 | `192.168.1.188` |
-| `vm-k8s-cka-control-3` | 189 | `192.168.1.189` |
-| `vm-k8s-cka-worker-1` | 190 | `192.168.1.190` |
-| `vm-k8s-cka-worker-2` | 194 | `192.168.1.194` |
-| **kube-vip VIP** | **— none —** | **`192.168.1.196`** |
+🚨 **IT DID NOT. Re-measured at 2:38 PM: `.202` is STILL the Denon** — same MAC `00:06:78:c8:ee:21`,
+state `REACHABLE`. ⭐ **The mechanism, and it is the same lesson as the lease note below: a rebooting
+DHCP client asks for its PREVIOUS address back, and the router honours the existing binding.** Moving
+the pool changes what is offered to *new* clients; it does not evict an existing one. Proof that the new
+pool works is at `.230`, where a device took a lease inside `.221–.250`.
+⛔ **So a reboot alone can never free an address. The order has to be: delete the lease/reservation on
+the router FIRST, then power-cycle the device** — otherwise it simply reclaims what it had.
+
+**Allocation is therefore ONE decision away** (🅐 A1, reopened):
+
+| | Nodes | VIP | Needs |
+|---|---|---|---|
+| **A1-a ⭐ recommended** | VMIDs **203–207** → `.203–.207` | **`.208`** | **Nothing.** All six measured free at 2:38 PM. Keeps Andrew's intent — a contiguous `.2xx` run with VMID matching the last octet — and needs no router work |
+| **A1-b** | VMIDs **201–205** → `.201–.205` | **`.206`** | ⛔ **Blocked on `.202`.** Delete the Denon's lease on the G3100, *then* power-cycle it, then re-verify `.202` is dark before building |
+
+📌 **AND A SIXTH ADDRESS IS REQUIRED EITHER WAY — the plan asked for five.** kube-vip needs a **VIP with
+no VM behind it**, so five nodes need six addresses. It must be recorded in `MEMORY.md` → IPs & HOSTS as
+*"no VM — kube-vip control-plane VIP"*, or a future session will hunt `qm list` for a guest that does not
+exist, which is the exact confusion the `.195` row was added to fix.
+
+⚠️ **Whichever is chosen, re-sweep immediately before building.** A ping sweep proves an address is dark
+*at that moment*; `.202` is the standing proof that a quiet address can have an owner.
 
 📌 **The VIP has NO VM behind it.** It must be recorded in `MEMORY.md` → IPs & HOSTS as *"no VM —
 kube-vip control-plane VIP"*, or a future session will hunt `qm list` for a guest that does not exist —
@@ -186,6 +199,10 @@ cluster into `.2xx` later for neatness; that range is the one with unrevoked lea
 **Part 0 — Provision.** Five VMs from template 9000, `host_setup.sh --server --no-nas`, `qm resize`,
 verified from **inside** each guest (`df -h /`), snapshot `c01-base-clean` on all five together.
 🤖 **AI may drive** — cloning from 9000 is proven plumbing, not the subject (`METHOD.md` split).
+📖 **Read `k8s-cka-prep/lab-parity.md` before this part** — it settles, item by item, what may be
+installed and what must be left off to keep the nodes exam-shaped (short version: **`yq` yes, `jq`
+deliberately NO**, no `krew`/`k9s`/`kubectx`, `k` alias configured to match the exam, Cockpit is
+Andrew's call).
 📌 `--no-nas` is deliberate: a study cluster does not need NAS credentials, and the `.184` finding
 showed a uniform build standard plants credentials on hosts that should not have them.
 
@@ -209,8 +226,12 @@ confirming it across three orchestrators is the best cross-track result availabl
 holder; `drain` a node with a PodDisruptionBudget in the way; a `default-deny` NetworkPolicy that also
 kills DNS.
 
-**Part 6 — etcd backup and restore, and a cluster upgrade.** Both are CKA exam tasks and both are real
-operational skills. **Restore is only proven if the cluster comes back after a deliberate destruction.**
+**Part 6 — etcd backup and restore, and a cluster upgrade (`v1.35` → `v1.36`).** Both are CKA exam tasks
+and both are real operational skills. **Restore is only proven if the cluster comes back after a
+deliberate destruction.** ⛔ **Docker Engine comes off all five nodes before this part** — real
+Kubernetes nodes do not run it, and leaving it means two image stores and `docker ps`/`crictl`
+disagreeing. It stays until traps T1/T2 have fired, because those traps *are* a CRI misconfiguration and
+therefore on-syllabus (see `k8s-cka-prep/lab-parity.md` §3).
 
 **Part 7 — RBAC, static pods, troubleshooting the exam's way.** Fill the remaining syllabus domains.
 
@@ -262,7 +283,8 @@ by one read-only `grep` on an existing host, which does not make the diagnosis f
 | **A3** | Track folder | ✅ **CLOSED Sep 16 — `education/k8s-cka/`**, aligned to the VM names rather than invented separately. ⚠️ It tab-completes alongside track 1's `k8s-k3s-redpanda/`, so **always write the full track name in a command**; the build tooling takes the track as its first argument and a wrong one silently builds the wrong book |
 | **A4** | **CNI choice** | ✅ **DECIDED Sep 16 — Calico.** Kubernetes ships with **no** pod network at all (that is trap T5), so one must be installed. Calico is the conventional `kubeadm` pairing, uses ordinary Linux routing, and **enforces `NetworkPolicy`, which is on the CKA syllabus** and is what makes T6 possible. Cilium is more modern (eBPF, better observability) but is a second large subject on top of the exam; flannel — what k3s gave track 1 — **cannot enforce a policy at all**, so the lab has no policy experience yet |
 | **A5** | Stop the Swarm VMs to reclaim CPU? | ✅ **NOT NEEDED — measured.** Host CPU over the last year: mean **1.11%**, p95 **2.74%**, p99 **4.06%**. Leave the Swarm running. See §4 |
-| **A6** | Kubernetes version | ✅ **DECIDED Sep 16 — build `v1.36.4`, upgrade to `v1.37.0` in Part 6.** Latest stable is **v1.37.0**, so one minor behind gives the in-place upgrade drill a real destination instead of a no-op. ⚠️ **Andrew has not named an exam date**, so the coverage matrix is built against the current published syllabus and must be re-checked if he books a dated sitting |
+| **A6** | Kubernetes version | 🔻 **REVISED Sep 16 after the exam research — build the current `v1.35` patch, upgrade to `v1.36` in Part 6.** The earlier answer (build 1.36.4 → 1.37.0) was reasoned only from upstream and is **wrong for this phase's purpose**: 🟢 **the CKA environment runs v1.35**, roughly two minors behind upstream's v1.37.0. Practising daily on a version ahead of the exam trades away the whole point. The revised pair is strictly better — **daily practice matches the exam**, and the upgrade drill now mirrors the real competency *"manage the lifecycle of Kubernetes clusters"* by upgrading **from** the version under test. ⚠️ The exam tracks the newest minor within ~4–8 weeks, so **re-check before booking** (`k8s-cka-prep/exam-environment.md`) |
+| **A8** | 🚨 **The curriculum is WIDER than this plan.** Research on Sep 16 mapped the plan against the published competencies and found real gaps: **Storage (10% of the exam — StorageClasses, dynamic provisioning, PV/PVC) is not covered AT ALL**, nor are **Helm and Kustomize**, **CRDs and operators**, **Gateway API**, **workload autoscaling (HPA)** or **Ingress** — and four of those were **added by the Feb 2025 update**. **Troubleshooting is 30% of the marks** and is covered only incidentally by the drills | 🔲 **OPEN — needs Andrew's call, not a quiet patch.** ⭐ The gaps are almost all **workload-level** topics that need a working cluster and barely any infrastructure, so they fit either as **extra parts after Part 4** or as a **separate follow-on phase**. The full mapping is in `k8s-cka-prep/curriculum.md`. ⚠️ **As it stands this is an excellent infrastructure phase and an incomplete exam phase** |
 | **A7** | **Roadmap deviation — CONFIRMED BY ANDREW.** `education/fin_tech_stack.txt` lists **OpenSearch** next and the standing rule is to work it step-by-step | ✅ **CLOSED Sep 16 — Andrew set the list aside for this phase, explicitly and on the record.** His grounds: the CKA is a **dated external commitment**, and Kubernetes is **#1 on that very list** but was only ever built as single-node k3s, so the item was never actually finished. ⛔ **A future session must NOT 'correct' this back to OpenSearch** — the override is recorded in `MEMORY.md` beside the ROADMAP RULE itself, because a rule and its exception must live together or the rule wins by default |
 
 ## 10. 🅓 Inherited and OUT OF SCOPE
@@ -278,7 +300,7 @@ Every claim proven from **inside** the cluster, not from a control-plane report:
 `kubectl get nodes` all `Ready` from a **kubectl that talks to the VIP** · `etcdctl endpoint status`
 showing 3 members and one leader · a control-plane node powered off and the API still answering ·
 the VIP demonstrably **moved** (ARP, not assumption) · an etcd restore that brings back a workload
-deliberately deleted first · an upgrade from **v1.36.4 to v1.37.0** that leaves every node one minor
+deliberately deleted first · an upgrade from **v1.35 to v1.36** that leaves every node one minor
 higher · every CKA domain marked hands-on or explicitly not.
 
 📊 **Two baselines to capture BEFORE the first drill, because they are worthless afterwards:**
