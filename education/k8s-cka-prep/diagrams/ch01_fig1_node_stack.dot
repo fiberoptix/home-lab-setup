@@ -1,0 +1,40 @@
+// Chapter 1, figure 1 — the four layers a node needs before kubeadm can do anything.
+// Laid out TOP TO BOTTOM after measuring: the left-to-right version was 2668px wide, and
+// figcheck.py showed it scaling to 5.9pt type on the page — well under the 10pt floor.
+// Stacked, WIDTH stops being the binding constraint and the type stays legible.
+// ⭐ The figure that looks biggest on screen is the one whose type is smallest on paper.
+// No prose in the figure — the commentary lives in a blockquote under it in the chapter.
+digraph node_stack {
+    rankdir=TB;
+    bgcolor="white";
+    node [shape=plaintext, fontname="Helvetica", fontsize=15];
+    edge [color="#555555", penwidth=1.6, arrowsize=0.8];
+
+    kernel [label=<
+      <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" BGCOLOR="#eef4fb">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>1 · KERNEL</B></TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT">swap OFF<BR/>overlay + br_netfilter<BR/>ip_forward = 1<BR/>bridge-nf-call-iptables = 1</TD></TR>
+      </TABLE>>];
+
+    runtime [label=<
+      <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" BGCOLOR="#eaf6ee">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>2 · RUNTIME</B></TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT">containerd<BR/>CRI plugin ENABLED<BR/>SystemdCgroup = true<BR/>no Docker</TD></TR>
+      </TABLE>>];
+
+    kubelet [label=<
+      <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" BGCOLOR="#fdf6e3">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>3 · KUBELET</B></TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT">kubeadm / kubelet / kubectl<BR/>version PINNED and HELD<BR/>enabled<BR/>inactive — nothing to do yet</TD></TR>
+      </TABLE>>];
+
+    role [label=<
+      <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" BGCOLOR="#f7eef4">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>4 · ROLE</B></TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT">none yet<BR/>kubeadm init → control plane<BR/>kubeadm join → worker<BR/>hostname decides nothing</TD></TR>
+      </TABLE>>];
+
+    kernel  -> runtime [label="  overlayfs + netfilter\l", fontsize=12, fontname="Helvetica"];
+    runtime -> kubelet [label="  reachable only via CRI\l", fontsize=12, fontname="Helvetica"];
+    kubelet -> role    [label="  ONE command assigns it\l", fontsize=12, fontname="Helvetica", style=dashed];
+}

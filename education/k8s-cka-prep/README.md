@@ -11,8 +11,9 @@ chapters** will live in `../education/k8s-cka/`.
 
 ## Status and chapters
 
-**Status:** 🔲 **No chapters written yet.** The phase plan is drafted and awaiting Andrew's review;
-this folder currently holds **research only**. Working record: `../../phases/phase18_k8s_cka_build.md`.
+**Status:** ✅ **Chapter 1 written (Sep 16, 2026). Plan approved, Stage 0 complete** — five
+kubeadm-ready nodes at `.201`–`.205`, identical and role-less. Working record:
+`../../phases/phase18_k8s_cka_build.md`.
 
 ⚠️ **This track is unusual on the shelf and it is deliberate:** it holds **prep research *and* the
 chapters**, because the exam research is not a by-product of the build — it *directs* the build. Andrew
@@ -20,7 +21,7 @@ consolidated them on Sep 16, 2026 rather than keeping `k8s-cka-prep/` apart from
 
 | Chapter | Subject | Stage | Status |
 |---|---|---|---|
-| 01 | **Portable node prep** — given a fresh Ubuntu host, what makes it a Kubernetes node (containerd/CRI, cgroup driver, swap, modules, sysctls, pinning). ⭐ Written to be repeatable where there is no template 9000 and no script server | 0 (work) | 🔲 Planned |
+| [**01**](chapter01_preparing_a_node.md) | **Preparing a Node for kubeadm** — given a fresh Ubuntu host, what makes it a Kubernetes node: swap, kernel modules, sysctls, containerd with the CRI plugin *enabled*, pinned+held packages. Ends with every node **identical and role-less**. ⭐ Written to be repeatable where there is no template 9000 and no script server | 0 (work) | ✅ **Written** · 1 figure · docx built |
 | 02–04 | Installing and configuring Kubernetes piece by piece: kube-vip, `kubeadm init`, CNI, joining an HA control plane, joining workers | 1 (work) | 🔲 Planned |
 | 05+ | One CKA administrative task type per chapter, weighted by the exam's own domain weights | 3 (exam) | 🔲 Planned |
 
