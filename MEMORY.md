@@ -981,32 +981,38 @@ It had been accumulating since Aug 13. **When you write a new handoff, move the 
     ⛔ **`ffmpeg`, `sox` and `normalize-audio` are NOT installed on this box**; the gain stage is pure
     stdlib Python because of that. ⚠️ **`audioop` was REMOVED in Python 3.13**, so amplitude measurement
     uses `wave` + `array` directly.
-  - 🚑 **IF PIPER SUDDENLY SOUNDS QUIET, RESTART THE AUDIO STACK — do not chase Piper.** Diagnosed
-    Sep 16, 2026: Andrew heard a large volume drop mid-session, and **a reboot restored it to full
-    loudness.** So it was a transient degradation somewhere in the **playback path**, not in the audio
-    Piper produces.
-    ⭐ **Try this first, it is far cheaper than a reboot:**
-    `systemctl --user restart pipewire pipewire-pulse wireplumber`
-    ⭐ **Three hypotheses were tested and ALL THREE were wrong — worth knowing so they are not re-tested:**
-    (a) **not the speed** — the 0.9/1.0/1.2 renders measured *identical*, peak 100% and RMS 14.1% each;
-    (b) **not the voice model** — `vctk` speaker 13 measures **15.1% RMS, LOUDER** than the `lessac`
-    (14.7%) he had called normal; (c) **not orphaned sink-inputs** — `pactl list sink-inputs` reports
-    **3 of them on a freshly booted machine**, so their presence is normal and proves nothing.
-    🔻 **Scope, confirmed after the reboot: the attenuation had been present for the ENTIRE session** —
-    Andrew reports the restored audio is louder than *the very first samples* he heard, not just louder
-    than the 0.9 render. **So every sample he judged all afternoon was uniformly quiet**, including the
-    `espeak-ng` he rejected and the eight-voice comparison he chose from. ⭐ **His voice choice still
-    stands** because it rested on *relative* differences, which a uniform attenuation does not disturb.
-    ⭐ **The lesson, and it is the sharp version: when the artefact measures identical and the perception
-    differs, stop measuring the artefact.** Two rounds of amplitude analysis could never have found this —
-    a uniform downstream loss makes every file internally consistent and every comparison correct, so the
-    measurements were not wrong, they were **answering a question that could not detect the fault.**
-  - ⭐ **Deliberately NOT the pip route:** this box runs **Python 3.14**, and `onnxruntime` wheels lag new
-    Python releases. The bundled binary carries its own `libonnxruntime` and needs no Python at all.
-  - 🚨 **NAME COLLISION — `apt install piper` INSTALLS THE WRONG SOFTWARE.** Ubuntu's `piper` package
-    (0.8-1build1) is a **GTK app for configuring gaming mice** (a libratbag front-end), not text-to-speech.
-    ⭐ **Verified from `apt-cache show` before installing anything** — the same class of trap as Phase 17's
-    "SSH Agent" vs "SSH Build Agents" plugin mix-up. **Read the package description, not the name.**
+  - 🚨 **IF PIPER SOUNDS LOUD-BUT-DISTORTED, OR "LOW QUALITY": CHECK THE REMEMBERED PER-APPLICATION
+    VOLUME FIRST.** `pactl list sink-inputs | rg -i 'application.name|Volume:'` while something plays.
+    **It should read `100% / 0.00 dB`.**
+    🔻 **ROOT CAUSE, found Sep 16, 2026 after four wrong turns — and the AI caused it.** A diagnostic
+    `paplay --volume=131072` (200%) was run once as a loudness test. 🚨 **PulseAudio's
+    `module-stream-restore` SAVED that volume against the application name `paplay` and re-applied it to
+    every later playback**, persisting **across reboots**. Measured effect: **+12 dB of chain gain and
+    64,360 clipped samples — 6.5% of everything.** That distortion is what "low quality" was.
+    ✅ **FIX:** while a stream is live, `pactl set-sink-input-volume <id> 100%`. Stream-restore then
+    remembers **100%**, and new streams inherit it. ✅ Verified after: chain gain **−0.0 dB**, 4 clipped
+    samples instead of 64,360.
+    ⛔ **`pactl unload-module`/`load-module module-stream-restore` does NOT clear the saved volumes** — the
+    AI claimed it did, and was wrong. Reloading re-reads the same database.
+    ⭐ **THE REAL LESSON, and it is a general one: THE PROBE MUTATED THE SYSTEM.** A one-off measurement
+    left persistent state behind and *became* the fault it was investigating. **Any diagnostic that sets a
+    volume, a flag or a config value must be undone in the same breath**, or it stops being an observation.
+    ⭐ **SECOND LESSON — the instrument was at the wrong layer for four rounds.** The WAV files were
+    measured repeatedly and were always correct and always identical, because the fault was applied
+    **downstream of them**. What found it was **capturing the sink monitor and comparing input to output**:
+    `parec -d <sink>.monitor --format=s16le --raw`, then comparing RMS against the source WAV. **Measure the
+    OUTPUT of the chain, not its input** — the input can be perfect while the output clips.
+  - 🔲 **STILL UNEXPLAINED, and NOT caused by the above** (both predate or contradict the 200% volume):
+    (a) a large perceived volume drop when speed changed to **0.9**, which occurred **before** the 200%
+    test and where the three renders measured identical; and (b) Andrew's report that **closing the GNOME
+    Sound panel makes the volume drop sharply**. ⚠️ **Do not assume these are the same fault as the
+    stream-restore one.**
+  - ⚠️ `node.pause-on-idle = false` + `session.suspend-timeout-seconds = 0` were added to
+    `~/.config/wireplumber/wireplumber.conf.d/50-alsa-config.conf` on **a theory that turned out to be
+    WRONG** (the sink was never SUSPENDED — measured IDLE → RUNNING → IDLE). They are harmless and may
+    help an emulated card, but they are **not** the fix. Andrew's original Jan 12 file is backed up beside
+    it as `50-alsa-config.conf.bak-20260916`. ⭐ Note that file already carried `api.alsa.headroom = 8192`,
+    which is unusually large — **this emulated card has a history of trouble.**
   - ⚠️ Audio works because VMware passes an emulated **Ensoniq AudioPCI** card through to the Windows host;
     pipewire drives it. If speech goes silent, check `pactl get-sink-mute @DEFAULT_SINK@` before anything else.
   - ⚠️ `espeak-ng` via `spd-say` also exists and works, but Andrew rejected its quality — **use Piper**.
