@@ -965,8 +965,28 @@ It had been accumulating since Aug 13. **When you write a new handoff, move the 
   - **Wrapper:** `~/.local/bin/piper-say` (on `PATH`; accepts an argument, stdin, or a file).
     ⭐ **It strips markdown and emoji first**, which is not cosmetic: unfiltered, TTS reads "star star" and
     speaks emoji by name, and a fenced code block is spelled out character by character.
-  - **Engine:** Piper **1.2.0**, the **standalone GitHub binary** at `~/.local/share/piper/`, voice
-    `en_US-lessac-medium` (60 MB) in `voices/`. ~112 MB total, **all user-local — no apt or pip packages**.
+  - **Engine:** Piper **1.2.0**, the **standalone GitHub binary** at `~/.local/share/piper/`, models in
+    `voices/`. **All user-local — no apt or pip packages.**
+  - 🔊 **DEFAULTS, chosen by Andrew Sep 16, 2026 after listening to eight voices: `en_GB-vctk-medium`,
+    speaker 13, `length_scale 1.0`, no gain.** `vctk` is **multi-speaker (109 voices)**, so
+    `PIPER_SPEAKER=n` selects a different person; the wrapper only passes `--speaker` when the model
+    actually is multi-speaker, so single-speaker models still work.
+  - ⭐ **Speed and voice are INDEPENDENT knobs.** `PIPER_SPEED` is Piper's `length_scale` and **lower is
+    faster**; `vctk`'s own default is **1.4**, most other voices 1.0. So a voice picked "because it talks
+    fast" was really a pace preference, available on any model.
+  - 🔉 **Loudness: Piper output sits at ~14–16% RMS with peaks ALREADY at full scale**, measured across
+    eight voices — so it sounds quiet and **cannot be gained without clipping something.** `PIPER_GAIN=N`
+    normalises to N% RMS; measured cost is ~0.3% of samples clipped at 20, ~1.3% at 28, ~2.6% at 35.
+    ⚠️ **Do not reach for `paplay --volume` — it caps at 65536 (100%) and silently clamps anything higher.**
+    ⛔ **`ffmpeg`, `sox` and `normalize-audio` are NOT installed on this box**; the gain stage is pure
+    stdlib Python because of that. ⚠️ **`audioop` was REMOVED in Python 3.13**, so amplitude measurement
+    uses `wave` + `array` directly.
+  - 🔲 **UNEXPLAINED, recorded honestly:** Andrew heard a large volume drop when speed changed to 0.9.
+    **Measured: the three speed variants were identical in level** (peak 100%, RMS 14.1% at 0.9/1.0/1.2),
+    and `vctk` speaker 13 is *louder* than the `lessac` he called normal. **Neither speed nor model
+    explains it**, so something varied at playback. Two orphaned PipeWire sink-inputs were found and
+    `module-stream-restore` was reloaded to clear any remembered per-app volume. **If it recurs, look at
+    the playback path, not at Piper.**
   - ⭐ **Deliberately NOT the pip route:** this box runs **Python 3.14**, and `onnxruntime` wheels lag new
     Python releases. The bundled binary carries its own `libonnxruntime` and needs no Python at all.
   - 🚨 **NAME COLLISION — `apt install piper` INSTALLS THE WRONG SOFTWARE.** Ubuntu's `piper` package
