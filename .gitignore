@@ -6,6 +6,10 @@
 # CREDENTIALS & SECRETS (NEVER COMMIT!)
 # ------------------------------------------------------------------------------
 PASSWORDS.md
+
+# Confidential context the AI reads at boot: employer, dates, personal
+# circumstances. Never public. Rides the private GitLab mirror like PASSWORDS.md.
+MEMORY_SECRET.md
 github_credentials.md
 /working/
 /ddns/

@@ -65,7 +65,7 @@ ok "on branch '$BRANCH'"
 # --- 2. no tracked file with a secret-looking name ---------------------------
 # Names, not contents: this is the check that catches a secret that was never
 # ignored in the first place.
-SECRET_NAMES='(^|/)(PASSWORDS|passwords)|credential|(^|/)\.env($|\.)|\.key$|\.pem$|\.p12$|\.pfx$|id_rsa|id_ed25519|(^|/)secrets?\.'
+SECRET_NAMES='(^|/)(PASSWORDS|passwords)|MEMORY_SECRET|credential|(^|/)\.env($|\.)|\.key$|\.pem$|\.p12$|\.pfx$|id_rsa|id_ed25519|(^|/)secrets?\.'
 if OFFENDERS="$(git ls-files | grep -nEi "$SECRET_NAMES" || true)"; [ -n "$OFFENDERS" ]; then
   echo "$OFFENDERS" | sed 's/^/       /'
   fail "the files above are TRACKED and look sensitive. They would become public."
@@ -83,6 +83,7 @@ ok "no tracked file has a secret-looking name"
 # which checks by NAME and cannot be outrun by a move.
 SENSITIVE=(
   PASSWORDS.md
+  MEMORY_SECRET.md                   # confidential context, added Sep 16, 2026
   github_credentials.md
   proxmox/credentials
   proxmox/nas_credentials
