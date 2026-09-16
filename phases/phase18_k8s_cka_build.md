@@ -269,8 +269,10 @@ cluster is configured"* are different states and Stage 1 is the second one.
 | Resources | vCPU **64 of 48 threads (133%)**, RAM 85G of 187G, `vm-ephemeral` 865G used / 980G avail |
 | Snapshot | `c01-nodes-ready` on all five (hot, guest-agent freeze — **no etcd exists yet**, so an offline snapshot is not needed until Stage 2) |
 
-📄 **Deliverable built: `education/k8s-cka-prep/scripts/k8s-setup.sh`** — 🙋 **Andrew's design call, and it was
-better than the AI's proposal.** One **self-contained** script rather than a wrapper around the lab's
+📄 **Deliverables built: three scripts in `education/k8s-cka-prep/scripts/`** — `1-provision-vms.sh`,
+`2-personalize.sh`, `3-k8s-base.sh`, plus a `README.md`. ⚠️ **They replaced an earlier combined
+`k8s-setup.sh`, which was DELETED rather than kept beside them** — two copies drift.
+🙋 **Andrew's design call, and it was better than the AI's proposal.** One **self-contained** script rather than a wrapper around the lab's
 `www/ubuntu/` sub-scripts, because **there is no script server at the firm** and a script with dependencies
 is not portable. Hostname/sudo/Cockpit logic is therefore a **knowing COPY**, labelled in the header, with
 an instruction not to turn it back into a caller. Lab conveniences are **opt-in** (`--sudo-nopasswd`,

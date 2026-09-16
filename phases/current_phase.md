@@ -13,12 +13,23 @@ growing — see that file for why the previous append-only version went undetect
 **Read `phases/phase18_k8s_cka_build.md` before touching anything Kubernetes.** ~485 lines, current as of
 Sep 16, 2026.
 
-🔲 **NEXT TWO ACTIONS, in order:**
-1. 🙋 **Andrew reads the plan end to end and approves it** — the mandatory phase process requires it and he
-   has **not** done it yet. He approved individual decisions piecemeal during the session, but the plan
-   changed substantially afterwards (two goals instead of one, four stages instead of nine parts, every trap
-   withdrawn). ⛔ **Do not start building on the strength of the piecemeal approvals.**
-2. 🔲 **Then Stage 0** — provision five VMs. ⚠️ **One measurement first — see the DHCP warning below.**
+✅ **PLAN APPROVED by Andrew Sep 16, 5:48 PM. ✅ STAGE 0 IS COMPLETE — five nodes built and verified.**
+
+🔲 **NEXT: STAGE 1 — install and configure Kubernetes, and the first step is NOT `kubeadm init`.**
+1. 🚨 **kube-vip must be ANSWERING on `.206` first.** `--control-plane-endpoint` fixes the apiserver
+   certificate's SANs at init time, so initialising without it means control-2 and control-3 can **never**
+   join. This is the one near-irreversible step in the build.
+2. Then `kubeadm init` on control-1 → **stop and read what appeared** (static pods, PKI, kubeconfigs) →
+   Calico → join control-2 by hand and control-3 by script → join both workers.
+⚠️ **Two expiries that a deliberate pace makes MORE likely to bite:** the `--upload-certs` certificate key
+lasts **2 hours** (`kubeadm init phase upload-certs --upload-certs`), the join token **24 hours**
+(`kubeadm token create`).
+
+**Nodes as they stand:** `.201`–`.205`, all five **identical and role-less** — kubeadm/kubelet/kubectl
+**v1.35.8** installed and apt-held, containerd running with CRI enabled and `SystemdCgroup=true`, **no
+Docker**, swap off, `yq` + `k` alias, Cockpit on 9090. Kubelet **inactive on purpose**. Snapshot
+`c01-nodes-ready` on all five. ⭐ **Nothing distinguishes a "control" node from a "worker" yet except the
+hostname we chose** — see the chapter 02 teaching point in the plan.
 
 **Where it stands.** ✅ Spec settled: **5 VMs, VMIDs 201–205 → `.201–.205`, kube-vip VIP `.206` (NO VM
 behind it)**, 2 vCPU / 4 GB / 40 GB each on `vm-ephemeral`, **`kubeadm` v1.35** (matching the exam) with an
@@ -353,6 +364,45 @@ confidentiality agreement and can invalidate a certification. Exercises come fro
 🗣️ **A communication lesson worth keeping:** the AI invented "Stage A/B/C" labels for a plan Andrew had
 already numbered 0–3, and he had to ask what "Stage C" meant. ⭐ **Two vocabularies for one plan is one too
 many.** Renamed to his numbering — 27 replacements across four files.
+
+### 🟢 THEN STAGE 0 WAS BUILT AND FINISHED (evening)
+
+🙋 **Andrew ran every command himself** from the dev box; the AI wrote the scripts and verified the fleet.
+✅ **Five nodes live at `.201`–`.205`**, 2 vCPU / 4 GB / 40 GB, `onboot 0`, snapshot `c01-nodes-ready`.
+**kubeadm v1.35.8 held, containerd CRI ok, no Docker anywhere, `kubeadm init --dry-run` preflight passing,
+and all five reporting "nothing was changed" on a re-check.**
+
+🔻 **A plan assumption died on contact: the template has NEITHER Docker NOR containerd**, so the approved
+"add then subtract" was unnecessary. `containerd.io` goes on alone, configured for Kubernetes from the
+start. ⭐ **Nothing to subtract if you never add it** — and no removal residue either.
+
+⭐ **Testing on ONE node against a snapshot paid for itself immediately.** The script's summary was
+**lying**: doubled values (because `systemctl is-active` PRINTS a value *and* exits non-zero, so
+`|| echo absent` fired too) and **`CRI enabled: yes` while containerd was not installed at all.** That
+would have been believed on five nodes instead of one. ⚠️ **The same `cmd || echo` mistake was then
+repeated in a throwaway check minutes later** — the shape is genuinely easy to write wrong.
+
+📊 **Steal time baseline captured before anything is broken: `st = 0%`** on two new nodes and a Swarm node,
+host 98% idle. ✅ **That answers Andrew's question about shutting the Swarm down — measured NO**, it would
+relieve contention that is not occurring. ⭐ **Steal is the only instrument for this**; host CPU% cannot
+tell you a guest was starved.
+
+🔧 **Then Andrew asked for THREE scripts he can take to work, and the split is by PORTABILITY:**
+`1-provision-vms.sh` (⛔ Proxmox-specific — only its *contract* transfers), `2-personalize.sh` (✅ portable:
+environment only), `3-k8s-base.sh` (✅ portable: pure upstream, assigns **no role**). Plus a
+`scripts/README.md`. 🙋 **His design call and it beat the AI's** — a wrapper calling the lab's sub-scripts
+would only ever have worked here, since there is no script server at the firm. The combined `k8s-setup.sh`
+was **deleted**, not kept beside them, because two copies drift.
+
+📖 **His teaching point, now chapter 02 material: A NODE HAS NO ROLE UNTIL ONE COMMAND GIVES IT ONE.**
+Verified across all five — identical, role-less. **The hostnames are labels a human chose and nothing
+enforces them.** ⭐ And the corollary that pays off in the exam's 30% troubleshooting domain: **the kubelet
+is identical on both roles**; a control plane is just a node whose kubelet also runs four **static pods**
+read off local disk, which is why a dead API server is fixed by editing a *file* and why `kubectl` cannot
+help — the thing to fix is the thing that serves `kubectl`.
+⚠️ **`kubeadm init --dry-run` WROTE TO DISK**, leaving `/etc/kubernetes/tmp/` and making control-1 the only
+node that differed. Cleaned. ⭐ **Third instance today of a probe mutating the system** — after the
+`paplay --volume` fault and the ARP-vs-ping instrument. **"It only reads" is a claim to verify.**
 
 ---
 
@@ -1756,57 +1806,6 @@ reversible `--next-boot` procedure, then adopted it permanently.
 
 ---
 
-## Proxmox kernel upgrade 6.17.13-13 + PVE 9.1→9.2 + holds removed (June 18, 2026)
-
-**Status:** COMPLETE ✅ (superseded same day by 7.0.6-2 adoption above)
-**What:** Successfully escaped the pinned/held kernel state. Upgraded the Proxmox
-host kernel into the 6.17 series again (the one that hung in Jan was 6.17.4-2; the
-fix landed in 6.17.9+), brought the whole host current to PVE 9.2, and removed all
-package holds so `apt` is normal again.
-
-### Sequence (all with VMs gracefully shut down + physical console available)
-
-1. **Graceful VM shutdown** — `qm shutdown` all 5 running guests, confirmed `stopped`.
-2. **Installed `6.17.13-13-pve`** via dpkg-download (apt solver still blocked by the
-   held `proxmox-default-kernel`). Set `proxmox-boot-tool kernel pin … --next-boot`
-   (one-shot) so a failed boot would auto-revert to the permanently-pinned 6.17.2-1.
-   `proxmox-boot-tool refresh` to write ESPs.
-3. **Rebooted → booted clean on 6.17.13-13.** Verified: `zpool status -x` healthy,
-   all 6 NVMe present behind VMD, **0 NVMe timeout/error lines**, `systemctl
-   is-system-running` = running, all VMs auto-started (`onboot=1`). The Jan NVMe
-   regression is GONE on this kernel.
-4. **Made the pin permanent** (`kernel pin 6.17.13-13-pve` + `refresh`). Kept
-   6.17.2-1 installed as fallback.
-5. **Unheld** `proxmox-default-kernel` + `proxmox-kernel-6.17.2-1-pve-signed`.
-6. **Full `apt full-upgrade`** → had to install the `proxmox-kernel-6.17` metapackage
-   first (it was missing — that's the root of the recurring `proxmox-default-kernel
-   : Depends: proxmox-kernel-6.17` solver error that also blocked tmux earlier). With
-   the meta installed, the full upgrade ran clean: **PVE 9.1.4 → 9.2.3** (pve-manager
-   9.2.3, qemu-kvm 11.0, ZFS 2.4.2, systemd 257.13, new shim/systemd-boot, ~160 pkgs).
-
-### Current state
-
-- **Running + permanently pinned:** `6.17.13-13-pve`
-- **PVE:** 9.2.3 (`pveversion`)
-- **Holds:** NONE (apt fully normal — the dpkg-download workaround is no longer needed)
-- **Kernel images on disk:** `6.17.2-1` (old fallback), `6.17.13-13` (pinned/running),
-  `7.0.6-2` (NEW PVE 9.2 default — installed but **NOT pinned, will not boot**)
-- All 6 VMs running, ZFS healthy.
-
-### ⚠️ Important for next time
-
-- A new kernel **`7.0.6-2-pve`** was pulled in by PVE 9.2 as the new default. We are
-  **deliberately NOT booting it** — the explicit pin on 6.17.13-13 controls boot
-  regardless. If/when we want it, repeat the `--next-boot` dance (test, then make
-  permanent) — same procedure as `phase1b`. Do this with console access.
-- A **host reboot is recommended** to fully activate systemd 257.13 / libc / QEMU 11.
-  It will safely boot back into pinned `6.17.13-13`. (Deferred — would restart VMs.)
-- Running VMs still hold the **old QEMU 10.x binary** until each is stopped/started.
-
-See `phases/phase1b_proxmox_kernel_upgrade_safe_try.md` for the full procedure + results table.
-
----
-
 ## 📦 DEMOTION LOG — Aug 24 + Sep 16, 2026 (ONE block, on purpose — append a ROW, never a block)
 
 ⚠️ **This block exists because the first four demotions each left a marker block behind, so the block
@@ -1832,6 +1831,7 @@ artefact per unit of work, the artefacts become the backlog.** One log, appended
 | **Sep 16, 2026 pass 5 ↓** | | | |
 | `Parallel VM Refresh Script + GitLab Runner GPG Key Fix` (May 23) | 88 | — (2 lessons PROMOTED to `MEMORY.md`) | 🚨 **Two real findings existed nowhere else and were promoted, not filed:** bash iterates an **associative array in HASH order**, which is why the script uses sentinel files rather than a `wait` loop; and **packagecloud repos re-issue the SAME keypair** with a later expiry, so `EXPKEYSIG` means a stale local copy, not a replaced key. Everything else was already in `MEMORY.md` → REFRESH SCRIPT and GITLAB RUNNER |
 | `refresh made detach/reattach-safe with tmux` (June 18) | 74 | — (1 procedure PROMOTED to `MEMORY.md`) | 🚑 **The GitLab safe-reboot checklist existed nowhere else** — dpkg lock free, no apt/dpkg/gitlab-ctl procs, Sidekiq drained, no background migrations, then `init 6` and verify `/-/readiness`. ⭐ Kept because **a successful upgrade that never rebooted looks like success in the log and failure in `uptime`.** Also folded the three tmux deb names into the existing dpkg-workaround note. Everything else was already in `MEMORY.md` → REFRESH SCRIPT |
+| `Proxmox kernel upgrade 6.17.13-13 + PVE 9.1→9.2` (June 18) | 51 | — | nothing; `phase1b` holds the full procedure and its same-day follow-on, `MEMORY.md` holds current state and history. 🚨 **Priority because it MISLEADS, not because it is old:** it declared *"deliberately NOT booting 7.0.6-2"* and *"a host reboot is recommended (deferred)"* — both superseded, since the host went 7.0.6-2 then **7.0.14-4** and rebooted long ago. **A spent directive in a history log is worse than a stale fact** |
 
 **Two findings from doing it, both in `MEMORY.md` → MEMORY MAINTENANCE:**
 - ⭐ **A verbatim-line check finds CANDIDATES, not verdicts.** It flagged **86 of 173** Phase 7 lines
