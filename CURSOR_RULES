@@ -9,6 +9,8 @@ EDIT LOG (every authorised change to this file, so the count is visible):
   2. Aug 13, 2026 - BACKUP DIRECTIVE pointer; METHOD.md wired in (item 2g, rules 1b/2/8).
   3. Aug 19, 2026 - checklist item 2 rewritten for load-before-touch context loading.
   4. Aug 19, 2026 - push order flipped to GitLab FIRST, with the reason recorded (see git routing).
+  5. Sep 16, 2026 - item 4's CURRENT PHASE line only: 17 (Jenkins) -> 18 (Kubernetes/CKA), and
+     Jenkins marked ON HOLD. Authorised in writing by Andrew that day.
 
 Project: home-lab-setup - Building Proxmox VE DevOps/QA Environment
 
@@ -113,7 +115,8 @@ study material, not a production app. Capricorn is not.
    - Domain: gothamtechnologies.com (AWS Route53). `cap.*` = PROD-local on .184;
      `capricorn.*` = GCP, on-demand only
    - Proxmox Web UI: https://192.168.1.150:8006 (root/[See PASSWORDS.md - ON DEMAND, not at boot])
-   - CURRENT PHASE: 17 (Jenkins). Parts 0-3 done; Part 4 = deploy to the Swarm. Phases 0-16 closed.
+   - CURRENT PHASE: 18 (Kubernetes / CKA build - 5-node HA cluster, kube-vip).
+     Phase 17 (Jenkins) is ON HOLD at Part 4 - PAUSED, not closed. Phases 0-16 closed.
 
 === ASKING THE AI TO FIND OR FOCUS ON SOMETHING ===
 (Added Aug 24, 2026. Edit of THIS file authorised in writing by Andrew that day, for this section
