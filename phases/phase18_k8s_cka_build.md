@@ -3,7 +3,8 @@
 **Status:** 📋 **PLAN — DRAFT, AWAITING ANDREW'S REVIEW. Nothing has been built.**
 **Created:** September 16, 2026
 **Owner:** Andrew
-**Track:** `education/k8s-cka/` (settled Sep 16, 2026 — aligned to the VM naming)
+**Track:** `education/k8s-cka-prep/` — 🔻 **moved there Sep 16, 2026 at Andrew's direction**, so the
+research and the chapters share one folder instead of splitting prep from track
 **Supersedes nothing.** Phase 17 (Jenkins) is **ON HOLD at Part 4**, paused not closed.
 
 > 🙋 **Andrew, Sep 16, 2026:** *"phase18_k8s_cka_build — where we will properly build a 5 node setup
@@ -19,16 +20,26 @@ lab could teach. Here an outside authority decides what "complete" means, so the
 
 ---
 
-## 1. Success, as a sentence
+## 1. Success — 🔻 TWO sentences, because there are two goals
 
-**"Build a five-node Kubernetes cluster with `kubeadm` from nothing, make its control plane genuinely
-highly available behind a kube-vip VIP, prove the HA by killing control-plane nodes one at a time,
-back up and restore etcd, upgrade the cluster in place, and explain what each failure did to the
-workload and to the API."**
+🙋 **Andrew, Sep 16, 2026:** *"Do you understand I need to learn how to deploy, install and configure k8s
+for work AND then study for CKA separately?"* **Yes — and they need separate finish lines.**
 
-⭐ **Two words in that sentence are load-bearing.** *`kubeadm`*, because the CKA is a kubeadm exam and
-Phase 14's k3s hides precisely the components the exam tests. And *prove*, because a three-member
-control plane that has never lost a member is not known to be HA — it is only configured to be.
+**1 — For WORK:** *"Build a five-node Kubernetes cluster with `kubeadm` from nothing, make its control
+plane genuinely highly available behind a kube-vip VIP, and write it up as a procedure someone else could
+follow and repeat."*
+
+**2 — For the EXAM:** *"Then, on that cluster, drill one class of CKA administrative task per chapter
+until every curriculum domain has been done by hand, weighted the way the exam weights them."*
+
+⭐ **Four words across those sentences are load-bearing.** *`kubeadm`*, because the CKA is a kubeadm exam
+and Phase 14's k3s hides precisely the components it tests. *Procedure*, because goal 1 fails if the
+write-up only makes sense to whoever was in the room. *By hand*, because 🟢 the exam is entirely
+performance-based — there is no multiple choice to revise for. And *then*, because Stage C does not open
+until the cluster is built, tested and documented.
+
+⛔ **Do not merge the two goals back into one.** The first draft of this plan did exactly that and
+produced an excellent infrastructure phase that covered barely half the exam — see §8 and 🅐 A8.
 
 ---
 
@@ -77,7 +88,8 @@ distinguish the two clusters by purpose rather than by uniqueness.**
 `vm-docker-qa-1`) — the Swarm's bare `docker-swarm-N` is the odd one out, and this returns to the
 convention. The short forms `control-1`, `worker-2` are used in prose below for readability; the
 **hostname and the `qm --name` are always the full string**, because those are what `ssh` and `qm` need.
-**Runtime:** containerd (see the trap in 🅒 T1 — the lab's build standard actively breaks this).
+**Runtime:** containerd, **configured for Kubernetes in Stage A** — ⚠️ the lab's standard build leaves
+it configured for *Docker*, which a kubeadm node cannot use. See §8.
 **CNI:** proposed **Calico** (🅐 A4) — chosen because `NetworkPolicy` is on the CKA syllabus and the
 lab's other CNI experience (flannel via k3s) cannot enforce one.
 
@@ -176,68 +188,90 @@ exist, which is the exact confusion the `.195` row was added to fix.
 ⚠️ **Whichever is chosen, re-sweep immediately before building.** A ping sweep proves an address is dark
 *at that moment*; `.202` is the standing proof that a quiet address can have an owner.
 
-📌 **The VIP has NO VM behind it.** It must be recorded in `MEMORY.md` → IPs & HOSTS as *"no VM —
-kube-vip control-plane VIP"*, or a future session will hunt `qm list` for a guest that does not exist —
-the exact confusion the `.195` row was added to fix.
-⚠️ **`.194` breaks the contiguous run on purpose** (`.191–.193` are the Swarm). Do not "tidy" the
-cluster into `.2xx` later for neatness; that range is the one with unrevoked leases in it.
-
-> **If you ever DO want the tidy `.203–.207` run:** it needs the router's lease table checked for
-> outstanding entries in that range, not a ping sweep. On the G3100 that is
-> **Advanced → Network Settings → IP Address Distribution → Connection List**, which lists MAC, IP and
-> lease expiry with a delete icon per row. ⚠️ **Deleting a lease does not notify the client** — it keeps
-> its address until its own timer expires, so you must also make the device re-request: toggle its
-> Wi-Fi, unplug/replug Ethernet, or power-cycle it (for the Denon, a power cycle is easiest).
-> Per-OS: `dhclient -r && dhclient` on Linux, `ipconfig /release && ipconfig /renew` on Windows,
-> *Renew DHCP Lease* in macOS network details. **None of this is needed for this phase** — the
-> `.187–.199` block avoids the question entirely.
-
 ---
 
-## 6. The parts
+## 6. The three stages — 🔻 RESTRUCTURED Sep 16, 2026 at Andrew's direction
 
-**Part 0 — Provision.** Five VMs from template 9000, `host_setup.sh --server --no-nas`, `qm resize`,
-verified from **inside** each guest (`df -h /`), snapshot `c01-base-clean` on all five together.
-🤖 **AI may drive** — cloning from 9000 is proven plumbing, not the subject (`METHOD.md` split).
-📖 **Read `k8s-cka-prep/lab-parity.md` before this part** — it settles, item by item, what may be
-installed and what must be left off to keep the nodes exam-shaped (short version: **`yq` yes, `jq`
-deliberately NO**, no `krew`/`k9s`/`kubectx`, `k` alias configured to match the exam, Cockpit is
-Andrew's call).
-📌 `--no-nas` is deliberate: a study cluster does not need NAS credentials, and the `.184` finding
-showed a uniform build standard plants credentials on hosts that should not have them.
+🙋 **Andrew:** *"Do you understand I need to learn how to deploy, install and configure k8s for work AND
+then study for CKA separately? I know there will be some overlap."*
 
-**Part 1 — Make the nodes able to run Kubernetes at all.** containerd CRI + cgroup driver, kernel
-modules, sysctls, kubelet/kubeadm/kubectl pinned to one minor version. 🅒 **T1 and T2 fire here.**
-🙋 **Andrew drives** — this is the subject.
+⭐ **Yes — and it is a better shape than the plan it replaces.** Two goals with **different success
+conditions**, run in sequence instead of blended: **Stages A and B are WORK skills** (a procedure he can
+repeat at the firm), **Stage C is EXAM preparation** and starts only once a standard cluster is up,
+tested and documented. ⭐ **The overlap is an asset, not duplication:** by the time Stage C begins, etcd,
+the control-plane components, the kubelet and the CNI are things he *installed*, not exam trivia — which
+is exactly the position the exam's own framing assumes, since it hands you a built cluster to administer.
 
-**Part 2 — kube-vip BEFORE the cluster exists.** The VIP has to answer *before* `kubeadm init`, because
-`--control-plane-endpoint` must point at it from the first second. 🅒 **T3, and T4 is armed here.**
+### Stage A — five VMs, ready for Kubernetes → **chapter 01**
 
-**Part 3 — `kubeadm init` cp-1, then CNI, then join cp-2 and cp-3.** Snapshot `c02-cp1-init`,
-`c03-ha-control-plane`. 🅒 **T5 fires.** 🙋 Andrew does cp-2 by hand; 🤖 the AI joins cp-3 (repetition
-rule).
+**Add, then subtract.** Clone five from template 9000, size them (⚠️ **2 vCPU minimum on control
+planes — `kubeadm` preflight FAILS below that**), resize the 3.5 GB template disk, set static addresses
+and hostnames, run `host_setup.sh --server --no-nas`. **Then remove what a Kubernetes node should not
+have and add what it needs:**
 
-**Part 4 — Join the workers, run a real workload.** Snapshot `c04-cluster-complete`.
+- ⛔ **Remove Docker Engine.** Real Kubernetes nodes do not run it, and leaving it means two image
+  stores with `docker ps` and `crictl` disagreeing about reality.
+- ✅ **Configure containerd properly** — CRI plugin **enabled**, `SystemdCgroup = true` to match the
+  kubelet. 🚨 **This is the single step most likely to waste an afternoon if skipped**, because the
+  failure surfaces as a kubelet that will not start and says nothing about containerd. See §8.
+- ✅ Kernel modules (`overlay`, `br_netfilter`), sysctls (IPv4 forwarding, bridge-nf-call-iptables),
+  **swap off**, then `kubeadm`/`kubelet`/`kubectl` **pinned to v1.35** and held.
+- ✅ **Exam-shaped tooling: `yq`, the `k` alias with completion.** ⛔ **No `jq`, no `krew`, no `k9s`, no
+  `kubectx`** — full reasoning in `education/k8s-cka-prep/lab-parity.md`.
+- ✅ **Verify from INSIDE each guest** (`df -h /`, `swapon --show`, `containerd config dump`), never from
+  `qm config`.
 
-**Part 5 — BREAK IT. The centre of gravity.** Drills, each with its "what to conclude" written *before*
-running: lose one control plane (expect: no impact, VIP moves); lose two (expect: **reads fail too**,
-not just writes — the Phase 16 Swarm finding and the Phase 14 Redpanda finding predict this, and
-confirming it across three orchestrators is the best cross-track result available here); kill the VIP
-holder; `drain` a node with a PodDisruptionBudget in the way; a `default-deny` NetworkPolicy that also
-kills DNS.
+📸 Snapshot **all five together**: `c01-nodes-ready`. 🙋 Andrew drives the node preparation; 🤖 the AI may
+drive the cloning, which is proven plumbing (`METHOD.md` split).
+📄 **Deliverable: chapter 01 written as a numbered, repeatable procedure** — each step with how to
+confirm it took effect. **This is the chapter he takes to work.**
 
-**Part 6 — etcd backup and restore, and a cluster upgrade (`v1.35` → `v1.36`).** Both are CKA exam tasks
-and both are real operational skills. **Restore is only proven if the cluster comes back after a
-deliberate destruction.** ⛔ **Docker Engine comes off all five nodes before this part** — real
-Kubernetes nodes do not run it, and leaving it means two image stores and `docker ps`/`crictl`
-disagreeing. It stays until traps T1/T2 have fired, because those traps *are* a CRI misconfiguration and
-therefore on-syllabus (see `k8s-cka-prep/lab-parity.md` §3).
+### Stage B — install and configure Kubernetes, piece by piece → **chapters 02–04**
 
-**Part 7 — RBAC, static pods, troubleshooting the exam's way.** Fill the remaining syllabus domains.
+**The goal is understanding what `kubeadm` does, not getting a green `kubectl get nodes` quickly.**
 
-**Part 8 — The track.** Chapters + the CKA coverage matrix. ⚠️ **`education/CONVENTIONS.md` is a
-mandatory read before the first chapter** and has not been read yet — it governs chapter shape,
-figures, the DOCX build and the highlight pass.
+🚨 **Hard sequencing rule, and it is NOT optional: kube-vip must be answering BEFORE `kubeadm init`.**
+`--control-plane-endpoint` has to point at the VIP from the very first second, because the apiserver
+certificate's SANs are generated then. **Initialise without it and cp-2 and cp-3 can never join** — the
+fix is regenerating certificates or starting over. ⭐ **This is the one irreversible-ish decision in the
+whole build, so it goes first and it goes in the chapter as a prerequisite, not a warning.**
+
+1. **kube-vip** as a static pod, ARP/L2 mode, on the VIP.
+2. **`kubeadm init` on control-1** with the VIP as the control-plane endpoint — then **stop and read what
+   appeared**: `/etc/kubernetes/manifests/` static pods (etcd, apiserver, controller-manager,
+   scheduler), the PKI tree, the kubeconfigs, the kubelet's own config, the join token.
+   ⭐ **This inspection IS the chapter.** It is also the best available preparation for the exam's
+   Troubleshooting domain, because you cannot debug a control plane you have never looked inside.
+3. **Calico**, and observe that the nodes were `NotReady` until it existed and CoreDNS was `Pending` —
+   ⭐ **explained as mechanism, not discovered as a surprise**: Kubernetes ships no pod network.
+4. **Join control-2 by hand** (🙋 Andrew), **control-3 by script** (🤖 AI — repetition rule).
+5. **Join both workers**, run a neutral workload, confirm scheduling.
+6. **Prove the HA actually works:** `etcdctl` shows 3 members and a leader; power off a control plane and
+   the API still answers *through the VIP*; the VIP demonstrably moved (ARP, not assumption).
+
+📸 Snapshots: `c02-cp1-init`, `c03-ha-control-plane`, `c04-cluster-complete` — **all five nodes together
+or not at all** (B5).
+📄 **Deliverable: chapters 02–04.** ⭐ **Stage B ends when the cluster is built, tested and DOCUMENTED** —
+Andrew's condition, and it is the gate into Stage C.
+
+### Stage C — CKA administration, one task type per chapter → **chapters 05+**
+
+**Only now does exam material get opened.** Each chapter takes **one class of administrative task**,
+mapped to a curriculum domain, drilled on the cluster Stages A and B built.
+
+⭐ **This is where deliberate breakage returns — as EXERCISES, not traps.** Troubleshooting is **30% of
+the exam** and cannot be learned on a healthy cluster. The difference matters: **a trap is hidden from
+the learner and fires once; an exercise is chosen, named, and can be drilled ten times** because the
+snapshots make it cheap to restore. **For exam preparation the exercise is strictly better.**
+
+Coverage is driven by `education/k8s-cka-prep/curriculum.md`, weighted by the real exam weights —
+**Troubleshooting 30%, Cluster Architecture 25%, Services & Networking 20%, Workloads & Scheduling 15%,
+Storage 10%.** ⚠️ **The gaps identified in 🅐 A8 (Storage, Helm/Kustomize, CRDs/operators, Gateway API,
+HPA, Ingress) all live in this stage**, which is what resolves A8: they were never missing from the
+*build*, they belong to the *exam* half — a distinction the original single-track plan could not make.
+
+⏱️ **Practise against the clock here, not earlier** — 15–20 tasks in 120 minutes is roughly 6–8 minutes
+each, and speed is a separate skill from correctness.
 
 ---
 
@@ -245,12 +279,12 @@ figures, the DOCX build and the highlight pass.
 
 - **B1 — `.186` is frozen and out of scope.** See §2.
 - **B2 — `vm-ephemeral` only, and nothing irreplaceable ever lives on this cluster.** No-redundancy stripe.
-- **B3 — Do NOT "fix" `setup_docker.sh` to enable containerd's CRI plugin.** 🚨 This looks like the
-  fleet-wide fix the lab keeps rewarding, and here it is **wrong**: every other host in this lab is a
-  *Docker* host, and Docker's containerd deliberately disables CRI. A Kubernetes node needs a
-  *different* containerd configuration, not a patched shared one. ⭐ **The general point, and it is
-  chapter material: one build standard cannot serve both a Docker host and a Kubernetes node** —
-  the lab has been able to pretend otherwise only because it had no kubeadm nodes.
+- **B3 — Fix containerd ON THE NODES, and do NOT "fix" the shared `setup_docker.sh`.** 🚨 Patching the
+  shared script looks like the fleet-wide fix this lab keeps rewarding, and here it is **wrong**: every
+  other host in this lab is a *Docker* host, and Docker's containerd disables the CRI plugin on purpose.
+  Enabling it fleet-wide would change eleven working hosts to suit five new ones. ⭐ **The general point,
+  and it is chapter material: one build standard cannot serve both a Docker host and a Kubernetes node** —
+  the lab could pretend otherwise only while it had no kubeadm nodes.
 - **B4 — Never point this cluster at `production/*` in the registry.** Same reasoning as Phase 17's
   B10: `.180` and `.184` pull `production/capricorn/<svc>:latest`, so a push there ships to PROD.
 - **B5 — Snapshot all five nodes together or not at all.** Distributed state with etcd quorum; rolling
@@ -258,21 +292,47 @@ figures, the DOCX build and the highlight pass.
 - **B6 — Do not deploy Capricorn to this cluster.** Application layer, owned by its own project. A
   neutral workload is enough and keeps the phase honest about scope.
 
-## 8. 🅒 Planted traps — ⛔ DO NOT FIX BEFORE THEY FIRE
+## 8. 🚫 NO PLANTED TRAPS — a deliberate, recorded deviation from `METHOD.md`
 
-| # | Trap | Precondition | Status |
-|---|---|---|---|
-| **T1** | **containerd's CRI plugin is disabled**, so `kubeadm init` hangs waiting for a kubelet that cannot talk to a runtime. The error names the kubelet, not containerd. | `disabled_plugins = ["cri"]` present on a lab-built host | ✅ **VERIFIED Sep 16, 2026 on `.191`** — line 15 of `/etc/containerd/config.toml`. **The trap can fire.** |
-| **T2** | **cgroup driver mismatch** — containerd defaults to `cgroupfs`, kubelet on Ubuntu expects `systemd`. Fails late and intermittently under load, not cleanly at init. | `SystemdCgroup` unset in the config | ✅ **VERIFIED Sep 16, 2026 on `.191`** — not present at all, so the setting you must change **does not exist in the file to edit**. |
-| **T3** | **`kubeadm init` without `--control-plane-endpoint`.** Works perfectly for one node, and then cp-2 **cannot ever join** — the apiserver certificate has no SAN for the VIP. Recovering means regenerating certs or starting over. | Trivially available | 🔲 Armed by construction |
-| **T4** | **The join token expires after 24 h.** Come back the next day to add cp-3 and the join fails with an error that reads like a network problem. | Default `kubeadm` TTL | 🔲 Armed; fires only if a session boundary lands mid-phase — **do not "helpfully" use an infinite TTL** |
-| **T5** | **Nodes sit `NotReady` and CoreDNS stays `Pending` forever** until a CNI is installed. Looks like a broken cluster; is a cluster with no network. | Default | 🔲 Armed by construction |
-| **T6** | **`default-deny` NetworkPolicy silently breaks DNS**, because egress to `kube-dns` was not allowed. Every symptom looks like an application bug. | Needs Calico (🅐 A4) | 🔲 Depends on A4 |
-| **T7** | **Losing 2 of 3 control planes fails READS, not just writes.** The instinct is that a quorum loss degrades gracefully to read-only. | 3 etcd members | 🔲 Armed |
-| **T8** | **After any host reboot the whole cluster is down** (`onboot 0`), and etcd members come back at different times. | Autostart policy | 🔲 Armed — ⚠️ **may fire by accident**; record it if it does |
+🙋 **Andrew, Sep 16, 2026:** *"Let's not 'set any traps' while we are building. Just build it as close as
+possible to the lab environment. The CKA exam is SO HARD we need to only focus on what they test which is
+administering an already built very basic setup and go from there."*
 
-⚠️ **`METHOD.md` rule:** checking a precondition is **not** pre-empting a trap. T1 and T2 were verified
-by one read-only `grep` on an existing host, which does not make the diagnosis free when they fire.
+⛔ **The eight traps T1–T8 this plan carried are WITHDRAWN.** Nothing is planted, nothing is left broken
+on purpose during Stages A and B, and no failure is concealed from the learner.
+
+⚠️ **This is a deviation from `METHOD.md`, which makes planted traps a stage-1 practice and marks them
+do-not-fix.** Recorded here rather than done silently, per that file's own rule 8 — *the method is a
+floor, not a ceiling; deviate deliberately, then fold back what works.* 🔲 **If this shape proves out,
+`METHOD.md` gains a note that a certification-driven track inverts the trap practice.**
+
+**Why the reasoning holds**, because it is not simply "traps are inconvenient":
+- ⭐ **The deliverable changed.** Stage A and B chapters are **procedures Andrew repeats at work**. A
+  procedure's job is to show the path that *works* — which is already `CONVENTIONS.md` decision **A12**
+  (*a chapter is the build procedure*). Traps serve a different goal: earning a diagnosis.
+- ⭐ **The exam does not test building.** 🟢 It hands you built clusters and asks for administration. Lab
+  failure modes invented by us are **not** what is tested, and a hard exam plus a limited clock is a bad
+  place to spend attention on lab-specific trivia.
+- ⭐ **Breakage is not dropped, it MOVES to Stage C as chosen exercises** — see §6. Troubleshooting is
+  **30% of the marks**, so deliberate faults are mandatory *eventually*; they just belong to exam prep
+  rather than to the build.
+
+🚨 **Two of the withdrawn traps could never actually be "not planted", and that has to be handled rather
+than declared away:**
+
+| Was | Now |
+|---|---|
+| **T1** — containerd's CRI plugin disabled, so `kubeadm init` hangs on a kubelet that cannot reach a runtime | ✅ **PRE-EMPTED in Stage A as a documented step.** It is not a trap we set — it is what `setup_docker.sh` leaves behind on **every** lab host (✅ verified on `.191`: `disabled_plugins = ["cri"]`). So the only choices were *fix it deliberately* or *be ambushed*. **Fix it, and explain it in the chapter**, because anyone repeating this at work on a Docker-built host meets it too |
+| **T2** — cgroup driver mismatch (containerd `cgroupfs` vs kubelet `systemd`), failing late and intermittently | ✅ **PRE-EMPTED in Stage A.** ⚠️ Worth stating in the chapter *because of how it fails*: not at install time but later and under load, which makes it nearly undiagnosable after the fact |
+| **T3** — `kubeadm init` without `--control-plane-endpoint`, making HA impossible later | ✅ **Now a hard PREREQUISITE in Stage B**, stated before step 1 rather than discovered in step 4 |
+| **T4** — the 24 h join-token expiry | ✅ Now a **documented note**: if Stage B spans two sessions, generate a fresh token (`kubeadm token create`) rather than debugging a confusing join failure |
+| **T5** — nodes `NotReady`, CoreDNS `Pending` until a CNI exists | ✅ Now **explained as mechanism** in Stage B step 3 |
+| **T6/T7/T8** — default-deny NetworkPolicy killing DNS · quorum loss failing reads · the cluster down after a host reboot | ✅ **Moved into Stage C as named exercises.** All three are genuinely on-syllabus and all three are better drilled repeatedly than sprung once |
+
+⭐ **What we give up, stated honestly:** the experience of diagnosing an unexpected failure *cold*, which
+is the thing traps are uniquely good at. **Stage C recovers most of it** — the faults are still real and
+still have to be diagnosed — but he will know a fault is coming. **That is the trade, and it is the right
+one for a dated certification.**
 
 ## 9. 🅐 Open items — need Andrew
 
@@ -280,11 +340,11 @@ by one read-only `grep` on an existing host, which does not make the diagnosis f
 |---|---|---|
 | **A1** | Addressing, and what `.202` is | ✅ **CLOSED Sep 16** — DHCP moved to `.221–.250`; `.200` = Apple (Mac mini), `.202` = Denon/Marantz receiver. Cluster takes `.187–.190` + `.194`, VIP `.196`. See §5 |
 | **A2** | Node naming | ✅ **CLOSED Sep 16 — Andrew's names: `vm-k8s-cka-control-1/2/3` and `vm-k8s-cka-worker-1/2`.** Restores the lab's `vm-` prefix, which the Swarm's `docker-swarm-N` had dropped |
-| **A3** | Track folder | ✅ **CLOSED Sep 16 — `education/k8s-cka/`**, aligned to the VM names rather than invented separately. ⚠️ It tab-completes alongside track 1's `k8s-k3s-redpanda/`, so **always write the full track name in a command**; the build tooling takes the track as its first argument and a wrong one silently builds the wrong book |
+| **A3** | Track folder | ✅ **CLOSED Sep 16 — `education/k8s-cka-prep/`.** 🔻 Andrew's call: the research folder **moves into `education/` and becomes the track**, rather than prep living apart from chapters. ⚠️ It tab-completes alongside track 1's `k8s-k3s-redpanda/`, so **always write the full track name in a command** — `build_docx.py` takes the track as its first argument and a wrong one silently builds the wrong book |
 | **A4** | **CNI choice** | ✅ **DECIDED Sep 16 — Calico.** Kubernetes ships with **no** pod network at all (that is trap T5), so one must be installed. Calico is the conventional `kubeadm` pairing, uses ordinary Linux routing, and **enforces `NetworkPolicy`, which is on the CKA syllabus** and is what makes T6 possible. Cilium is more modern (eBPF, better observability) but is a second large subject on top of the exam; flannel — what k3s gave track 1 — **cannot enforce a policy at all**, so the lab has no policy experience yet |
 | **A5** | Stop the Swarm VMs to reclaim CPU? | ✅ **NOT NEEDED — measured.** Host CPU over the last year: mean **1.11%**, p95 **2.74%**, p99 **4.06%**. Leave the Swarm running. See §4 |
-| **A6** | Kubernetes version | 🔻 **REVISED Sep 16 after the exam research — build the current `v1.35` patch, upgrade to `v1.36` in Part 6.** The earlier answer (build 1.36.4 → 1.37.0) was reasoned only from upstream and is **wrong for this phase's purpose**: 🟢 **the CKA environment runs v1.35**, roughly two minors behind upstream's v1.37.0. Practising daily on a version ahead of the exam trades away the whole point. The revised pair is strictly better — **daily practice matches the exam**, and the upgrade drill now mirrors the real competency *"manage the lifecycle of Kubernetes clusters"* by upgrading **from** the version under test. ⚠️ The exam tracks the newest minor within ~4–8 weeks, so **re-check before booking** (`k8s-cka-prep/exam-environment.md`) |
-| **A8** | 🚨 **The curriculum is WIDER than this plan.** Research on Sep 16 mapped the plan against the published competencies and found real gaps: **Storage (10% of the exam — StorageClasses, dynamic provisioning, PV/PVC) is not covered AT ALL**, nor are **Helm and Kustomize**, **CRDs and operators**, **Gateway API**, **workload autoscaling (HPA)** or **Ingress** — and four of those were **added by the Feb 2025 update**. **Troubleshooting is 30% of the marks** and is covered only incidentally by the drills | 🔲 **OPEN — needs Andrew's call, not a quiet patch.** ⭐ The gaps are almost all **workload-level** topics that need a working cluster and barely any infrastructure, so they fit either as **extra parts after Part 4** or as a **separate follow-on phase**. The full mapping is in `k8s-cka-prep/curriculum.md`. ⚠️ **As it stands this is an excellent infrastructure phase and an incomplete exam phase** |
+| **A6** | Kubernetes version | 🔻 **REVISED Sep 16 after the exam research — build the current `v1.35` patch, upgrade to `v1.36` in Part 6.** The earlier answer (build 1.36.4 → 1.37.0) was reasoned only from upstream and is **wrong for this phase's purpose**: 🟢 **the CKA environment runs v1.35**, roughly two minors behind upstream's v1.37.0. Practising daily on a version ahead of the exam trades away the whole point. The revised pair is strictly better — **daily practice matches the exam**, and the upgrade drill now mirrors the real competency *"manage the lifecycle of Kubernetes clusters"* by upgrading **from** the version under test. ⚠️ The exam tracks the newest minor within ~4–8 weeks, so **re-check before booking** (`education/k8s-cka-prep/exam-environment.md`) |
+| **A8** | ✅ **RESOLVED Sep 16 by the three-stage restructure — this finding is what forced it.** 🚨 **The curriculum is WIDER than the original plan.** Research on Sep 16 mapped the plan against the published competencies and found real gaps: **Storage (10% of the exam — StorageClasses, dynamic provisioning, PV/PVC) is not covered AT ALL**, nor are **Helm and Kustomize**, **CRDs and operators**, **Gateway API**, **workload autoscaling (HPA)** or **Ingress** — and four of those were **added by the Feb 2025 update**. **Troubleshooting is 30% of the marks** and is covered only incidentally by the drills | ✅ **All of it now lives in Stage C**, one task type per chapter, weighted by the real exam weights. ⭐ **The gaps were never missing from the BUILD — they belong to the EXAM half**, and a single blended track had nowhere to put them. Full mapping in `education/k8s-cka-prep/curriculum.md` |
 | **A7** | **Roadmap deviation — CONFIRMED BY ANDREW.** `education/fin_tech_stack.txt` lists **OpenSearch** next and the standing rule is to work it step-by-step | ✅ **CLOSED Sep 16 — Andrew set the list aside for this phase, explicitly and on the record.** His grounds: the CKA is a **dated external commitment**, and Kubernetes is **#1 on that very list** but was only ever built as single-node k3s, so the item was never actually finished. ⛔ **A future session must NOT 'correct' this back to OpenSearch** — the override is recorded in `MEMORY.md` beside the ROADMAP RULE itself, because a rule and its exception must live together or the rule wins by default |
 
 ## 10. 🅓 Inherited and OUT OF SCOPE
@@ -315,5 +375,6 @@ after the incident is not a baseline.**
 diagnosis when something breaks. First control-plane join by hand.
 🤖 **AI:** VM cloning and `host_setup.sh`, the third control-plane join and the second worker
 (repetition rule), all writing, all scripts as committed artefacts.
-🚨 **When a trap fires, the AI stays quiet until asked.** Debugging while confused is the exam skill
-and the job skill.
+🚨 **When something breaks, the AI stays quiet until asked** (`METHOD.md`). Debugging while confused is
+both the exam skill and the job skill — and that rule survives the withdrawal of the planted traps,
+because real failures will happen anyway and they are worth just as much.

@@ -9,6 +9,26 @@ chapters** will live in `../education/k8s-cka/`.
 
 ---
 
+## Status and chapters
+
+**Status:** 🔲 **No chapters written yet.** The phase plan is drafted and awaiting Andrew's review;
+this folder currently holds **research only**. Working record: `../../phases/phase18_k8s_cka_build.md`.
+
+⚠️ **This track is unusual on the shelf and it is deliberate:** it holds **prep research *and* the
+chapters**, because the exam research is not a by-product of the build — it *directs* the build. Andrew
+consolidated them on Sep 16, 2026 rather than keeping `k8s-cka-prep/` apart from an `education/k8s-cka/`.
+
+| Chapter | Subject | Stage | Status |
+|---|---|---|---|
+| 01 | Five VMs prepared for Kubernetes — provision, then subtract | A (work) | 🔲 Planned |
+| 02–04 | Installing and configuring Kubernetes piece by piece: kube-vip, `kubeadm init`, CNI, joining an HA control plane, joining workers | B (work) | 🔲 Planned |
+| 05+ | One CKA administrative task type per chapter, weighted by the exam's own domain weights | C (exam) | 🔲 Planned |
+
+⭐ **Stages A and B are written as procedures to repeat at work. Stage C is exam drilling.** The split is
+the whole design of the phase — see the plan's §6.
+
+---
+
 ## Which file answers what
 
 | File | Holds |
