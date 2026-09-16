@@ -1046,7 +1046,7 @@ It had been accumulating since Aug 13. **When you write a new handoff, move the 
 
 | Host | IP | Status |
 |------|-----|--------|
-| Proxmox | .150 | ✅ Running — `ssh root@192.168.1.150`, key auth ✅ (via `authorized_keys2`, Aug 12 2026) |
+| Proxmox | .150 | ✅ Running — `ssh root@192.168.1.150`, key auth ✅ (via `authorized_keys2`, Aug 12 2026). 🚨 **THE HOST DOES NOT ANSWER PING** (measured Sep 16, 2026: 5/5 packets lost while SSH answered normally and uptime read 20 days). Normal for PVE with the datacenter firewall enabled — its default host rules permit management ports, not ICMP. ⛔ **So `ping .150` failing is NOT evidence the host is down** — it cost a few minutes once; use `ssh` or `nc -z .150 8006` |
 | **QA** | **.180** | ✅ LIVE — **VMID 180, hostname `vm-docker-qa-1`** as of Aug 20, 2026. **Capricorn QA server** (`:5001` frontend, `:5002` backend, auto-deploy on `develop` push), plain `docker compose` — NOT Swarm. ⛔ **The only Kubernetes in this lab is k3s on VM 186.** The old misnamed `vm-kubernetes-1` (VMID 200) was cloned to this one and was **DESTROYED Sep 16, 2026** (`--purge`, no backup, rollback window closed Sept 3). ⚠️ **Any note reading "VM 200 = `.180`" predates Aug 20, 2026 and now describes nothing at all** — VMID 200 is free |
 | GitLab | .181 | ✅ LIVE |
 | Runner | .182 | ✅ LIVE — **VM name is `vm-gitrun-1`**, not `gitlab-runner-1`. ⚠️ `gitlab-runner-1` is the **GitLab runner registration name**, which is a different thing and was listed here as the hostname until Aug 24, 2026. `qm` and `ssh` need `vm-gitrun-1` |
@@ -1056,8 +1056,19 @@ It had been accumulating since Aug 13. **When you write a new handoff, move the 
 | **K8s/Redpanda POC** | **.186** | **🔵 BUILT July 25, 2026 (vm-k8-redpanda-1, Phase 14 sandbox) — `ssh agamache@192.168.1.186`, key auth ✅.** 🖥️ **Cockpit web UI at `https://192.168.1.186:9090/`** (added Aug 20, 2026) — log in with the `agamache` fleet password, self-signed cert so click through the warning. ⚠️ **`onboot 0` — CONFIRMED still 0 on Aug 24, 2026, but it was RUNNING when measured.** `onboot 0` means it will not come back after a host reboot; it does **not** mean it is off now. Check, do not assume |
 | **SWARM** | **.191 .192 .193** | ✅ **`docker-swarm-1/2/3` — VMIDs 191/192/193, all three RUNNING and `Ready/Active` (measured Aug 24, 2026 via `docker node ls` on `.191`).** `docker-swarm-1` is **Leader**, the other two `Reachable`; engine **29.7.2**. 2 vCPU / 4 GB / 40 GB on **`vm-ephemeral`** each. ⚠️ **All three are `onboot 0`** — a host reboot leaves the whole Swarm down, and `vm-ephemeral` is the pool that gets rebuilt, so treat this cluster as **disposable by design**. 🚨 **Phase 17 Part 4 deploys HERE**, as stack **`capricorn-jenkins`** — ⛔ never `capricorn`, which is the Phase 16 GitLab-CI stack kept alive as the comparison. Full detail: `phases/phase16_docker_swarm.md` |
 | Dev box / script server | **.195** | ✅ **THIS machine** — where the AI runs, the repo lives (on **CIFS**, see the gotcha below), and the **host-setup script server** is served from (`cd www && ./run_www.sh`, landing page at `http://192.168.1.195/`). ⚠️ **Not a Proxmox VM**, so it never appears in `qm list` — which is why a session looking for `.195` there concludes it is remote and unreachable. It is not |
+⭐ **HOW TO CHECK WHETHER A LAB ADDRESS IS FREE — use ARP, not ping** (learned Sep 16, 2026). A host can be
+**alive and silent to ICMP** (`.150` is exactly that), so a ping sweep reporting "free" may simply mean
+"present but dropping pings". On a local subnet **ARP cannot be declined** by the host's IP firewall, so it
+is the honest instrument:
+```bash
+sudo ip neigh del <ip> dev <iface>; ping -c1 -W1 <ip} >/dev/null 2>&1; ip neigh show <ip> dev <iface>
+# a lladdr in the output = OCCUPIED, even if the ping failed;  no lladdr = genuinely free
+```
+✅ **Validated with a positive control before being trusted:** `.150` reports OCCUPIED by ARP while failing
+5/5 pings. ⭐ **A sweep that cannot distinguish "absent" from "quiet" is not a measurement.**
+
 ⏳ **RESERVED, NOT BUILT (Phase 18, Sep 16, 2026): VMIDs 201–205 → `.201–.205`, plus VIP `.206` which has
-NO VM behind it.** ⛔ Do not allocate those to anything else. ⚠️ **They are reserved, not verified** — see the
+NO VM behind it.** ✅ **All six re-verified FREE BY ARP, Sep 16 4:12 PM** — not merely quiet to ping. ⛔ Do not allocate those to anything else. ⚠️ **They are reserved, not verified** — see the
 DHCP warning in the PHASE INDEX row.
 🏠 **`.199` and `.200` and `.202` are HOUSEHOLD devices, not lab infrastructure, identified by MAC Sep 16,
 2026:** `.200` = **Apple** (the Mac mini running Plex — the docs were right, and now there is evidence),

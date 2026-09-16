@@ -206,7 +206,12 @@ that is done and a sweep shows it dark.**
 client reboot, router reboot. **That is the signal to stop treating it as a lease problem and either
 change it on the device or route around it.** Routing around it costs nothing.
 
-✅ **CLEARED 3:47 PM — all six of `.201–.206` swept free, and the DHCP question is answered.** Andrew set
+✅ **CLEARED — all six of `.201–.206` verified free BY ARP at 4:12 PM, and the DHCP question is answered.**
+⭐ **The ARP re-check was not belt-and-braces, it fixed a weak instrument:** the earlier sweeps used ping,
+and `.150` proves a host can be **alive and silent to ICMP** — so "no ping reply" could have meant "present
+but dropping pings". ARP cannot be declined by the host's IP firewall. ✅ Validated with a positive control
+(`.150` shows OCCUPIED by ARP while losing 5/5 pings) before the result was trusted. **Method is in
+`MEMORY.md` → IPs & HOSTS.** Andrew set
 the Denon back to DHCP and it took **`.231`**, inside the pool; `.230` agrees. **Pool = `.221–.250`
 confirmed, so nothing new will ever be offered `.201–.206`.**
 🔻 **A correction worth keeping, because the wrong version of this was recorded for half an hour:** the
