@@ -1,6 +1,19 @@
 # Phase 18 — Kubernetes the hard way(ish): a 5-node HA `kubeadm` cluster with kube-vip
 
-**Status:** 📋 **PLAN — DRAFT, AWAITING ANDREW'S REVIEW. Nothing has been built.**
+**Status:** ✅ **APPROVED by Andrew, Sep 16, 2026, 5:48 PM — he read it and signed it off. Nothing is
+built yet; Stage 0 may begin.**
+
+> 🙋 **His governing directive, and it settles arguments so record it once:** *"As an engineer I think we
+> should go step by step in the proper order — by the book — like standard best practices would require.
+> We are not in a rush. We are learning, documenting, and studying."*
+
+⭐ **What "by the book" DECIDES, so it is not just a sentiment:**
+- **Follow the upstream documented procedure** (kubernetes.io → *Creating Highly Available Clusters with
+  kubeadm*) rather than a shortcut that happens to work. Where our lab must deviate, **say so at the step.**
+- ⛔ **No skipped steps and no batching.** Each step gets its confirmation before the next one starts —
+  which is already `CONVENTIONS.md`'s chapter rule, now also the build rule.
+- ⛔ **Time is not a constraint.** If a step needs an hour of reading first, it gets one. **Nothing here is
+  deadline-driven except the exam, and that is Stage 3.**
 **Created:** September 16, 2026
 **Owner:** Andrew
 **Track:** `education/k8s-cka-prep/` — 🔻 **moved there Sep 16, 2026 at Andrew's direction**, so the
@@ -256,6 +269,21 @@ whole build, so it goes first and it goes in the chapter as a prerequisite, not 
    ⭐ **explained as mechanism, not discovered as a surprise**: Kubernetes ships no pod network.
 4. **Join control-2 by hand** (🙋 Andrew), **control-3 by script** (🤖 AI — repetition rule).
 5. **Join both workers**, run a neutral workload, confirm scheduling.
+
+✅ **SEQUENCING SETTLED Sep 16, 2026 — ALL THREE CONTROL PLANES JOIN BEFORE ANY WORKER.** This was the one
+open ordering question, and Andrew's *by the book* directive answers it rather than taste: **upstream's HA
+procedure sequences it exactly this way** — load balancer, `kubeadm init` with `--control-plane-endpoint`,
+CNI, join remaining control planes, *then* workers. ⭐ **It is also right on the merits: etcd quorum is
+established before any workload exists**, so the first thing the cluster does is not simultaneously
+"form a quorum" and "schedule pods". ⛔ **Do not bring a worker up early "to check it works"** — that
+mixes two variables in the one part where the control plane must be provably sound on its own.
+
+🚨 **A `--upload-certs` TRAP that pairs with the 24 h token one, and it is shorter: the certificate key
+`kubeadm init --upload-certs` produces EXPIRES AFTER 2 HOURS.** It is what control-2 and control-3 need in
+order to join as control planes. If Stage 1 spans a break longer than that, **regenerate with
+`kubeadm init phase upload-certs --upload-certs`** rather than debugging a confusing join failure.
+⚠️ Given the *no rush* directive, this trap is now **more likely, not less** — a deliberate pace makes a
+two-hour expiry easy to walk into.
 6. **Prove the HA actually works:** `etcdctl` shows 3 members and a leader; power off a control plane and
    the API still answers *through the VIP*; the VIP demonstrably moved (ARP, not assumption).
 
