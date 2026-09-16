@@ -1,8 +1,20 @@
 # CKA curriculum — domains, weights, and what the 2025 update changed
 
 **Researched September 16, 2026.** Marking scheme in [`README.md`](README.md).
-🟢 Source of truth is the **CNCF curriculum repository** (`github.com/cncf/curriculum`), currently
-**CKA_Curriculum_v1.35**, mirrored by the Linux Foundation and CNCF certification pages.
+
+✅ **READ FROM THE PRIMARY SOURCE, 3:33 PM Sep 16, 2026** — not from summaries. `CKA_Curriculum_v1.35.pdf`
+pulled from `github.com/cncf/curriculum`, **169,029 bytes, 3 pages,
+sha256 `634b7937…78ec18c`**. Reproduce with:
+`curl -sSLO https://raw.githubusercontent.com/cncf/curriculum/master/CKA_Curriculum_v1.35.pdf`
+(a copy sits in this track's gitignored `scratch/`; ⚠️ **a fresh clone will not have it** — use the URL).
+
+⭐ **The read CONFIRMED every domain and weight compiled earlier from the web summaries, and added four
+pieces of precision the summaries had dropped.** All four are recorded in place below and flagged 📄.
+⚠️ **It also settled a naming detail:** the PDF calls the 20% domain **"Servicing and Networking"**, while
+CNCF's web page calls it *"Services & Networking"*. **The PDF's wording is the specification's.**
+📌 **What the PDF does NOT contain, so it cannot be inferred from it:** anything about task count, task
+phrasing, partial credit, or whether tasks chain several steps together (Q3). It is a one-page
+capability list, terse by design — **the specification of WHAT is tested, not HOW it is asked.**
 
 ---
 
@@ -23,9 +35,11 @@ practised.** Combined with Cluster Architecture, **more than half the exam (55%)
 and repairing a cluster rather than authoring manifests. That is the argument for Phase 18 weighting
 *breaking things* above *building things*.
 
-🔴 **CONTRADICTED — do not use these numbers:** a community post circulates a "2025–2026 reweighting" of
-**25 / 12 / 22 / 10 / 31** (Workloads down to 12%, Networking up to 22%, Troubleshooting up to 31%).
-**This conflicts with both official listings**, which still show 25/15/20/10/30. The same post also
+🔴 **CONTRADICTED — settled against the PRIMARY SOURCE now, not just against two web pages:** a community
+post circulates a "2025–2026 reweighting" of **25 / 12 / 22 / 10 / 31** (Workloads down to 12%, Networking
+up to 22%, Troubleshooting up to 31%). ⛔ **The CNCF curriculum PDF itself prints 10% Storage, 30%
+Troubleshooting, 15% Workloads and Scheduling, 25% Cluster Architecture, 20% Servicing and Networking.**
+The claim is simply false. The same post also
 states a Kubernetes version roughly two years stale. ⚠️ **Recorded here specifically so it is not
 re-absorbed from a different blog in three months and mistaken for new information.**
 
@@ -39,7 +53,9 @@ substantially reworded** in that update.
 ### Cluster Architecture, Installation & Configuration — 25%
 - Manage **role-based access control (RBAC)**
 - 🆕 **Prepare underlying infrastructure** for installing a Kubernetes cluster
-- **Create and manage** Kubernetes clusters *(kubeadm)*
+- 📄 **Create and manage Kubernetes clusters USING `kubeadm`** — ⭐ **the specification names the tool
+  explicitly.** The web summaries said only "create and manage Kubernetes clusters". **This is direct
+  confirmation of Phase 18's central build decision** and of why Phase 14's k3s does not substitute
 - 🆕 **Manage the lifecycle** of Kubernetes clusters *(upgrades)*
 - 🆕 Implement and configure a **highly-available control plane**
 - 🆕 Use **Helm and Kustomize** to install cluster components
@@ -53,12 +69,18 @@ substantially reworded** in that update.
 - Manage and evaluate **container output streams**
 - Troubleshoot **services and networking**
 
-### Services & Networking — 20%
-- Define and enforce **NetworkPolicies**
-- **ClusterIP, NodePort, LoadBalancer** service types
-- **Ingress** controllers and Ingress resources
-- **CoreDNS** / cluster DNS
-- 🆕 **Gateway API** *(and its docs are on the allowed-resources list — a strong signal)*
+### Servicing and Networking — 20%   *(the PDF's own name for this domain)*
+- 📄 **Understand connectivity between Pods** — ⚠️ **this competency was MISSING from the earlier
+  compilation entirely.** It is the CNI's job, so it is covered by installing Calico *and* by being able
+  to test pod-to-pod reachability deliberately
+- Define and enforce **Network Policies**
+- **ClusterIP, NodePort, LoadBalancer** service types 📄 **and endpoints** — the "and endpoints" is new
+  precision: **Endpoints/EndpointSlices are examinable**, which is exactly the object that explains a
+  Service that resolves but routes nowhere
+- 📄 **Use the Gateway API to manage Ingress traffic** — the summaries listed "Gateway API" loosely; the
+  spec frames it **as the mechanism for ingress traffic**, alongside (not instead of) Ingress resources
+- Know how to use **Ingress controllers and Ingress resources**
+- **Understand and use CoreDNS**
 
 ### Workloads & Scheduling — 15%
 - Application **deployments**, **rolling updates and rollbacks**

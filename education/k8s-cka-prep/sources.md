@@ -55,5 +55,8 @@ would be, because it looks like the output of research.
   it; 🟡 says it is there.
 - **Whether `etcdctl` is pre-installed on exam control-plane nodes**, or must be located/installed. The
   backup/restore competency implies it is available, but that is an inference, not a source.
-- **The CNCF curriculum PDF itself has not been read** — only its published summaries. It is the actual
-  specification and should be read directly before the coverage matrix is called complete.
+- ✅ **CLOSED Sep 16, 2026 — the CNCF curriculum PDF HAS now been read directly** (`CKA_Curriculum_v1.35.pdf`,
+  169,029 bytes, sha256 `634b7937…78ec18c`). It confirmed every domain and weight and added four pieces of
+  precision the summaries had dropped — see [`curriculum.md`](curriculum.md), items marked 📄. ⭐ **The most
+  useful was that the spec names `kubeadm` outright.** ⚠️ It says nothing about task count, phrasing, partial
+  credit or chaining, so **Q3 cannot be answered from it.**
