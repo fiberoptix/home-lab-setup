@@ -80,6 +80,6 @@ it is what the questions are generated **from**.
 | # | Question | Why it matters |
 |---|---|---|
 | **Q1** | **Has Andrew booked an exam date, and which Kubernetes version will be live then?** | The environment tracks the latest minor within ~4–8 weeks of release. It is **v1.35** today; a booking a few months out may sit on v1.36 or later, which changes what we build. |
-| **Q2** | Is the registration a standard one or a `CKA-SINGLE`? | 🟢 **`-SINGLE` registrations get NO simulator access and no retake.** That materially changes the practice plan. |
+| ~~**Q2**~~ | ~~Standard registration or `CKA-SINGLE`?~~ | ✅ **CLOSED Sep 16, 2026 — moot.** Andrew will **buy Killer.sh sessions as needed ($39 each), as many times as necessary**, so simulator access is not a constraint however the exam was registered. ⭐ **This flips the practice strategy** — see [`lab-parity.md`](lab-parity.md) §6: sit one early to find weaknesses, drill them in the lab, re-sit |
 | **Q3** | Task-shape research is **incomplete** — the second search attempt failed. | We know the domains and the weights but have not yet gathered *published* guidance on how tasks are phrased or timed. |
 | **Q4** | Does the exam's `k` alias and completion come pre-set on every host, or only some? | 🟢 says pre-installed and pre-configured on all SSH hosts. Worth confirming inside the simulator, since setting it up manually costs exam minutes if it was already there. |

@@ -111,8 +111,21 @@ Stated honestly, in the same spirit as *"three VMs on one host is node failure, 
 | **Five nodes on one host** | Genuine member/node failure drills; **not** host or site failure |
 | **The exam's task infobox and Quick Reference links** | Cannot be reproduced; the simulator has them |
 
-⭐ **This is what the two included Killer.sh attempts are for** (🟢 two attempts, 36 hours of access
-each, 17 questions per session). **Spend them deliberately** — they are the only genuine exam-shaped
-rehearsal available, and the lab should be used to get *good* before either attempt is opened, not to
-discover basics during one. ⚠️ **`CKA-SINGLE` registrations get no simulator at all** — see Q2 in
-[`README.md`](README.md).
+🔻 **RESOLVED Sep 16, 2026 — and it changes the strategy, so do not follow older advice here.**
+🙋 **Andrew: "I WILL take the killer.sh tests ($39 each) as many times as necessary."** 🟢 Two attempts come
+with a standard registration; beyond that, sessions are **purchasable**, so exam-shaped rehearsal is
+effectively **unlimited** rather than a scarce resource.
+
+⭐ **What that changes: the simulator becomes a FEEDBACK LOOP, not a final exam.** The earlier plan here was
+"hoard the two attempts, get good in the lab first". With unlimited sessions the better pattern is the
+reverse — **sit one early to find out what you are actually bad at**, then bring those specific weaknesses
+back to the lab where they can be drilled against a snapshot for free, and re-sit. **The lab is the cheap
+place to repeat; the simulator is the accurate place to measure.** ⭐ Each session runs **36 hours** and is
+graded, so one purchase supports a long working session, not a single sitting.
+
+✅ **It also retires the worst parity gap.** Multi-cluster context switching, the PSI interface and time
+pressure under an unfamiliar UI **do not need to be simulated in the lab at all** — the simulator provides
+them accurately and repeatably. ⛔ **So do not build synthetic multi-context kubeconfigs to fake it**; that
+was a workaround for a scarcity that no longer exists.
+⚠️ 🟡 **Community consensus is that Killer.sh is HARDER than the real exam.** Unverified here, and worth
+knowing before a low score is read as "not ready" — see the gaps list in [`sources.md`](sources.md).

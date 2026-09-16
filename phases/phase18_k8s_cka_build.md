@@ -206,12 +206,17 @@ that is done and a sweep shows it dark.**
 client reboot, router reboot. **That is the signal to stop treating it as a lease problem and either
 change it on the device or route around it.** Routing around it costs nothing.
 
-🚨 **BLOCKING PRECONDITION — re-sweep all six before building anything.**
-⛔ **Do not treat the reboot as proof.** Plenty of gateways persist the lease table across a restart, and
-`.202` has already survived one reboot of its own client. **`.202` is the one that must be confirmed dark**
-— it is the address the Denon held, and it is now assigned to a control-plane node, so a collision here
-would be between the AV receiver and an etcd member. ⭐ **The measurement is one command and the failure
-mode is a cluster that half-works intermittently, which is the worst kind.**
+✅ **CLEARED 3:47 PM — all six of `.201–.206` swept free, and the DHCP question is answered.** Andrew set
+the Denon back to DHCP and it took **`.231`**, inside the pool; `.230` agrees. **Pool = `.221–.250`
+confirmed, so nothing new will ever be offered `.201–.206`.**
+🔻 **A correction worth keeping, because the wrong version of this was recorded for half an hour:** the
+Denon's stay on `.199` was **NOT** the router handing out an out-of-pool address — **Andrew had typed it in
+by hand, by mistake.** ⭐ **So the recurring hazard in this lab is a HUMAN assigning a static address into
+lab range, not a misbehaving DHCP server** — which means the defence is the reservation being *written down*
+in `MEMORY.md` → IPs & HOSTS, and nothing on the router can substitute for it.
+⚠️ **Residual caveat:** `.215`, `.217` and `.220` hold household devices on **pre-change leases** — below
+the pool, keeping addresses issued before it was narrowed. ⛔ **Sweep before allocating anything in
+`.207–.220`.** Still re-sweep the six immediately before Stage 0; it is one command.
 
 📌 **AND A SIXTH ADDRESS IS REQUIRED EITHER WAY — the plan asked for five.** kube-vip needs a **VIP with
 no VM behind it**, so five nodes need six addresses. It must be recorded in `MEMORY.md` → IPs & HOSTS as

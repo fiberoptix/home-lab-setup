@@ -29,13 +29,16 @@ step by step · **2** sign off and snapshot the baseline · **3** CKA drilling, 
 📖 Research lives in **`education/k8s-cka-prep/`** (5 files) — that folder is **both** the prep shelf and
 the education track. **Read its `lab-parity.md` before Stage 0**; it decides what may be installed on a node.
 
-🚨 **DHCP HAZARD — MEASURE BEFORE YOU BUILD. This is the one open technical risk.** Andrew moved the
-G3100's pool to `.221–.250`, yet when the Denon was switched to DHCP it took **`.199`** — *below* the stated
-pool. ⛔ **So "everything under `.221` is safe static space" is CONTRADICTED BY MEASUREMENT**, and
-`.201–.206` sits in that same unverified range. **Confirm the real pool, or add reservations, before
-assigning those addresses** — otherwise a DHCP client may later be handed a control-plane node's address.
-⭐ Three separate attempts to free `.202` failed on three different theories before the *device* turned out
-to be holding it. **Treat router-side assumptions here as unproven until swept.**
+✅ **ADDRESSING IS CLEAR — the DHCP worry is CLOSED (3:47 PM).** Pool confirmed **`.221–.250`**: the Denon
+was set back to DHCP and took **`.231`**, with `.230` as a second data point. All six of `.201–.206` swept
+free. 🔻 **The earlier "pool is unverified" alarm was WRONG** — `.199` had been typed in **by hand** by
+mistake, not handed out by the router.
+⭐ **The lesson that survives is a better one than the alarm was:** the recurring risk in this lab is not a
+DHCP server misbehaving, it is **a human assigning a static address into lab range** — so the defence is the
+written reservation in `MEMORY.md`, not a router setting.
+⚠️ **One live caveat:** three household devices sit at **`.215`, `.217`, `.220`** — *below* the pool, on
+leases issued before it was narrowed, the same mechanism that kept the Denon on `.202` through three
+reboots. ⛔ **Sweep before allocating anything in `.207–.220`.**
 
 ⏸️ **PHASE 17 (JENKINS) IS ON HOLD** — paused Sep 16, 2026, **not closed and not superseded.** Every hard
 rule still binds (above all **B10**), its eight planted traps stay unfixed, `.185` keeps running, and the
