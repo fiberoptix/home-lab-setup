@@ -35,7 +35,7 @@ until every curriculum domain has been done by hand, weighted the way the exam w
 ⭐ **Four words across those sentences are load-bearing.** *`kubeadm`*, because the CKA is a kubeadm exam
 and Phase 14's k3s hides precisely the components it tests. *Procedure*, because goal 1 fails if the
 write-up only makes sense to whoever was in the room. *By hand*, because 🟢 the exam is entirely
-performance-based — there is no multiple choice to revise for. And *then*, because Stage C does not open
+performance-based — there is no multiple choice to revise for. And *then*, because Stage 3 does not open
 until the cluster is built, tested and documented.
 
 ⛔ **Do not merge the two goals back into one.** The first draft of this plan did exactly that and
@@ -93,7 +93,7 @@ filesystem only follows if cloud-init's `growpart` fires — **verify with `df -
 `vm-docker-qa-1`) — the Swarm's bare `docker-swarm-N` is the odd one out, and this returns to the
 convention. The short forms `control-1`, `worker-2` are used in prose below for readability; the
 **hostname and the `qm --name` are always the full string**, because those are what `ssh` and `qm` need.
-**Runtime:** containerd, **configured for Kubernetes in Stage A** — ⚠️ the lab's standard build leaves
+**Runtime:** containerd, **configured for Kubernetes in Stage 0** — ⚠️ the lab's standard build leaves
 it configured for *Docker*, which a kubeadm node cannot use. See §8.
 **CNI:** proposed **Calico** (🅐 A4) — chosen because `NetworkPolicy` is on the CKA syllabus and the
 lab's other CNI experience (flannel via k3s) cannot enforce one.
@@ -199,7 +199,9 @@ measurement: the pool was moved to `.221–.250`, the Denon was rebooted, the **
 it is still on `.202`, an address outside the current pool. ⭐ **A DHCP client cannot do that.** On reboot
 it would `DISCOVER` and be offered something in `.221–.250`. **So no amount of router work will move it;
 the address is almost certainly set in the receiver's own network menu.**
-⛔ **`.202` is therefore NOT available**, and the allocation above needs one more decision (see below).
+✅ **DECIDED 3:2x PM — Andrew will change the Denon's own network setting to DHCP**, which frees `.202`
+properly and keeps the clean `201–205` + `.206` run above. ⛔ **`.202` is NOT available until he confirms
+that is done and a sweep shows it dark.**
 ⭐ **Three attempts to free this address have now failed, each on a different theory** — pool change,
 client reboot, router reboot. **That is the signal to stop treating it as a lease problem and either
 change it on the device or route around it.** Routing around it costs nothing.
@@ -227,13 +229,13 @@ exist, which is the exact confusion the `.195` row was added to fix.
 then study for CKA separately? I know there will be some overlap."*
 
 ⭐ **Yes — and it is a better shape than the plan it replaces.** Two goals with **different success
-conditions**, run in sequence instead of blended: **Stages A and B are WORK skills** (a procedure he can
-repeat at the firm), **Stage C is EXAM preparation** and starts only once a standard cluster is up,
-tested and documented. ⭐ **The overlap is an asset, not duplication:** by the time Stage C begins, etcd,
+conditions**, run in sequence instead of blended: **Stages 0 and 1 are WORK skills** (a procedure he can
+repeat at the firm), **Stage 3 is EXAM preparation** and starts only once a standard cluster is up,
+tested and documented. ⭐ **The overlap is an asset, not duplication:** by the time Stage 3 begins, etcd,
 the control-plane components, the kubelet and the CNI are things he *installed*, not exam trivia — which
 is exactly the position the exam's own framing assumes, since it hands you a built cluster to administer.
 
-### Stage A — five VMs, ready for Kubernetes → **chapter 01**
+### Stage 0 — five VMs, ready for Kubernetes → **chapter 01**
 
 **Add, then subtract.** Clone five from template 9000, size them (⚠️ **2 vCPU minimum on control
 planes — `kubeadm` preflight FAILS below that**), resize the 3.5 GB template disk, set static addresses
@@ -272,7 +274,7 @@ true* — that ordering is what makes it repeatable somewhere else.
 and it cannot teach a bad exam habit. It is one of the lab-specific items the chapter marks as *ours,
 not required*.
 
-### Stage B — install and configure Kubernetes, piece by piece → **chapters 02–04**
+### Stage 1 — install and configure Kubernetes, piece by piece → **chapters 02–04**
 
 **The goal is understanding what `kubeadm` does, not getting a green `kubectl get nodes` quickly.**
 
@@ -297,13 +299,50 @@ whole build, so it goes first and it goes in the chapter as a prerequisite, not 
 
 📸 Snapshots: `c02-cp1-init`, `c03-ha-control-plane`, `c04-cluster-complete` — **all five nodes together
 or not at all** (B5).
-📄 **Deliverable: chapters 02–04.** ⭐ **Stage B ends when the cluster is built, tested and DOCUMENTED** —
-Andrew's condition, and it is the gate into Stage C.
+📄 **Deliverable: chapters 02–04.** ⭐ **Stage 1 ends when the cluster is built, tested and DOCUMENTED** —
+Andrew's condition, and it is the gate into Stage 3.
 
-### Stage C — CKA administration, one task type per chapter → **chapters 05+**
+### Stage 2 — sign off the cluster and snapshot it as the baseline → **completes chapter 04**
+
+🙋 **Andrew's item 2:** *"we will agree the cluster is in 'standard virgin working state' in-line with what
+we believe the CKA test environment will look like and snapshot everything."*
+
+**This is a stage, not a checkbox** — it is the gate into exam work and the snapshot every later exercise
+rolls back to, so it gets done properly once rather than assumed.
+
+1. **Agree the state explicitly**, both of us, against a written list: five nodes `Ready`, three etcd
+   members with a leader, VIP answering and demonstrably able to move, CoreDNS running, a neutral
+   workload scheduling on both workers, the exam-matched toolset present on every node.
+2. 📸 **Snapshot all five with the VMs SHUT DOWN.** ⭐ An offline snapshot is disk-consistent *by
+   construction* rather than by fs-freeze, which matters far more here than it did for the Swarm because
+   **etcd is a write-ahead-log database and this is the image we will restore dozens of times.** Phase 17
+   took its accepted baseline (`q02`) offline for exactly this reason. Name: `c02-virgin-cluster`.
+3. 🚨 **PROVE THE ROLLBACK BEFORE STAGE 3 OPENS — do not assume it.** Restore all five from
+   `c02-virgin-cluster`, bring them up, and re-run the step-1 checklist. ⭐ **Ten exercises are built on
+   this snapshot being restorable; the one you never test is the one that fails.** Phase 16's whole drill
+   programme rested on rollback being instant, and this is a five-node cluster with quorum rather than a
+   single VM.
+4. 📄 **Write the baseline down** — versions, addresses, what "healthy" prints — because a later
+   "something is wrong" is only meaningful against a recorded normal.
+
+⚠️ **HONEST LIMIT on "in line with the CKA test environment", so it is not over-claimed:** we can match
+the **node toolset**, the **SSH-from-a-toolless-`base` workflow**, **Kubernetes v1.35**, containerd, and
+the fact that it is kubeadm-built. ⛔ **We cannot match the exam's cluster COUNT or topology, and we do
+not actually know them.** So this is *"a standard kubeadm cluster with exam-matched tooling"*, not *"the
+exam environment"* — a distinction that matters the first time an exercise behaves unexpectedly.
+
+🚨 **A time bomb to expect rather than debug, and it is the k8s analogue of a Phase 16 finding.** Swarm CA
+certs expire three months out, so restoring a frozen snapshot there produced a cluster whose certs had
+expired *while frozen* — presenting as a network fault when it was not. **kubeadm has the same shape:
+cluster certs last a year, kubelet client certs rotate far more often.** If Stage 3 runs over months
+against one snapshot, **expect certificate expiry to appear as mysterious TLS or authentication failures
+after a rollback**, and recognise it instead of chasing it. `kubeadm certs check-expiration` is the
+instrument.
+
+### Stage 3 — CKA administration, one task type per chapter → **chapters 05+**
 
 **Only now does exam material get opened.** Each chapter takes **one class of administrative task**,
-mapped to a curriculum domain, drilled on the cluster Stages A and B built.
+mapped to a curriculum domain, drilled on the cluster Stages 0 and 1 built.
 
 ⭐ **This is where deliberate breakage returns — as EXERCISES, not traps.** Troubleshooting is **30% of
 the exam** and cannot be learned on a healthy cluster. The difference matters: **a trap is hidden from
@@ -316,8 +355,28 @@ Storage 10%.** ⚠️ **The gaps identified in 🅐 A8 (Storage, Helm/Kustomize,
 HPA, Ingress) all live in this stage**, which is what resolves A8: they were never missing from the
 *build*, they belong to the *exam* half — a distinction the original single-track plan could not make.
 
+✅ **EXERCISE SOURCING — decided by Andrew, Sep 16, 2026: build the ~10 exercises from the CNCF
+curriculum plus reputable published practice material, and keep the Killer.sh simulator for rehearsal.**
+⛔ **No recalled or leaked exam content**, which would breach the Linux Foundation confidentiality
+agreement and can invalidate a certification — a bad trade for a credential being used to onboard at a
+regulated institution. ⭐ **The practical loss is small: task TYPES are determined by the published
+curriculum, which CNCF open-sources deliberately.** It is what the questions are generated from, so
+curriculum-derived exercises look nearly identical to recalled ones.
+
+🔄 **Rollback policy, so ten exercises do not cost ten cluster restores:** ⛔ **do NOT roll back all five
+VMs for every exercise.** Most workload tasks — write a Deployment, fix a Service, add a NetworkPolicy —
+are undone with `kubectl delete`. **Reserve the full restore for exercises that genuinely break the
+cluster:** etcd, control-plane components, certificates, node failure. ⭐ Worth scripting a
+`rollback_cluster.sh` on the PVE host and **measuring how long it takes**, because the cost of a restore
+is what decides how boldly you are willing to break things.
+
 ⏱️ **Practise against the clock here, not earlier** — 15–20 tasks in 120 minutes is roughly 6–8 minutes
 each, and speed is a separate skill from correctness.
+
+🔲 **DEFERRED at Andrew's instruction — NOT NOW:** whether exam tasks chain 2–3 steps of troubleshooting
+and administration together. He has heard they do. **This is Q3 in `education/k8s-cka-prep/README.md` and
+gets researched properly before the exercises are written**, because it changes their shape: ten
+single-step exercises train a different skill from ten three-step ones.
 
 ---
 
@@ -345,7 +404,7 @@ possible to the lab environment. The CKA exam is SO HARD we need to only focus o
 administering an already built very basic setup and go from there."*
 
 ⛔ **The eight traps T1–T8 this plan carried are WITHDRAWN.** Nothing is planted, nothing is left broken
-on purpose during Stages A and B, and no failure is concealed from the learner.
+on purpose during Stages 0 and 1, and no failure is concealed from the learner.
 
 ⚠️ **This is a deviation from `METHOD.md`, which makes planted traps a stage-1 practice and marks them
 do-not-fix.** Recorded here rather than done silently, per that file's own rule 8 — *the method is a
@@ -353,13 +412,13 @@ floor, not a ceiling; deviate deliberately, then fold back what works.* 🔲 **I
 `METHOD.md` gains a note that a certification-driven track inverts the trap practice.**
 
 **Why the reasoning holds**, because it is not simply "traps are inconvenient":
-- ⭐ **The deliverable changed.** Stage A and B chapters are **procedures Andrew repeats at work**. A
+- ⭐ **The deliverable changed.** Stage 0 and 1 chapters are **procedures Andrew repeats at work**. A
   procedure's job is to show the path that *works* — which is already `CONVENTIONS.md` decision **A12**
   (*a chapter is the build procedure*). Traps serve a different goal: earning a diagnosis.
 - ⭐ **The exam does not test building.** 🟢 It hands you built clusters and asks for administration. Lab
   failure modes invented by us are **not** what is tested, and a hard exam plus a limited clock is a bad
   place to spend attention on lab-specific trivia.
-- ⭐ **Breakage is not dropped, it MOVES to Stage C as chosen exercises** — see §6. Troubleshooting is
+- ⭐ **Breakage is not dropped, it MOVES to Stage 3 as chosen exercises** — see §6. Troubleshooting is
   **30% of the marks**, so deliberate faults are mandatory *eventually*; they just belong to exam prep
   rather than to the build.
 
@@ -368,15 +427,15 @@ than declared away:**
 
 | Was | Now |
 |---|---|
-| **T1** — containerd's CRI plugin disabled, so `kubeadm init` hangs on a kubelet that cannot reach a runtime | ✅ **PRE-EMPTED in Stage A as a documented step.** It is not a trap we set — it is what `setup_docker.sh` leaves behind on **every** lab host (✅ verified on `.191`: `disabled_plugins = ["cri"]`). So the only choices were *fix it deliberately* or *be ambushed*. **Fix it, and explain it in the chapter**, because anyone repeating this at work on a Docker-built host meets it too |
-| **T2** — cgroup driver mismatch (containerd `cgroupfs` vs kubelet `systemd`), failing late and intermittently | ✅ **PRE-EMPTED in Stage A.** ⚠️ Worth stating in the chapter *because of how it fails*: not at install time but later and under load, which makes it nearly undiagnosable after the fact |
-| **T3** — `kubeadm init` without `--control-plane-endpoint`, making HA impossible later | ✅ **Now a hard PREREQUISITE in Stage B**, stated before step 1 rather than discovered in step 4 |
-| **T4** — the 24 h join-token expiry | ✅ Now a **documented note**: if Stage B spans two sessions, generate a fresh token (`kubeadm token create`) rather than debugging a confusing join failure |
-| **T5** — nodes `NotReady`, CoreDNS `Pending` until a CNI exists | ✅ Now **explained as mechanism** in Stage B step 3 |
-| **T6/T7/T8** — default-deny NetworkPolicy killing DNS · quorum loss failing reads · the cluster down after a host reboot | ✅ **Moved into Stage C as named exercises.** All three are genuinely on-syllabus and all three are better drilled repeatedly than sprung once |
+| **T1** — containerd's CRI plugin disabled, so `kubeadm init` hangs on a kubelet that cannot reach a runtime | ✅ **PRE-EMPTED in Stage 0 as a documented step.** It is not a trap we set — it is what `setup_docker.sh` leaves behind on **every** lab host (✅ verified on `.191`: `disabled_plugins = ["cri"]`). So the only choices were *fix it deliberately* or *be ambushed*. **Fix it, and explain it in the chapter**, because anyone repeating this at work on a Docker-built host meets it too |
+| **T2** — cgroup driver mismatch (containerd `cgroupfs` vs kubelet `systemd`), failing late and intermittently | ✅ **PRE-EMPTED in Stage 0.** ⚠️ Worth stating in the chapter *because of how it fails*: not at install time but later and under load, which makes it nearly undiagnosable after the fact |
+| **T3** — `kubeadm init` without `--control-plane-endpoint`, making HA impossible later | ✅ **Now a hard PREREQUISITE in Stage 1**, stated before step 1 rather than discovered in step 4 |
+| **T4** — the 24 h join-token expiry | ✅ Now a **documented note**: if Stage 1 spans two sessions, generate a fresh token (`kubeadm token create`) rather than debugging a confusing join failure |
+| **T5** — nodes `NotReady`, CoreDNS `Pending` until a CNI exists | ✅ Now **explained as mechanism** in Stage 1 step 3 |
+| **T6/T7/T8** — default-deny NetworkPolicy killing DNS · quorum loss failing reads · the cluster down after a host reboot | ✅ **Moved into Stage 3 as named exercises.** All three are genuinely on-syllabus and all three are better drilled repeatedly than sprung once |
 
 ⭐ **What we give up, stated honestly:** the experience of diagnosing an unexpected failure *cold*, which
-is the thing traps are uniquely good at. **Stage C recovers most of it** — the faults are still real and
+is the thing traps are uniquely good at. **Stage 3 recovers most of it** — the faults are still real and
 still have to be diagnosed — but he will know a fault is coming. **That is the trade, and it is the right
 one for a dated certification.**
 
@@ -390,7 +449,7 @@ one for a dated certification.**
 | **A4** | **CNI choice** | ✅ **DECIDED Sep 16 — Calico.** Kubernetes ships with **no** pod network at all (that is trap T5), so one must be installed. Calico is the conventional `kubeadm` pairing, uses ordinary Linux routing, and **enforces `NetworkPolicy`, which is on the CKA syllabus** and is what makes T6 possible. Cilium is more modern (eBPF, better observability) but is a second large subject on top of the exam; flannel — what k3s gave track 1 — **cannot enforce a policy at all**, so the lab has no policy experience yet |
 | **A5** | Stop the Swarm VMs to reclaim CPU? | ✅ **NOT NEEDED — measured.** Host CPU over the last year: mean **1.11%**, p95 **2.74%**, p99 **4.06%**. Leave the Swarm running. See §4 |
 | **A6** | Kubernetes version | 🔻 **REVISED Sep 16 after the exam research — build the current `v1.35` patch, upgrade to `v1.36` in Part 6.** The earlier answer (build 1.36.4 → 1.37.0) was reasoned only from upstream and is **wrong for this phase's purpose**: 🟢 **the CKA environment runs v1.35**, roughly two minors behind upstream's v1.37.0. Practising daily on a version ahead of the exam trades away the whole point. The revised pair is strictly better — **daily practice matches the exam**, and the upgrade drill now mirrors the real competency *"manage the lifecycle of Kubernetes clusters"* by upgrading **from** the version under test. ⚠️ The exam tracks the newest minor within ~4–8 weeks, so **re-check before booking** (`education/k8s-cka-prep/exam-environment.md`) |
-| **A8** | ✅ **RESOLVED Sep 16 by the three-stage restructure — this finding is what forced it.** 🚨 **The curriculum is WIDER than the original plan.** Research on Sep 16 mapped the plan against the published competencies and found real gaps: **Storage (10% of the exam — StorageClasses, dynamic provisioning, PV/PVC) is not covered AT ALL**, nor are **Helm and Kustomize**, **CRDs and operators**, **Gateway API**, **workload autoscaling (HPA)** or **Ingress** — and four of those were **added by the Feb 2025 update**. **Troubleshooting is 30% of the marks** and is covered only incidentally by the drills | ✅ **All of it now lives in Stage C**, one task type per chapter, weighted by the real exam weights. ⭐ **The gaps were never missing from the BUILD — they belong to the EXAM half**, and a single blended track had nowhere to put them. Full mapping in `education/k8s-cka-prep/curriculum.md` |
+| **A8** | ✅ **RESOLVED Sep 16 by the three-stage restructure — this finding is what forced it.** 🚨 **The curriculum is WIDER than the original plan.** Research on Sep 16 mapped the plan against the published competencies and found real gaps: **Storage (10% of the exam — StorageClasses, dynamic provisioning, PV/PVC) is not covered AT ALL**, nor are **Helm and Kustomize**, **CRDs and operators**, **Gateway API**, **workload autoscaling (HPA)** or **Ingress** — and four of those were **added by the Feb 2025 update**. **Troubleshooting is 30% of the marks** and is covered only incidentally by the drills | ✅ **All of it now lives in Stage 3**, one task type per chapter, weighted by the real exam weights. ⭐ **The gaps were never missing from the BUILD — they belong to the EXAM half**, and a single blended track had nowhere to put them. Full mapping in `education/k8s-cka-prep/curriculum.md` |
 | **A7** | **Roadmap deviation — CONFIRMED BY ANDREW.** `education/fin_tech_stack.txt` lists **OpenSearch** next and the standing rule is to work it step-by-step | ✅ **CLOSED Sep 16 — Andrew set the list aside for this phase, explicitly and on the record.** His grounds: the CKA is a **dated external commitment**, and Kubernetes is **#1 on that very list** but was only ever built as single-node k3s, so the item was never actually finished. ⛔ **A future session must NOT 'correct' this back to OpenSearch** — the override is recorded in `MEMORY.md` beside the ROADMAP RULE itself, because a rule and its exception must live together or the rule wins by default |
 
 ## 10. 🅓 Inherited and OUT OF SCOPE
