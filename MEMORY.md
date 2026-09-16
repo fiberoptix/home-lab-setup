@@ -1018,7 +1018,7 @@ It had been accumulating since Aug 13. **When you write a new handoff, move the 
 | Host | IP | Status |
 |------|-----|--------|
 | Proxmox | .150 | ✅ Running — `ssh root@192.168.1.150`, key auth ✅ (via `authorized_keys2`, Aug 12 2026) |
-| **QA** | **.180** | ✅ LIVE — **VMID 180, hostname `vm-docker-qa-1`** as of Aug 20, 2026. **Capricorn QA server** (`:5001` frontend, `:5002` backend, auto-deploy on `develop` push), plain `docker compose` — NOT Swarm. ⛔ **The only Kubernetes in this lab is k3s on VM 186.** The old misnamed `vm-kubernetes-1` (VMID 200) was cloned to this one and is now **stopped, `onboot 0`, awaiting destroy after ~Sept 3, 2026** |
+| **QA** | **.180** | ✅ LIVE — **VMID 180, hostname `vm-docker-qa-1`** as of Aug 20, 2026. **Capricorn QA server** (`:5001` frontend, `:5002` backend, auto-deploy on `develop` push), plain `docker compose` — NOT Swarm. ⛔ **The only Kubernetes in this lab is k3s on VM 186.** The old misnamed `vm-kubernetes-1` (VMID 200) was cloned to this one and was **DESTROYED Sep 16, 2026** (`--purge`, no backup, rollback window closed Sept 3). ⚠️ **Any note reading "VM 200 = `.180`" predates Aug 20, 2026 and now describes nothing at all** — VMID 200 is free |
 | GitLab | .181 | ✅ LIVE |
 | Runner | .182 | ✅ LIVE — **VM name is `vm-gitrun-1`**, not `gitlab-runner-1`. ⚠️ `gitlab-runner-1` is the **GitLab runner registration name**, which is a different thing and was listed here as the hostname until Aug 24, 2026. `qm` and `ssh` need `vm-gitrun-1` |
 | SonarQube | .183 | ✅ LIVE (vm-sonarqube-1, v26.1.0) |
@@ -1027,8 +1027,6 @@ It had been accumulating since Aug 13. **When you write a new handoff, move the 
 | **K8s/Redpanda POC** | **.186** | **🔵 BUILT July 25, 2026 (vm-k8-redpanda-1, Phase 14 sandbox) — `ssh agamache@192.168.1.186`, key auth ✅.** 🖥️ **Cockpit web UI at `https://192.168.1.186:9090/`** (added Aug 20, 2026) — log in with the `agamache` fleet password, self-signed cert so click through the warning. ⚠️ **`onboot 0` — CONFIRMED still 0 on Aug 24, 2026, but it was RUNNING when measured.** `onboot 0` means it will not come back after a host reboot; it does **not** mean it is off now. Check, do not assume |
 | **SWARM** | **.191 .192 .193** | ✅ **`docker-swarm-1/2/3` — VMIDs 191/192/193, all three RUNNING and `Ready/Active` (measured Aug 24, 2026 via `docker node ls` on `.191`).** `docker-swarm-1` is **Leader**, the other two `Reachable`; engine **29.7.2**. 2 vCPU / 4 GB / 40 GB on **`vm-ephemeral`** each. ⚠️ **All three are `onboot 0`** — a host reboot leaves the whole Swarm down, and `vm-ephemeral` is the pool that gets rebuilt, so treat this cluster as **disposable by design**. 🚨 **Phase 17 Part 4 deploys HERE**, as stack **`capricorn-jenkins`** — ⛔ never `capricorn`, which is the Phase 16 GitLab-CI stack kept alive as the comparison. Full detail: `phases/phase16_docker_swarm.md` |
 | Dev box / script server | **.195** | ✅ **THIS machine** — where the AI runs, the repo lives (on **CIFS**, see the gotcha below), and the **host-setup script server** is served from (`cd www && ./run_www.sh`, landing page at `http://192.168.1.195/`). ⚠️ **Not a Proxmox VM**, so it never appears in `qm list` — which is why a session looking for `.195` there concludes it is remote and unreachable. It is not |
-| ~~vm-kubernetes-1~~ | (VMID 200) | ⛔ **STOPPED, `onboot 0`, awaiting destroy after ~Sept 3, 2026.** The original misnamed QA box, cloned to VMID 180. **No `.180` address any more** — do not confuse it with the live QA server |
-
 ✅ **VERIFIED LIVE Aug 24, 2026** — `qm list` and `qm config` on `.150`, plus `docker node ls` on
 `.191`. Not transcribed from a phase file. Also present and deliberately not given a row:
 **VMID 9000** `tmpl-ubuntu-2404-cloudinit` (stopped — it is a template; see **CLOUD-INIT TEMPLATE**).
@@ -1670,7 +1668,7 @@ hurts most (GitLab, the runner) were in the `enabled` group.
 ### Current VMs (Last verified Feb 20, 2026)
 | VM | CPU | RAM | Disk | Storage | Config |
 |----|-----|-----|------|---------|--------|
-| **180 - QA** (`vm-docker-qa-1`, IP `.180`) | 8 cores | 12 GB | 100 GB | vm-ephemeral | ✅ Standard — **full clone of the old VMID 200, Aug 20, 2026.** VMID now matches the IP like every other VM. Only ~15 GB of the 100 GB is actually used |
+| **180 - QA** (`vm-docker-qa-1`, IP `.180`) | 8 cores | 12 GB | 100 GB | vm-ephemeral | ✅ Standard — **full clone of the old VMID 200, Aug 20, 2026** (that source VM was destroyed Sep 16, 2026). VMID now matches the IP like every other VM. Only ~15.7 GB is written, but ⚠️ **the zvol RESERVES 116 GB on the pool** — these are thick volumes, so `qm config`'s `size=100G` understates the pool cost and written data understates it further |
 | **181 - GitLab** | 8 cores | 24 GB | 500 GB | vm-critical | ✅ Standard |
 | **182 - Runner** | 8 cores | 12 GB | 100 GB | vm-ephemeral | ✅ Standard |
 | **183 - SonarQube** | 4 cores | 12 GB | 30 GB | vm-critical | ✅ Standard |
@@ -1680,15 +1678,15 @@ hurts most (GitLab, the runner) were in the `enabled` group.
 | **191 - docker-swarm-1** | 2 cores | 4 GB | 40 GB | vm-ephemeral | ✅ Standard (template 9000) — **built Aug 13, 2026, Phase 16** |
 | **192 - docker-swarm-2** | 2 cores | 4 GB | 40 GB | vm-ephemeral | ✅ Standard (template 9000) — **built Aug 13, 2026, Phase 16** |
 | **193 - docker-swarm-3** | 2 cores | 4 GB | 40 GB | vm-ephemeral | ✅ Standard (template 9000) — **built Aug 13, 2026, Phase 16** |
-| ~~**200 - QA**~~ (old `vm-kubernetes-1`) | ~~8 cores~~ | ~~12 GB~~ | ~~100 GB~~ | ~~vm-ephemeral~~ | 🟡 **STOPPED + `onboot 0` Aug 20, 2026 — kept as the rollback for VM 180 until ~Sept 3, 2026, then destroy.** Its VMID never matched its IP (.180) and its hostname claimed Kubernetes it never ran; both were fixed by cloning to 180. **Consumes disk only, no RAM/CPU, while stopped.** ⚠️ Its `pre-clone-20260820` snapshot still records `onboot: 1` — a rollback would re-arm autostart and collide with .180 |
+| ~~**200 - QA**~~ (old `vm-kubernetes-1`) | — | — | — | — | ⛔ **DESTROYED Sep 16, 2026** — `qm destroy 200 --purge`, no backup (declined: QA is a deploy target, not a data store). The pre-rename QA box, cloned to VMID 180 on Aug 20; rollback window closed Sept 3. Verified gone: config, zvol, and its `pre-clone-20260820` snapshot. **VMID 200 is free.** It had no `200.fw`, no backup job and no storage referencing it, so nothing else moved |
 | **9000 - TEMPLATE** | 2 cores | 2 GB | 3.5 GB | vm-ephemeral | 📀 `tmpl-ubuntu-2404-cloudinit` |
 
 ### RAM Allocation Strategy
 - **GitLab:** 24 GB (memory-hungry, upgraded from 16 GB)
 - **SonarQube:** 12 GB (upgraded from 8 GB for large project scans)
 - **Runner:** 12 GB (upgraded from 8 GB)
-- **QA (`.180`, VMID 180, `vm-docker-qa-1`):** 12 GB (upgraded from 8 GB). **Old VMID 200 is stopped, so
-  this 12 GB is counted once, not twice** — a stopped VM reserves no RAM.
+- **QA (`.180`, VMID 180, `vm-docker-qa-1`):** 12 GB (upgraded from 8 GB). Counted once — the old VMID
+  200 was destroyed Sep 16, 2026.
 - **WWW:** 8 GB (Traefik + Capricorn PROD + splash)
 - **~~OpenClaw:~~ 0 GB** — ⛔ **VM 185 destroyed Aug 19, 2026. The 16 GB and 12 cores are actually free
   now, not merely idle.** Phase 17's `vm-jenkins-1` takes 8 GB / 4 vCPU of it, so the lab **nets 8 GB
@@ -2034,6 +2032,16 @@ All Proxmox-host alerts now reach Andrew's Gmail via app password (PASSWORDS.md 
 | rpool | 2x WD Blue SN5100 500GB | mirror | 460GB | 11GB (2%) | lz4 ✅ | 1.17x | Proxmox, ISOs |
 | vm-critical | 2x Lexar NM620 1TB | mirror | 952GB | 66GB (6%) | lz4 ✅ | 1.40x | GitLab, Sonar, WWW, ~~(OpenClaw)~~ → **Jenkins** (185's 50 GB freed Aug 19, 2026) |
 | vm-ephemeral | 2x Lexar NM620 1TB | stripe | 1.86TB | 46GB (2%) | lz4 ✅ | ~1.5x | Runner, QA |
+
+📊 **`vm-ephemeral` re-measured Sep 16, 2026 after VM 200 was destroyed: `zfs` USED 778G → 662G,
+AVAIL 1.04T → 1.16T; `zpool` ALLOC 76.7G → 62.1G.** ⭐ **Those are two different questions and you
+need both.** The zvol read `USED 116G` / `REFER 14.6G` on a `size=100G` disk, because **VM zvols here
+are THICK** (`refreservation`, `sparse` unset) — so a destroy returns **116 GB of reservation** to the
+pool but only **14.6 GB of real blocks**. ⚠️ **And the first ALLOC reading taken immediately after the
+destroy still said 76.7G**: the reservation is released synchronously, the blocks are freed
+asynchronously a few seconds later. **A capacity check run the instant after a delete reports the old
+number and looks like the delete failed.** Same family as the `phase0` finding that `vm-critical`'s
+alarming 70.9% is refreservation rather than data.
 
 **ashift (verified/fixed Jul 9, 2026):** ALL pools now ashift=12 (vm-ephemeral was 9 —
 rebuilt Jul 9; NM620s only expose 512B LBA so ashift must be set at pool creation).

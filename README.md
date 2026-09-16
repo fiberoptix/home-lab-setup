@@ -87,8 +87,12 @@ A lot has shipped since the initial CI/CD milestone:
 
 | VMID | Name | Why |
 |---|---|---|
-| 200 | `vm-kubernetes-1` | Superseded; cloned to 180. Awaiting destroy |
 | 9000 | `tmpl-ubuntu-2404-cloudinit` | The cloud-init **template** — must stay stopped |
+
+⛔ **VMID 200 `vm-kubernetes-1` was destroyed Sep 16, 2026** (`qm destroy 200 --purge`, no backup —
+QA is a deploy target, not a data store). It was the pre-rename QA box, cloned to VMID 180 on
+Aug 20; the rollback window closed Sept 3. VM 180 keeps its own verified snapshots. **VMID 200 is
+free**, and any old note reading "VM 200 = `.180`" now describes nothing.
 
 🚨 **Four VMs are `onboot=0` and will NOT restart after a host reboot:** **186, 191, 192, 193.** They
 run normally but come back **stopped**, so a power event silently leaves the Swarm down. Restart with

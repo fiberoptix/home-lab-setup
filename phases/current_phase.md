@@ -503,8 +503,10 @@ match its IP and a hostname advertising Kubernetes it has never run (it runs **C
 `18x → .18x` convention every other VM follows. 🚨 **Proxmox cannot re-number a VM in place — "renumbering"
 is always a clone**, which is why this was a copy-and-validate job rather than an edit.
 
-**The old VM 200 is STOPPED with `onboot 0`, deliberately kept as the rollback until ~Sept 3, 2026,
-then destroy.** It costs disk only; a stopped VM reserves no RAM or CPU.
+~~**The old VM 200 is STOPPED with `onboot 0`, deliberately kept as the rollback until ~Sept 3, 2026,
+then destroy.**~~ ⛔ **EXECUTED Sep 16, 2026 — VM 200 is DESTROYED** (`--purge`, no backup) and this
+directive is spent. Nothing here is actionable any more; the `pre-clone-20260820` snapshot below went
+with it.
 
 ⚠️ **Two hazards found before starting, both real:**
 
