@@ -145,6 +145,14 @@ It had been accumulating since Aug 13. **When you write a new handoff, move the 
   STEP-BY-STEP, in that list's order.** Do not invent a curriculum or re-derive priorities — the list
   is the backlog. Track 1 (Kubernetes + Redpanda) and track 2 (Docker Swarm, Phase 16) are already on
   it; **Jenkins is next after Swarm.**
+  🔻 **DOCUMENTED OVERRIDE — Andrew, Sep 16, 2026: Phase 18 is KUBERNETES (CKA), NOT the next list
+  item.** The list says **OpenSearch** comes after Jenkins. Andrew set that aside explicitly, on the
+  record, for two stated reasons: the **CKA is a dated external commitment** tied to onboarding at the
+  new job, and **Kubernetes is #1 on that very list** but was only ever built as *single-node k3s*
+  (Phase 14), so the item was never actually completed. ⛔ **Do NOT "correct" this back to OpenSearch** —
+  it is a decision, not drift. ⭐ **The override lives here, next to the rule, deliberately:** an
+  exception filed anywhere else loses to the rule, because the rule is what a cold session reads first.
+  **OpenSearch remains next after Phase 18**; nothing else about the ordering changed.
   ✅ **Chapter 7 of track 1 was RIGHT and must be LEFT ALONE (Andrew, Aug 13).** Its six areas
   (Cloudflare edge, IAM + Symantec PAM, Vault, PKI/cert-manager, MongoDB, OTEL→Prometheus/Grafana/
   OpenSearch) came from the job description and **are genuinely in the target stack** — they are
@@ -1707,8 +1715,14 @@ hurts most (GitLab, the runner) were in the `enabled` group.
   exactly by the 16 GB VM 186 gave back the day before. Swarm's control plane is light; CPU
   (2 vCPU each) is the binding constraint, not RAM.
 - **Total Allocated — ⭐ RE-BASED Aug 26, 2026 after the RAM upgrade: 104 GB of 192 GB (54%)**,
-  measured live from `qm config` across the ten running VMs, with **~87 GB free**. vCPU sits at
-  **42 of 48 threads**.
+  measured live from `qm config` across the ten running VMs, with **~87 GB free**.
+  🔻 **vCPU CORRECTED Sep 16, 2026: it is 54 of 48 threads assigned (112%), NOT the 42 this line said.**
+  Re-summed live from `qm config` across the ten running guests. **So the host is already oversubscribed
+  on CPU**, which is the opposite of what the old number implied. ✅ **Measured and accepted, not merely
+  tolerated:** PVE's own year RRD reads mean **1.11%**, p95 **2.74%**, max **4.09%**, load **0.70 of 48**.
+  ⚠️ **But that year timeframe averages ~8 h per sample, so it CANNOT see short bursts** — the max means
+  "no 8-hour window exceeded 4%", not "the host never got busy". For real contention the instrument is
+  **`%st` steal time INSIDE the guests**, not host CPU%.
   - *Prior reading (Aug 19, 2026, after 185 was destroyed):* 96 GB of 128 GB (75%), rising to
     **104 GB (81%)** once Phase 17's `vm-jenkins-1` took its 8 GB / 4 vCPU. **The allocation did not
     change on Aug 26 — the denominator did.** Same 104 GB, 81% → 54%.
@@ -1719,8 +1733,9 @@ hurts most (GitLab, the runner) were in the `enabled` group.
   - ⚠️ **But the ceiling is now physical, not financial.** 192 GB is the maximum this board reaches
     with 32 GB modules (6 slots, 1 CPU, all full). When *this* fills, the answer is not another pair
     of sticks — it is 64 GB modules or a second CPU. Treat 192 GB as fixed when sizing.
-  - Note vCPU is still **42 of 48 threads assigned**; the RAM upgrade bought no CPU headroom, and CPU
-    was already the binding constraint on the Swarm nodes.
+  - Note vCPU is **54 of 48 threads assigned** (corrected Sep 16, 2026 — this said 42); the RAM upgrade
+    bought no CPU headroom. ⚠️ **CPU is the binding constraint on paper, RAM is not** — but see the
+    measured utilisation above before treating that as a limit.
 
 ---
 
@@ -2078,7 +2093,8 @@ All pools feature-flag current (zpool upgrade Jul 9).
 | 15 | Education program — multi-track study repo | ✅ **Parts A–D COMPLETE Aug 12, 2026.** `education/` is now a shelf: one folder per track, shared `tools/`, `CONVENTIONS.md`. One item open — the `docker-swarm` row in `education/README.md`'s track table, held until the folder exists. |
 | 16 | Docker Swarm (education track 2) | 🟢 **COMPLETE — ALL 7 PARTS, ALL 7 TRAPS CLOSED (Aug 19, 2026); 8 chapters written.** VMs 191/192/193 from template 9000; three-manager swarm, quorum 2 of 3; snapshots `s01-base-clean` → **`s07-c4-fixed-verified`** (⭐ **`s07` is the FIRST snapshot containing the C4 fix — `s06` predates it**). CI deploys the stack from GitLab; **C1–C5 fired, C6/C6b closed, C7 run Aug 19**; C4 fixed and VERIFIED against a degraded cluster (P48+P50). 🤖 **C7 + chapter 7 were AI-EXECUTED at Andrew's written instruction — declared in the chapter and the README, and deliberately marked WEAKER than chapters 1–6, which he drove.** **Part 7 closed as chapter 8 — the Swarm↔Kubernetes crib sheet, every row marked S / K / 🤖 / ⚠️ recited so nothing recited can be quoted as experience.** ⭐ Its two non-obvious conclusions: **the PVC abstraction is not what protects data** (the k3s lab's `local-path` strands it identically — the value is the driver ecosystem, not the object), and **Swarm's digest-pinning default is the SAFER of the two image models.** **🟢 CLOSED Aug 19, 2026 — nothing outstanding.** Drill D ran Aug 18 (P30/P31 ✅), the highlight pass finished Aug 19 (all 15 chapters, both tracks, 19.5–21.2 %), and the last open measurement — the `redis` divergent-volume question — was made and **refuted** (the two volumes are trap C3's deliberate residue). 🚨 **Its transferable lesson: `docker service ps`'s `CURRENT STATE` age is the manager's last STATUS STAMP, not the task's age** — it moves on control-plane churn, so a day-old task presents as freshly rescheduled, which manufactured a fictional data-loss incident until measured. ⚠️ **Standing hazard, recorded not fixed: an empty 88-byte `capricorn_redis_data_swarm` sits on `.193`** — `redis` scheduling there attaches an empty cache. 🙋 Andrew drives by default (`education/METHOD.md` → "Who does the work"). Re-walk the `📌 READ THIS FIRST` pre-flight list in `phases/phase16_docker_swarm.md` each session. |
 | 17 | Jenkins (education track 3) | ⏸️ **ON HOLD since Sep 16, 2026 — Parts 0–3 DONE, resume at Part 4 (deploy to the Swarm).** Jenkins is live on `.185` and a `git push` builds it unattended; chapters 1–3 are written and built. **Paused for a new project, NOT closed** — hard rules B10/B11 bind, traps T1–T8 stay unfixed, and `.185` keeps running. ⚠️ Both registry tokens expire **2026-12-31**, so resuming after that starts with two dead credentials. |
-| 18+ | Remaining study list | 💭 **Backlog, worked STEP-BY-STEP in its stated order** after Jenkins: OpenSearch + Dashboards → Prometheus + Grafana → Redpanda Connect + Debezium CDC → MongoDB + Postgres → SAML/OIDC (authentik) → Ansible. Source of truth is `education/fin_tech_stack.txt`; do not re-derive priorities. |
+| 18 | **Kubernetes HA + CKA prep** (education track 4) | 📋 **PLANNED Sep 16, 2026 — plan written, NOTHING BUILT, awaiting Andrew's review.** `phases/phase18_k8s_cka_build.md`. A 5-node **`kubeadm`** cluster (3 control plane w/ stacked etcd + 2 workers) behind a **kube-vip** VIP, built to pass the **CKA** and onboard onto the new job's platform. Build **v1.36.4**, upgrade to **v1.37.0** in-place as a drill. CNI **Calico** (NetworkPolicy is on the syllabus). ⏳ **RESERVED, NOT YET BUILT: VMIDs 187/188/189/190/194 → `.187`–`.190`, `.194`, plus VIP `.196` which has NO VM behind it.** Do not allocate those. ⛔ **`.186` (k3s) is FROZEN and is not part of it.** 🔻 Deliberate override of the step-by-step roadmap rule — see CURRENT STATE |
+| 19+ | Remaining study list | 💭 **Backlog, worked STEP-BY-STEP in its stated order** after Phase 18 (was "after Jenkins" until Sep 16, 2026 — inserting Phase 18 moved the boundary): OpenSearch + Dashboards → Prometheus + Grafana → Redpanda Connect + Debezium CDC → MongoDB + Postgres → SAML/OIDC (authentik) → Ansible. Source of truth is `education/fin_tech_stack.txt`; do not re-derive priorities. |
 
 **Phase docs:** `/phases/`
 

@@ -3,7 +3,7 @@
 **Status:** 📋 **PLAN — DRAFT, AWAITING ANDREW'S REVIEW. Nothing has been built.**
 **Created:** September 16, 2026
 **Owner:** Andrew
-**Track:** `education/kubernetes-cka/` (proposed name — see 🅐 A3)
+**Track:** `education/k8s-cka/` (settled Sep 16, 2026 — aligned to the VM naming)
 **Supersedes nothing.** Phase 17 (Jenkins) is **ON HOLD at Part 4**, paused not closed.
 
 > 🙋 **Andrew, Sep 16, 2026:** *"phase18_k8s_cka_build — where we will properly build a 5 node setup
@@ -72,7 +72,11 @@ distinguish the two clusters by purpose rather than by uniqueness.**
               worker-1          worker-2               2 × worker, workload only
 ```
 
-**Names:** `k8s-cp-1/2/3` and `k8s-worker-1/2` (proposed — 🅐 A2).
+**Names (settled by Andrew, Sep 16, 2026):** `vm-k8s-cka-control-1/2/3` and `vm-k8s-cka-worker-1/2`.
+⭐ Note these carry the **`vm-` prefix** the rest of the lab uses (`vm-www-1`, `vm-jenkins-1`,
+`vm-docker-qa-1`) — the Swarm's bare `docker-swarm-N` is the odd one out, and this returns to the
+convention. The short forms `control-1`, `worker-2` are used in prose below for readability; the
+**hostname and the `qm --name` are always the full string**, because those are what `ssh` and `qm` need.
 **Runtime:** containerd (see the trap in 🅒 T1 — the lab's build standard actively breaks this).
 **CNI:** proposed **Calico** (🅐 A4) — chosen because `NetworkPolicy` is on the CKA syllabus and the
 lab's other CNI experience (flannel via k3s) cannot enforce one.
@@ -152,11 +156,11 @@ there. This costs a contiguous run and buys immunity from an entire class of col
 
 | Role | VMID | Address |
 |---|---|---|
-| `k8s-cp-1` | 187 | `192.168.1.187` |
-| `k8s-cp-2` | 188 | `192.168.1.188` |
-| `k8s-cp-3` | 189 | `192.168.1.189` |
-| `k8s-worker-1` | 190 | `192.168.1.190` |
-| `k8s-worker-2` | 194 | `192.168.1.194` |
+| `vm-k8s-cka-control-1` | 187 | `192.168.1.187` |
+| `vm-k8s-cka-control-2` | 188 | `192.168.1.188` |
+| `vm-k8s-cka-control-3` | 189 | `192.168.1.189` |
+| `vm-k8s-cka-worker-1` | 190 | `192.168.1.190` |
+| `vm-k8s-cka-worker-2` | 194 | `192.168.1.194` |
 | **kube-vip VIP** | **— none —** | **`192.168.1.196`** |
 
 📌 **The VIP has NO VM behind it.** It must be recorded in `MEMORY.md` → IPs & HOSTS as *"no VM —
@@ -254,12 +258,12 @@ by one read-only `grep` on an existing host, which does not make the diagnosis f
 | # | Question | Status |
 |---|---|---|
 | **A1** | Addressing, and what `.202` is | ✅ **CLOSED Sep 16** — DHCP moved to `.221–.250`; `.200` = Apple (Mac mini), `.202` = Denon/Marantz receiver. Cluster takes `.187–.190` + `.194`, VIP `.196`. See §5 |
-| **A2** | Node naming: `k8s-cp-1/2/3` + `k8s-worker-1/2` | 🔲 Proposed, not confirmed. Swarm precedent was `docker-swarm-N` |
-| **A3** | Track folder: `education/kubernetes-cka/` | 🔲 Proposed. ⚠️ Must not be confusable with track 1's `k8s-k3s-redpanda/` |
+| **A2** | Node naming | ✅ **CLOSED Sep 16 — Andrew's names: `vm-k8s-cka-control-1/2/3` and `vm-k8s-cka-worker-1/2`.** Restores the lab's `vm-` prefix, which the Swarm's `docker-swarm-N` had dropped |
+| **A3** | Track folder | ✅ **CLOSED Sep 16 — `education/k8s-cka/`**, aligned to the VM names rather than invented separately. ⚠️ It tab-completes alongside track 1's `k8s-k3s-redpanda/`, so **always write the full track name in a command**; the build tooling takes the track as its first argument and a wrong one silently builds the wrong book |
 | **A4** | **CNI choice** | ✅ **DECIDED Sep 16 — Calico.** Kubernetes ships with **no** pod network at all (that is trap T5), so one must be installed. Calico is the conventional `kubeadm` pairing, uses ordinary Linux routing, and **enforces `NetworkPolicy`, which is on the CKA syllabus** and is what makes T6 possible. Cilium is more modern (eBPF, better observability) but is a second large subject on top of the exam; flannel — what k3s gave track 1 — **cannot enforce a policy at all**, so the lab has no policy experience yet |
 | **A5** | Stop the Swarm VMs to reclaim CPU? | ✅ **NOT NEEDED — measured.** Host CPU over the last year: mean **1.11%**, p95 **2.74%**, p99 **4.06%**. Leave the Swarm running. See §4 |
 | **A6** | Kubernetes version | ✅ **DECIDED Sep 16 — build `v1.36.4`, upgrade to `v1.37.0` in Part 6.** Latest stable is **v1.37.0**, so one minor behind gives the in-place upgrade drill a real destination instead of a no-op. ⚠️ **Andrew has not named an exam date**, so the coverage matrix is built against the current published syllabus and must be re-checked if he books a dated sitting |
-| **A7** | **Roadmap deviation — still needs Andrew on the record.** `education/fin_tech_stack.txt` says next is **OpenSearch**, and the standing rule is to work that list step-by-step | 🔲 **OPEN.** Kubernetes *is* #1 on that list and was only ever built as single-node k3s, and the CKA is a dated external commitment — so this is defensible. But the rule exists precisely to stop the AI re-deriving priorities, so **Andrew** should be the one to set it aside |
+| **A7** | **Roadmap deviation — CONFIRMED BY ANDREW.** `education/fin_tech_stack.txt` lists **OpenSearch** next and the standing rule is to work it step-by-step | ✅ **CLOSED Sep 16 — Andrew set the list aside for this phase, explicitly and on the record.** His grounds: the CKA is a **dated external commitment**, and Kubernetes is **#1 on that very list** but was only ever built as single-node k3s, so the item was never actually finished. ⛔ **A future session must NOT 'correct' this back to OpenSearch** — the override is recorded in `MEMORY.md` beside the ROADMAP RULE itself, because a rule and its exception must live together or the rule wins by default |
 
 ## 10. 🅓 Inherited and OUT OF SCOPE
 
