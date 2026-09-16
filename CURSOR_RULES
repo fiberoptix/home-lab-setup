@@ -11,6 +11,8 @@ EDIT LOG (every authorised change to this file, so the count is visible):
   4. Aug 19, 2026 - push order flipped to GitLab FIRST, with the reason recorded (see git routing).
   5. Sep 16, 2026 - item 4's CURRENT PHASE line only: 17 (Jenkins) -> 18 (Kubernetes/CKA), and
      Jenkins marked ON HOLD. Authorised in writing by Andrew that day.
+  6. Sep 16, 2026 - checklist item 2 gains a THIRD boot file, MEMORY_SECRET.md (gitignored,
+     never public). Authorised in writing by Andrew that day: "Go ahead".
 
 Project: home-lab-setup - Building Proxmox VE DevOps/QA Environment
 
@@ -48,10 +50,20 @@ study material, not a production app. Capricorn is not.
 === STARTUP CHECKLIST ===
 
 1. ✅ Check current date/time including TimeZone using terminal
-2. ✅ Load context. ALWAYS these two, and ONLY these two, at boot:
+2. ✅ Load context. ALWAYS these THREE, and ONLY these three, at boot:
    a. MEMORY.md - project-wide facts, prohibitions, and the PHASE INDEX
    b. phases/current_phase.md - read the "▶️ RESUME HERE" block at the top. Do NOT read the whole
       file at boot; it is a long history that the phase files also carry.
+   c. MEMORY_SECRET.md - confidential context Andrew has told the AI: employer, dates, personal
+      circumstances, and the priorities that follow from them. GITIGNORED and NEVER public.
+      ⛔ NEVER copy anything out of it into a tracked file - not MEMORY.md, not a phase file, not
+      a commit message. If a tracked file needs the CONSEQUENCE of something in there, write the
+      consequence and leave the fact where it is.
+      ⭐ Why this is a boot read while PASSWORDS.md deliberately is not: this file is CONTEXT, and
+      missing it makes the AI reason from a wrong picture of what matters. A credential is not
+      context - it is a key, and it does not belong in a session "just in case".
+      🙋 Andrew's protocol: he says when something is confidential, or THE AI ASKS when a discussion
+      looks like it contains personal, employer or job detail that must not go public.
 
    THEN LOAD-BEFORE-TOUCH. Everything else loads WHEN the work reaches it, not at boot:
    * The PHASE INDEX in MEMORY.md maps area -> file -> what you get WRONG without it. The FIRST

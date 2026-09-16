@@ -2594,6 +2594,7 @@ the top of this file — prefer it over this list):
 |---|---|
 | `CURSOR_RULES` | ⭐ **Boot order, scope, git routing. The authority for what loads when.** |
 | `PASSWORDS.md` | All credentials. ⛔ **On demand only** — never at boot |
+| `MEMORY_SECRET.md` | 🔒 **Confidential context — READ AT BOOT** (`CURSOR_RULES` item 2c, added Sep 16, 2026). Employer, dates, personal circumstances and the priorities that follow. **Gitignored, never public.** ⛔ **Never copy anything out of it into a tracked file** — write the consequence, leave the fact |
 | `SYSTEM_VERIFICATION.md` | Hardware inventory, drive serials, VM configs (Jan 14, 2026) |
 | `phases/current_phase.md` | ▶️ **`RESUME HERE` block at the top** — read that, not the whole file |
 | `phases/phase0_hardware.md` | Hardware specs and BIOS settings |
