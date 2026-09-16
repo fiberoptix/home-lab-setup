@@ -154,33 +154,12 @@ accepted.** Nothing irreplaceable may ever live here.
 🙋 **Andrew moved the G3100's DHCP pool to `.221–.250` that afternoon**, so everything below `.221` is
 now available for static assignment. **Both previously-unknown hosts were then identified by MAC:**
 
-| Address | MAC | Vendor | What it is |
-|---|---|---|---|
-| `.200` | `2c:82:17:d9:3a:d8` | **Apple, Inc.** | ✅ Confirms the docs — the Mac mini running Plex. First time this was evidence rather than a claim |
-| `.202` | `00:06:78:c8:ee:21` | **D&M Holdings** (Denon / Marantz) | An AV receiver. Household kit, **not lab infrastructure** — it belongs in no phase file |
+| Address | Vendor (by MAC) | What it is |
+|---|---|---|
+| `.200` | **Apple** | The Mac mini running Plex — household, not lab |
+| `.231` | **D&M Holdings** (Denon/Marantz) | AV receiver, household. **Was on `.202`**; moved into the DHCP pool once Andrew set it back to DHCP, so **`.202` is free** |
 
-🚨 **THE HAZARD THAT SURVIVES THE POOL CHANGE, and it is the reason for the allocation below: a ping
-sweep proves an address is free RIGHT NOW, not that it is UNCLAIMED.** A device that is powered off or
-out of the house still holds its DHCP lease and will reappear on that address. Moving the pool does
-**not** revoke leases already handed out — clients keep their address until the lease expires. So the
-old pool's range may hold live claims by absent devices, and `.202` is proof the old pool reached at
-least that far. ⭐ **Same shape as this project's standing rule about instruments: the sweep answered
-"who replies to ping", not "what is allocated".**
-
-🙋 **Andrew, 2:37 PM: "Let's plan for VM ID's 201-205 for the new cluster, with IPs 201-205 as well."**
-He rebooted the Denon expecting that to release `.202`.
-
-🚨 **IT DID NOT. Re-measured at 2:38 PM: `.202` is STILL the Denon** — same MAC `00:06:78:c8:ee:21`,
-state `REACHABLE`. ⭐ **The mechanism, and it is the same lesson as the lease note below: a rebooting
-DHCP client asks for its PREVIOUS address back, and the router honours the existing binding.** Moving
-the pool changes what is offered to *new* clients; it does not evict an existing one. Proof that the new
-pool works is at `.230`, where a device took a lease inside `.221–.250`.
-⛔ **So a reboot alone can never free an address. The order has to be: delete the lease/reservation on
-the router FIRST, then power-cycle the device** — otherwise it simply reclaims what it had.
-
-✅ **SETTLED — Andrew's choice, 3:00 PM: VMIDs 201–205 → `.201–.205`, VIP `.206`.** He is **rebooting the
-router** to clear the outstanding leases, which should push the Denon into `.221–.250` with everything
-below it free.
+✅ **ALLOCATION — SETTLED, and all six verified free by ARP at 4:12 PM:**
 
 | Role | VMID | Address |
 |---|---|---|
@@ -191,34 +170,10 @@ below it free.
 | `vm-k8s-cka-worker-2` | 205 | `192.168.1.205` |
 | **kube-vip VIP** | **— none —** | **`192.168.1.206`** |
 
-🔻 **RE-SWEPT 3:18 PM, AFTER THE ROUTER REBOOT: `.202` IS STILL THE DENON.** Same MAC
-`00:06:78:c8:ee:21`, `REACHABLE`. `.201` and `.203–.206` are all free.
+🚨 **CHECK FREE ADDRESSES WITH ARP, NOT PING.** `.150` proves a host can be alive and silent to ICMP, so
+"no ping reply" can mean "present but dropping pings". Delete the neighbour entry, ping once to force
+ARP, then read `ip neigh` — **a `lladdr` means OCCUPIED even when the ping failed.**
 
-🚨 **The evidence now points at a STATIC ADDRESS CONFIGURED ON THE DEVICE, not a DHCP lease.** Chain of
-measurement: the pool was moved to `.221–.250`, the Denon was rebooted, the **router** was rebooted — and
-it is still on `.202`, an address outside the current pool. ⭐ **A DHCP client cannot do that.** On reboot
-it would `DISCOVER` and be offered something in `.221–.250`. **So no amount of router work will move it;
-the address is almost certainly set in the receiver's own network menu.**
-✅ **DECIDED 3:2x PM — Andrew will change the Denon's own network setting to DHCP**, which frees `.202`
-properly and keeps the clean `201–205` + `.206` run above. ⛔ **`.202` is NOT available until he confirms
-that is done and a sweep shows it dark.**
-⭐ **Three attempts to free this address have now failed, each on a different theory** — pool change,
-client reboot, router reboot. **That is the signal to stop treating it as a lease problem and either
-change it on the device or route around it.** Routing around it costs nothing.
-
-✅ **CLEARED — all six of `.201–.206` verified free BY ARP at 4:12 PM, and the DHCP question is answered.**
-⭐ **The ARP re-check was not belt-and-braces, it fixed a weak instrument:** the earlier sweeps used ping,
-and `.150` proves a host can be **alive and silent to ICMP** — so "no ping reply" could have meant "present
-but dropping pings". ARP cannot be declined by the host's IP firewall. ✅ Validated with a positive control
-(`.150` shows OCCUPIED by ARP while losing 5/5 pings) before the result was trusted. **Method is in
-`MEMORY.md` → IPs & HOSTS.** Andrew set
-the Denon back to DHCP and it took **`.231`**, inside the pool; `.230` agrees. **Pool = `.221–.250`
-confirmed, so nothing new will ever be offered `.201–.206`.**
-🔻 **A correction worth keeping, because the wrong version of this was recorded for half an hour:** the
-Denon's stay on `.199` was **NOT** the router handing out an out-of-pool address — **Andrew had typed it in
-by hand, by mistake.** ⭐ **So the recurring hazard in this lab is a HUMAN assigning a static address into
-lab range, not a misbehaving DHCP server** — which means the defence is the reservation being *written down*
-in `MEMORY.md` → IPs & HOSTS, and nothing on the router can substitute for it.
 ⚠️ **Residual caveat:** `.215`, `.217` and `.220` hold household devices on **pre-change leases** — below
 the pool, keeping addresses issued before it was narrowed. ⛔ **Sweep before allocating anything in
 `.207–.220`.** Still re-sweep the six immediately before Stage 0; it is one command.
@@ -228,12 +183,9 @@ no VM behind it**, so five nodes need six addresses. It must be recorded in `MEM
 *"no VM — kube-vip control-plane VIP"*, or a future session will hunt `qm list` for a guest that does not
 exist, which is the exact confusion the `.195` row was added to fix.
 
-⚠️ **Whichever is chosen, re-sweep immediately before building.** A ping sweep proves an address is dark
-*at that moment*; `.202` is the standing proof that a quiet address can have an owner.
-
 ---
 
-## 6. The three stages — 🔻 RESTRUCTURED Sep 16, 2026 at Andrew's direction
+## 6. The four stages (0–3, Andrew's numbering) — 🔻 RESTRUCTURED Sep 16, 2026 at his direction
 
 🙋 **Andrew:** *"Do you understand I need to learn how to deploy, install and configure k8s for work AND
 then study for CKA separately? I know there will be some overlap."*
