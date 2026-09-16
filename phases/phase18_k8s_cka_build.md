@@ -319,11 +319,32 @@ HPA, Ingress) all live in this stage**, which is what resolves A8: they were nev
 
 ✅ **EXERCISE SOURCING — decided by Andrew, Sep 16, 2026: build the ~10 exercises from the CNCF
 curriculum plus reputable published practice material, and keep the Killer.sh simulator for rehearsal.**
-⛔ **No recalled or leaked exam content**, which would breach the Linux Foundation confidentiality
-agreement and can invalidate a certification — a bad trade for a credential being used to onboard at a
-regulated institution. ⭐ **The practical loss is small: task TYPES are determined by the published
-curriculum, which CNCF open-sources deliberately.** It is what the questions are generated from, so
-curriculum-derived exercises look nearly identical to recalled ones.
+🔻 **REVISED at Andrew's push-back, Sep 16, 2026 — the earlier wording was too broad and conflated two
+different things.** He is right that reviewing what circulates publicly is legitimate and useful:
+
+| Material | Use it? |
+|---|---|
+| **Official CNCF curriculum** and the competency list | ✅ The spine of Stage 3 — it is what the questions are generated *from* |
+| **Community reports on task TYPES and STRUCTURE** — Reddit, blogs, courses: *"expect a kubeadm upgrade"*, *"multiple clusters"*, *"tasks chain 2–3 steps"* | ✅ **Yes, deliberately.** This is intelligence about the exam's *shape*, published everywhere, and it is how we check our exercise coverage. **It is also how Q3 gets answered** |
+| **Commercial practice sets** — Killer.sh, KodeKloud, published study guides | ✅ Sanctioned and written for this purpose |
+| **Verbatim recalled tasks with solutions** — *"here are the 17 questions I got"* | ⚠️ Read if he wants; ⛔ **but never COMMITTED to this repo** — see below |
+
+⭐ **Andrew's argument that decides it: tasks are randomised and rotated between sittings, so a dump is
+nearly worthless for memorisation while a report of task TYPES is valuable for coverage.** That points at
+using this material as a **gap analysis**, not an answer key: if the community consistently reports a
+Gateway API or etcd-restore task and our exercises have none, **that is a defect in our plan** and we want
+to know before the exam, not after.
+
+🚨 **THE ONE HARD LINE, and it is about THIS REPO rather than about principle: no verbatim recalled exam
+content gets committed here.** `origin` is **public GitHub under Andrew's own name**, and
+`push_github.sh` screens for **secrets**, not for content that is merely unwise to publish — exactly the
+gap that made `education/fin_tech_stack.txt` need de-identifying, where the gates would never have caught
+an employer name. ✅ **Safe pattern: read it, extract the TASK TYPE, write our own exercise from the
+curriculum, cite the type not the text.**
+
+🔲 **CONCRETE NEXT ACTION when Stage 3 approaches (folds Q3 into it):** research the reported task
+types and structure, then build a **two-column coverage matrix** — *reported task type* against *our
+exercise* — weighted by the real domain weights. **The gaps in that matrix are the exercise backlog.**
 
 🔄 **Rollback policy, so ten exercises do not cost ten cluster restores:** ⛔ **do NOT roll back all five
 VMs for every exercise.** Most workload tasks — write a Deployment, fix a Service, add a NetworkPolicy —
