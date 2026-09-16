@@ -249,6 +249,57 @@ true* — that ordering is what makes it repeatable somewhere else.
 and it cannot teach a bad exam habit. It is one of the lab-specific items the chapter marks as *ours,
 not required*.
 
+### ✅ Stage 0 — COMPLETE, Sep 16, 2026 (results)
+
+🙋 **Andrew ran every command himself** from the dev box; the AI wrote the script and verified the fleet.
+
+🚨 **THE STAGE 0 / STAGE 1 BOUNDARY, because it is easy to misread and Andrew queried it:** Stage 0
+**installed the Kubernetes PACKAGES and left them inert.** `kubeadm`, `kubelet` and `kubectl` are on every
+node and apt-held, containerd is running with the CRI plugin enabled — but **no cluster exists.** No
+`kubeadm init`, no `kubeadm join`, no CNI, and **the kubelet is `inactive` on purpose**; it crash-loops or
+waits until a cluster exists, which is normal and not a fault. ⭐ *"The tools are installed"* and *"the
+cluster is configured"* are different states and Stage 1 is the second one.
+
+| | |
+|---|---|
+| Nodes | **5/5 running and IDENTICAL** — `vm-k8s-cka-control-1/2/3` at `.201`–`.203`, `vm-k8s-cka-worker-1/2` at `.204`–`.205`, 2 vCPU / 4 GB / 40 GB each, all **`onboot 0`** per the lab autostart policy |
+| Kubernetes | **v1.35.8** (`kubeadm`/`kubelet`/`kubectl`), **apt-held** on every node. ⚠️ `kubeadm` itself reported *"remote version is much newer: v1.37.0; falling back to stable-1.35"* — independent confirmation the two-minor gap to the exam is deliberate |
+| Runtime | containerd **active**, `io.containerd.grpc.v1 cri` = **ok**, `SystemdCgroup = true`, **NO Docker installed at all** |
+| Verified | `kubeadm init --dry-run` **preflight passes** on control-1; all five report **"nothing was changed"** under `--check` |
+| Resources | vCPU **64 of 48 threads (133%)**, RAM 85G of 187G, `vm-ephemeral` 865G used / 980G avail |
+| Snapshot | `c01-nodes-ready` on all five (hot, guest-agent freeze — **no etcd exists yet**, so an offline snapshot is not needed until Stage 2) |
+
+📄 **Deliverable built: `education/k8s-cka-prep/scripts/k8s-setup.sh`** — 🙋 **Andrew's design call, and it was
+better than the AI's proposal.** One **self-contained** script rather than a wrapper around the lab's
+`www/ubuntu/` sub-scripts, because **there is no script server at the firm** and a script with dependencies
+is not portable. Hostname/sudo/Cockpit logic is therefore a **knowing COPY**, labelled in the header, with
+an instruction not to turn it back into a caller. Lab conveniences are **opt-in** (`--sudo-nopasswd`,
+`--cockpit`) so a bare run is safe at work.
+
+⭐ **A plan assumption that measurement overturned: the template has NEITHER Docker NOR containerd**, so the
+approved "add then subtract" was unnecessary. `containerd.io` is installed **alone** and configured for
+Kubernetes from the outset, instead of installing Docker and undoing it. **Nothing to subtract if you never
+add it** — and it avoids the residue a Docker removal leaves behind.
+
+🔻 **Testing on ONE node first paid for itself immediately.** Against a `c00-virgin` snapshot the script's
+**summary block was found to be lying**: it printed doubled values (because `systemctl is-active` PRINTS
+`inactive` *and* exits non-zero, so the `|| echo absent` fallback fired too) and it reported
+**`CRI enabled: yes` when containerd was not installed at all.** ⭐ **A report that shows green for a
+component that does not exist is this project's signature failure**, and it would have been believed on
+five nodes instead of one. Fixed to say `n/a — no containerd config yet`.
+⚠️ **And the same mistake was then repeated in a throwaway verification command minutes later** — the
+`cmd || echo fallback` shape is genuinely easy to write wrong.
+
+📊 **PRE-DRILL BASELINE CAPTURED (the plan asks for this before anything is broken):**
+**steal time `st = 0%` on `.201`, `.204` and Swarm node `.191`**, host 98% idle, load 0.51 of 48 threads.
+⭐ **This is what licenses the 133% vCPU oversubscription** — steal is the guest saying *"I wanted CPU and
+did not get it"*, and host CPU% cannot answer that question at all. ✅ **Andrew asked whether shutting the
+Docker Swarm down would help performance: measured answer is NO.** It would return 6 vCPU / 12 GB to
+relieve contention that is not occurring. ⛔ **Leave the Swarm running**; revisit only if steal goes
+non-zero, and then it is the first lever because Jenkins is on hold anyway.
+🔲 **Still owed: the etcd `wal_fsync_duration_seconds` baseline** — impossible until etcd exists, so it
+belongs to Stage 2.
+
 ### Stage 1 — install and configure Kubernetes, piece by piece → **chapters 02–04**
 
 **The goal is understanding what `kubeadm` does, not getting a green `kubectl get nodes` quickly.**
