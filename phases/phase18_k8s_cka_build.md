@@ -191,7 +191,20 @@ below it free.
 | `vm-k8s-cka-worker-2` | 205 | `192.168.1.205` |
 | **kube-vip VIP** | **— none —** | **`192.168.1.206`** |
 
-🚨 **BLOCKING PRECONDITION — re-sweep all six AFTER the router comes back, before building anything.**
+🔻 **RE-SWEPT 3:18 PM, AFTER THE ROUTER REBOOT: `.202` IS STILL THE DENON.** Same MAC
+`00:06:78:c8:ee:21`, `REACHABLE`. `.201` and `.203–.206` are all free.
+
+🚨 **The evidence now points at a STATIC ADDRESS CONFIGURED ON THE DEVICE, not a DHCP lease.** Chain of
+measurement: the pool was moved to `.221–.250`, the Denon was rebooted, the **router** was rebooted — and
+it is still on `.202`, an address outside the current pool. ⭐ **A DHCP client cannot do that.** On reboot
+it would `DISCOVER` and be offered something in `.221–.250`. **So no amount of router work will move it;
+the address is almost certainly set in the receiver's own network menu.**
+⛔ **`.202` is therefore NOT available**, and the allocation above needs one more decision (see below).
+⭐ **Three attempts to free this address have now failed, each on a different theory** — pool change,
+client reboot, router reboot. **That is the signal to stop treating it as a lease problem and either
+change it on the device or route around it.** Routing around it costs nothing.
+
+🚨 **BLOCKING PRECONDITION — re-sweep all six before building anything.**
 ⛔ **Do not treat the reboot as proof.** Plenty of gateways persist the lease table across a restart, and
 `.202` has already survived one reboot of its own client. **`.202` is the one that must be confirmed dark**
 — it is the address the Denon held, and it is now assigned to a control-plane node, so a collision here
