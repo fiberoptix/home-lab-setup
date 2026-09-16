@@ -967,10 +967,17 @@ It had been accumulating since Aug 13. **When you write a new handoff, move the 
     speaks emoji by name, and a fenced code block is spelled out character by character.
   - **Engine:** Piper **1.2.0**, the **standalone GitHub binary** at `~/.local/share/piper/`, models in
     `voices/`. **All user-local — no apt or pip packages.**
-  - 🔊 **DEFAULTS, chosen by Andrew Sep 16, 2026 after listening to eight voices: `en_GB-vctk-medium`,
-    speaker 13, `length_scale 1.0`, no gain.** `vctk` is **multi-speaker (109 voices)**, so
-    `PIPER_SPEAKER=n` selects a different person; the wrapper only passes `--speaker` when the model
-    actually is multi-speaker, so single-speaker models still work.
+  - 🔊 **DEFAULTS, settled by Andrew Sep 16, 2026: `en_GB-cori-high` at `length_scale 0.9`, no gain.**
+    ⚠️ **He first chose `en_GB-vctk-medium` speaker 13 and then rejected it — but that judgement was made
+    while playback was clipping at +18 dB** (see the stream-restore fault below). **Re-auditioned on a clean
+    chain, he picked `cori-high`.** ⭐ **A voice comparison run through a broken playback chain is worthless;
+    fix the chain first.**
+    - **`cori-high` is SINGLE-speaker**, so `PIPER_SPEAKER` is ignored for it. The wrapper only passes
+      `--speaker` when a model really is multi-speaker, so both kinds work.
+    - ⭐ **Prefer single-speaker HIGH models for quality:** `cori-high` (GB), `ryan-high` (US male),
+      `ljspeech-high` (US), `lessac-high` (US). 🚨 **`vctk-medium` (109 speakers) and `libritts-high`
+      (multi-speaker) split model capacity across every voice**, so they sound coarser — `libritts` despite
+      being labelled *high*. **Speaker count matters more than the quality label.**
   - ⭐ **Speed and voice are INDEPENDENT knobs.** `PIPER_SPEED` is Piper's `length_scale` and **lower is
     faster**; `vctk`'s own default is **1.4**, most other voices 1.0. So a voice picked "because it talks
     fast" was really a pace preference, available on any model.
