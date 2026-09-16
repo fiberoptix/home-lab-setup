@@ -1903,36 +1903,6 @@ Next rotation: before Feb 6, 2028
 
 ---
 
-## SSH Key Auth + Cursor Sandbox Script Deployed to All VMs (Feb 27, 2026)
-
-**Status:** COMPLETE
-**Duration:** ~5 minutes
-
-### What Was Done
-
-1. **Deployed `fix_cursor_sandbox.sh`** to all 6 VMs (.180-.185)
-   - Script fixes Cursor terminal sandbox on Ubuntu with kernel >= 6.2
-   - Installs uidmap, sets capabilities on cursorsandbox binary, creates AppArmor profiles
-   - Copied to `~/fix_cursor_sandbox.sh` on each VM
-
-2. **Pushed SSH ed25519 key** to all 5 remaining VMs (.180-.184)
-   - Used `sshpass` + `ssh-copy-id` (same method as .185 fix earlier)
-   - All 6 VMs now have passwordless SSH key auth from dev workstation
-   - No more `sshpass` needed for any VM
-
-### VMs Updated
-
-| VM | IP | SSH Key | Script |
-|----|-----|---------|--------|
-| vm-kubernetes-1 | .180 | ✅ | ✅ |
-| vm-gitlab-1 | .181 | ✅ | ✅ |
-| vm-gitrun-1 | .182 | ✅ | ✅ |
-| vm-sonarqube-1 | .183 | ✅ | ✅ |
-| vm-www-1 | .184 | ✅ | ✅ |
-| vm-openclaw-1 | .185 | ✅ (earlier) | ✅ |
-
----
-
 ## 📦 DEMOTION LOG — Aug 24, 2026 (one block, on purpose)
 
 ⚠️ **This block exists because the first four demotions each left a marker block behind, so the block

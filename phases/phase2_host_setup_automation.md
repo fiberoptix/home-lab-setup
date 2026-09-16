@@ -885,3 +885,24 @@ All four files (`www/fedora/`, `www/ubuntu/`, and both `_local` kits) moved toge
 `./make_local_kits.sh --check` confirms both kits are byte-identical to their sources. ✅ The generated-kit
 rule survived its first real change — which is the case it was built for, since a hand-maintained kit
 would now be shipping the false green.
+
+---
+
+## 🧩 `fix_cursor_sandbox.sh` — a build-standard tool that was NEVER COMMITTED (Feb 27, 2026)
+
+📦 **Salvaged from `phases/current_phase.md` on Sep 16, 2026** when the Feb 27 session block was
+demoted. Recorded here because ⚠️ **this was the ONLY description of it anywhere** — the script is
+in neither the working tree nor git history (checked both), so if it is ever needed again it has to
+be rewritten from this paragraph.
+
+**What it did:** fixed the Cursor terminal sandbox on Ubuntu guests running **kernel ≥ 6.2** by
+installing `uidmap`, setting capabilities on the `cursorsandbox` binary, and creating AppArmor
+profiles. It was copied to `~/fix_cursor_sandbox.sh` on each of the six VMs then live (`.180`–`.185`)
+and run there; it was never added to `www/ubuntu/` and so is **not** part of the host build standard.
+
+⭐ **The lesson is the one this file keeps relearning from the other direction.** Everywhere else in
+Phase 2 the rule is *a fix folded into `host_setup.sh` keeps paying on every host built afterwards*.
+This is the counter-example: a fix applied by hand to six hosts, documented only in a session log,
+and now unrecoverable as code. **A tool that is not in the tree is a tool you own once.**
+⚠️ Two of those six hosts no longer exist (`vm-openclaw-1` destroyed Aug 19, 2026;
+`vm-kubernetes-1`/VMID 200 destroyed Sep 16, 2026), so the copies on them are gone too.
