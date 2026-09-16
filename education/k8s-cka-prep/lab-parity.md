@@ -29,7 +29,7 @@ Condensed from [`exam-environment.md`](exam-environment.md) — 🟢 all officia
 |---|---|
 | Use `host_setup.sh`? | ✅ **Yes — with `--server --no-nas`.** It gives SSH keys, hostname (and the `/etc/hosts` fix), passwordless sudo, timezone and CLI basics. `--server` skips Chrome/Cursor and the GNOME steps; `--no-nas` keeps NAS credentials off a cluster that has no business holding them |
 | Docker Engine | ⛔ **Remove it — but only AFTER traps T1/T2 have fired.** See §3; this is the interesting one |
-| Cockpit | 🟡 **Andrew's call.** Not in the exam, so it is "extra". But it is an *access method*, and a five-node cluster is exactly where a second way in earns its keep. **My lean: keep it** — it is a lab-operations tool, not a Kubernetes crutch, and it cannot teach him a bad exam habit |
+| Cockpit | ✅ **DECIDED Sep 16 — keep it.** Not in the exam, so it is "extra", but it is an *access method* and a five-node cluster is exactly where a second way in earns its keep. It is a lab-operations tool, not a Kubernetes crutch, so it cannot teach a bad exam habit. ⚠️ Chapter 01 marks it as **ours, not required** |
 | `sysbench`, shell aliases, `btop` etc. | 🟡 Harmless on the host, but ⛔ **do not add `kubectl` conveniences beyond the exam's** — no `krew`, no `kubectx`/`kubens`, no `k9s`, no custom `kgp`-style aliases. Those are genuinely good tools that will **not be there on exam day** |
 | `jq` | ⛔ **Deliberately do NOT install it.** 🟢 The official tool list is **`yq`**. Practise `yq` and `kubectl -o jsonpath=`, or you will reach for a missing tool under a clock |
 | `yq` | ✅ **Install it** — it is on the exam hosts, so it should be on ours |

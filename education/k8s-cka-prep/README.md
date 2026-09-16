@@ -20,7 +20,7 @@ consolidated them on Sep 16, 2026 rather than keeping `k8s-cka-prep/` apart from
 
 | Chapter | Subject | Stage | Status |
 |---|---|---|---|
-| 01 | Five VMs prepared for Kubernetes — provision, then subtract | A (work) | 🔲 Planned |
+| 01 | **Portable node prep** — given a fresh Ubuntu host, what makes it a Kubernetes node (containerd/CRI, cgroup driver, swap, modules, sysctls, pinning). ⭐ Written to be repeatable where there is no template 9000 and no script server | A (work) | 🔲 Planned |
 | 02–04 | Installing and configuring Kubernetes piece by piece: kube-vip, `kubeadm init`, CNI, joining an HA control plane, joining workers | B (work) | 🔲 Planned |
 | 05+ | One CKA administrative task type per chapter, weighted by the exam's own domain weights | C (exam) | 🔲 Planned |
 

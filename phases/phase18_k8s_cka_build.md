@@ -83,6 +83,11 @@ distinguish the two clusters by purpose rather than by uniqueness.**
               worker-1          worker-2               2 × worker, workload only
 ```
 
+**Sizing (settled by Andrew, Sep 16, 2026): 2 vCPU / 4 GB / 40 GB each, all five on `vm-ephemeral`.**
+⚠️ **2 vCPU is a floor, not a choice** — `kubeadm` preflight *fails* below it on a control plane. 40 GB
+matches the Swarm nodes, and the template ships 3.5 GB, so **`qm resize` is mandatory** and the
+filesystem only follows if cloud-init's `growpart` fires — **verify with `df -h /` inside the guest.**
+
 **Names (settled by Andrew, Sep 16, 2026):** `vm-k8s-cka-control-1/2/3` and `vm-k8s-cka-worker-1/2`.
 ⭐ Note these carry the **`vm-` prefix** the rest of the lab uses (`vm-www-1`, `vm-jenkins-1`,
 `vm-docker-qa-1`) — the Swarm's bare `docker-swarm-N` is the odd one out, and this returns to the
@@ -173,12 +178,25 @@ pool works is at `.230`, where a device took a lease inside `.221–.250`.
 ⛔ **So a reboot alone can never free an address. The order has to be: delete the lease/reservation on
 the router FIRST, then power-cycle the device** — otherwise it simply reclaims what it had.
 
-**Allocation is therefore ONE decision away** (🅐 A1, reopened):
+✅ **SETTLED — Andrew's choice, 3:00 PM: VMIDs 201–205 → `.201–.205`, VIP `.206`.** He is **rebooting the
+router** to clear the outstanding leases, which should push the Denon into `.221–.250` with everything
+below it free.
 
-| | Nodes | VIP | Needs |
-|---|---|---|---|
-| **A1-a ⭐ recommended** | VMIDs **203–207** → `.203–.207` | **`.208`** | **Nothing.** All six measured free at 2:38 PM. Keeps Andrew's intent — a contiguous `.2xx` run with VMID matching the last octet — and needs no router work |
-| **A1-b** | VMIDs **201–205** → `.201–.205` | **`.206`** | ⛔ **Blocked on `.202`.** Delete the Denon's lease on the G3100, *then* power-cycle it, then re-verify `.202` is dark before building |
+| Role | VMID | Address |
+|---|---|---|
+| `vm-k8s-cka-control-1` | 201 | `192.168.1.201` |
+| `vm-k8s-cka-control-2` | 202 | `192.168.1.202` |
+| `vm-k8s-cka-control-3` | 203 | `192.168.1.203` |
+| `vm-k8s-cka-worker-1` | 204 | `192.168.1.204` |
+| `vm-k8s-cka-worker-2` | 205 | `192.168.1.205` |
+| **kube-vip VIP** | **— none —** | **`192.168.1.206`** |
+
+🚨 **BLOCKING PRECONDITION — re-sweep all six AFTER the router comes back, before building anything.**
+⛔ **Do not treat the reboot as proof.** Plenty of gateways persist the lease table across a restart, and
+`.202` has already survived one reboot of its own client. **`.202` is the one that must be confirmed dark**
+— it is the address the Denon held, and it is now assigned to a control-plane node, so a collision here
+would be between the AV receiver and an etcd member. ⭐ **The measurement is one command and the failure
+mode is a cluster that half-works intermittently, which is the worst kind.**
 
 📌 **AND A SIXTH ADDRESS IS REQUIRED EITHER WAY — the plan asked for five.** kube-vip needs a **VIP with
 no VM behind it**, so five nodes need six addresses. It must be recorded in `MEMORY.md` → IPs & HOSTS as
@@ -223,8 +241,23 @@ have and add what it needs:**
 
 📸 Snapshot **all five together**: `c01-nodes-ready`. 🙋 Andrew drives the node preparation; 🤖 the AI may
 drive the cloning, which is proven plumbing (`METHOD.md` split).
-📄 **Deliverable: chapter 01 written as a numbered, repeatable procedure** — each step with how to
-confirm it took effect. **This is the chapter he takes to work.**
+📄 **Deliverable: chapter 01, written as a numbered, repeatable procedure** — each step with how to
+confirm it took effect.
+
+🔻 **CHAPTER 01 IS SCOPED AS *PORTABLE NODE PREP*, settled by Andrew Sep 16, 2026.** Its subject is
+**"given a fresh Ubuntu host, what makes it a Kubernetes node"** — containerd and the CRI, the cgroup
+driver, swap, kernel modules, sysctls, package pinning, tooling. ⭐ **The Proxmox side gets a pointer,
+not a walkthrough**, which also satisfies `CONVENTIONS.md`'s rule to assume settled lab plumbing.
+🚨 **The reason is that at the firm he will be HANDED the VMs.** Cloning from template 9000 is the one
+part of this build that **cannot** transfer, so a chapter organised around it would teach the least
+useful half in the most detail.
+⚠️ **Consequence worth getting right: the chapter must NOT be organised around `host_setup.sh` either.**
+There is no script server at work. **The spine is the node's REQUIREMENTS**; our script is mentioned as
+the thing that happens to satisfy some of them here. ⭐ *State what must be true, then how we made it
+true* — that ordering is what makes it repeatable somewhere else.
+✅ **Cockpit stays on the nodes** (Andrew's call) — it is a lab access method, not a Kubernetes crutch,
+and it cannot teach a bad exam habit. It is one of the lab-specific items the chapter marks as *ours,
+not required*.
 
 ### Stage B — install and configure Kubernetes, piece by piece → **chapters 02–04**
 
