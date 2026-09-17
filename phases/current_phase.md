@@ -8,7 +8,26 @@ to scroll to find. **Keep it first.** Below it, newest session first. `MAKE_MEMO
 counts blocks (spec: 2) and step 2 demotes at least one per pass, so this file drains instead of
 growing — see that file for why the previous append-only version went undetected for seven months.
 
-## ▶️ RESUME HERE — 🔵 **PHASE 18 (KUBERNETES / CKA): STAGE 0 DONE, five nodes ready. STAGE 1 NEXT.**
+## ▶️ RESUME HERE — 🔵 **PHASE 18: THE CLUSTER EXISTS. Stage 1 is 5 steps of 6 done.**
+
+✅ **A REAL 5-NODE HA KUBERNETES CLUSTER IS RUNNING as of Sep 17, 2026** — `vm-k8s-cka-control-1/2/3`
+at `.201`–`.203` and `vm-k8s-cka-worker-1/2` at `.204`/`.205`, all **v1.35.8 `Ready`**, three stacked
+etcd members with control-1 as leader, **kube-vip VIP `192.168.1.206` up and held by one node**, and
+**Calico v3.32.2** (Tigera operator) on pod network **`10.244.0.0/16`**.
+🔲 **NEXT, and the order was deliberately CHANGED:** graceful shutdown of all five → **offline**
+snapshot **`c02-virgin-cluster`** → power on → verify → **THEN** step 6, the HA power-off test.
+🚨 **Why the swap: step 6 is the only destructive test in the build and the plan had it BEFORE the
+baseline snapshot**, so the newest rollback point would have been `c01-nodes-ready`, which predates
+the cluster. An abrupt `qm stop` is an unclean etcd shutdown.
+🔲 **Also owed before sign-off:** cross-node pod-to-pod connectivity and a CoreDNS lookup — `pause`
+has no shell, so neither has been proven. ⭐ **A cluster that schedules but cannot resolve names looks
+fine and is not.**
+⚠️ **Read the Stage 1 results block in `phases/phase18_k8s_cka_build.md` before touching this** — it
+holds the corrections (kube-vip did NOT crash-loop; the Calico operator HARD-CODES
+`192.168.0.0/16`; `node.spec.podCIDR` is inert; `RESTARTS 0` does not mean a static pod was
+untouched).
+
+## 📌 Stage 0 record (superseded by the above, kept for the build history)
 
 **Read `phases/phase18_k8s_cka_build.md` before touching anything Kubernetes.** ~485 lines, current as of
 Sep 16, 2026.
@@ -18,7 +37,13 @@ Sep 16, 2026.
 🔲 **NEXT: STAGE 1 — install and configure Kubernetes, and the first step is NOT `kubeadm init`.**
 1. 🚨 **`kubeadm init` MUST carry `--control-plane-endpoint` pointing at `.206`.** It fixes the apiserver
    certificate's SANs at init time, so initialising without it means control-2 and control-3 can **never**
-   join. This is the one near-irreversible step in the build.
+   join. 🔻 **AND IT IS NOT THE ONLY ONE — corrected Sep 17, 2026. THREE values are fixed at `init`:**
+   `--control-plane-endpoint=192.168.1.206:6443`, **`--pod-network-cidr=10.244.0.0/16`** and
+   `--service-cidr=10.96.0.0/12` (default, knowingly accepted). 🚨 **The pod CIDR was specified NOWHERE
+   in the plan and Calico's default `192.168.0.0/16` CONTAINS this lab's `192.168.1.0/24`** — it would
+   have handed pods real LAN addresses, presenting as an intermittent CNI or switch fault. ⛔ **Calico
+   must be told the same CIDR explicitly; its `CALICO_IPV4POOL_CIDR` ships commented out and it
+   defaults to `192.168.0.0/16` no matter what kubeadm was told.**
    🔻 **CORRECTED Sep 16 (this block used to say "kube-vip must be ANSWERING on `.206` first"): it cannot
    be.** kube-vip is a **static pod**, static pods are started by the **kubelet**, and the kubelet
    **cannot start at all** until `kubeadm init` writes its config (🔻 sharpened Sep 17 — measured

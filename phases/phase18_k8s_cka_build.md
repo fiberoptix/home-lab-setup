@@ -367,9 +367,42 @@ Removed. ⭐ **Same class as the earlier audio fault — the probe mutated the s
 
 🚨 **THE IRREVERSIBLE RULE: `--control-plane-endpoint` MUST point at the VIP on the very first
 `kubeadm init`.** The apiserver certificate's SANs are generated at that moment. **Initialise without it
-and cp-2 and cp-3 can never join** — the fix is regenerating certificates or starting over. ⭐ **This is
-the one irreversible-ish decision in the whole build, so it goes in the chapter as a prerequisite, not a
-warning.**
+and cp-2 and cp-3 can never join** — the fix is regenerating certificates or starting over.
+
+🔻 **CORRECTED Sep 17, 2026 — THIS SAID "the one irreversible-ish decision in the whole build." THERE
+ARE THREE, and the other two were specified NOWHERE in this plan.** Found one command before `init`
+was typed, by grepping the whole track for `pod-network-cidr` and getting **no matches at all**.
+
+| Fixed at `init` | Our value | Why it cannot be changed afterwards |
+|---|---|---|
+| `--control-plane-endpoint` | **`192.168.1.206:6443`** | Written into the apiserver certificate's SANs. Without it cp-2/cp-3 can never join |
+| `--pod-network-cidr` | **`10.244.0.0/16`** | Written into the cluster configuration and the controller-manager's `--cluster-cidr`. Changing it is re-initialise territory, not a config edit |
+| `--service-cidr` | **`10.96.0.0/12`** (default, knowingly accepted) | Determines the API server's own ClusterIP. Same story |
+
+🚨 **AND THE POD CIDR IS NOT A FREE CHOICE HERE — CALICO'S DEFAULT COLLIDES WITH THIS LAB'S OWN LAN.**
+⛔ **Calico's default IP pool is `192.168.0.0/16`, which CONTAINS `192.168.1.0/24`.** Calico carves the
+pool into `/26` blocks per node, so it can hand a pod a real address on our wire — potentially a block
+containing `.201`–`.205` themselves, the Proxmox host at `.150`, or the router. ⚠️ **The symptoms would
+be intermittent and would look like a CNI bug or a switch fault:** some pods unreachable, some LAN
+hosts unreachable from pods, duplicate-address complaints — and **nothing would point at a CIDR chosen
+days earlier.** ✅ **`10.244.0.0/16` decided Sep 17 (🙋 Andrew):** clear of the LAN, clear of the
+service CIDR `10.96.0.0/12`, clear of Docker's `172.17.0.0/16`, and clear of the Swarm's `10.0.0.0/24`
+overlay.
+
+🚨 **TWO PLACES MUST AGREE, and this is the step-3 check.** Calico's manifest ships
+`CALICO_IPV4POOL_CIDR` **commented out**, and when it is unset Calico uses `192.168.0.0/16`
+**regardless of what was passed to `kubeadm`**. ⛔ **So kubeadm and Calico can disagree while the
+cluster comes up looking healthy** — nodes `Ready`, pods running, and pod addresses the control plane
+does not expect. **Set it explicitly and verify the allocated block, do not trust the install.**
+
+⭐ **THIS IS THE SECOND APPEARANCE OF ONE PATTERN AND THE CROSS-PHASE LESSON IS THE VALUABLE PART:**
+Phase 16 recorded that Docker's `ingress` overlay takes `10.0.0.0/24` out of an **invisible
+`10.0.0.0/8` default**, flagged as *"a silent collision risk on any corporate `10.x` network"*.
+🚨 **Same shape, different tool: a container platform ships a default address range chosen without
+knowing what network you are on.** ⭐ **And it inverts at work:** this lab is `192.168.x` so Calico's
+default is the hazard, while a firm on `10.x` space would find **Kubernetes' own default service CIDR
+`10.96.0.0/12`** is the one to check first. **The rule is not "avoid 192.168" — it is "a default CIDR
+is a guess about someone else's network."**
 
 🔻 **CORRECTED Sep 16, 2026 — this section previously said "kube-vip must be ANSWERING before
 `kubeadm init`". THAT CANNOT HAPPEN, and the reason is worth understanding because it is the same class
@@ -494,6 +527,129 @@ order to join as control planes. If Stage 1 spans a break longer than that, **re
 two-hour expiry easy to walk into.
 6. **Prove the HA actually works:** `etcdctl` shows 3 members and a leader; power off a control plane and
    the API still answers *through the VIP*; the VIP demonstrably moved (ARP, not assumption).
+
+### ✅ Stage 1 — STEPS 1–5 COMPLETE, Sep 17, 2026 (results)
+
+🙋 **Andrew drove the manifest, `kubeadm init`, Calico and the control-2 and worker-1 joins by hand.**
+🤖 **The AI scripted control-3 and worker-2** (`METHOD.md` repetition rule) and did all verification.
+
+| | |
+|---|---|
+| Cluster | **5/5 `Ready`** — `vm-k8s-cka-control-1/2/3` + `vm-k8s-cka-worker-1/2`, all **v1.35.8** |
+| Control plane | 3 × stacked etcd, **3 members, one leader (control-1), raft term 2** |
+| VIP | **`192.168.1.206/32` up and held by exactly ONE node.** `kubectl` answers *through* it |
+| CNI | **Calico v3.32.2 via the Tigera operator**, `ipipMode: Never` + `vxlanMode: CrossSubnet` → **no encapsulation between nodes on one subnet** |
+| Pod network | IPPool **`10.244.0.0/16`**, `blockSize: 26`, one block per node |
+| Workers | `ROLES` reads **`<none>`** — ⭐ **Kubernetes has no worker role; a worker is a node WITHOUT the control-plane label.** Same lesson as the hostnames, one layer up |
+| Neutral workload | 4 × `pause` scheduled, **all on the workers** (control planes are `NoSchedule`), each pod inside **its own host's /26**. Deleted again so Stage 2 snapshots a clean cluster |
+| Service network | `curl -sk https://10.96.0.1:443/livez` → `ok` from a node. ⭐ **A ClusterIP exists only as kube-proxy rules — that address is on no interface anywhere** |
+
+🔻 **CORRECTION — kube-vip did NOT crash-loop, and this plan predicted it would.** Measured `ATTEMPT 0`,
+zero restarts. **Why:** kubeadm writes the kubeconfigs — `super-admin.conf` included — in a phase that
+runs **before** it starts the kubelet, so the file our manifest pointed at already existed by the time
+the kubelet read `/etc/kubernetes/manifests/`. ⭐ **The crash-loop was a symptom of the BROKEN
+configuration (pointing at `admin.conf`, which exists but lacks permission), and applying the fix
+beforehand removed the symptom entirely rather than shortening it.** ⚠️ **We inherited an expectation
+from the failure mode we had already prevented** — worth remembering, because a predicted symptom that
+does not appear reads like something went wrong.
+
+🚨 **CORRECTION OF A CORRECTION — the Calico CIDR hazard IS real, and the AI talked itself out of it
+mid-decision.** The plan warned that Calico defaults to `192.168.0.0/16` regardless of kubeadm. On
+reading the docs the AI retracted that, because Calico's page says *"with kubeadm, no changes are
+required — Calico will automatically detect the CIDR."* ⛔ **That note sits on the MANIFEST tabs.** The
+**operator's** `custom-resources.yaml` **hard-codes `cidr: 192.168.0.0/16` in the `Installation` CR** —
+no detection at all. ✅ **We edited it to `10.244.0.0/16` and verified the resulting IPPool.**
+⭐ **The lesson is about documentation, not Calico: guidance on one tab of a tabbed page reads as
+general advice**, and the retraction happened *before* the install path was chosen — so a true warning
+was converted into a false reassurance by getting ahead of the decision. ⭐ **Provenance includes WHICH
+TAB.**
+
+🚨 **`node.spec.podCIDR` IS INERT HERE, and reading it will mislead you.** Measured on control-1:
+kubeadm's controller-manager allocated **`10.244.0.0/24`**, while the actual CoreDNS pods hold
+**`10.244.48.66/67`** out of Calico's block **`10.244.48.64/26`**. ⭐ **Two allocators with different
+block sizes, and Calico's IPAM is the one that decides a pod's address.** ⚠️ **Anyone triaging a routing
+problem by reading `node.spec.podCIDR` is reasoning about a range no pod occupies.**
+⭐ **And Calico picks blocks PSEUDO-RANDOMLY, not sequentially** (`.48.64`, `.55.192`, `.177.0`,
+`.58.192`, `.81.192`) — to avoid two nodes racing for the same block. **"Node 2 has the second /26" is a
+reasonable guess and wrong.**
+
+🚨 **EDITING A STATIC POD MANIFEST DELETES AND RECREATES THE POD — SO `RESTARTS 0` DOES NOT MEAN
+"NOTHING HAPPENED".** Measured after reverting the kube-vip kubeconfig: new pod UID, new
+`creationTimestamp` (15:49 against the apiserver's 15:45), **and a fresh restart counter reading 0.**
+⭐ **The instrument that reveals a manifest edit is `creationTimestamp` or the UID, never `RESTARTS`.**
+⚠️ Same family as Phase 16's `docker service ps` finding — **the obvious counter answers a narrower
+question than it appears to.**
+
+⚠️ **A TWO-MEMBER etcd CLUSTER IS THE LEAST AVAILABLE CONFIGURATION THERE IS**, and the build passes
+through it between the control-2 and control-3 joins. Quorum is `floor(n/2)+1`: one member needs 1,
+**two members need 2**, three need 2. ⛔ **So two members tolerate NO failures while having twice the
+hardware to fail.** ⭐ **Do not linger there and do not reboot anything while you are.**
+
+⭐ **THE WORKER JOIN OUTPUT IS 14 LINES; THE CONTROL-PLANE JOIN IS 55. That diff is the best available
+definition of a control plane.** The worker has no `[download-certs]`, no `[certs] Generating`, no
+`[control-plane] Creating static Pod manifest`, no `[etcd] Announced new etcd member` — it writes
+`kubelet.conf`, starts the kubelet, gets a client cert signed, and stops. 📖 **Chapter 03 should print
+the two side by side**; `/tmp/join-cp2.txt` and `/tmp/join-worker1.txt` are kept on the nodes.
+
+✅ **`kubeadm join` for a control plane reported `[certs] Using the existing "sa" key`** — ⭐ **the
+service-account signing key must be IDENTICAL across control planes**, or a token minted by one would
+be rejected by another. That is what `--upload-certs` and the `kubeadm-certs` Secret exist to move.
+
+⚠️ **Three measurement traps hit on the way, all the same species and all worth the chapter:**
+1. **`systemctl is-active ufw` reports `active` while `sudo ufw status` reports `inactive`.** `ufw.service`
+   is `Type=oneshot` with `RemainAfterExit=yes`, so "active" means **the unit ran**, not **the firewall
+   is on**. ⛔ Reading the unit would have told us a firewall was running when none was — and Calico's
+   requirements say an iptables manager must be disabled, so this is the check that matters.
+2. 🚨 **`kubeadm init --dry-run` GENERATED A COMPLETE PKI — private keys included — and left it in
+   `/etc/kubernetes/tmp/kubeadm-init-dryrun*/`.** Mode `0600` root-only, so not an exposure, but they
+   are real cryptographic keys belonging to no cluster that nothing will ever rotate. **Deleted before
+   the real init.** ⭐ **A flag called `--dry-run` produced key material.**
+3. ⛔ **The AI's own check for that residue reported "clean" because it was wrong.** `ls -la
+   /etc/kubernetes/tmp/ 2>/dev/null` **without `sudo`** on a `drwx------` directory returns a permission
+   error, which `2>/dev/null` swallowed, so empty output read as "no residue" when the truth was "no
+   permission". ⚠️ **Paired with an earlier `ip neigh show … || echo "no entry"` whose fallback could
+   NEVER fire, because `ip neigh show` exits 0 on no match.** ⭐ **`cmd || echo fallback` is wrong in
+   both directions — Stage 0 recorded one that always fired; these are two that never did.**
+
+✅ **THE ARP SWEEP WAS VALIDATED WITH A POSITIVE CONTROL BEFORE ITS NEGATIVE WAS BELIEVED.** `.206`
+returned a bare `FAILED` (no `lladdr` = free); `.150` returned `REACHABLE`, proving the node's sweep can
+distinguish *absent* from *present-but-quiet*. ⭐ **Without the control, `FAILED` and "the instrument is
+broken" are the same output.**
+
+⚠️ **Flag-name casing in kube-vip is inconsistent and cannot be inferred.** `--controlplane` is all
+lowercase, `--leaderElection` has a capital E, and `--controlPlaneHealthCheck*` uses camelCase
+`controlPlane` — three spellings of the same words in one flag set. ✅ **Verified against
+`manifest pod --help` on the actual v1.2.3 binary rather than trusting v0.5-era examples.**
+⚠️ **Every kube-vip example says `--interface ens160`/`ens192` because they assume VMware. Ours is
+`eth0`** — a wrong interface binds the VIP nowhere and says nothing.
+
+⚠️ **`ctr` pulls into the `default` namespace; the kubelet reads `k8s.io`.** So the image pulled to
+GENERATE the manifest was invisible to `crictl images`, and the kubelet would have fetched it again
+**from ghcr.io during `kubeadm init`**. ✅ **Pre-pulled into `k8s.io` on all three control planes**,
+which removes an external network dependency from the one step that cannot be half-done. ⭐ **Two image
+stores disagreeing — except this time it is containerd disagreeing with itself.**
+
+⚠️ **Expect `W… The recommended value for "bindAddress" in "KubeProxyConfiguration" is: ::` on every
+init and join.** It is kubeadm advising a dual-stack bind address because the nodes have IPv6. **We are
+IPv4-only by choice, so it is advice declined, not a fault.**
+
+⚠️ **The raft indices in `endpoint status --cluster` read one apart (`11714/11715/11715`). That is
+SAMPLING, not lag** — the members are queried in turn, microseconds apart. **Thousands apart would be
+lag; one or two is the instrument.**
+
+🔲 **STILL OWED before Stage 2 sign-off, and deliberately not faked:** `pause` has no shell, so this
+proved scheduling, IPAM and ClusterIP reachability but **NOT cross-node pod-to-pod connectivity and NOT
+DNS resolution.** ⛔ **Both need an image with a shell, chosen deliberately rather than guessed.**
+⭐ **A cluster that schedules but cannot resolve names looks fine and is not.**
+
+🔻 **PLAN ORDERING FIX — step 6 and Stage 2 are SWAPPED, Sep 17, 2026 (🙋 Andrew's call).** As written,
+step 6 powers off a control plane **before** Stage 2 takes the baseline snapshot, which puts the only
+deliberately destructive test in the build **ahead of its rollback point** — the newest snapshot at that
+moment is `c01-nodes-ready`, which predates the cluster entirely. ⛔ **An abrupt `qm stop` is an unclean
+shutdown of an etcd member**, the realistic failure and the one that can leave a corrupt data directory.
+✅ **New order: graceful shutdown → offline snapshot `c02-virgin-cluster` → power on → verify → THEN
+break it.** ⭐ **If the failover works the snapshot is still a valid clean baseline, so nothing is
+wasted — and the plan's own "offer the reversible option first" rule is what decides it.**
 
 📸 Snapshots: `c02-cp1-init`, `c03-ha-control-plane`, `c04-cluster-complete` — **all five nodes together
 or not at all** (B5).
