@@ -581,6 +581,36 @@ Sep 17)**, so no node reboots itself mid-drill — which is what makes leaving `
 archive; this cluster is meant to be patched, and masking it would delete the drill's delivery
 mechanism.
 
+🆕 **CHAPTER 05 IS FIXED AND IT COMES FIRST IN THE STAGE — *what a bare `kubeadm` cluster cannot do,
+and what you install to fix it* (decided Sep 17, 2026).** 🙋 Andrew's question — *"we must add
+Gateway API to our curriculum, how do we do that?"* — produced a better answer than a new row.
+🚨 **Every remaining curriculum gap is the SAME gap: it needs something installed that `kubeadm`
+does not give you.** Gateway API needs **CRDs *and* a controller**; HPA needs **`metrics-server`**
+(without it an HPA reports `<unknown>` and scales nothing); dynamic provisioning needs a
+**StorageClass with a real provisioner**; Ingress needs an **ingress controller**. ⭐ **We have met
+this pattern once already and it is the best-understood thing in the build: Kubernetes ships no pod
+network, which is why Stage 1 installs Calico by hand.** So one chapter closes **five** gap rows
+under one theme, **is** the *"understand extension interfaces (CNI, CSI, CRI)"* competency, and
+⭐ **is the closest thing in this phase to the actual job** — on a brownfield platform the
+interesting question is always what the cluster is missing.
+⚠️ **Do not over-build it:** 🟢 the exam hands you a cluster that **already has** these components,
+so installing them is not what is marked. **What is marked is writing the objects correctly; what
+saves you is recognising the symptom when a component is absent** — an HPA at `<unknown>`, a PVC
+`Pending`, a Gateway with no address. **Those are missing-component signatures, and reading them is
+Troubleshooting.** 📖 **Full step-by-step Gateway API plan, including the NodePort-before-
+LoadBalancer sequencing, is in `education/k8s-cka-prep/curriculum.md`.**
+🚨 **AND IT CREATES A SECOND BASELINE — a decision, not bookkeeping.** These installs are
+cluster-wide, so they must **NOT** land inside `c02-virgin-cluster`. **Two baselines:**
+`c02-virgin-cluster` (bare kubeadm — what the exam's *architecture* tasks resemble) and
+`c03-equipped-cluster` (metrics-server, a provisioner, ingress + Gateway API — what its *workload*
+tasks resemble). ⭐ **Rolling back to the wrong one silently changes what an exercise tests**, which
+is the quietest way to waste a drill.
+⛔ **The Gateway API controller is NOT chosen** — NGINX Gateway Fabric and Envoy Gateway are both
+candidates, and newer Calico is *reported* to ship one. 🔲 **Unverified; check against the Calico
+version we actually install rather than recording a guess.**
+🔗 **This promotes the deferred kube-vip `--services` exercise from optional to PREREQUISITE**, since
+a real `LoadBalancer` is what upgrades the Gateway from NodePort to an address of its own.
+
 Coverage is driven by `education/k8s-cka-prep/curriculum.md`, weighted by the real exam weights —
 **Troubleshooting 30%, Cluster Architecture 25%, Services & Networking 20%, Workloads & Scheduling 15%,
 Storage 10%.** ⚠️ **The gaps identified in 🅐 A8 (Storage, Helm/Kustomize, CRDs/operators, Gateway API,
@@ -597,6 +627,7 @@ different things.** He is right that reviewing what circulates publicly is legit
 | **Official CNCF curriculum** and the competency list | ✅ The spine of Stage 3 — it is what the questions are generated *from* |
 | **Community reports on task TYPES and STRUCTURE** — Reddit, blogs, courses: *"expect a kubeadm upgrade"*, *"multiple clusters"*, *"tasks chain 2–3 steps"* | ✅ **Yes, deliberately.** This is intelligence about the exam's *shape*, published everywhere, and it is how we check our exercise coverage. **It is also how Q3 gets answered** |
 | **Commercial practice sets** — Killer.sh, KodeKloud, published study guides | ✅ Sanctioned and written for this purpose |
+| 🆕 **Video instruction** — the Udemy/KodeKloud CKA course, enrolled Sep 17, 2026 at his new boss's suggestion | ✅ **Yes, and the distinction matters: this is LEARNING, not PRACTISING.** `lab-parity.md` §5's *"allowed docs only, no blogs, no AI"* rule governs **timed practice**, where outside help inflates a sense of readiness. A lecture is instruction and that rule does not reach it. ⚠️ **The failure mode is different and subtler — watching a competent person type produces confidence that does not survive an empty terminal**, which is why the agreed shape is **video for concepts, our cluster for hands**, per `METHOD.md`'s *Andrew runs the commands*. ⛔ **Andrew's standing instruction: we cover everything in the CNCF curriculum regardless of what the course covers.** ⚠️ **Watch the section BEFORE the matching stage, and expect the course's install sections to diverge from ours — when the course and the upstream docs disagree, UPSTREAM WINS for this build, and the disagreement is worth a chapter note because "the popular course does it differently" is a question he will be asked at work** |
 | **Verbatim recalled tasks with solutions** — *"here are the 17 questions I got"* | ⚠️ Read if he wants; ⛔ **but never COMMITTED to this repo** — see below |
 
 ⭐ **Andrew's argument that decides it: tasks are randomised and rotated between sittings, so a dump is
