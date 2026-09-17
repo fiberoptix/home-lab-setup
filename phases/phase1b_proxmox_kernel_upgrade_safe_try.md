@@ -220,3 +220,41 @@ No BIOS changes, old kernel never removed until success is confirmed.
 1. ✅ Approved by Andrew.
 2. ✅ Target = `6.17.13-13` (latest), with `6.17.9-1` as the fallback rung.
 3. ⏳ Execute when Andrew confirms he's at the console (boot-hang recovery needs physical access).
+
+---
+
+## ⬇️ OUTCOME — demoted verbatim from `current_phase.md` Sep 16, 2026
+
+⭐ **Why this belongs here: this phase recorded the PLAN and the approval, and then stopped.** The
+result lived in `current_phase.md` for three months, so the phase file read as an unexecuted proposal.
+
+⚠️ **Note the target moved between plan and execution.** The Decisions block above targets
+`6.17.13-13`; what actually got adopted was `7.0.6-2-pve`, because the PVE 9.2 upgrade pulled it in
+first. **The reversible procedure is what transferred, not the version number.**
+
+🔻 **SUPERSEDED — the host now runs `7.0.14-4-pve`** (pin-tested and adopted July 9, 2026, PVE 9.2.4).
+So the versions below are history. ⭐ **The PROCEDURE is the durable part and it is still the standard:**
+`kernel pin <ver> --next-boot` → `refresh` → reboot → verify → only then make the pin permanent →
+**reboot a second time to prove it boots without the next-boot crutch** → keep the previous kernels
+installed as fallbacks.
+
+## Tested + adopted kernel 7.0.6-2-pve (June 18, 2026, later)
+
+**Status:** COMPLETE ✅
+**What:** After the PVE 9.2 upgrade pulled in `7.0.6-2-pve`, tested it with the same
+reversible `--next-boot` procedure, then adopted it permanently.
+
+- Shut down VMs → `kernel pin 7.0.6-2-pve --next-boot` → refresh → reboot.
+- **Booted clean on 7.0.6-2** (permanent pin still 6.17.13-13 as auto-revert at that point):
+  ZFS healthy, all 6 NVMe present behind VMD, **0 NVMe timeouts**, systemd running, VMs up.
+- Made `7.0.6-2-pve` the **permanent pin** + refresh → **rebooted again to confirm it
+  boots autonomously** (no next-boot crutch). Came back clean on 7.0.6-2, all 6 VMs up.
+- **2 clean reboots total on 7.0.6-2.** `6.17.13-13` + `6.17.2-1` kept installed as fallbacks.
+- Note: VM 185 (openclaw, `onboot=1`) auto-started slowly on the first 7.0.6-2 boot
+  (had to `qm start 185`); on the confirmation reboot it auto-started fine. Minor timing,
+  not kernel-related.
+
+**Now running:** PVE 9.2.3, kernel **7.0.6-2-pve** (pinned). Revert if ever needed:
+`proxmox-boot-tool kernel pin 6.17.13-13-pve && proxmox-boot-tool refresh` (console advised).
+
+---

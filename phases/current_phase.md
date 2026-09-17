@@ -1785,27 +1785,6 @@ file wiring). GitLab snapshots: `f65cf2a` (initial full mirror), `087fc5b` (+ sm
 
 ---
 
-## Tested + adopted kernel 7.0.6-2-pve (June 18, 2026, later)
-
-**Status:** COMPLETE ✅
-**What:** After the PVE 9.2 upgrade pulled in `7.0.6-2-pve`, tested it with the same
-reversible `--next-boot` procedure, then adopted it permanently.
-
-- Shut down VMs → `kernel pin 7.0.6-2-pve --next-boot` → refresh → reboot.
-- **Booted clean on 7.0.6-2** (permanent pin still 6.17.13-13 as auto-revert at that point):
-  ZFS healthy, all 6 NVMe present behind VMD, **0 NVMe timeouts**, systemd running, VMs up.
-- Made `7.0.6-2-pve` the **permanent pin** + refresh → **rebooted again to confirm it
-  boots autonomously** (no next-boot crutch). Came back clean on 7.0.6-2, all 6 VMs up.
-- **2 clean reboots total on 7.0.6-2.** `6.17.13-13` + `6.17.2-1` kept installed as fallbacks.
-- Note: VM 185 (openclaw, `onboot=1`) auto-started slowly on the first 7.0.6-2 boot
-  (had to `qm start 185`); on the confirmation reboot it auto-started fine. Minor timing,
-  not kernel-related.
-
-**Now running:** PVE 9.2.3, kernel **7.0.6-2-pve** (pinned). Revert if ever needed:
-`proxmox-boot-tool kernel pin 6.17.13-13-pve && proxmox-boot-tool refresh` (console advised).
-
----
-
 ## 📦 DEMOTION LOG — Aug 24 + Sep 16, 2026 (ONE block, on purpose — append a ROW, never a block)
 
 ⚠️ **This block exists because the first four demotions each left a marker block behind, so the block
