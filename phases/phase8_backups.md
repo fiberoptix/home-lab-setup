@@ -105,3 +105,47 @@ with the live 192.168.1.181, confirm it boots + login works, then delete the tes
 - [ ] (Optional) Extend the nightly job to other VMs (182 runner, 183 sonarqube, 184 www, 200 k8s).
 - [ ] (Optional) Second/offsite copy of backups (NAS is currently a single point).
 - [ ] (Optional) Proxmox Backup Server for dedup/incremental if full dumps grow too large.
+
+---
+
+## ⬇️ TWO OPEN TODOs CLOSED — demoted from `current_phase.md` Sep 16, 2026
+
+⭐ **The demotion was worth more than the tidying, because the block carried two TODOs that were
+DONE in July and never marked done here.** A TODO that outlives its completion is worse than no TODO:
+it invites the work to be redone.
+
+**1. ✅ `TODO: one proof-of-life test restore (VMID 999, isolated NIC)` — DONE July 9, 2026.**
+The GitLab backup test-restore drill ran and **PASSED**.
+
+**2. ✅ `App-consistent = enable QEMU guest agent + 1 reboot (deferred)` — NO LONGER DEFERRED.**
+`qemu-guest-agent` went onto all 5 live VMs July 9, 2026. **Verified from the Proxmox host Sep 16,
+2026, not inferred:** `qm config 181` reports `agent: enabled=1`, and `/etc/pve/jobs.cfg` shows
+`gitlab-nightly` still live — `enabled 1`, `mode snapshot`, `zstd`, `keep-last=7`, `02:00`,
+`storage nas-gitlab`. ⭐ **So the nightly GitLab backup is now APP-CONSISTENT, not crash-consistent** —
+snapshot mode with the agent enabled issues an fs-freeze before the snapshot.
+⚠️ **The original caveat, kept because it explains why this was ever acceptable:** crash-consistent
+was judged safe for Postgres, and 02:00 is idle. That reasoning was sound; it is simply no longer
+the situation.
+
+### Original block, verbatim
+
+## GitLab VM backups → NAS (June 18, 2026, night) — Phase 8
+
+**Status:** OPERATIONAL ✅  (details: phases/phase8_backups.md)
+**What:** Set up nightly whole-VM backups of GitLab (VM 181) to the NAS for disaster recovery
+(the ZFS mirror is not a backup; GitLab holds private-only data).
+
+- NAS layout (NeoCortex 192.168.1.120, SMB only): `ProxmoxBackups/<hostname>/dump/...` —
+  per-host subfolder so multiple servers can live under one `ProxmoxBackups`. GitLab →
+  `ProxmoxBackups/vm-gitlab-1/`. Attached as Proxmox CIFS storage **`nas-gitlab`** (one storage
+  per host, since a storage = one `dump/`).
+- Created scheduled job **`gitlab-nightly`**: VM 181, storage nas-gitlab, **02:00 EDT** daily,
+  **snapshot** mode (no downtime), **zstd**, **keep-last=7**.
+- Seed backup verified: 500 GiB scanned (91% sparse) → **15.3 GB** archive, ~6 min, registered.
+- Crash-consistent for now (guest agent not installed; safe for Postgres, and 2 AM is idle).
+  App-consistent = enable QEMU guest agent + 1 reboot (deferred).
+- Adding another server = mkdir `ProxmoxBackups/<host>` + per-host `nas-<host>` storage + job
+  (see phases/phase8_backups.md).
+- TODO: one proof-of-life test restore (VMID 999, isolated NIC).
+
+---
