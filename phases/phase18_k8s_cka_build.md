@@ -711,6 +711,44 @@ involve draining nodes and losing quorum, which is Stage 3 drill territory anywa
 actually exercised here, and the S / K / 🤖 marking convention exists precisely so nothing recited can
 later be quoted as experience.
 
+### ✅ Stage 2 — COMPLETE, Sep 17, 2026. THE BASELINE, WRITTEN DOWN (step 4)
+
+⭐ **Recorded because a later "something is wrong" is only meaningful against a recorded normal.**
+**This is what HEALTHY prints on this cluster.** Measured, not transcribed.
+
+| Check | Healthy output |
+|---|---|
+| `kubectl get nodes` | **5** nodes `Ready`, all `v1.35.8`. Control planes show `control-plane`; ⭐ **workers show `<none>`, NOT `worker`** |
+| `etcdctl endpoint status --cluster` | **3 members**, exactly one `IS LEADER true`, **raft indices equal or 1–2 apart** (the spread is sampling, and it widens with write rate) |
+| VIP | `192.168.1.206/32` on **exactly one** control plane. ⛔ Two holders = duplicate addresses on the wire |
+| `kubectl get tigerastatus` | `apiserver` · `calico` · `ippools` · `tiers` — all `True`. ⛔ **`goldmane`/`whisker` must be ABSENT** (dropped deliberately) |
+| `kubectl get ippool default-ipv4-ippool` | `cidr: 10.244.0.0/16`, `blockSize: 26`, `ipipMode: Never`, `vxlanMode: CrossSubnet` |
+| Calico blocks | **one `/26` per node**, scattered not sequential |
+| Pods | **43** system pods, none outside `Running`/`Completed` |
+| `kubeadm certs check-expiration` | all ten control-plane certs **Sep 17, 2027** (⚠️ kubelet client certs are NOT in that list and rotate far sooner) |
+| Pod-to-pod across nodes | ping succeeds, **`ttl=62`** — ⭐ two decrements means **routed, not encapsulated** |
+| DNS from a pod | `10.96.0.10` resolves `kubernetes.default.svc.cluster.local` → `10.96.0.1`, and forwards external names |
+
+📊 **MEASURED COSTS — these decide how boldly Stage 3 can break things:**
+| Operation | Measured |
+|---|---|
+| `qm rollback` of five VMs | **6 s** |
+| Rollback → all five reachable over SSH | **49 s** |
+| Full cycle incl. graceful shutdown | **under ~2 min** (⚠️ **not measured precisely — the script's timer started after the shutdown loop and its label overstated what it covered**) |
+| VIP failover after an abrupt power cut | **17 s** (predicted 15–20 s from lease 15 / renew 10 / retry 2) |
+
+✅ **THE ROLLBACK IS PROVEN, NOT ASSUMED — and the method is the transferable part.** ⭐ **A successful
+restore and an ordinary power cycle produce IDENTICAL output**, so markers were planted first: a
+`ConfigMap` in etcd **and** a file on all five filesystems. Both came back **gone** — the file absent on
+5/5, the ConfigMap `NotFound`. ⛔ **Without a marker the test proves nothing**, which is the same
+prove-the-negative rule this project uses everywhere.
+
+🔲 **STAGE 1's DOCUMENTATION IS NOT FINISHED.** ✅ **Chapter 02 written Sep 17** (*Giving a Node a
+Role* — 1 figure, docx built, 20.0% marked). 🔲 **Chapters 03 and 04 still owed**, and the plan says
+**Stage 1 ends when the cluster is built, tested AND DOCUMENTED** — so Stage 3 does not open yet.
+⭐ **Both chapters' material is fully measured and in the Stage 1 results block above**; nothing further
+needs running on the cluster to write them.
+
 ### Stage 3 — CKA administration, one task type per chapter → **chapters 05+**
 
 **Only now does exam material get opened.** Each chapter takes **one class of administrative task**,

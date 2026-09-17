@@ -25,7 +25,7 @@ digraph node_stack {
     kubelet [label=<
       <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" BGCOLOR="#fdf6e3">
         <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>3 · KUBELET</B></TD></TR>
-        <TR><TD ALIGN="LEFT" BALIGN="LEFT">kubeadm / kubelet / kubectl<BR/>version PINNED and HELD<BR/>enabled<BR/>inactive — nothing to do yet</TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT">kubeadm / kubelet / kubectl<BR/>version PINNED and HELD<BR/>enabled, but CANNOT start yet<BR/>no /var/lib/kubelet/config.yaml</TD></TR>
       </TABLE>>];
 
     role [label=<

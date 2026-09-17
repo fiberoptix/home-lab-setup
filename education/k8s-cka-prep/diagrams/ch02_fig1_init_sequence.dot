@@ -1,0 +1,41 @@
+// Chapter 2, figure 1 — the ordering that makes kube-vip + kubeadm init confusing.
+// The question this answers: how can a static pod provide the VIP that `kubeadm init`
+// needs, when static pods are started by a kubelet that `kubeadm init` starts?
+// Answer: the manifest goes in place FIRST and is INERT; the VIP comes up DURING init.
+//
+// Laid out TOP TO BOTTOM for the same reason as ch01 fig1: stacked keeps WIDTH off the
+// binding constraint. FOUR boxes, not six — a six-box version rendered 1692px tall
+// against the 1386px cap, so two pairs of beats were merged. figcheck.py caught it.
+// No prose in the figure — commentary lives in a blockquote under it.
+digraph init_sequence {
+    rankdir=TB;
+    bgcolor="white";
+    node [shape=plaintext, fontname="Helvetica", fontsize=15];
+    edge [color="#555555", penwidth=1.6, arrowsize=0.8];
+
+    before [label=<
+      <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" BGCOLOR="#f4f4f4">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>0 · BEFORE INIT — the manifest is INERT</B></TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT">manifests/ = kube-vip.yaml ONLY<BR/>kubelet DEAD: no /var/lib/kubelet/config.yaml<BR/>no PKI · no VIP · nothing reads the manifest</TD></TR>
+      </TABLE>>];
+
+    init [label=<
+      <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" BGCOLOR="#eef4fb">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>1 · init WRITES, THEN STARTS THE KUBELET</B></TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT">pki/ · admin.conf · super-admin.conf<BR/>4 static pod manifests · kubelet config.yaml<BR/>kubeconfigs exist BEFORE the kubelet runs</TD></TR>
+      </TABLE>>];
+
+    reads [label=<
+      <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" BGCOLOR="#eaf6ee">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>2 · KUBELET READS manifests/ — VIP COMES UP</B></TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT">finds FIVE: etcd · apiserver<BR/>controller-manager · scheduler · kube-vip<BR/>kube-vip binds .206/32 DURING init</TD></TR>
+      </TABLE>>];
+
+    done [label=<
+      <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" BGCOLOR="#fdf6e3">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>3 · init COMPLETES</B></TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT">apiserver answers on VIP:6443<BR/>join commands printed (token 24h · cert key 2h)<BR/>NOW revert kube-vip to admin.conf</TD></TR>
+      </TABLE>>];
+
+    before -> init -> reads -> done;
+}

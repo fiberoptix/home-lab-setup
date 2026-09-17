@@ -291,6 +291,24 @@ git show HEAD:education/<track>/docx/chapterNN.docx > /tmp/old.docx && unzip -p 
 diff -q /tmp/old.xml /tmp/new.xml || echo "genuinely changed"
 ```
 
+🔻 **THAT CHECK HAS A HOLE — found Sep 17, 2026 while rebuilding the CKA track.** It compares
+**`word/document.xml` only**, and a chapter's figures are stored separately under `word/media/`. So a
+**figure-only change** (edit the `.dot`, re-render the `.png`, rebuild) reports
+`document.xml IDENTICAL` while the `.docx` genuinely differs — and the procedure above then tells you
+to `git checkout` a file you had just correctly rebuilt, silently shipping a stale figure.
+✅ **Compare the media parts too:**
+
+```bash
+# every inner part, not just the text
+for part in word/document.xml $(unzip -Z1 education/<track>/docx/chapterNN.docx | grep '^word/media/'); do
+  unzip -p education/<track>/docx/chapterNN.docx "$part" | md5sum | sed "s|-|$part|"
+done
+```
+
+⭐ **The general lesson is the one this file keeps teaching: a check that looks at one layer reports
+on one layer.** ⚠️ It was caught only because the figure change and a text change happened in the
+same session — **a figure-only commit would have passed the check and been wrong.**
+
 ⭐ **Why this is a convention and not housekeeping: a commit that claims to change eight chapters when
 it changed one destroys the reviewability of every future `git log` on the track.**
 

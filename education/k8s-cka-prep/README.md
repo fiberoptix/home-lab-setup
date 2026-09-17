@@ -19,8 +19,9 @@ PURPOSE line outlives the decision that replaced it, because nobody re-reads the
 **Status (Sep 17, 2026):** ✅ **Chapter 1 written. Plan approved, Stage 0 complete and RE-VERIFIED** —
 five kubeadm-ready nodes at `.201`–`.205`, identical and role-less, Kubernetes **v1.35.8** inert,
 containerd **2.3.5** with the CRI plugin enabled, **`crictl` 1.35.0**, kernel **6.8.0-139**, five apt
-holds, snapshot **`c01-nodes-ready`** on all five. 🔲 **Stage 1 is next** — the kube-vip static-pod
-manifest, then `kubeadm init` behind the VIP at `.206`. Working record:
+holds, snapshot **`c01-nodes-ready`** on all five. ✅ **STAGE 1 COMPLETE (all six steps) and STAGE 2 COMPLETE** — a real 5-node HA cluster runs at
+`.201`–`.205`, and `c02-virgin-cluster` is an **offline** baseline whose rollback has been **proven**,
+not assumed. 🔲 **Next: chapters 03 and 04**, then Stage 3 (exam drilling). Working record:
 [`../../phases/phase18_k8s_cka_build.md`](../../phases/phase18_k8s_cka_build.md).
 
 ⚠️ **Two things a Sep 16 reader of this folder would have been told wrongly, both fixed Sep 17 and
@@ -38,7 +39,9 @@ consolidated them on Sep 16, 2026 rather than keeping `k8s-cka-prep/` apart from
 | Chapter | Subject | Stage | Status |
 |---|---|---|---|
 | [**01**](chapter01_preparing_a_node.md) | **Preparing a Node for kubeadm** — given a fresh Ubuntu host, what makes it a Kubernetes node: swap, kernel modules, sysctls, containerd with the CRI plugin *enabled*, `crictl` pointed at the socket, pinned+held packages. Ends with every node **identical and role-less**. ⭐ Written to be repeatable where there is no template 9000 and no script server | 0 (work) | ✅ **Written** · 1 figure · docx built · 🔄 **revised Sep 17** (step 6 `crictl`, corrected kubelet section, two measured Lab-vs-PROD callouts) |
-| 02–04 | Installing and configuring Kubernetes piece by piece: kube-vip, `kubeadm init`, CNI, joining an HA control plane, joining workers | 1 (work) | 🔲 Planned · ✅ **kube-vip research done Sep 17** — ordering verified upstream, the `super-admin.conf` bootstrap trap and four gotchas are in the plan |
+| [**02**](chapter02_giving_a_node_a_role.md) | **Giving a Node a Role** — the kube-vip ordering problem (a static pod must exist before the kubelet that runs it), the **three** values fixed irreversibly at `kubeadm init`, the v1.29+ `super-admin.conf` bootstrap workaround and its asymmetry, verifying the certificate SANs from a dry run **before** committing, and reading what `init` put on disk | 1 (work) | ✅ **Written Sep 17** · 1 figure · docx built · 20.0% marked |
+| 03 | The CNI and the joins: Calico via the Tigera operator (and the CIDR it hard-codes), joining control planes 2 and 3, joining the workers, and why a worker join is 14 lines where a control-plane join is 55 | 1 (work) | 🔲 Planned — **all of it is BUILT and measured**, see the plan's Stage 1 results |
+| 04 | Proving the HA: killing a control plane, the VIP moving, etcd holding quorum, and the offline baseline snapshot with a **proven** rollback | 1–2 (work) | 🔲 Planned — **built and measured Sep 17** (17s VIP failover, rollback proven with planted markers) |
 | 05+ | One CKA administrative task type per chapter, weighted by the exam's own domain weights | 3 (exam) | 🔲 Planned |
 
 ⭐ **Stages 0 and 1 are written as procedures to repeat at work. Stage 3 is exam drilling.** The split is

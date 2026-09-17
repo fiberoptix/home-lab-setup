@@ -14,14 +14,19 @@ growing — see that file for why the previous append-only version went undetect
 at `.201`–`.203` and `vm-k8s-cka-worker-1/2` at `.204`/`.205`, all **v1.35.8 `Ready`**, three stacked
 etcd members with control-1 as leader, **kube-vip VIP `192.168.1.206` up and held by one node**, and
 **Calico v3.32.2** (Tigera operator) on pod network **`10.244.0.0/16`**.
-🔲 **NEXT, and the order was deliberately CHANGED:** graceful shutdown of all five → **offline**
-snapshot **`c02-virgin-cluster`** → power on → verify → **THEN** step 6, the HA power-off test.
-🚨 **Why the swap: step 6 is the only destructive test in the build and the plan had it BEFORE the
-baseline snapshot**, so the newest rollback point would have been `c01-nodes-ready`, which predates
-the cluster. An abrupt `qm stop` is an unclean etcd shutdown.
-🔲 **Also owed before sign-off:** cross-node pod-to-pod connectivity and a CoreDNS lookup — `pause`
-has no shell, so neither has been proven. ⭐ **A cluster that schedules but cannot resolve names looks
-fine and is not.**
+✅ **STAGE 1 COMPLETE (all six steps) AND STAGE 2 COMPLETE.** HA proven by an abrupt `qm stop` of the
+VIP holder: **17 s** to recover, VIP moved, etcd held quorum 2/3 and **did not re-elect** (killing a
+follower, not the leader). Cross-node pod-to-pod and CoreDNS both verified — ⭐ **`ttl=62` on the ping
+proves the traffic is ROUTED, not encapsulated.**
+✅ **`c02-virgin-cluster` is an OFFLINE baseline on all five, and its rollback is PROVEN — not assumed.**
+⭐ **The method is the transferable part: a restore and a plain power cycle print the SAME thing, so
+markers were planted first** (a ConfigMap in etcd *and* a file on every node). Both came back gone.
+📊 **Restore costs `qm rollback` 6 s, ~49 s to reachable, full cycle under ~2 min** — cheap enough that
+Stage 3 can break this cluster freely.
+🔲 **NEXT: chapters 03 and 04.** ⛔ **Stage 3 does NOT open until they exist** — the plan's own gate is
+*"Stage 1 ends when the cluster is built, tested AND DOCUMENTED"*. ✅ **Chapter 02 is written** (*Giving
+a Node a Role*, 1 figure, docx built, 20.0% marked). ⭐ **Nothing further needs running on the cluster:
+both chapters' material is fully measured in the plan's Stage 1 results block.**
 ⚠️ **Read the Stage 1 results block in `phases/phase18_k8s_cka_build.md` before touching this** — it
 holds the corrections (kube-vip did NOT crash-loop; the Calico operator HARD-CODES
 `192.168.0.0/16`; `node.spec.podCIDR` is inert; `RESTARTS 0` does not mean a static pod was
