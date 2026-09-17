@@ -105,6 +105,12 @@ phases/phaseX_*.md (the working record - where the volume belongs):
          IMMEDIATELY OWE. Step 0 caught it because it counts the thing the spec constrains.
        Sep 17, 2026 (after pass 9)  : 19 blocks,  6 dated Jan-July 2026, 1834 lines
        Sep 17, 2026 (after pass 9b) : 18 blocks,  6 dated Jan-July 2026, 1559 lines
+       Sep 17, 2026 (after pass 9c) : 18 blocks,  6 dated Jan-July 2026, 1457 lines
+         ⭐ NET-NEUTRAL BY DESIGN, and that is the point: the Sep 16 handoff was demoted (203
+         lines to phase18) and today's was written in its place. The file now holds the RIGHT
+         TWO blocks - one RESUME HERE, one CURRENT handoff - plus 16 of acknowledged backlog,
+         instead of approximating the spec with a stale handoff and no current one.
+         ⛔ A count that does not fall is not automatically a failed pass. Ask WHICH blocks.
          ⭐ Pass 9 salvaged a LIVE SECURITY CAVEAT that existed in one place only: the master
          password leaked to public GitHub in June 2026 was purged from history and NEVER ROTATED.
          MEMORY.md said "history was purged", which reads as remediated. A purge is not a rotation.

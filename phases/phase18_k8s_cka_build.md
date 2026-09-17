@@ -1069,3 +1069,220 @@ written reservation in `MEMORY.md`, not a router setting.
 ⚠️ **One live caveat:** three household devices sit at **`.215`, `.217`, `.220`** — *below* the pool, on
 leases issued before it was narrowed, the same mechanism that kept the Denon on `.202` through three
 reboots. ⛔ **Sweep before allocating anything in `.207–.220`.**
+
+---
+
+## DEMOTED VERBATIM FROM `phases/current_phase.md` — Sep 17, 2026 (`MAKE_MEMORIES` pass 9c)
+
+⭐ **The Sep 16, 2026 session handoff — the day this phase was planned and Stage 0 was built.** Routed
+here because the bulk of it is Phase 18: the VM 200 destroy that freed the resources, the decision to
+put Jenkins on hold, the plan itself, Stage 0's build, and the evening re-scope.
+⚠️ **Its `🧹 Memory pass` subsection is process history and is also represented as ROWS in
+`current_phase.md` → `📦 DEMOTION LOG`.** Copied whole rather than split, because verbatim copying is
+lossless and splitting would have required judgement about material that costs nothing to keep.
+🔻 **Read it as of Sep 16.** Two of its claims were corrected the next day — kube-vip does not
+crash-loop when the workaround is applied first, and the plan named ONE irreversible `init` value where
+there are THREE. Both corrections are in the Stage 1 results section above.
+
+## 🧹 SESSION Sep 16, 2026 — VM 200 destroyed, and the memory drain restarted after 3 weeks idle
+
+🙋 **Andrew: "Let's do B and then C. We might start a new project today and put Jenkins on hold."**
+✅ **DECIDED later the same session — Phase 17 IS ON HOLD** and he asked for it recorded before
+anything else. Nothing in the Jenkins plan was touched or advanced today; it is paused where it stood.
+Marked in five places: this file's top block, `MEMORY.md` (CURRENT STATE, PHASE INDEX, PHASES table,
+REFERENCE INDEX) and `phase17_jenkins.md`'s status header.
+🔻 **Found while doing it: `phase17_jenkins.md`'s own status header still read "Parts 0, 1 and 2 are
+DONE… Next is Part 3"** — Part 3 had closed on **Aug 20** (J-P10, snapshot `j03-gitlab-wired`), so the
+phase file had been three weeks stale in the one field a resuming session reads first, while
+`MEMORY.md` and this file both had it right. ⭐ **A status header is what a cold session trusts most
+and what a working session updates last.** Corrected in the same edit that recorded the hold.
+⚠️ **`CURSOR_RULES` item 4 still says "CURRENT PHASE: 17 (Jenkins)" and was deliberately NOT edited** —
+that file needs Andrew's written authorisation. **Flagged to him; it is the one remaining contradiction
+on the boot path**, and it is the *first* substantive thing a cold session reads, which is exactly the
+failure mode that file's own Aug 24 correction note describes.
+
+🔍 **Boot check found the lab healthier than the docs predicted.** `MEMORY.md` warns that the Swarm is
+`onboot 0` and comes back down after any host reboot, making `qm start 191 192 193` a Part 4
+prerequisite. Measured instead: all three nodes **running and `Ready/Active`**, `docker-swarm-1`
+Leader, and the Phase 16 `capricorn` stack green at 2/2 3/3 1/1 1/1 — started by hand after the
+Aug 26 RAM reboot (host uptime 20d 21h). **That prerequisite is already met.**
+
+### ⛔ VM 200 `vm-kubernetes-1` IS DESTROYED — irreversible, no backup
+
+`qm destroy 200 --purge` at 1:37 PM. 🙋 Andrew declined a backup deliberately, consistent with the
+Aug 20 ruling that **QA is a deploy target, not a data store**. The rollback window had closed Sept 3
+and VM 180 had been serving QA for 27 days. ✅ **Verified gone:** config file, the `vm-200-disk-0`
+zvol, and its `pre-clone-20260820` snapshot — the one that still recorded `onboot: 1` and would have
+re-armed autostart into an IP collision on rollback. **VMID 200 is free.**
+
+✅ **The pre-destroy read is what made this cheap** — cross-phase rule 1: read the config **and** grep
+the docs for what depended on it. It found **nothing did**: no `200.fw`, no backup job, no storage
+entry, nothing in `/etc/pve` but an `.rrd` stats row, and every repo hit was either dated history or a
+doc row updated the same session. ⚠️ Worth contrasting with VM 185, where the identical read caught a
+**wrong core count** minutes before those facts became permanently unrecoverable. The read is cheap
+whether or not it finds anything; that is the argument for always doing it.
+
+📊 **The measurement worth keeping: a thick zvol's cost is not its `size=`.** The disk read
+**`USED 116G` / `REFER 14.6G`** at `size=100G`, so the destroy returned **116 GB of reservation** and
+only **14.6 GB of real blocks** — `zfs` AVAIL 1.04T → 1.16T, `zpool` ALLOC 76.7G → 62.1G.
+🚨 **And the ALLOC reading taken immediately after the destroy still said 76.7G.** Reservation is
+released synchronously; blocks are freed **asynchronously**, a few seconds later. ⭐ **A capacity check
+run the instant after a delete reports the old number and reads exactly like a delete that did
+nothing.** Two numbers, two questions, and you need to know which one you asked. Recorded in
+`MEMORY.md` → STORAGE, alongside the `phase0` finding that `vm-critical`'s alarming 70.9% is
+refreservation rather than data.
+
+### 🧹 Memory pass — 29 → 24 blocks, five demotions, a commit after each
+
+**Step 0 at open: MEMORY.md 2483 · current_phase.md 2116, 29 blocks (spec 2), 16 dated Jan–Jul.**
+Oldest-first, each one copied or proven covered before deletion, each verified from the **shell** with
+a line-by-line diff audit, each committed before the next began. Rows are in the 📦 DEMOTION LOG below.
+
+⭐ **Every coverage check ran a POSITIVE CONTROL first** — a real line it must find and a fake line it
+must reject — because an unvalidated check does not merely give a bad number, it *licenses a delete*.
+This is the Aug 21 tool failure being designed against rather than remembered.
+
+⭐ **The find worth carrying forward: `fix_cursor_sandbox.sh` existed in NO commit and NO file.**
+Checked the working tree and the full git history; the Feb 27, 2026 block was its only record
+anywhere in the project. Its purpose, mechanism and install path were salvaged into
+`phase2_host_setup_automation.md` before the block went. 🚨 **That is Phase 2's own rule read
+backwards:** a fix folded into `host_setup.sh` keeps paying on every host built afterwards, so a fix
+applied **by hand** to six VMs and written up only in a session log is a fix **you own once** — and
+two of those six hosts have since been destroyed, taking their copies with them.
+
+🚨 **Two of the demoted blocks were not merely old, they were WRONG in a way a future session could
+ACT on**, which is why they went before larger ones (sort by MISLEAD, not by size):
+- The **Jan 12** block prescribes `cache=writeback` as an applied standard. It is **incompatible with
+  `aio=native`**; the real standard is `cache=none`. The destination file now says so at the top.
+- The **Phase 6 stub** claimed `.183` has 8 GB (it has 12) and pointed at *"Next: Phase 7
+  (Monitoring)"* — Phase 7 was the WWW server, and Monitoring has never been built.
+
+🔲 **Not finished: 23 blocks against a spec of 2, 11 still dated Jan–Jul** — a fifth demotion ran later the
+same day (the May 23 refresh-script block; two findings **promoted** to `MEMORY.md` rather than filed as
+history). The mechanism drains reliably; the backlog is just long. Next pass takes the June 18 era.
+⚠️ **One process note from pass 5, because it is the documented tool failure recurring:** the first coverage
+check reported a fact ABSENT that was present, because the search key wrote `refresh.sh` where the file has
+it in **backticks**. ⭐ **The positive control did not catch it — the control string happened to contain no
+markdown.** A control proves the check works for strings shaped *like the control*, not for all strings.
+
+### 🔵 THEN THE DAY CHANGED DIRECTION — Jenkins on hold, Phase 18 planned
+
+🙋 **Andrew put Phase 17 on hold and opened a new phase: a 5-node HA `kubeadm` cluster for the CKA and for
+onboarding at the new job.** Recorded in five places so no stale copy can win, and `CURSOR_RULES` item 4 was
+updated under **written authorisation** — its EDIT LOG entry 5, the fifth authorised edit to that file ever.
+🔻 **Found while doing it: `phase17_jenkins.md`'s own status header still read "Next is Part 3" three weeks
+after Part 3 closed**, while `MEMORY.md` and this file both had it right. ⭐ **A status header is what a
+resuming session trusts most and what a working session updates last.**
+
+📖 **Researched the CKA rather than guessing** → `education/k8s-cka-prep/`, every claim marked 🟢 official /
+🟡 community / 🔴 contradicted. **The CNCF curriculum PDF was read directly** (sha256 `634b7937…`), which
+confirmed every domain and weight and added four details the web summaries had dropped — above all that the
+spec says *"create and manage Kubernetes clusters **using `kubeadm`**"*, naming the tool outright.
+🚨 **Two findings changed the plan.** The exam runs **v1.35**, about two minors behind upstream, so the
+original build-v1.36-upgrade-to-v1.37 choice would have practised on the wrong version. And **the curriculum
+is wider than the plan was**: Storage is **10% of the exam with zero coverage**, alongside Helm/Kustomize,
+CRDs/operators, Gateway API, HPA and Ingress.
+⭐ **That gap forced the restructure, and then dissolved in it:** once the phase split into *work*
+(Stages 0–2) and *exam* (Stage 3), the missing topics were obviously never absent from the **build** — they
+belong to the **exam** half, and a single blended track had nowhere to put them.
+🔻 **All eight planted traps were WITHDRAWN at Andrew's instruction**, recorded as a `METHOD.md` deviation.
+⚠️ Two could never have been "not planted": T1/T2 are what `setup_docker.sh` leaves on **every** lab host
+(`disabled_plugins = ["cri"]`, verified on `.191`), so they became documented Stage 0 steps.
+**Breakage moved to Stage 3 as named, repeatable exercises** — troubleshooting is 30% of the marks, and
+⭐ **an exercise can be drilled ten times where a trap fires once.**
+⛔ **A boundary was set and agreed: no recalled or leaked exam questions.** They breach the Linux Foundation
+confidentiality agreement and can invalidate a certification. Exercises come from the published curriculum —
+⭐ **which is what the exam's questions are generated from anyway**, so the practical loss is near zero.
+🗣️ **A communication lesson worth keeping:** the AI invented "Stage A/B/C" labels for a plan Andrew had
+already numbered 0–3, and he had to ask what "Stage C" meant. ⭐ **Two vocabularies for one plan is one too
+many.** Renamed to his numbering — 27 replacements across four files.
+
+### 🟢 THEN STAGE 0 WAS BUILT AND FINISHED (evening)
+
+🙋 **Andrew ran every command himself** from the dev box; the AI wrote the scripts and verified the fleet.
+✅ **Five nodes live at `.201`–`.205`**, 2 vCPU / 4 GB / 40 GB, `onboot 0`, snapshot `c01-nodes-ready`.
+**kubeadm v1.35.8 held, containerd CRI ok, no Docker anywhere, `kubeadm init --dry-run` preflight passing,
+and all five reporting "nothing was changed" on a re-check.**
+
+🔻 **A plan assumption died on contact: the template has NEITHER Docker NOR containerd**, so the approved
+"add then subtract" was unnecessary. `containerd.io` goes on alone, configured for Kubernetes from the
+start. ⭐ **Nothing to subtract if you never add it** — and no removal residue either.
+
+⭐ **Testing on ONE node against a snapshot paid for itself immediately.** The script's summary was
+**lying**: doubled values (because `systemctl is-active` PRINTS a value *and* exits non-zero, so
+`|| echo absent` fired too) and **`CRI enabled: yes` while containerd was not installed at all.** That
+would have been believed on five nodes instead of one. ⚠️ **The same `cmd || echo` mistake was then
+repeated in a throwaway check minutes later** — the shape is genuinely easy to write wrong.
+
+📊 **Steal time baseline captured before anything is broken: `st = 0%`** on two new nodes and a Swarm node,
+host 98% idle. ✅ **That answers Andrew's question about shutting the Swarm down — measured NO**, it would
+relieve contention that is not occurring. ⭐ **Steal is the only instrument for this**; host CPU% cannot
+tell you a guest was starved.
+
+🔧 **Then Andrew asked for THREE scripts he can take to work, and the split is by PORTABILITY:**
+`1-provision-vms.sh` (⛔ Proxmox-specific — only its *contract* transfers), `2-personalize.sh` (✅ portable:
+environment only), `3-k8s-base.sh` (✅ portable: pure upstream, assigns **no role**). Plus a
+`scripts/README.md`. 🙋 **His design call and it beat the AI's** — a wrapper calling the lab's sub-scripts
+would only ever have worked here, since there is no script server at the firm. The combined `k8s-setup.sh`
+was **deleted**, not kept beside them, because two copies drift.
+
+📖 **His teaching point, now chapter 02 material: A NODE HAS NO ROLE UNTIL ONE COMMAND GIVES IT ONE.**
+Verified across all five — identical, role-less. **The hostnames are labels a human chose and nothing
+enforces them.** ⭐ And the corollary that pays off in the exam's 30% troubleshooting domain: **the kubelet
+is identical on both roles**; a control plane is just a node whose kubelet also runs four **static pods**
+read off local disk, which is why a dead API server is fixed by editing a *file* and why `kubectl` cannot
+help — the thing to fix is the thing that serves `kubectl`.
+⚠️ **`kubeadm init --dry-run` WROTE TO DISK**, leaving `/etc/kubernetes/tmp/` and making control-1 the only
+node that differed. Cleaned. ⭐ **Third instance today of a probe mutating the system** — after the
+`paplay --volume` fault and the ARP-vs-ping instrument. **"It only reads" is a claim to verify.**
+
+### 🌙 Evening (Sep 16, ~7:30–8:10 PM) — context that re-scoped the phase, and one real error caught
+
+🔒 **Confidential context was recorded in `MEMORY_SECRET.md`** (employer, role level, dates, and the
+professional situation). ⛔ **It is NOT repeated here** — per the protocol, tracked files get the
+consequence and the confidential file keeps the fact. **Read that file at boot; this block is only the
+consequences.**
+
+⭐ **CONSEQUENCE 1 — the education tracks are not parallel studies, they are TWO ENDS OF MIGRATIONS
+that matter professionally.** Docker Swarm (Phase 16) and Jenkins (Phase 17) sit on the **source** side;
+Kubernetes (Phase 18) and this lab's GitLab are the **targets**. ⛔ **So do NOT treat 16 and 17 as closed
+or parked** — they are live reference material.
+⭐ **What that unlocks, and it is the best-value work available:** `education/docker-swarm/chapter08_swarm_vs_kubernetes.md`
+is already a Swarm↔Kubernetes crib sheet, and **7 of its rows are marked `recited`** — claims *neither
+lab had tested* ("neither lab tested drain against a quorum workload"). **A real multi-node cluster now
+exists, so those 7 can be converted to VERIFIED.** Bounded, upgrades an existing artefact, and worth more
+than either track alone. 📌 **Sequenced after Stage 2** (several need a working HA cluster and involve
+losing quorum). ⚠️ **Keep the provenance marks honest** — a row moves to verified only when exercised here.
+
+🔻 **CONSEQUENCE 2 — an AI framing error, corrected.** The AI had written that Andrew is *"a director, not
+an IC"* and started optimising for strategy over hands-on skill. **He is BOTH.** ⛔ **Do not trade
+hands-on capability away.** ⭐ What survives: **his output is a standard a team can follow** — which is why
+the three scripts and the chapters matter — **but the work getting there is his own hands on the keyboard.**
+Where depth and speed genuinely conflict, **depth wins**: speed can be trained in a fortnight before the
+exam, judgement cannot.
+
+🚨 **AND A LOAD-BEARING TECHNICAL ERROR IN THIS PHASE'S PLAN WAS FOUND AND FIXED — it would have bitten
+at the FIRST step of Stage 1.** The plan and this block both said **"kube-vip must be ANSWERING on `.206`
+before `kubeadm init`"**. ⛔ **That cannot happen.** kube-vip here is a **static pod**; static pods are
+started by the **kubelet**; the kubelet **cannot start at all** on any of the five and on control-1
+**`kubeadm init` is what makes it able to.** 🔻 **(Mechanism sharpened Sep 17, 2026: measured
+after a reboot the kubelet is `activating (auto-restart)`, not `inactive` — it dies on a missing
+`/var/lib/kubelet/config.yaml` before it ever reads the manifests directory. Same conclusion,
+stronger reason.)** ⭐ **Correct ordering is manifest-then-init — the VIP comes up
+DURING init.** Waiting for `.206` to ping first would have looked like a stuck build with nothing wrong.
+⭐ **Why it survived review: it was stated as a `🚨 Hard sequencing rule ... NOT optional`, and confident
+formatting reads as verified.** 🔲 **The correction is itself marked UNVERIFIED** — reasoned from docs, to
+be confirmed against the kube-vip instructions before anything is typed.
+✅ **CONFIRMED Sep 17, 2026 — the correction was RIGHT** (kube-vip's *Static Pods* page documents
+manifest-then-init explicitly). ⭐ **And the sentence beside it, which nobody doubted, was the wrong
+one:** the `admin.conf`/`super-admin.conf` note said "fails on permissions" when it actually times
+out `kubeadm init` entirely. **See the `▶️ RESUME HERE` block.**
+
+🧹 **Memory maintenance: 21 → 19 blocks**, two demotions with a commit and a line-by-line verification
+after each. ⭐ **The second one paid for itself beyond tidying: it closed two TODOs finished in July and
+never marked done** — the restore drill, and the deferred guest-agent work. **Checked against the host
+rather than assumed:** `qm config 181` shows `agent: enabled=1`, so the nightly GitLab backup is
+**app-consistent now, not crash-consistent**. ⚠️ **A TODO that outlives its completion invites the work to
+be redone.**
+
+---
