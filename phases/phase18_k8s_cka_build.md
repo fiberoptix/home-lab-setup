@@ -981,3 +981,91 @@ protect a *learning* outcome, and in Stage 3 the thing being learned **is diagno
 🟢 the CKA is entirely performance-based and Troubleshooting is 30% of the marks. Being handed the answer
 teaches the fact and skips the skill. In Stages 0–2 the outcome being protected is a **document**, and
 there the fastest correct path is the best one. **Same rule, applied where it pays.**
+
+---
+
+## DEMOTED VERBATIM FROM `phases/current_phase.md` — Sep 17, 2026 (`MAKE_MEMORIES` pass 9b)
+
+⭐ **This was the `▶️ RESUME HERE` block as it stood BEFORE Stage 1 ran** — the approved plan, the
+Stage 0 state, and the pre-init kube-vip sequencing. ⚠️ **It is superseded by the Stage 1 and Stage 2
+results sections above and must not be acted on**; it is kept because it is the only record of what we
+believed and intended *before* the cluster existed, which is what makes the corrections legible.
+🚨 **Two claims in it were proven WRONG the next day and are corrected above:** kube-vip does NOT
+crash-loop when the workaround is applied first, and the plan named ONE irreversible init value when
+there are THREE.
+
+## 📌 Stage 0 record (superseded by the above, kept for the build history)
+
+**Read `phases/phase18_k8s_cka_build.md` before touching anything Kubernetes.** ~485 lines, current as of
+Sep 16, 2026.
+
+✅ **PLAN APPROVED by Andrew Sep 16, 5:48 PM. ✅ STAGE 0 IS COMPLETE — five nodes built and verified.**
+
+🔲 **NEXT: STAGE 1 — install and configure Kubernetes, and the first step is NOT `kubeadm init`.**
+1. 🚨 **`kubeadm init` MUST carry `--control-plane-endpoint` pointing at `.206`.** It fixes the apiserver
+   certificate's SANs at init time, so initialising without it means control-2 and control-3 can **never**
+   join. 🔻 **AND IT IS NOT THE ONLY ONE — corrected Sep 17, 2026. THREE values are fixed at `init`:**
+   `--control-plane-endpoint=192.168.1.206:6443`, **`--pod-network-cidr=10.244.0.0/16`** and
+   `--service-cidr=10.96.0.0/12` (default, knowingly accepted). 🚨 **The pod CIDR was specified NOWHERE
+   in the plan and Calico's default `192.168.0.0/16` CONTAINS this lab's `192.168.1.0/24`** — it would
+   have handed pods real LAN addresses, presenting as an intermittent CNI or switch fault. ⛔ **Calico
+   must be told the same CIDR explicitly; its `CALICO_IPV4POOL_CIDR` ships commented out and it
+   defaults to `192.168.0.0/16` no matter what kubeadm was told.**
+   🔻 **CORRECTED Sep 16 (this block used to say "kube-vip must be ANSWERING on `.206` first"): it cannot
+   be.** kube-vip is a **static pod**, static pods are started by the **kubelet**, and the kubelet
+   **cannot start at all** until `kubeadm init` writes its config (🔻 sharpened Sep 17 — measured
+   after a reboot it is crash-looping, not `inactive`; same conclusion, stronger mechanism). ⭐ **Put the manifest in place, then init — the VIP comes up
+   DURING init.** ⛔ **Do not wait for `.206` to ping first; it never will.** ⚠️ Expect kube-vip to
+   crash-loop briefly (its kubeconfig does not exist until init creates it) and note that **v1.35 splits
+   `admin.conf` from `super-admin.conf`**.
+   ✅ **VERIFIED Sep 17, 2026 against kube-vip's *Static Pods* page and issues #684/#907/#938 plus
+   kubeadm #3274 — the 🔲 flag is CLEARED and the ordering was right.** 🚨 **But the kubeconfig
+   consequence was UNDERSTATED: point kube-vip at the wrong one and `kubeadm init` TIMES OUT after
+   ~4 minutes with an unusable cluster, not merely a permissions error.** ⭐ **On control-1 ONLY,
+   before init, set the manifest's `hostPath` to `/etc/kubernetes/super-admin.conf` and leave the
+   `mountPath` at `admin.conf`; revert after init succeeds.** 🚨 **`super-admin.conf` exists only on
+   the FIRST control plane — cp-2 and cp-3 use the manifest as generated.**
+   ⚠️ **Four gotchas, all in the plan:** the documented version one-liner needs `jq` (we have `yq`);
+   the interface is **`eth0`**, not the docs' `ens160`; the `hostAliases` block is load-bearing; and
+   `ctr` pulls into `default` while the kubelet uses `k8s.io`, so `crictl images` will not show it.
+   ✅ **Decided: kube-vip `v1.2.3`** (not `v1.2.4`, published the day before we would install it) and
+   **`--controlplane --arp --leaderElection` only — no `--services`**, which is a Stage 3 exercise.
+2. Then `kubeadm init` on control-1 → **stop and read what appeared** (static pods, PKI, kubeconfigs) →
+   Calico → join control-2 by hand and control-3 by script → join both workers.
+⚠️ **Two expiries that a deliberate pace makes MORE likely to bite:** the `--upload-certs` certificate key
+lasts **2 hours** (`kubeadm init phase upload-certs --upload-certs`), the join token **24 hours**
+(`kubeadm token create`).
+
+**Nodes as they stand (re-measured Sep 17, 2026, 9:40 AM):** `.201`–`.205`, all five **identical and
+role-less** — kubeadm/kubelet/kubectl **v1.35.8**, containerd **2.3.5** with CRI `ok` and
+`SystemdCgroup=true`, **crictl 1.35.0** + `/etc/crictl.yaml`, **no Docker**, swap off, `yq` + `k`
+alias, Cockpit on 9090, kernel **6.8.0-139** after a deliberate reboot, **five holds**
+(`containerd.io cri-tools kubeadm kubectl kubelet`), zero failed units.
+🔻 **The kubelet is `activating (auto-restart)`, NOT "inactive on purpose"** — it dies every ten
+seconds on `open /var/lib/kubelet/config.yaml: no such file or directory`, which `kubeadm
+init`/`join` writes. ⭐ **That missing file IS the absence of a role**; the old `inactive` reading was
+only ever true of a node that had not rebooted since install.
+✅ **Snapshot `c01-nodes-ready` on all five — REAL as of Sep 17 09:38**, verified at the PVE *and*
+ZFS layers. 🚨 **It was claimed from Sep 16 and had never been taken**, found one step before
+`kubeadm init`. ⭐ **Confirm a snapshot by asking the storage.** ⭐ **Nothing distinguishes a "control" node from a "worker" yet except the
+hostname we chose** — see the chapter 02 teaching point in the plan.
+
+**Where it stands.** ✅ Spec settled: **5 VMs, VMIDs 201–205 → `.201–.205`, kube-vip VIP `.206` (NO VM
+behind it)**, 2 vCPU / 4 GB / 40 GB each on `vm-ephemeral`, **`kubeadm` v1.35** (matching the exam) with an
+upgrade to v1.36 as a drill, **Calico** CNI, 3 control planes with stacked etcd + 2 workers.
+✅ **Four stages, Andrew's own numbering:** **0** prepare the VMs · **1** install and configure Kubernetes
+step by step · **2** sign off and snapshot the baseline · **3** CKA drilling, ~10 exercises.
+⛔ **NO PLANTED TRAPS** — withdrawn deliberately; recorded as a `METHOD.md` deviation in the plan's §8.
+📖 Research lives in **`education/k8s-cka-prep/`** (5 files) — that folder is **both** the prep shelf and
+the education track. **Read its `lab-parity.md` before Stage 0**; it decides what may be installed on a node.
+
+✅ **ADDRESSING IS CLEAR — the DHCP worry is CLOSED (3:47 PM).** Pool confirmed **`.221–.250`**: the Denon
+was set back to DHCP and took **`.231`**, with `.230` as a second data point. All six of `.201–.206` swept
+free. 🔻 **The earlier "pool is unverified" alarm was WRONG** — `.199` had been typed in **by hand** by
+mistake, not handed out by the router.
+⭐ **The lesson that survives is a better one than the alarm was:** the recurring risk in this lab is not a
+DHCP server misbehaving, it is **a human assigning a static address into lab range** — so the defence is the
+written reservation in `MEMORY.md`, not a router setting.
+⚠️ **One live caveat:** three household devices sit at **`.215`, `.217`, `.220`** — *below* the pool, on
+leases issued before it was narrowed, the same mechanism that kept the Denon on `.202` through three
+reboots. ⛔ **Sweep before allocating anything in `.207–.220`.**
