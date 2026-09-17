@@ -98,6 +98,23 @@ phases/phaseX_*.md (the working record - where the volume belongs):
        Sep 16, 2026 (after pass 6)  : 22 blocks, 10 dated Jan-July 2026, ~1841 lines
        Sep 16, 2026 (after pass 7)  : 21 blocks,  9 dated Jan-July 2026, ~1855 lines
        Sep 16, 2026 (after pass 8)  : 19 blocks,  7 dated Jan-July 2026, ~1835 lines
+       Sep 17, 2026 (START of pass 9): 20 blocks, 7 dated Jan-July 2026, 1907 lines
+         🚨 IT WENT UP, AND THE SESSION THAT RAN THE PROCESS IS WHAT PUT IT UP. Rewriting the
+         RESUME HERE heading that morning pushed the old content down under a NEW '##' heading:
+         19 -> 20. ⭐ REPLACING A HEADING IS SAFE; ADDING ONE BELOW IT IS A DEMOTION YOU
+         IMMEDIATELY OWE. Step 0 caught it because it counts the thing the spec constrains.
+       Sep 17, 2026 (after pass 9)  : 19 blocks,  6 dated Jan-July 2026, 1834 lines
+       Sep 17, 2026 (after pass 9b) : 18 blocks,  6 dated Jan-July 2026, 1559 lines
+         ⭐ Pass 9 salvaged a LIVE SECURITY CAVEAT that existed in one place only: the master
+         password leaked to public GitHub in June 2026 was purged from history and NEVER ROTATED.
+         MEMORY.md said "history was purged", which reads as remediated. A purge is not a rotation.
+         🚨 AND PASS 9 RE-DERIVED A LESSON THIS FILE ALREADY RECORDS. It rebuilt an automated
+         coverage checker, validated it with a positive control at 100%, and got 2% for a block
+         whose facts were already hand-verified in CURSOR_RULES. The tool was not broken - it was
+         IRRELEVANT. ⛔ A POSITIVE CONTROL PROVES AN INSTRUMENT IS NOT BROKEN; IT DOES NOT PROVE
+         THE INSTRUMENT ANSWERS YOUR QUESTION. The demotion log's pass-5 entry already said "a
+         verbatim-line check finds CANDIDATES, not verdicts" - and the tool got rebuilt anyway.
+         ⭐ READ THE LOG BEFORE BUILDING THE TOOL. Eight hand-greps beat the script.
          ⭐ Pass 8 is the first where a demotion FOUND A LIVE BUG rather than only moving text: the
          phase8 block carried two TODOs completed in July and never marked done, so anyone reading it
          would have redone a restore drill and a guest-agent rollout. ⛔ TREAT DEMOTION AS AN AUDIT,
