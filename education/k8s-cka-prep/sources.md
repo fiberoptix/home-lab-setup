@@ -50,9 +50,12 @@ would be, because it looks like the output of research.
   describes how tasks are worded, what the infobox contains, or how partial credit works.
 - **Whether Killer.sh's difficulty is above the real exam** — widely asserted in the community, not
   checked here.
-- **`crictl`'s actual presence.** It matters: with Docker removed from our nodes, `crictl` becomes the
-  way to inspect containers, and it would be useful to know whether the exam expects it. 🟢 does not list
-  it; 🟡 says it is there.
+- **`crictl`'s actual presence.** 🟢 does not list it; 🟡 says it is there. ✅ **Still unresolved, but no
+  longer blocking: we install it anyway (Sep 17, 2026) and the reasoning does not rest on the answer** —
+  with Docker removed it is the only way to inspect a container on a node, and 🟢 kubernetes.io's own
+  troubleshooting pages use it. See [`lab-parity.md`](lab-parity.md) §2. ⭐ **Worth confirming from a
+  simulator session rather than more searching**, since that is the one place the real environment can
+  be observed.
 - **Whether `etcdctl` is pre-installed on exam control-plane nodes**, or must be located/installed. The
   backup/restore competency implies it is available, but that is an inference, not a source.
 - ✅ **CLOSED Sep 16, 2026 — the CNCF curriculum PDF HAS now been read directly** (`CKA_Curriculum_v1.35.pdf`,

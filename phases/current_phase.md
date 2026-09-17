@@ -20,8 +20,9 @@ Sep 16, 2026.
    certificate's SANs at init time, so initialising without it means control-2 and control-3 can **never**
    join. This is the one near-irreversible step in the build.
    🔻 **CORRECTED Sep 16 (this block used to say "kube-vip must be ANSWERING on `.206` first"): it cannot
-   be.** kube-vip is a **static pod**, static pods are started by the **kubelet**, and the kubelet is
-   inactive until `kubeadm init` starts it. ⭐ **Put the manifest in place, then init — the VIP comes up
+   be.** kube-vip is a **static pod**, static pods are started by the **kubelet**, and the kubelet
+   **cannot start at all** until `kubeadm init` writes its config (🔻 sharpened Sep 17 — measured
+   after a reboot it is crash-looping, not `inactive`; same conclusion, stronger mechanism). ⭐ **Put the manifest in place, then init — the VIP comes up
    DURING init.** ⛔ **Do not wait for `.206` to ping first; it never will.** ⚠️ Expect kube-vip to
    crash-loop briefly (its kubeconfig does not exist until init creates it) and note that **v1.35 splits
    `admin.conf` from `super-admin.conf`**. 🔲 **Unverified — reasoned from docs. Confirm before typing.**
@@ -31,10 +32,18 @@ Sep 16, 2026.
 lasts **2 hours** (`kubeadm init phase upload-certs --upload-certs`), the join token **24 hours**
 (`kubeadm token create`).
 
-**Nodes as they stand:** `.201`–`.205`, all five **identical and role-less** — kubeadm/kubelet/kubectl
-**v1.35.8** installed and apt-held, containerd running with CRI enabled and `SystemdCgroup=true`, **no
-Docker**, swap off, `yq` + `k` alias, Cockpit on 9090. Kubelet **inactive on purpose**. Snapshot
-`c01-nodes-ready` on all five. ⭐ **Nothing distinguishes a "control" node from a "worker" yet except the
+**Nodes as they stand (re-measured Sep 17, 2026, 9:40 AM):** `.201`–`.205`, all five **identical and
+role-less** — kubeadm/kubelet/kubectl **v1.35.8**, containerd **2.3.5** with CRI `ok` and
+`SystemdCgroup=true`, **crictl 1.35.0** + `/etc/crictl.yaml`, **no Docker**, swap off, `yq` + `k`
+alias, Cockpit on 9090, kernel **6.8.0-139** after a deliberate reboot, **five holds**
+(`containerd.io cri-tools kubeadm kubectl kubelet`), zero failed units.
+🔻 **The kubelet is `activating (auto-restart)`, NOT "inactive on purpose"** — it dies every ten
+seconds on `open /var/lib/kubelet/config.yaml: no such file or directory`, which `kubeadm
+init`/`join` writes. ⭐ **That missing file IS the absence of a role**; the old `inactive` reading was
+only ever true of a node that had not rebooted since install.
+✅ **Snapshot `c01-nodes-ready` on all five — REAL as of Sep 17 09:38**, verified at the PVE *and*
+ZFS layers. 🚨 **It was claimed from Sep 16 and had never been taken**, found one step before
+`kubeadm init`. ⭐ **Confirm a snapshot by asking the storage.** ⭐ **Nothing distinguishes a "control" node from a "worker" yet except the
 hostname we chose** — see the chapter 02 teaching point in the plan.
 
 **Where it stands.** ✅ Spec settled: **5 VMs, VMIDs 201–205 → `.201–.205`, kube-vip VIP `.206` (NO VM
@@ -438,8 +447,11 @@ exam, judgement cannot.
 🚨 **AND A LOAD-BEARING TECHNICAL ERROR IN THIS PHASE'S PLAN WAS FOUND AND FIXED — it would have bitten
 at the FIRST step of Stage 1.** The plan and this block both said **"kube-vip must be ANSWERING on `.206`
 before `kubeadm init`"**. ⛔ **That cannot happen.** kube-vip here is a **static pod**; static pods are
-started by the **kubelet**; the kubelet is **deliberately inactive** on all five nodes and on control-1
-**`kubeadm init` is what starts it.** ⭐ **Correct ordering is manifest-then-init — the VIP comes up
+started by the **kubelet**; the kubelet **cannot start at all** on any of the five and on control-1
+**`kubeadm init` is what makes it able to.** 🔻 **(Mechanism sharpened Sep 17, 2026: measured
+after a reboot the kubelet is `activating (auto-restart)`, not `inactive` — it dies on a missing
+`/var/lib/kubelet/config.yaml` before it ever reads the manifests directory. Same conclusion,
+stronger reason.)** ⭐ **Correct ordering is manifest-then-init — the VIP comes up
 DURING init.** Waiting for `.206` to ping first would have looked like a stuck build with nothing wrong.
 ⭐ **Why it survived review: it was stated as a `🚨 Hard sequencing rule ... NOT optional`, and confident
 formatting reads as verified.** 🔲 **The correction is itself marked UNVERIFIED** — reasoned from docs, to

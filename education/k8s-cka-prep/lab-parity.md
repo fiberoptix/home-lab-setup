@@ -33,8 +33,9 @@ Condensed from [`exam-environment.md`](exam-environment.md) — 🟢 all officia
 | `sysbench`, shell aliases, `btop` etc. | 🟡 Harmless on the host, but ⛔ **do not add `kubectl` conveniences beyond the exam's** — no `krew`, no `kubectx`/`kubens`, no `k9s`, no custom `kgp`-style aliases. Those are genuinely good tools that will **not be there on exam day** |
 | `jq` | ⛔ **Deliberately do NOT install it.** 🟢 The official tool list is **`yq`**. Practise `yq` and `kubectl -o jsonpath=`, or you will reach for a missing tool under a clock |
 | `yq` | ✅ **Install it** — it is on the exam hosts, so it should be on ours |
+| `crictl` | ✅ **DECIDED Sep 17, 2026 — install it** (`cri-tools`, from the `pkgs.k8s.io` minor repo so it version-matches). ⚠️ Exam presence **unverified** — 🟢 the official list omits it, 🟡 one blog says it is there. ⭐ **The decision does not depend on the answer:** with Docker removed there is otherwise **no way to inspect a container on a node**, and 🟢 kubernetes.io's own troubleshooting pages — the only docs allowed in the exam — use it. It also passes §2's principle in the right direction: it does not change how a *Kubernetes* task is performed, it is the only window into the layer **below** Kubernetes. 🚨 `/etc/crictl.yaml` is required — current `crictl` has no default-endpoint fallback |
 | `k` alias + bash completion | ✅ **Configure it, to MATCH the exam** (where it is pre-set). Same reflexes, and it removes the temptation to burn exam minutes setting up something already present |
-| `etcdctl` | ✅ **Needed on the control-plane nodes** for the Part 6 backup/restore drill |
+| `etcdctl` | ✅ **Needed on the control-plane nodes** for the etcd backup/restore drill (⚠️ that was "Part 6" before the plan was restructured into stages — it is **Stage 3** now) |
 | Kubernetes version | 🔻 **Build v1.35 to match the exam** — see §4, this changes the plan |
 
 ⭐ **The principle behind all of it:** anything that changes **how a task is performed** must match the
@@ -43,34 +44,46 @@ task performance.
 
 ---
 
-## 3. The Docker question — and why the answer is "keep it, then remove it"
+## 3. The Docker question — 🔻 RESOLVED DIFFERENTLY THAN PLANNED, and the reason matters
 
 Our `setup_docker.sh` leaves `/etc/containerd/config.toml` with **`disabled_plugins = ["cri"]`** and no
 `SystemdCgroup` setting (✅ verified on `.191`, Sep 16 2026). That is **correct for a Docker host and
 fatal for a kubeadm node** — `kubeadm init` will hang on a kubelet that cannot reach a container
 runtime, and the error names the kubelet, not containerd.
 
-**This is Phase 18's planted traps T1 and T2, and it is also a real CKA skill**, since *Troubleshooting*
-is 30% of the exam and *"understand extension interfaces (CNI, CSI, CRI)"* is a stated competency. A
-broken CRI is about as on-syllabus as a fault gets.
+**A broken CRI is about as on-syllabus as a fault gets**, since *Troubleshooting* is 30% of the exam
+and *"understand extension interfaces (CNI, CSI, CRI)"* is a stated competency.
 
-✅ **So: build all five nodes with the standard script, let T1/T2 fire on the first control-plane node,
-diagnose them by hand, then apply the fix as a script to the rest** (`METHOD.md`'s repetition rule —
-Andrew does the first, the script does the others).
+🔻 **CORRECTED Sep 17, 2026 — the plan this section described is DEAD, for two independent reasons,
+and both are worth knowing because the section survived a day looking current:**
 
-⛔ **THEN remove Docker Engine from all five and keep containerd alone**, configured for Kubernetes. Real
-Kubernetes nodes do not run Docker, and leaving it invites a whole class of confusion — two image stores,
-`docker ps` showing nothing useful, `crictl` and `docker` disagreeing. ⛔ **And do not "fix" the shared
-`setup_docker.sh`** — hard rule B3; every other host in this lab genuinely wants CRI disabled.
+1. ⛔ **All planted traps were WITHDRAWN** at Andrew's instruction — see
+   `phases/phase18_k8s_cka_build.md` §8. Nothing is left broken on purpose during Stages 0 and 1, so
+   "let T1/T2 fire" is no longer an instruction anyone may follow.
+2. ✅ **Measurement overturned the premise.** The template ships **neither Docker nor containerd**, so
+   there was never anything to subtract. `containerd.io` is installed **alone** and configured for
+   Kubernetes from the outset.
+
+⭐ **So the node never has Docker at any point, which is better than installing it and undoing it:**
+nothing to subtract if you never add it, and no residue from a removal. ⛔ **And still do not "fix"
+the shared `setup_docker.sh`** — hard rule B3; every other host in this lab genuinely wants CRI
+disabled.
+
+⚠️ **The consequence that survives, and it looks like the opposite of itself:
+`/etc/apt/sources.list.d/docker.list` is still REQUIRED on these nodes**, because `containerd.io`
+ships from Docker's repository. It reads as residue on a Docker-free host, and removing it breaks the
+runtime's upgrade path (hard rule B8).
 
 ---
 
 ## 4. 🔻 The version correction this research forces
 
-The plan currently says **build v1.36.4, upgrade to v1.37.0**. 🟢 **The exam runs v1.35.** Practising on
-a version two minors ahead of the exam is the wrong trade.
+🔻 **Written while the plan still said build v1.36.4 and upgrade to v1.37.0. It no longer does — this
+research is WHY it changed, and the plan was corrected the same day (Sep 16, 2026).** 🟢 **The exam
+runs v1.35.** Practising on a version two minors ahead of the exam is the wrong trade.
 
-✅ **Revised: build the current v1.35 patch, and make the Part 6 upgrade drill v1.35 → v1.36.** This is
+✅ **Revised: build the current v1.35 patch, and make the upgrade drill v1.35 → v1.36** (Stage 3 in
+the restructured plan; it was "Part 6" when this was written). This is
 strictly better than the original:
 - **Daily practice happens on the version the exam uses.**
 - The upgrade drill still has a real destination, and it now mirrors the actual exam competency

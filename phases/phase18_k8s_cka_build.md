@@ -226,6 +226,15 @@ have and add what it needs:**
   **swap off**, then `kubeadm`/`kubelet`/`kubectl` **pinned to v1.35** and held.
 - ✅ **Exam-shaped tooling: `yq`, the `k` alias with completion.** ⛔ **No `jq`, no `krew`, no `k9s`, no
   `kubectx`** — full reasoning in `education/k8s-cka-prep/lab-parity.md`.
+- ✅ **`crictl` ADDED Sep 17, 2026 (Andrew's call)** — `cri-tools` 1.35.0 from the `pkgs.k8s.io/v1.35`
+  repo, so it version-matches the cluster. ⚠️ **Its presence on the exam hosts is UNVERIFIED** (🟢 the
+  official list names only `kubectl`/`yq`/`curl`/`wget`/`man`; 🟡 one blog claims `crictl`), and the
+  decision deliberately **does not depend on the answer**: with Docker absent there is otherwise **no
+  way to inspect a container on a node at all**, and 🟢 kubernetes.io's own troubleshooting pages — the
+  only docs allowed in the exam — instruct you to use it. ⭐ **It passes the `k9s` test in the right
+  direction:** it does not change how a *Kubernetes* task is performed, it is the only window into the
+  layer **below** Kubernetes. 🚨 **`/etc/crictl.yaml` is REQUIRED, not cosmetic** — current `crictl`
+  has no default-endpoint fallback, so without it the tool errors instead of finding containerd.
 - ✅ **Verify from INSIDE each guest** (`df -h /`, `swapon --show`, `containerd config dump`), never from
   `qm config`.
 
@@ -256,8 +265,15 @@ not required*.
 🚨 **THE STAGE 0 / STAGE 1 BOUNDARY, because it is easy to misread and Andrew queried it:** Stage 0
 **installed the Kubernetes PACKAGES and left them inert.** `kubeadm`, `kubelet` and `kubectl` are on every
 node and apt-held, containerd is running with the CRI plugin enabled — but **no cluster exists.** No
-`kubeadm init`, no `kubeadm join`, no CNI, and **the kubelet is `inactive` on purpose**; it crash-loops or
-waits until a cluster exists, which is normal and not a fault. ⭐ *"The tools are installed"* and *"the
+`kubeadm init`, no `kubeadm join`, no CNI, and **the kubelet cannot start until a cluster exists**, which is
+normal and not a fault. 🔻 **CORRECTED Sep 17, 2026 — this said "the kubelet is `inactive` on
+purpose." That was an ARTEFACT, not the steady state.** The kubeadm package **enables** the unit but
+does not start it, so `inactive` was only ever true of a node that had not rebooted since install.
+✅ **Measured after the Sep 17 reboot on all five: `ActiveState=activating`, `SubState=auto-restart`,
+~17 restarts in three minutes**, failing on `open /var/lib/kubelet/config.yaml: no such file or
+directory` — the file that `kubeadm init`/`join` writes. ⭐ **The true steady state of a
+prepared-but-un-initialised node is a kubelet in a ten-second restart loop**, and that missing file
+**is** the absence of a role. ⭐ *"The tools are installed"* and *"the
 cluster is configured"* are different states and Stage 1 is the second one.
 
 | | |
@@ -267,7 +283,13 @@ cluster is configured"* are different states and Stage 1 is the second one.
 | Runtime | containerd **active**, `io.containerd.grpc.v1 cri` = **ok**, `SystemdCgroup = true`, **NO Docker installed at all** |
 | Verified | `kubeadm init --dry-run` **preflight passes** on control-1; all five report **"nothing was changed"** under `--check` |
 | Resources | vCPU **64 of 48 threads (133%)**, RAM 85G of 187G, `vm-ephemeral` 865G used / 980G avail |
-| Snapshot | `c01-nodes-ready` on all five (hot, guest-agent freeze — **no etcd exists yet**, so an offline snapshot is not needed until Stage 2) |
+| Snapshot | 🔻 **CLAIMED HERE ON SEP 16 AND NEVER TAKEN — found Sep 17, 2026.** `qm listsnapshot` returned only `current` on all five, no `vm-ephemeral/vm-20[1-5]-disk-0@*` existed, and the PVE task log held exactly one snapshot on 201 — created 18:16:20, deleted 18:19:03 (the `c00-virgin` single-node test). ✅ **`c01-nodes-ready` now EXISTS on all five, taken 09:24 and retaken 09:38 on Sep 17 after the kernel reboot** (hot, guest-agent freeze — **no etcd exists yet**, so offline is not needed until Stage 2), verified at BOTH layers: `qm listsnapshot` **and** a matching `@c01-nodes-ready` on each zvol. 🚨 **This row asserted a rollback point that did not exist, one step before the build's only near-irreversible command.** ⭐ **Institutionalise the check that caught it: a snapshot is confirmed by asking the STORAGE.** `qm listsnapshot` is PVE's own bookkeeping; the zvol is the independent witness |
+
+🔻 **Chapter 01's verified-facts header said `containerd 2.3.3`. It was never that.** `apt` history
+shows `containerd.io 2.3.5-1~ubuntu.24.04~noble` installed **once**, at 22:17:39 on Sep 16, and
+`ctr version` agrees. Corrected Sep 17. ⭐ **A version in a "verified facts" header that was never
+measured is the cheapest false green to produce and the hardest to see — it is one character from
+right.**
 
 📄 **Deliverables built: three scripts in `education/k8s-cka-prep/scripts/`** — `1-provision-vms.sh`,
 `2-personalize.sh`, `3-k8s-base.sh`, plus a `README.md`. ⚠️ **They replaced an earlier combined
@@ -310,9 +332,12 @@ belongs to Stage 2.
 A NODE HAS NO ROLL UNTIL ONE COMMAND GIVES IT ONE.**
 
 ✅ **Verified by measurement, Sep 16 2026, across all five:** `/etc/kubernetes/` contains only an empty
-`manifests/` directory, no PKI, no `kubelet.conf`, no `admin.conf`, no `/var/lib/etcd`, kubelet
-**enabled but inactive**, same three binaries. **A "control" node and a "worker" node are byte-for-byte
-identical.**
+`manifests/` directory, no PKI, no `kubelet.conf`, no `admin.conf`, no `/var/lib/etcd`, same three
+binaries. **A "control" node and a "worker" node are byte-for-byte
+identical.** 🔻 **The kubelet reads `enabled` + `activating (auto-restart)`, NOT `inactive`** — see
+the Stage 0 correction above. ⭐ **This strengthens the teaching point rather than weakening it:** the
+node is not idle waiting for a role, it is **actively failing for want of one**, and
+`/var/lib/kubelet/config.yaml` is the specific file whose absence says so.
 
 🚨 **The hostnames `vm-k8s-cka-control-1` and `vm-k8s-cka-worker-2` are LABELS WE CHOSE. Nothing enforces
 them.** Run `kubeadm init` on `vm-k8s-cka-worker-2` and it becomes a control plane, and the name is then a
@@ -349,8 +374,15 @@ warning.**
 🔻 **CORRECTED Sep 16, 2026 — this section previously said "kube-vip must be ANSWERING before
 `kubeadm init`". THAT CANNOT HAPPEN, and the reason is worth understanding because it is the same class
 of mistake as a false green.** kube-vip is deployed here as a **static pod**, and **static pods are
-started by the kubelet** — but the kubelet is **deliberately inactive** on all five nodes right now, and
-on control-1 **`kubeadm init` is the thing that starts it.** So:
+started by the kubelet** — but the kubelet on all five **cannot start at all**, and on control-1
+**`kubeadm init` is the thing that makes it able to.** So:
+
+🔻 **SHARPENED Sep 17, 2026 — this said the kubelet was "deliberately inactive", which was measured
+to be an artefact of never having rebooted.** ⭐ **The corrected mechanism makes the conclusion
+STRONGER: the kubelet exits before it ever reads `/etc/kubernetes/manifests/`**, because it dies on
+the missing `/var/lib/kubelet/config.yaml` first. **A static pod placed there cannot run — not
+because nothing is reading the manifests, but because the process that would read them never gets
+that far.**
 
 ⭐ **The manifest goes in place BEFORE init; the VIP comes up DURING init.** Ordering is
 *manifest-then-init*, not *VIP-then-init*. ⛔ **Do not sit waiting for `.206` to ping before running
@@ -470,6 +502,22 @@ the exam** and cannot be learned on a healthy cluster. The difference matters: *
 the learner and fires once; an exercise is chosen, named, and can be drilled ten times** because the
 snapshots make it cheap to restore. **For exam preparation the exercise is strictly better.**
 
+🆕 **A SCHEDULED EXERCISE THAT ARRIVES ON ITS OWN — planned kernel maintenance (🙋 Andrew's proposal,
+Sep 17, 2026).** ✅ **Measured: `unattended-upgrades` installed `linux-image-6.8.0-139` at 06:07:01
+UTC on Sep 17 without being asked**, so the next kernel appears the same way. ⭐ **The drill does not
+have to be manufactured — it has to be SCHEDULED**, the same logic the plan already applies to
+v1.35 → v1.36. **The exercise is the production procedure, one node at a time:** `kubectl drain
+<node> --ignore-daemonsets --delete-emptydir-data` → patch → reboot → confirm `Ready` →
+`kubectl uncordon` → **only then the next**. 🚨 **On control planes, confirm etcd has a leader and
+three healthy members BETWEEN each one** — taking two of three down is how maintenance becomes an
+outage. ⚠️ **The parts a lab habitually skips are the parts that matter:** PodDisruptionBudgets, so a
+drain cannot take an app below its minimum replicas, and verifying a node came back **before**
+touching the next. ✅ **`Unattended-Upgrade::Automatic-Reboot` is unset on all five (verified
+Sep 17)**, so no node reboots itself mid-drill — which is what makes leaving `unattended-upgrades`
+**enabled** the right call rather than a hazard. ⛔ **Do NOT mask it like `.186`** — that is a frozen
+archive; this cluster is meant to be patched, and masking it would delete the drill's delivery
+mechanism.
+
 Coverage is driven by `education/k8s-cka-prep/curriculum.md`, weighted by the real exam weights —
 **Troubleshooting 30%, Cluster Architecture 25%, Services & Networking 20%, Workloads & Scheduling 15%,
 Storage 10%.** ⚠️ **The gaps identified in 🅐 A8 (Storage, Helm/Kustomize, CRDs/operators, Gateway API,
@@ -538,6 +586,17 @@ single-step exercises train a different skill from ten three-step ones.
   one node back to where the others have moved on is an unplanned debugging session (`METHOD.md`).
 - **B6 — Do not deploy Capricorn to this cluster.** Application layer, owned by its own project. A
   neutral workload is enough and keeps the phase honest about scope.
+- **B7 — `containerd.io` and `cri-tools` are apt-HELD (Sep 17, 2026) and stay that way.** 🚨
+  `/etc/containerd/config.toml` is the most load-bearing file on these nodes — it is what withdrawn
+  trap T1 was going to be — and a package upgrade is the one event that can replace it, silently
+  returning the CRI plugin to `disabled`. ⚠️ **Honest scope: the automatic path cannot reach it
+  anyway** — `Unattended-Upgrade::Allowed-Origins` holds only the Ubuntu archive, security and ESM
+  pockets, so neither `download.docker.com` nor `pkgs.k8s.io` is eligible (verified Sep 17). ⭐ **The
+  hold is insurance against a HUMAN typing `apt upgrade`, not against the machine** — which is
+  exactly who it needs to stop. `apt-mark unhold` is one command when a runtime move is deliberate.
+- **B8 — do NOT prune `/etc/apt/sources.list.d/docker.list` from these nodes.** It looks like residue
+  on a Docker-free host and it is not: **`containerd.io` ships from Docker's repo.** ⚠️ **The
+  consequence worth knowing: `apt install docker-ce` would succeed on a Kubernetes node.**
 
 ## 8. 🚫 NO PLANTED TRAPS — a deliberate, recorded deviation from `METHOD.md`
 
@@ -585,7 +644,7 @@ one for a dated certification.**
 
 | # | Question | Status |
 |---|---|---|
-| **A1** | Addressing, and what `.202` is | ✅ **CLOSED Sep 16** — DHCP moved to `.221–.250`; `.200` = Apple (Mac mini), `.202` = Denon/Marantz receiver. Cluster takes `.187–.190` + `.194`, VIP `.196`. See §5 |
+| **A1** | Addressing, and what `.202` is | ✅ **CLOSED Sep 16** — DHCP moved to `.221–.250`; `.200` = Apple (Mac mini), `.202` = Denon/Marantz receiver. 🔻 **This row's own allocation was STALE and contradicted §5 — corrected Sep 17, 2026.** It read *"Cluster takes `.187–.190` + `.194`, VIP `.196`"*, the pre-DHCP-move draft. ✅ **The settled allocation is `.201`–`.205`, VIP `.206`** — see §5, which was right all along. ⭐ **A decision recorded twice drifted in the copy a reader reaches last.** |
 | **A2** | Node naming | ✅ **CLOSED Sep 16 — Andrew's names: `vm-k8s-cka-control-1/2/3` and `vm-k8s-cka-worker-1/2`.** Restores the lab's `vm-` prefix, which the Swarm's `docker-swarm-N` had dropped |
 | **A3** | Track folder | ✅ **CLOSED Sep 16 — `education/k8s-cka-prep/`.** 🔻 Andrew's call: the research folder **moves into `education/` and becomes the track**, rather than prep living apart from chapters. ⚠️ It tab-completes alongside track 1's `k8s-k3s-redpanda/`, so **always write the full track name in a command** — `build_docx.py` takes the track as its first argument and a wrong one silently builds the wrong book |
 | **A4** | **CNI choice** | ✅ **DECIDED Sep 16 — Calico.** Kubernetes ships with **no** pod network at all (that is trap T5), so one must be installed. Calico is the conventional `kubeadm` pairing, uses ordinary Linux routing, and **enforces `NetworkPolicy`, which is on the CKA syllabus** and is what makes T6 possible. Cilium is more modern (eBPF, better observability) but is a second large subject on top of the exam; flannel — what k3s gave track 1 — **cannot enforce a policy at all**, so the lab has no policy experience yet |

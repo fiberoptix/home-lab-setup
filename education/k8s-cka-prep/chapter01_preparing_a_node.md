@@ -1,9 +1,10 @@
 # Kubernetes (CKA) · Chapter 1 — Preparing a Node for kubeadm
 
 > **Series:** Home-Lab Education · Phase 18 (Kubernetes HA + CKA)
-> **Built and verified:** September 16, 2026 on VMs 201–205 (`192.168.1.201–205`)
-> **Versions at time of writing:** Kubernetes v1.35.8 · containerd 2.3.3 · Ubuntu 24.04.4 LTS
-> · kernel 6.8.0-134 · yq v4.53.6
+> **Built and verified:** September 16, 2026 on VMs 201–205 (`192.168.1.201–205`); re-verified
+> September 17 after a deliberate reboot
+> **Versions at time of writing:** Kubernetes v1.35.8 · containerd 2.3.5 · crictl 1.35.0
+> · Ubuntu 24.04.4 LTS · kernel 6.8.0-139 · yq v4.53.6
 > **Read this before:** Chapter 2 (`kubeadm init` and what it creates), Chapter 3 (joining an HA
 > control plane)
 
@@ -190,7 +191,7 @@ sudo systemctl enable kubelet
 kubeadm version -o short     # v1.35.8
 apt-mark showhold            # kubeadm, kubectl, kubelet
 systemctl is-enabled kubelet # enabled
-systemctl is-active kubelet  # inactive — CORRECT, see below
+systemctl is-active kubelet  # activating — CORRECT, see below
 ```
 
 🚨 **`apt-mark hold` is the important line and it is easy to skip.**
@@ -198,10 +199,67 @@ systemctl is-active kubelet  # inactive — CORRECT, see below
 This lab has already been bitten once by an unattended Docker bump that broke CI *a week later*, so
 nothing connected the failure to the upgrade.
 
-✅ **An inactive kubelet here is correct, not a fault.** It has [nothing to do until a cluster
-exists]{custom-style="Key"}. It starts when `kubeadm init` or `kubeadm join` gives it a
-configuration. If you go looking for a running kubelet at this point you will "fix" something that
-was never broken.
+✅ **A kubelet that will not start here is correct, not a fault** — and *which* not-running it
+reports depends on something nobody thinks to ask: [whether the host has rebooted since you
+installed it]{custom-style="Key"}.
+
+- **Freshly installed, no reboot:** `inactive`. The package [enables the unit but never starts
+  it]{custom-style="Key"}.
+- **After any reboot:** `activating (auto-restart)` — systemd starts the enabled unit and it
+  [dies every ten seconds, then tries again]{custom-style="Key"}.
+
+Read the reason rather than inferring it:
+
+```bash
+sudo journalctl -u kubelet -n 3 --no-pager
+# open /var/lib/kubelet/config.yaml: no such file or directory
+```
+
+⭐ **That missing file is the whole story.** `kubeadm init` or `kubeadm join` writes
+`/var/lib/kubelet/config.yaml`, so its absence is [not a broken kubelet — it is a node with no
+role]{custom-style="Key"}. A restart loop here is [the correct behaviour of a correctly prepared
+node]{custom-style="Key"}, and if you go hunting for a healthy kubelet you will ["fix" something
+that was never broken]{custom-style="Key"}.
+
+### 6. Install `crictl`, and point it at the socket
+
+With Docker deliberately absent, [there is no other way to look at a container on this
+node]{custom-style="Key"}. `crictl` speaks CRI — [the same interface the kubelet
+uses]{custom-style="Key"} — so it sees exactly what Kubernetes sees, which `docker` never did.
+
+```bash
+sudo apt-get install -y --no-install-recommends cri-tools=1.35.0-1.1
+sudo apt-mark hold cri-tools
+printf '%s\n' \
+  'runtime-endpoint: unix:///run/containerd/containerd.sock' \
+  'image-endpoint: unix:///run/containerd/containerd.sock' \
+  'timeout: 10' | sudo tee /etc/crictl.yaml
+```
+
+**Confirm — three checks, because each proves something the others cannot:**
+
+```bash
+crictl --version      # the binary is installed
+sudo crictl version   # RuntimeVersion: v2.3.5 — it REACHED containerd
+sudo crictl ps -a     # an empty table and exit 0 — the socket answers
+```
+
+⚠️ **`/etc/crictl.yaml` is not optional.** Current `crictl` has [no default endpoint to fall back
+on]{custom-style="Key"}, so without it the tool fails to connect rather than guessing — and [the
+error reads like a broken runtime instead of a missing config]{custom-style="Key"}.
+
+⭐ `cri-tools` comes from the same `pkgs.k8s.io` minor repository as `kubeadm`, so it
+version-matches the cluster and is held for the same reason.
+
+🚨 **And while you are holding things, hold the runtime:**
+
+```bash
+sudo apt-mark hold containerd.io
+```
+
+The config file you fixed in step 4 is the one a package upgrade can
+replace, which would restore `disabled_plugins = ["cri"]` and [reproduce the
+exact failure step 4 exists to prevent]{custom-style="Key"} — on a cluster that worked yesterday.
 
 ---
 
@@ -244,13 +302,25 @@ controller manager, the scheduler — read [straight off local disk, not schedul
 > between a stolen session and root]{custom-style="Key"} on every node in the cluster — and the audit trail that would
 > have told you it happened.
 
-> **Lab vs PROD — automatic updates left running while the runtime is unheld.** *In the lab:*
-> `apt-daily-upgrade.timer` is still enabled on these nodes, and although `kubelet`, `kubeadm` and
-> `kubectl` are held, **containerd is not**. *Why it's acceptable here:* the cluster is disposable and
-> a broken node is rebuilt from a script in a minute. *In production:* runtime upgrades are scheduled,
-> node-by-node, behind a drain. *If you carry the habit:* [a container runtime restarts itself under a
-> running workload]{custom-style="Key"} at 03:00 on a day nobody chose, and because the upgrade succeeded there is nothing
-> in the logs that looks like a fault.
+> **Lab vs PROD — automatic updates left running, and what they can actually reach.** *In the lab:*
+> `apt-daily-upgrade.timer` is enabled and it does real work — it installed a new kernel here
+> overnight without being asked. *Why it's acceptable here:* measured, not assumed —
+> `Unattended-Upgrade::Allowed-Origins` lists only the Ubuntu archive, security and ESM pockets, so
+> [neither the Kubernetes repo nor Docker's is eligible]{custom-style="Key"}, and `Automatic-Reboot`
+> is unset, so [nothing reboots itself]{custom-style="Key"}. *In production:* patching is scheduled
+> per node behind a `kubectl drain`, and the kernel a node boots is a decision someone made. *If you
+> carry the habit:* [a node accumulates a kernel it has never booted]{custom-style="Key"}, then boots
+> it at 03:00 for an unrelated reason — so the change and the symptom are [weeks apart and nobody
+> connects them]{custom-style="Key"}.
+
+> **Lab vs PROD — a pending reboot left outstanding.** *In the lab:* we spotted `6.8.0-139` installed
+> against `6.8.0-134` running, rebooted all five, and only then took the baseline snapshot. *Why it's
+> acceptable here:* nothing was running on them yet, so [there was nothing to
+> drain]{custom-style="Key"}. *In production:* an unbooted kernel is never carried indefinitely on a
+> cluster node — drain, patch, reboot, verify, uncordon, [one node at a time with a quorum check
+> between control planes]{custom-style="Key"}. *If you carry the habit:* the first unplanned reboot of
+> a control plane [changes its kernel while you are diagnosing something else]{custom-style="Key"} —
+> two variables, one outage.
 
 > **Lab vs PROD — the runtime comes from a public apt repository.** *In the lab:* `containerd.io` is
 > pulled straight from `download.docker.com` at build time. *Why it's acceptable here:* the failure
@@ -281,6 +351,10 @@ than a production standard. And the nodes do not restart after a host reboot —
 | Exactly which version is installed? | `kubeadm version -o short` |
 | Does the node have a role yet? | `sudo ls -A /etc/kubernetes/` — only `manifests/` means no |
 | Did the filesystem really grow? | `df -h /` **inside the guest** |
+| What containers does Kubernetes see? | `sudo crictl ps -a` |
+| Which images does the runtime hold? | `sudo crictl images` |
+| Why will the kubelet not start? | `sudo journalctl -u kubelet -n 3 --no-pager` |
+| Is the running kernel the installed one? | `uname -r` against `ls /boot/vmlinuz-*` |
 
 ---
 
@@ -294,6 +368,10 @@ them. [Kubernetes ships none, so nodes stay `NotReady`]{custom-style="Key"} unti
 
 **containerd** — the container runtime used here. Runs containers; does not build images and does not
 provide the Docker CLI.
+
+**`crictl`** — the CRI client. Talks to the runtime through [the same interface the kubelet
+uses]{custom-style="Key"}, so what it shows is what Kubernetes sees. `docker` never was that, which
+is why its absence costs nothing here.
 
 **cgroup driver** — how a process manager creates resource-limit groups. On Ubuntu this must be
 `systemd` in *both* the kubelet and containerd, or [the two disagree about who owns a pod's
@@ -326,5 +404,7 @@ Answer these out loud. Section references, not answers.
    help and what mechanism you use instead. (*What you deliberately have NOT done*)
 7. You are handed a node someone else built, and asked whether it is ready for `kubeadm`. Name five
    things you would check and the command for each. (*Commands to know by heart*)
-8. Why is `apt-mark hold` on the Kubernetes packages more important than it looks, and which package
-   on these nodes is *not* protected by it? (§5, *Lab vs PROD*)
+8. Why is `apt-mark hold` more important than it looks, and why was `containerd.io` added to the held
+   list even though automatic updates cannot reach it? (§5, §6, *Lab vs PROD*)
+9. `systemctl is-active kubelet` prints `inactive` on one prepared node and `activating` on another,
+   and both are correct. What is different about the two hosts? (§5)
