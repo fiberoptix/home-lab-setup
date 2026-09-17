@@ -360,6 +360,9 @@ config artefacts, and a Word build for printing.
 | Track | Subject | Status |
 |---|---|---|
 | [k8s-k3s-redpanda](education/k8s-k3s-redpanda/README.md) | Kubernetes (k3s), Redpanda, and an order management system built on both — including the failure drills | 7 chapters |
+| [docker-swarm](education/docker-swarm/README.md) | Docker Swarm: a three-manager cluster, shipping to it, deploying through a pipeline, breaking it on purpose, and a Swarm↔Kubernetes crib sheet | 8 chapters |
+| [jenkins](education/jenkins/README.md) | Jenkins: a controller built from nothing, wired to GitLab, deploying to the same Swarm — then made to fail on purpose | 3 chapters (on hold) |
+| [k8s-cka-prep](education/k8s-cka-prep/README.md) | Kubernetes done properly: a five-node `kubeadm` cluster with an HA control plane behind kube-vip, then CKA drilling one task type per chapter | 1 chapter (active) |
 
 Track 1 grew out of [Phase 14](phases/phase14_k8s_redpanda_poc.md): a 3-broker Redpanda cluster on
 k3s with a Python producer/consumer OMS, reconciling 10,000 events to exactly 800,000 shares across

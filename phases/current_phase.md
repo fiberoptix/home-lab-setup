@@ -25,7 +25,19 @@ Sep 16, 2026.
    after a reboot it is crash-looping, not `inactive`; same conclusion, stronger mechanism). ⭐ **Put the manifest in place, then init — the VIP comes up
    DURING init.** ⛔ **Do not wait for `.206` to ping first; it never will.** ⚠️ Expect kube-vip to
    crash-loop briefly (its kubeconfig does not exist until init creates it) and note that **v1.35 splits
-   `admin.conf` from `super-admin.conf`**. 🔲 **Unverified — reasoned from docs. Confirm before typing.**
+   `admin.conf` from `super-admin.conf`**.
+   ✅ **VERIFIED Sep 17, 2026 against kube-vip's *Static Pods* page and issues #684/#907/#938 plus
+   kubeadm #3274 — the 🔲 flag is CLEARED and the ordering was right.** 🚨 **But the kubeconfig
+   consequence was UNDERSTATED: point kube-vip at the wrong one and `kubeadm init` TIMES OUT after
+   ~4 minutes with an unusable cluster, not merely a permissions error.** ⭐ **On control-1 ONLY,
+   before init, set the manifest's `hostPath` to `/etc/kubernetes/super-admin.conf` and leave the
+   `mountPath` at `admin.conf`; revert after init succeeds.** 🚨 **`super-admin.conf` exists only on
+   the FIRST control plane — cp-2 and cp-3 use the manifest as generated.**
+   ⚠️ **Four gotchas, all in the plan:** the documented version one-liner needs `jq` (we have `yq`);
+   the interface is **`eth0`**, not the docs' `ens160`; the `hostAliases` block is load-bearing; and
+   `ctr` pulls into `default` while the kubelet uses `k8s.io`, so `crictl images` will not show it.
+   ✅ **Decided: kube-vip `v1.2.3`** (not `v1.2.4`, published the day before we would install it) and
+   **`--controlplane --arp --leaderElection` only — no `--services`**, which is a Stage 3 exercise.
 2. Then `kubeadm init` on control-1 → **stop and read what appeared** (static pods, PKI, kubeconfigs) →
    Calico → join control-2 by hand and control-3 by script → join both workers.
 ⚠️ **Two expiries that a deliberate pace makes MORE likely to bite:** the `--upload-certs` certificate key
@@ -456,6 +468,10 @@ DURING init.** Waiting for `.206` to ping first would have looked like a stuck b
 ⭐ **Why it survived review: it was stated as a `🚨 Hard sequencing rule ... NOT optional`, and confident
 formatting reads as verified.** 🔲 **The correction is itself marked UNVERIFIED** — reasoned from docs, to
 be confirmed against the kube-vip instructions before anything is typed.
+✅ **CONFIRMED Sep 17, 2026 — the correction was RIGHT** (kube-vip's *Static Pods* page documents
+manifest-then-init explicitly). ⭐ **And the sentence beside it, which nobody doubted, was the wrong
+one:** the `admin.conf`/`super-admin.conf` note said "fails on permissions" when it actually times
+out `kubeadm init` entirely. **See the `▶️ RESUME HERE` block.**
 
 🧹 **Memory maintenance: 21 → 19 blocks**, two demotions with a commit and a line-by-line verification
 after each. ⭐ **The second one paid for itself beyond tidying: it closed two TODOs finished in July and

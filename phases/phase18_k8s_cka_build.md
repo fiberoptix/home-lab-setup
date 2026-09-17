@@ -393,17 +393,80 @@ that far.**
    `/etc/kubernetes/` that **`kubeadm init` has not created yet**, so the pod restarts until it appears.
    Transient by design.
 2. 🚨 **Kubernetes ≥1.29 split `admin.conf` from `super-admin.conf`**, and `admin.conf` no longer
-   carries cluster-admin. **We are building v1.35, so this applies.** If kube-vip is pointed at the
-   wrong one it fails on permissions in a way that reads like a network problem.
+   carries cluster-admin. **We are building v1.35, so this applies.** 🔻 **AND THE CONSEQUENCE WAS
+   UNDERSTATED HERE — corrected Sep 17, 2026.** This said kube-vip "fails on permissions in a way
+   that reads like a network problem." **What actually happens is worse: the static pod crashes, the
+   API endpoint never comes up, and `kubeadm init` TIMES OUT after ~4 minutes leaving an unusable
+   cluster** (kube-vip issue #907). ⚠️ **Its author recorded the detail that makes it maddening: it
+   works fine WITHOUT `--control-plane-endpoint`** — the one flag we cannot drop.
 
-🔲 **THIS IS REASONED FROM UPSTREAM/kube-vip DOCUMENTED BEHAVIOUR, NOT YET VERIFIED IN THIS LAB.**
-⛔ **So it is the FIRST thing to confirm in Stage 1, before anything is typed:** read the current
-kube-vip static-pod instructions for the version being installed and check the kubeconfig path it
-wants. ⭐ **Stated as unverified on purpose** — the whole point of this build is that a claim gets
-marked with its provenance, and a sequencing rule invented from memory is exactly the kind of thing
-that should not be trusted because it sounds authoritative.
+✅ **VERIFIED AGAINST UPSTREAM DOCUMENTATION, Sep 17, 2026 — the 🔲 flag this block used to carry is
+CLEARED.** Sources read: kube-vip's own *Static Pods* page (`kube-vip.io/docs/installation/static/`),
+kube-vip issues **#684**, **#907**, **#938**, and kubeadm issue **#3274**. ⭐ **The ordering was
+RIGHT:** kube-vip's documented eight-step sequence is manifest → `kubeadm init
+--control-plane-endpoint` → the kubelet parses every manifest → **kube-vip starts and advertises the
+VIP during init** → init completes. 🟢 So *manifest-then-init* is now upstream-documented rather than
+reasoned, and ⛔ **do not wait for `.206` to answer first** stands confirmed.
+⭐ **Worth noting for provenance discipline: the correction that was flagged as possibly-wrong turned
+out to be right, and the sentence NEXT TO IT — the one nobody doubted — was the one that was wrong.**
 
-1. **kube-vip manifest into `/etc/kubernetes/manifests/`** — static pod, ARP/L2 mode, on the VIP.
+🚨 **THE FIX IS ASYMMETRIC, WHICH IS WHY IT IS EASY TO GET BACKWARDS. On control-1 ONLY, before
+`kubeadm init`, change the manifest's `hostPath` to `super-admin.conf` and LEAVE the `mountPath`
+alone:**
+```yaml
+volumeMounts:
+- mountPath: /etc/kubernetes/admin.conf      # unchanged — the container still sees admin.conf
+  name: kubeconfig
+volumes:
+- hostPath:
+    path: /etc/kubernetes/super-admin.conf   # was admin.conf
+    name: kubeconfig
+```
+Then **revert it to `admin.conf` once init succeeds** (this restarts the pod; the issue thread warns
+the restart can be flaky). 🚨 **`super-admin.conf` is created ONLY on the first control plane**, so
+**control-2 and control-3 take the manifest exactly as generated** — reverse it there and the joins
+fail instead of the init. ✅ **kubeadm issue #3274 records this workaround verified on a three-node
+v1.35 cluster — our exact version.**
+
+⚠️ **FOUR GOTCHAS FOUND IN THE SAME READ, each of which would have cost time AT the step:**
+1. 🚨 **The documented version-detection one-liner needs `jq`, which we deliberately do not have.**
+   `curl … | jq -r ".[0].name"` is step one of the official procedure. ⭐ **The `jq`/`yq` decision
+   bites at the literal first command of Stage 1** — which is a better argument for that decision
+   than the one we wrote down. Two answers, and the first is preferable because we want a pinned
+   version anyway: **set `KVVERSION` by hand**, or use the tool we do have —
+   `curl -sL https://api.github.com/repos/kube-vip/kube-vip/releases | yq -p json '.[0].tag_name'`.
+2. 🚨 **The interface is `eth0`** — ✅ measured on `.201`/`.202`/`.203`, Sep 17. **Every kube-vip
+   example says `ens160`/`ens192` because they assume VMware; Proxmox cloud-init images give
+   `eth0`.** ⚠️ **A wrong `--interface` means the VIP binds nowhere and nothing says so.**
+3. ⚠️ **The `hostAliases` block mapping `kubernetes` → `127.0.0.1` is load-bearing** — early v1.29
+   and v1.30 patches silently ignored it in static pods (issue #938), which is why the community
+   insists on a recent patch. **Non-issue on 1.35.8, but do not tidy the block away.**
+4. ⭐ **`ctr image pull` puts the image in containerd's `default` namespace; the kubelet uses
+   `k8s.io`.** So the image pulled to GENERATE the manifest **will not appear in `crictl images`**
+   and the kubelet pulls it again. **Two image stores disagreeing — except this time it is
+   containerd disagreeing with itself.** 📖 Chapter 02 demonstration, free now that `crictl` exists.
+
+✅ **VERSION DECIDED Sep 17 — kube-vip `v1.2.3` (Aug 10, 2026), NOT the current `v1.2.4`**, which was
+published Sep 16 — the day before we would install it. 🙋 Andrew's call, and it is the same reasoning
+that picked Kubernetes v1.35 over the newest: **a release with no community exposure means a
+crash-loop has two candidate causes — our mistake, or a regression — during the one step that cannot
+be half-done.** ⭐ **Deliberate, not newest.**
+
+✅ **FLAGS DECIDED Sep 17 — `--controlplane --arp --leaderElection`, and NOT `--services`**, which
+the docs' example includes. 🙋 Andrew's call after the trade was laid out. **Three reasons, and the
+first is the one that decides it:** `--services` **does not make `LoadBalancer` services work on its
+own** — nothing assigns them an IP without the separate `kube-vip-cloud-provider` deployment and a
+ConfigMap naming a range, so the flag turns on half a feature. It also gives kube-vip a **second
+responsibility during the bootstrap**, breaking one-instrument-per-question exactly where the
+`super-admin.conf` trap lives. And a service range needs addresses we have not allocated — the DHCP
+pool owns `.221–.250` and `.207–.220` must be swept first. ⭐ **It is fully additive later:**
+`svc_enable` on the static pod, the cloud provider, a ConfigMap. No re-init, no rebuild.
+
+1. **kube-vip manifest into `/etc/kubernetes/manifests/`** — static pod, ARP/L2 mode, on the VIP,
+   generated by running the kube-vip image itself (`ctr image pull` **then** `ctr run --rm
+   --net-host`; ⚠️ `ctr` does not auto-pull and the older documented alias fails on a fresh node).
+   `kube-vip manifest pod --interface eth0 --address 192.168.1.206 --controlplane --arp
+   --leaderElection`. **Then edit the `hostPath` to `super-admin.conf` — control-1 only.**
    **It will not be running yet. That is correct.**
 2. **`kubeadm init` on control-1** with the VIP as the control-plane endpoint — then **stop and read what
    appeared**: `/etc/kubernetes/manifests/` static pods (etcd, apiserver, controller-manager,

@@ -1,9 +1,14 @@
 # CKA Preparation — research, environment notes, and practice material
 
 **Purpose:** everything needed to pass the **Certified Kubernetes Administrator** exam and to onboard
-onto the new job's Kubernetes platform. This folder is the **prep and research** shelf; the **build**
-it practises on is Phase 18 (`../phases/phase18_k8s_cka_build.md`), and the **printable study
-chapters** will live in `../education/k8s-cka/`.
+onto the new job's Kubernetes platform. This folder holds **the research AND the printable study
+chapters**; the **build** it practises on is Phase 18
+([`../../phases/phase18_k8s_cka_build.md`](../../phases/phase18_k8s_cka_build.md)).
+🔻 **CORRECTED Sep 17, 2026 — this paragraph said the chapters "will live in
+`../education/k8s-cka/`", which was the pre-consolidation plan and contradicted the note twelve
+lines below explaining that Andrew merged them. The path was wrong twice over** (from here,
+`../phases/` resolves to `education/phases/`, which does not exist). ⭐ **A stale intention in a
+PURPOSE line outlives the decision that replaced it, because nobody re-reads the opening paragraph.**
 
 **Created:** September 16, 2026. Expected to grow considerably.
 
@@ -11,9 +16,20 @@ chapters** will live in `../education/k8s-cka/`.
 
 ## Status and chapters
 
-**Status:** ✅ **Chapter 1 written (Sep 16, 2026). Plan approved, Stage 0 complete** — five
-kubeadm-ready nodes at `.201`–`.205`, identical and role-less. Working record:
-`../../phases/phase18_k8s_cka_build.md`.
+**Status (Sep 17, 2026):** ✅ **Chapter 1 written. Plan approved, Stage 0 complete and RE-VERIFIED** —
+five kubeadm-ready nodes at `.201`–`.205`, identical and role-less, Kubernetes **v1.35.8** inert,
+containerd **2.3.5** with the CRI plugin enabled, **`crictl` 1.35.0**, kernel **6.8.0-139**, five apt
+holds, snapshot **`c01-nodes-ready`** on all five. 🔲 **Stage 1 is next** — the kube-vip static-pod
+manifest, then `kubeadm init` behind the VIP at `.206`. Working record:
+[`../../phases/phase18_k8s_cka_build.md`](../../phases/phase18_k8s_cka_build.md).
+
+⚠️ **Two things a Sep 16 reader of this folder would have been told wrongly, both fixed Sep 17 and
+both worth knowing because they are the same kind of error:** the snapshot above was **recorded as
+taken when it had never been taken** (found by asking the storage rather than trusting the note), and
+the nodes' kubelet was described as `inactive` when that reading was **an artefact of a host that had
+not rebooted since install** — the steady state is a ten-second restart loop on a missing
+`/var/lib/kubelet/config.yaml`. ⭐ **Both were claims about the world that no instrument had been
+asked to confirm.**
 
 ⚠️ **This track is unusual on the shelf and it is deliberate:** it holds **prep research *and* the
 chapters**, because the exam research is not a by-product of the build — it *directs* the build. Andrew
@@ -21,8 +37,8 @@ consolidated them on Sep 16, 2026 rather than keeping `k8s-cka-prep/` apart from
 
 | Chapter | Subject | Stage | Status |
 |---|---|---|---|
-| [**01**](chapter01_preparing_a_node.md) | **Preparing a Node for kubeadm** — given a fresh Ubuntu host, what makes it a Kubernetes node: swap, kernel modules, sysctls, containerd with the CRI plugin *enabled*, pinned+held packages. Ends with every node **identical and role-less**. ⭐ Written to be repeatable where there is no template 9000 and no script server | 0 (work) | ✅ **Written** · 1 figure · docx built |
-| 02–04 | Installing and configuring Kubernetes piece by piece: kube-vip, `kubeadm init`, CNI, joining an HA control plane, joining workers | 1 (work) | 🔲 Planned |
+| [**01**](chapter01_preparing_a_node.md) | **Preparing a Node for kubeadm** — given a fresh Ubuntu host, what makes it a Kubernetes node: swap, kernel modules, sysctls, containerd with the CRI plugin *enabled*, `crictl` pointed at the socket, pinned+held packages. Ends with every node **identical and role-less**. ⭐ Written to be repeatable where there is no template 9000 and no script server | 0 (work) | ✅ **Written** · 1 figure · docx built · 🔄 **revised Sep 17** (step 6 `crictl`, corrected kubelet section, two measured Lab-vs-PROD callouts) |
+| 02–04 | Installing and configuring Kubernetes piece by piece: kube-vip, `kubeadm init`, CNI, joining an HA control plane, joining workers | 1 (work) | 🔲 Planned · ✅ **kube-vip research done Sep 17** — ordering verified upstream, the `super-admin.conf` bootstrap trap and four gotchas are in the plan |
 | 05+ | One CKA administrative task type per chapter, weighted by the exam's own domain weights | 3 (exam) | 🔲 Planned |
 
 ⭐ **Stages 0 and 1 are written as procedures to repeat at work. Stage 3 is exam drilling.** The split is
@@ -84,3 +100,4 @@ it is what the questions are generated **from**.
 | ~~**Q2**~~ | ~~Standard registration or `CKA-SINGLE`?~~ | ✅ **CLOSED Sep 16, 2026 — moot.** Andrew will **buy Killer.sh sessions as needed ($39 each), as many times as necessary**, so simulator access is not a constraint however the exam was registered. ⭐ **This flips the practice strategy** — see [`lab-parity.md`](lab-parity.md) §6: sit one early to find weaknesses, drill them in the lab, re-sit |
 | **Q3** | Task-shape research is **incomplete** — the second search attempt failed. | We know the domains and the weights but have not yet gathered *published* guidance on how tasks are phrased or timed. |
 | **Q4** | Does the exam's `k` alias and completion come pre-set on every host, or only some? | 🟢 says pre-installed and pre-configured on all SSH hosts. Worth confirming inside the simulator, since setting it up manually costs exam minutes if it was already there. |
+| **Q5** | 🆕 **Is `crictl` present on the exam hosts?** 🟢 does not list it; 🟡 one blog says it is. | ⭐ **Decided Sep 17 not to wait for the answer — we install it, and the reasoning does not depend on it:** with Docker removed it is the only way to inspect a container on a node, and 🟢 kubernetes.io's own troubleshooting pages use it. **Confirm from a simulator session rather than more searching.** See [`lab-parity.md`](lab-parity.md) §2 |
