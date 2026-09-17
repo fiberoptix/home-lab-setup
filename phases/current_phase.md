@@ -1784,92 +1784,6 @@ firewall change won't break deploys.
 
 ---
 
-## Dual-remote (GitHub-safe / GitLab-full) + secret scrub (June 18, 2026, night)
-
-**Status:** COMPLETE ✅
-**What:** Established the same dual-remote model as the Capricorn project
-(unified_ui_DEV_PROD_GCP): SAFE/curated content → public GitHub, EVERYTHING (incl.
-secrets, plaintext) → private GitLab. NO git-crypt / NO encryption.
-
-### Remotes
-- `origin` → GitHub (PUBLIC): `git@github.com:fiberoptix/home-lab-setup.git` (SSH). Curated;
-  secrets `.gitignore`'d so they NEVER reach it. Update with **`./push_github.sh`**.
-- `gitlab` → GitLab (PRIVATE): `http://root:<pw>@gitlab.gothamtechnologies.com/production/home-lab-setup.git`.
-  HTTP "wallet" auth (pw baked into URL in `.git/config`, same as Capricorn/capricorn-docs).
-  Full plaintext mirror, pushed with **`./push_gitlab.sh "msg"`**.
-
-> ⚠️ **Renamed Aug 12, 2026: `gl-backup.sh` → `push_gitlab.sh`**, and a new `push_github.sh` was
-> added. Push only via the scripts, never a raw `git push`. Everything below describing
-> "gl-backup.sh" is the same code under the new name.
-
-### push_gitlab.sh (repo root — formerly gl-backup.sh)
-- Snapshots the ENTIRE working tree (tracked + ignored, minus `.DS_Store`) onto `gitlab/main`
-  via a temp index — does NOT touch the working tree, real index, or the GitHub-bound `main`.
-- Force-includes ignored files (PASSWORDS.md, github_credentials.md, proxmox/credentials,
-  nas_credentials, /working/, /ddns/, vmware/*.zip, www/scripts/smb_credentials).
-- Handles nested git repos (working/openclaw-ansible) by moving their `.git` to an external
-  holding dir during the add, so their WORKING FILES are captured (not empty gitlinks) and
-  their `.git` internals are NOT. Always restored.
-- GitLab mirror = 98 files; GitHub = ~42 files. (As of Aug 12, 2026 the GitLab snapshot is 208
-  files — the education program and its images account for most of the growth.)
-
-### push_github.sh (repo root — new Aug 12, 2026)
-- Pushes the curated tree to `origin/main`, and **fails closed**: nothing is pushed unless all four
-  gates pass. Gates: (1) `origin` really is GitHub and we are on `main`; (2) no TRACKED file has a
-  secret-looking name; (3) every known sensitive path that exists on disk is still gitignored;
-  (4) the outgoing diff contains no private-key blocks, no URL with an embedded password, and no AWS
-  keys. Then it lists the commits about to become public and demands a typed `yes`.
-- **Why it exists:** GitHub has no encryption, so `.gitignore` was the only guard and "verify before
-  pushing" was a convention a human or an agent could skip. This makes it enforced.
-- ⚠️ **`--yes` is required for non-interactive use; without a TTY it refuses rather than assuming.**
-- Content scanning deliberately uses only high-confidence patterns, so the *word* "password" in
-  documentation does not trip it. The credentialed-URL check is the one that would catch the GitLab
-  wallet (`http://root:<pw>@...`) being committed to a tracked file.
-- **Proven, not assumed:** staging a fake `_gatetest.key` made it block, name the file and exit 1
-  without pushing; repo state was byte-identical after cleanup.
-
-### What the GitLab mirror preserves — and the context leak we closed
-
-`gitlab/main` and `main` are **fully disjoint** (`git merge-base` finds nothing in common):
-**82 real commits on `main` against 22 snapshots on `gitlab/main`.** The mirror keeps every *file*
-perfectly and history only coarsely — though it is a genuine commit chain, so diffs between snapshots
-work fine.
-
-The leak was that a snapshot could not be tied back to the real history, and when the message
-argument was forgotten the snapshot was labelled only `Full snapshot 2026-08-03 17:44:28 EDT` — tree
-intact, reason gone. Two of the existing 22 look like that.
-
-✅ **Closed:** `push_gitlab.sh` now auto-stamps. Default is
-`Snapshot <ts> — main @ <sha>[+dirty]: <HEAD subject>`, and a message you pass gets
-`[main @ <sha>]` appended. **`+dirty` flags a snapshot containing work in no commit at all**, which
-is exactly when the SHA alone would mislead. Nothing is lost on the GitHub side — `push_github.sh`
-never authors a commit, so real commit messages are untouched.
-
-### Security scrub (CRITICAL — was a real leak)
-- Found the master password (Proxmox/VMs/GitLab/NAS), the SonarQube admin password, an old
-  deprecated password, and two SonarQube project tokens committed to PUBLIC GitHub (current
-  files AND history) in MEMORY.md, phases/current_phase.md, www/scripts/setup_smb_mount.sh.
-  (Actual values intentionally NOT repeated here — see PASSWORDS.md.)
-- Scrubbed all of them from tracked files → `[See PASSWORDS.md]`. Real values live ONLY in
-  PASSWORDS.md (gitignored → GitLab mirror) + `.git/config` wallet.
-- Purged from ALL 54 commits with `git filter-repo --replace-text`, force-pushed GitHub
-  (`546b85a`→`24cda0c`). Pre-rewrite safety bundle: `/tmp/home-lab-setup-prefilter-*.bundle`.
-- User chose NOT to rotate the password. CAVEAT: GitHub may retain orphaned commits by SHA
-  until GC; true fix would be rotation. (Offer remains open.)
-- git-crypt setup that was started earlier was fully reverted (no `.gitattributes`, filters
-  stripped, key removed).
-
-### setup_smb_mount.sh password handling
-- No longer hardcodes the SMB pw. Resolves it: `SMB_PASSWORD` env var → `www/scripts/smb_credentials`
-  (gitignored; present on GitLab mirror so a LAN clone "just works") → interactive prompt.
-- `www/scripts/smb_credentials` holds `SMB_PASSWORD='...'`, gitignored (rule in .gitignore),
-  included on GitLab via gl-backup. NEVER on GitHub.
-
-**Commits this session:** `24cda0c` (scrub + dual-remote + gl-backup), `db88fed` (smb_credentials
-file wiring). GitLab snapshots: `f65cf2a` (initial full mirror), `087fc5b` (+ smb_credentials).
-
----
-
 ## 📦 DEMOTION LOG — Aug 24 + Sep 16, 2026 (ONE block, on purpose — append a ROW, never a block)
 
 ⚠️ **This block exists because the first four demotions each left a marker block behind, so the block
@@ -1898,6 +1812,19 @@ artefact per unit of work, the artefacts become the backlog.** One log, appended
 | `Proxmox kernel upgrade 6.17.13-13 + PVE 9.1→9.2` (June 18) | 51 | — | nothing; `phase1b` holds the full procedure and its same-day follow-on, `MEMORY.md` holds current state and history. 🚨 **Priority because it MISLEADS, not because it is old:** it declared *"deliberately NOT booting 7.0.6-2"* and *"a host reboot is recommended (deferred)"* — both superseded, since the host went 7.0.6-2 then **7.0.14-4** and rebooted long ago. **A spent directive in a history log is worse than a stale fact** |
 | `Tested + adopted kernel 7.0.6-2-pve` (June 18) | 21 | `phase1b` (verbatim) | ⭐ **`phase1b` held the PLAN and approval and never the OUTCOME** — it read as an unexecuted proposal for 3 months. Also: plan targeted `6.17.13-13`, reality adopted `7.0.6-2`; now superseded by `7.0.14-4`. **The procedure transferred, not the version** |
 | `GitLab VM backups → NAS` (June 18) | 20 | `phase8_backups.md` (verbatim) | 🚨 **Closed TWO TODOs completed in July and never marked done** — the VMID-999 restore drill, and the deferred guest agent. **Verified against the host:** `qm config 181` → `agent: enabled=1`, so the nightly backup is **app-consistent, not crash-consistent**. ⚠️ A TODO that outlives its completion invites redoing the work |
+
+| **Sep 17, 2026 pass 9 ↓** | | | |
+| `Dual-remote (GitHub-safe / GitLab-full) + secret scrub` (June 18) | 86 | `phase3_gitlab_server.md` (verbatim) + 1 item PROMOTED to `MEMORY.md` | 🚨 **The leaked master password was NEVER ROTATED, and this block was the only record of it.** `MEMORY.md` said history had been purged, which reads as remediated — a purge is not a rotation, and GitHub can retain orphaned commits by SHA. Promoted to *Secret hygiene*. Also salvaged: `push_github.sh`'s gate was **proven** with a fake `_gatetest.key`. ⛔ **Nothing deleted on coverage grounds** — all eight governing rules were hand-verified in `CURSOR_RULES`, but see the finding below about the tool |
+
+⭐ **A THIRD FINDING, and it is a repeat this log had already warned about.** Pass 9 rebuilt an
+automated coverage checker, validated it with a positive control (100% on a file searched against
+itself), and got **2%** for this block — framing a safe demotion as archaeology. **The tool was not
+broken; it was irrelevant.** A 9-word-overlap check measures STORAGE, and the knowledge lived in
+`CURSOR_RULES` **paraphrased**. ⛔ **The positive control proves an instrument is not broken. It does
+NOT prove the instrument answers your question.** ⚠️ **This log's pass-5 entry already said "a
+verbatim-line check finds CANDIDATES, not verdicts" — and the lesson was re-derived anyway by
+rebuilding the tool instead of reading the log.** ⭐ **Hand-verify facts one at a time; that check took
+eight greps and gave a trustworthy answer.**
 
 **Two findings from doing it, both in `MEMORY.md` → MEMORY MAINTENANCE:**
 - ⭐ **A verbatim-line check finds CANDIDATES, not verdicts.** It flagged **86 of 173** Phase 7 lines

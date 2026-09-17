@@ -269,3 +269,106 @@ After GitLab server is running → **Phase 4: GitLab Runner**
 - `/phases/phase4_gitlab_runner.md` - Runner setup (next)
 - `/phases/phase6_backups.md` - Backup strategy
 
+---
+
+## DEMOTED VERBATIM FROM `phases/current_phase.md` — Sep 17, 2026 (`MAKE_MEMORIES` pass 9)
+
+⭐ **Copied, not summarised.** This was the OLDEST block in `current_phase.md` and it is routed here
+because the GitLab server is the mirror's host.
+
+⚠️ **Every governing RULE in it is already in `CURSOR_RULES` → GIT REMOTES & COMMIT ROUTING**, verified
+fact-by-fact rather than by text overlap: `NO git-crypt`, the four gates, `FAILS CLOSED`, `--yes`
+required for unattended use, the `main @ <sha>` stamp, `fully disjoint`, and `no common ancestor`.
+⛔ **So read `CURSOR_RULES` for what to DO. This is kept only as the record of how it came to be.**
+
+🚨 **ONE LIVE ITEM WAS PROMOTED, NOT FILED: the leaked password was never rotated.** It is now in
+`MEMORY.md` → *Secret hygiene*, because a rule buried in history is a rule that stops being followed.
+
+⚠️ **Stale paths below, deliberately left as written:** `www/scripts/smb_credentials` moved to
+`www/smb_credentials` on Aug 21, 2026, and the file counts (98 / 42 / 208) are long out of date.
+
+## Dual-remote (GitHub-safe / GitLab-full) + secret scrub (June 18, 2026, night)
+
+**Status:** COMPLETE ✅
+**What:** Established the same dual-remote model as the Capricorn project
+(unified_ui_DEV_PROD_GCP): SAFE/curated content → public GitHub, EVERYTHING (incl.
+secrets, plaintext) → private GitLab. NO git-crypt / NO encryption.
+
+### Remotes
+- `origin` → GitHub (PUBLIC): `git@github.com:fiberoptix/home-lab-setup.git` (SSH). Curated;
+  secrets `.gitignore`'d so they NEVER reach it. Update with **`./push_github.sh`**.
+- `gitlab` → GitLab (PRIVATE): `http://root:<pw>@gitlab.gothamtechnologies.com/production/home-lab-setup.git`.
+  HTTP "wallet" auth (pw baked into URL in `.git/config`, same as Capricorn/capricorn-docs).
+  Full plaintext mirror, pushed with **`./push_gitlab.sh "msg"`**.
+
+> ⚠️ **Renamed Aug 12, 2026: `gl-backup.sh` → `push_gitlab.sh`**, and a new `push_github.sh` was
+> added. Push only via the scripts, never a raw `git push`. Everything below describing
+> "gl-backup.sh" is the same code under the new name.
+
+### push_gitlab.sh (repo root — formerly gl-backup.sh)
+- Snapshots the ENTIRE working tree (tracked + ignored, minus `.DS_Store`) onto `gitlab/main`
+  via a temp index — does NOT touch the working tree, real index, or the GitHub-bound `main`.
+- Force-includes ignored files (PASSWORDS.md, github_credentials.md, proxmox/credentials,
+  nas_credentials, /working/, /ddns/, vmware/*.zip, www/scripts/smb_credentials).
+- Handles nested git repos (working/openclaw-ansible) by moving their `.git` to an external
+  holding dir during the add, so their WORKING FILES are captured (not empty gitlinks) and
+  their `.git` internals are NOT. Always restored.
+- GitLab mirror = 98 files; GitHub = ~42 files. (As of Aug 12, 2026 the GitLab snapshot is 208
+  files — the education program and its images account for most of the growth.)
+
+### push_github.sh (repo root — new Aug 12, 2026)
+- Pushes the curated tree to `origin/main`, and **fails closed**: nothing is pushed unless all four
+  gates pass. Gates: (1) `origin` really is GitHub and we are on `main`; (2) no TRACKED file has a
+  secret-looking name; (3) every known sensitive path that exists on disk is still gitignored;
+  (4) the outgoing diff contains no private-key blocks, no URL with an embedded password, and no AWS
+  keys. Then it lists the commits about to become public and demands a typed `yes`.
+- **Why it exists:** GitHub has no encryption, so `.gitignore` was the only guard and "verify before
+  pushing" was a convention a human or an agent could skip. This makes it enforced.
+- ⚠️ **`--yes` is required for non-interactive use; without a TTY it refuses rather than assuming.**
+- Content scanning deliberately uses only high-confidence patterns, so the *word* "password" in
+  documentation does not trip it. The credentialed-URL check is the one that would catch the GitLab
+  wallet (`http://root:<pw>@...`) being committed to a tracked file.
+- **Proven, not assumed:** staging a fake `_gatetest.key` made it block, name the file and exit 1
+  without pushing; repo state was byte-identical after cleanup.
+
+### What the GitLab mirror preserves — and the context leak we closed
+
+`gitlab/main` and `main` are **fully disjoint** (`git merge-base` finds nothing in common):
+**82 real commits on `main` against 22 snapshots on `gitlab/main`.** The mirror keeps every *file*
+perfectly and history only coarsely — though it is a genuine commit chain, so diffs between snapshots
+work fine.
+
+The leak was that a snapshot could not be tied back to the real history, and when the message
+argument was forgotten the snapshot was labelled only `Full snapshot 2026-08-03 17:44:28 EDT` — tree
+intact, reason gone. Two of the existing 22 look like that.
+
+✅ **Closed:** `push_gitlab.sh` now auto-stamps. Default is
+`Snapshot <ts> — main @ <sha>[+dirty]: <HEAD subject>`, and a message you pass gets
+`[main @ <sha>]` appended. **`+dirty` flags a snapshot containing work in no commit at all**, which
+is exactly when the SHA alone would mislead. Nothing is lost on the GitHub side — `push_github.sh`
+never authors a commit, so real commit messages are untouched.
+
+### Security scrub (CRITICAL — was a real leak)
+- Found the master password (Proxmox/VMs/GitLab/NAS), the SonarQube admin password, an old
+  deprecated password, and two SonarQube project tokens committed to PUBLIC GitHub (current
+  files AND history) in MEMORY.md, phases/current_phase.md, www/scripts/setup_smb_mount.sh.
+  (Actual values intentionally NOT repeated here — see PASSWORDS.md.)
+- Scrubbed all of them from tracked files → `[See PASSWORDS.md]`. Real values live ONLY in
+  PASSWORDS.md (gitignored → GitLab mirror) + `.git/config` wallet.
+- Purged from ALL 54 commits with `git filter-repo --replace-text`, force-pushed GitHub
+  (`546b85a`→`24cda0c`). Pre-rewrite safety bundle: `/tmp/home-lab-setup-prefilter-*.bundle`.
+- User chose NOT to rotate the password. CAVEAT: GitHub may retain orphaned commits by SHA
+  until GC; true fix would be rotation. (Offer remains open.)
+- git-crypt setup that was started earlier was fully reverted (no `.gitattributes`, filters
+  stripped, key removed).
+
+### setup_smb_mount.sh password handling
+- No longer hardcodes the SMB pw. Resolves it: `SMB_PASSWORD` env var → `www/scripts/smb_credentials`
+  (gitignored; present on GitLab mirror so a LAN clone "just works") → interactive prompt.
+- `www/scripts/smb_credentials` holds `SMB_PASSWORD='...'`, gitignored (rule in .gitignore),
+  included on GitLab via gl-backup. NEVER on GitHub.
+
+**Commits this session:** `24cda0c` (scrub + dual-remote + gl-backup), `db88fed` (smb_credentials
+file wiring). GitLab snapshots: `f65cf2a` (initial full mirror), `087fc5b` (+ smb_credentials).
+
+---

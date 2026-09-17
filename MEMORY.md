@@ -2493,6 +2493,15 @@ There is NO git-crypt and NO encryption — safety on GitHub comes purely from .
   **name-based sweep** for credential-named files anywhere in the tree.
 - **Secret hygiene:** NEVER put real passwords/tokens in tracked files (they go public on GitHub).
   History was purged once already (git filter-repo) after a leak — keep it clean.
+  🚨 **AND THAT LEAK IS NOT FULLY REMEDIATED — promoted here Sep 17, 2026 from a June 18, 2026 session
+  block where it was the ONLY record in the project.** The scrub removed the master password, the
+  SonarQube admin password and two SonarQube project tokens from tracked files and purged them from all
+  54 commits (`546b85a` → `24cda0c`, force-pushed to GitHub). ⛔ **But the password was never ROTATED —
+  Andrew's call at the time, and the offer remains open.** ⚠️ **GitHub can retain orphaned commits
+  reachable by SHA until it garbage-collects**, so the only true fix is rotation.
+  ⭐ **Recorded because `git filter-repo` reads as "handled" and a purge is not a rotation.**
+  ✅ Also proven rather than assumed, same era: staging a fake `_gatetest.key` made `push_github.sh`
+  block, name the file, and exit 1 without pushing — **the gate was demonstrated, not trusted.**
 - **Branch:** `main` only (docs/scripts repo — no CI/CD or registry like Capricorn).
 
 ---
