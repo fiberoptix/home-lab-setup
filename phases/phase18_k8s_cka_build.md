@@ -340,13 +340,39 @@ same mechanism that runs ordinary pods, one layer lower down.**
 Removed. ⭐ **Same class as the earlier audio fault — the probe mutated the system.** A flag called
 `--dry-run` still had a side effect, so "it only reads" is a claim to verify, not to assume.
 
-🚨 **Hard sequencing rule, and it is NOT optional: kube-vip must be answering BEFORE `kubeadm init`.**
-`--control-plane-endpoint` has to point at the VIP from the very first second, because the apiserver
-certificate's SANs are generated then. **Initialise without it and cp-2 and cp-3 can never join** — the
-fix is regenerating certificates or starting over. ⭐ **This is the one irreversible-ish decision in the
-whole build, so it goes first and it goes in the chapter as a prerequisite, not a warning.**
+🚨 **THE IRREVERSIBLE RULE: `--control-plane-endpoint` MUST point at the VIP on the very first
+`kubeadm init`.** The apiserver certificate's SANs are generated at that moment. **Initialise without it
+and cp-2 and cp-3 can never join** — the fix is regenerating certificates or starting over. ⭐ **This is
+the one irreversible-ish decision in the whole build, so it goes in the chapter as a prerequisite, not a
+warning.**
 
-1. **kube-vip** as a static pod, ARP/L2 mode, on the VIP.
+🔻 **CORRECTED Sep 16, 2026 — this section previously said "kube-vip must be ANSWERING before
+`kubeadm init`". THAT CANNOT HAPPEN, and the reason is worth understanding because it is the same class
+of mistake as a false green.** kube-vip is deployed here as a **static pod**, and **static pods are
+started by the kubelet** — but the kubelet is **deliberately inactive** on all five nodes right now, and
+on control-1 **`kubeadm init` is the thing that starts it.** So:
+
+⭐ **The manifest goes in place BEFORE init; the VIP comes up DURING init.** Ordering is
+*manifest-then-init*, not *VIP-then-init*. ⛔ **Do not sit waiting for `.206` to ping before running
+`kubeadm init` — it never will, and the build will look stuck when nothing is wrong.**
+
+⚠️ **TWO CONSEQUENCES THAT LOOK LIKE FAULTS AND ARE NOT** — flagged so neither costs an hour:
+1. **kube-vip will crash-loop briefly during init.** Its manifest references a kubeconfig under
+   `/etc/kubernetes/` that **`kubeadm init` has not created yet**, so the pod restarts until it appears.
+   Transient by design.
+2. 🚨 **Kubernetes ≥1.29 split `admin.conf` from `super-admin.conf`**, and `admin.conf` no longer
+   carries cluster-admin. **We are building v1.35, so this applies.** If kube-vip is pointed at the
+   wrong one it fails on permissions in a way that reads like a network problem.
+
+🔲 **THIS IS REASONED FROM UPSTREAM/kube-vip DOCUMENTED BEHAVIOUR, NOT YET VERIFIED IN THIS LAB.**
+⛔ **So it is the FIRST thing to confirm in Stage 1, before anything is typed:** read the current
+kube-vip static-pod instructions for the version being installed and check the kubeconfig path it
+wants. ⭐ **Stated as unverified on purpose** — the whole point of this build is that a claim gets
+marked with its provenance, and a sequencing rule invented from memory is exactly the kind of thing
+that should not be trusted because it sounds authoritative.
+
+1. **kube-vip manifest into `/etc/kubernetes/manifests/`** — static pod, ARP/L2 mode, on the VIP.
+   **It will not be running yet. That is correct.**
 2. **`kubeadm init` on control-1** with the VIP as the control-plane endpoint — then **stop and read what
    appeared**: `/etc/kubernetes/manifests/` static pods (etcd, apiserver, controller-manager,
    scheduler), the PKI tree, the kubeconfigs, the kubelet's own config, the join token.

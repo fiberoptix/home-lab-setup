@@ -1,6 +1,6 @@
 # Current Phase
 
-**Updated:** August 24, 2026 - 11:55 AM EDT
+**Updated:** September 16, 2026 - 8:05 PM EDT
 
 📐 **Shape, and how to keep it:** `▶️ RESUME HERE` is the **first block** as of Aug 24 — it had been
 at line 389 under six stale session blocks, so the one thing you must read first was the one you had
@@ -8,7 +8,7 @@ to scroll to find. **Keep it first.** Below it, newest session first. `MAKE_MEMO
 counts blocks (spec: 2) and step 2 demotes at least one per pass, so this file drains instead of
 growing — see that file for why the previous append-only version went undetected for seven months.
 
-## ▶️ RESUME HERE — 🔵 **PHASE 18 (KUBERNETES / CKA): the plan is written and NOTHING IS BUILT.**
+## ▶️ RESUME HERE — 🔵 **PHASE 18 (KUBERNETES / CKA): STAGE 0 DONE, five nodes ready. STAGE 1 NEXT.**
 
 **Read `phases/phase18_k8s_cka_build.md` before touching anything Kubernetes.** ~485 lines, current as of
 Sep 16, 2026.
@@ -16,9 +16,15 @@ Sep 16, 2026.
 ✅ **PLAN APPROVED by Andrew Sep 16, 5:48 PM. ✅ STAGE 0 IS COMPLETE — five nodes built and verified.**
 
 🔲 **NEXT: STAGE 1 — install and configure Kubernetes, and the first step is NOT `kubeadm init`.**
-1. 🚨 **kube-vip must be ANSWERING on `.206` first.** `--control-plane-endpoint` fixes the apiserver
+1. 🚨 **`kubeadm init` MUST carry `--control-plane-endpoint` pointing at `.206`.** It fixes the apiserver
    certificate's SANs at init time, so initialising without it means control-2 and control-3 can **never**
    join. This is the one near-irreversible step in the build.
+   🔻 **CORRECTED Sep 16 (this block used to say "kube-vip must be ANSWERING on `.206` first"): it cannot
+   be.** kube-vip is a **static pod**, static pods are started by the **kubelet**, and the kubelet is
+   inactive until `kubeadm init` starts it. ⭐ **Put the manifest in place, then init — the VIP comes up
+   DURING init.** ⛔ **Do not wait for `.206` to ping first; it never will.** ⚠️ Expect kube-vip to
+   crash-loop briefly (its kubeconfig does not exist until init creates it) and note that **v1.35 splits
+   `admin.conf` from `super-admin.conf`**. 🔲 **Unverified — reasoned from docs. Confirm before typing.**
 2. Then `kubeadm init` on control-1 → **stop and read what appeared** (static pods, PKI, kubeconfigs) →
    Calico → join control-2 by hand and control-3 by script → join both workers.
 ⚠️ **Two expiries that a deliberate pace makes MORE likely to bite:** the `--upload-certs` certificate key
@@ -403,6 +409,48 @@ help — the thing to fix is the thing that serves `kubectl`.
 ⚠️ **`kubeadm init --dry-run` WROTE TO DISK**, leaving `/etc/kubernetes/tmp/` and making control-1 the only
 node that differed. Cleaned. ⭐ **Third instance today of a probe mutating the system** — after the
 `paplay --volume` fault and the ARP-vs-ping instrument. **"It only reads" is a claim to verify.**
+
+### 🌙 Evening (Sep 16, ~7:30–8:10 PM) — context that re-scoped the phase, and one real error caught
+
+🔒 **Confidential context was recorded in `MEMORY_SECRET.md`** (employer, role level, dates, and the
+professional situation). ⛔ **It is NOT repeated here** — per the protocol, tracked files get the
+consequence and the confidential file keeps the fact. **Read that file at boot; this block is only the
+consequences.**
+
+⭐ **CONSEQUENCE 1 — the education tracks are not parallel studies, they are TWO ENDS OF MIGRATIONS
+that matter professionally.** Docker Swarm (Phase 16) and Jenkins (Phase 17) sit on the **source** side;
+Kubernetes (Phase 18) and this lab's GitLab are the **targets**. ⛔ **So do NOT treat 16 and 17 as closed
+or parked** — they are live reference material.
+⭐ **What that unlocks, and it is the best-value work available:** `education/docker-swarm/chapter08_swarm_vs_kubernetes.md`
+is already a Swarm↔Kubernetes crib sheet, and **7 of its rows are marked `recited`** — claims *neither
+lab had tested* ("neither lab tested drain against a quorum workload"). **A real multi-node cluster now
+exists, so those 7 can be converted to VERIFIED.** Bounded, upgrades an existing artefact, and worth more
+than either track alone. 📌 **Sequenced after Stage 2** (several need a working HA cluster and involve
+losing quorum). ⚠️ **Keep the provenance marks honest** — a row moves to verified only when exercised here.
+
+🔻 **CONSEQUENCE 2 — an AI framing error, corrected.** The AI had written that Andrew is *"a director, not
+an IC"* and started optimising for strategy over hands-on skill. **He is BOTH.** ⛔ **Do not trade
+hands-on capability away.** ⭐ What survives: **his output is a standard a team can follow** — which is why
+the three scripts and the chapters matter — **but the work getting there is his own hands on the keyboard.**
+Where depth and speed genuinely conflict, **depth wins**: speed can be trained in a fortnight before the
+exam, judgement cannot.
+
+🚨 **AND A LOAD-BEARING TECHNICAL ERROR IN THIS PHASE'S PLAN WAS FOUND AND FIXED — it would have bitten
+at the FIRST step of Stage 1.** The plan and this block both said **"kube-vip must be ANSWERING on `.206`
+before `kubeadm init`"**. ⛔ **That cannot happen.** kube-vip here is a **static pod**; static pods are
+started by the **kubelet**; the kubelet is **deliberately inactive** on all five nodes and on control-1
+**`kubeadm init` is what starts it.** ⭐ **Correct ordering is manifest-then-init — the VIP comes up
+DURING init.** Waiting for `.206` to ping first would have looked like a stuck build with nothing wrong.
+⭐ **Why it survived review: it was stated as a `🚨 Hard sequencing rule ... NOT optional`, and confident
+formatting reads as verified.** 🔲 **The correction is itself marked UNVERIFIED** — reasoned from docs, to
+be confirmed against the kube-vip instructions before anything is typed.
+
+🧹 **Memory maintenance: 21 → 19 blocks**, two demotions with a commit and a line-by-line verification
+after each. ⭐ **The second one paid for itself beyond tidying: it closed two TODOs finished in July and
+never marked done** — the restore drill, and the deferred guest-agent work. **Checked against the host
+rather than assumed:** `qm config 181` shows `agent: enabled=1`, so the nightly GitLab backup is
+**app-consistent now, not crash-consistent**. ⚠️ **A TODO that outlives its completion invites the work to
+be redone.**
 
 ---
 
@@ -1790,6 +1838,8 @@ artefact per unit of work, the artefacts become the backlog.** One log, appended
 | `Parallel VM Refresh Script + GitLab Runner GPG Key Fix` (May 23) | 88 | — (2 lessons PROMOTED to `MEMORY.md`) | 🚨 **Two real findings existed nowhere else and were promoted, not filed:** bash iterates an **associative array in HASH order**, which is why the script uses sentinel files rather than a `wait` loop; and **packagecloud repos re-issue the SAME keypair** with a later expiry, so `EXPKEYSIG` means a stale local copy, not a replaced key. Everything else was already in `MEMORY.md` → REFRESH SCRIPT and GITLAB RUNNER |
 | `refresh made detach/reattach-safe with tmux` (June 18) | 74 | — (1 procedure PROMOTED to `MEMORY.md`) | 🚑 **The GitLab safe-reboot checklist existed nowhere else** — dpkg lock free, no apt/dpkg/gitlab-ctl procs, Sidekiq drained, no background migrations, then `init 6` and verify `/-/readiness`. ⭐ Kept because **a successful upgrade that never rebooted looks like success in the log and failure in `uptime`.** Also folded the three tmux deb names into the existing dpkg-workaround note. Everything else was already in `MEMORY.md` → REFRESH SCRIPT |
 | `Proxmox kernel upgrade 6.17.13-13 + PVE 9.1→9.2` (June 18) | 51 | — | nothing; `phase1b` holds the full procedure and its same-day follow-on, `MEMORY.md` holds current state and history. 🚨 **Priority because it MISLEADS, not because it is old:** it declared *"deliberately NOT booting 7.0.6-2"* and *"a host reboot is recommended (deferred)"* — both superseded, since the host went 7.0.6-2 then **7.0.14-4** and rebooted long ago. **A spent directive in a history log is worse than a stale fact** |
+| `Tested + adopted kernel 7.0.6-2-pve` (June 18) | 21 | `phase1b` (verbatim) | ⭐ **`phase1b` held the PLAN and approval and never the OUTCOME** — it read as an unexecuted proposal for 3 months. Also: plan targeted `6.17.13-13`, reality adopted `7.0.6-2`; now superseded by `7.0.14-4`. **The procedure transferred, not the version** |
+| `GitLab VM backups → NAS` (June 18) | 20 | `phase8_backups.md` (verbatim) | 🚨 **Closed TWO TODOs completed in July and never marked done** — the VMID-999 restore drill, and the deferred guest agent. **Verified against the host:** `qm config 181` → `agent: enabled=1`, so the nightly backup is **app-consistent, not crash-consistent**. ⚠️ A TODO that outlives its completion invites redoing the work |
 
 **Two findings from doing it, both in `MEMORY.md` → MEMORY MAINTENANCE:**
 - ⭐ **A verbatim-line check finds CANDIDATES, not verdicts.** It flagged **86 of 173** Phase 7 lines
