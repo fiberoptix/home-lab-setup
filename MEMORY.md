@@ -2451,6 +2451,16 @@ There is NO git-crypt and NO encryption — safety on GitHub comes purely from .
     private-key blocks, no URL with an embedded password (**this is what would catch the GitLab
     wallet leaking**), and no AWS keys. Then it prints the commits going public and requires a typed
     `yes`. **Refuses to push unattended unless given `--yes`.** If it blocks, FIX THE CAUSE.
+    ⚠️ **KNOWN FALSE SIGNAL, found Sep 17, 2026 — it warns `your working tree has UNCOMMITTED changes`
+    when the tree is clean.** The check is `git diff-index --quiet HEAD --` with **no preceding
+    `git update-index --refresh`**, so it trusts cached mtimes. ⭐ **It fires most readily in exactly
+    the order `CURSOR_RULES` mandates** — GitLab first, then GitHub — because `push_gitlab.sh` touches
+    the tree seconds earlier and leaves the stat cache stale, and **this repo is on CIFS where mtime
+    drift is already the documented hazard.** ✅ **Confirm it is spurious with the CONTENT-level
+    question, not the stat one:** `git diff HEAD --stat` (empty) and `git ls-files -m` (empty);
+    `git update-index --refresh` then makes `diff-index --quiet` exit 0. ⛔ **Do NOT re-commit in
+    response to it mid-push** — there is nothing to commit, and that is the damage this false positive
+    invites. 🔲 Real fix is one line in the script (refresh before the check); not done yet.
   - **`./push_gitlab.sh "message"`** → PRIVATE GitLab (gitlab/main), full plaintext mirror. Same
     proven logic as before (temp index, never touches the real index/worktree/`main`, handles nested
     git repos). Added guard: it ABORTS if the `gitlab` remote ever resolves to github.com, because
