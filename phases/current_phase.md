@@ -26,7 +26,8 @@ Stage 3 can break this cluster freely.
 ✅ **STAGE 1 IS DOCUMENTED (Sep 23, 2026) — chapters 02, 03 and 04 all written, so the gate into Stage 3
 is OPEN.** ✅ **Chapter 05 plan APPROVED Sep 23** — the simplest CKA-congruent shape: metrics-server (Kustomize),
 local-path-provisioner, the Gateway API CRDs, and Traefik (Helm) for both Ingress and Gateway API, NodePort
-only, then an offline `c03-equipped-cluster`. 🔲 **NEXT: build Part 1, metrics-server — Andrew drives.**
+only, then an offline `c03-equipped-cluster`. 🔲 **NEXT: build Part 1, metrics-server v0.9.0 — Andrew drives. Step 1 is handed over and NOT yet run**
+(`kubectl top nodes`; `kubectl get apiservices | grep metrics`).
 ⭐ **Stage 3 rule: does the exam test it, and is this the simplest way to practise it?** Production
 choices for the work rebuild are parked beside the plan in `phase18`. ⏸️ **The Swarm chapter-8 `recited` rows are
 DEFERRED, not dropped** (Andrew, Sep 23): they resume, together with Phase 17, once he knows the firm's
@@ -41,103 +42,49 @@ holds the corrections (kube-vip did NOT crash-loop; the Calico operator HARD-COD
 `192.168.0.0/16`; `node.spec.podCIDR` is inert; `RESTARTS 0` does not mean a static pod was
 untouched).
 
-## 🧱 SESSION Sep 17, 2026 — the cluster got built, and Stages 1 and 2 both closed
+## 📘 SESSION Sep 23, 2026 — Stage 1 documented, and Stage 3 given a rule
 
-🎯 **Outcome: a real 5-node HA Kubernetes cluster exists, Stage 1 is complete on all six steps, Stage 2
-is complete including a PROVEN rollback, and chapter 02 is written.** 🙋 Andrew drove the manifest,
-`kubeadm init`, Calico, and the control-2 and worker-1 joins by hand; 🤖 the AI scripted control-3 and
-worker-2 (`METHOD.md` repetition rule) and did the verification. **Full detail is in
-`phases/phase18_k8s_cka_build.md` → Stage 1 results + the Stage 2 baseline.** This block is the
-narrative and the lessons.
+🎯 **Outcome: chapters 03 and 04 written, so Stage 1 is built, tested AND documented and Stage 3 is open.
+Chapter 05's plan is approved; `COMMANDS.md` exists; Part 1 is handed over and NOT yet run.**
 
-### 🚨 The session started by finding that the record was wrong about the lab
+### ✅ Done
+1. **Resumed after six days.** The cluster was healthy unattended — raft term still **5**, so **no etcd
+   election in six days**. No new kernel has landed, so the maintenance drill has not triggered.
+2. **Chapters 03 and 04 written and built** (one figure each, 19.5% highlighting). **All 22 corrections
+   in the phase record were checked into chapters 02–04 term by term; one — the kube-proxy `bindAddress`
+   warning — had been dropped, and was added.**
+3. **Stage 3 got its rule** (🙋 Andrew): *build the simplest thing that lets you study.* ⭐ **Test for every
+   Stage 3 choice: does the exam test it, and is this the simplest way to practise it?** 🟢 The exam hands
+   you equipped clusters, so **which component is installed is not examined** — the objects and the
+   missing-component signatures are.
+4. **Chapter 05 plan approved** — metrics-server (Kustomize), local-path, Gateway API CRDs, Traefik (Helm),
+   NodePort only, then offline `c03-equipped-cluster`. Production choices are parked beside it as a
+   **work-rebuild note**, marked as reasoning, not measurement.
+5. **Hard rule B9:** never install **ingress-nginx** — ✅ verified retired upstream, March 2026.
+6. **The Swarm chapter-8 conversion is DEFERRED** until the firm's real Swarm setup is known.
+7. **`COMMANDS.md` started** — `METHOD.md` expected it from Stage 0 and it never existed.
+8. **metrics-server v0.9.0 chosen** (its matrix: Kubernetes 1.34+).
 
-⭐ **`c01-nodes-ready` was claimed in three files and had never been taken.** `qm listsnapshot` returned
-only `current` on all five nodes and no zvol snapshot existed; the PVE task log held one snapshot on
-201 created and deleted inside three minutes. **Found one step before `kubeadm init`, the build's only
-near-irreversible command, while the newest real rollback point predated the cluster entirely.**
-⭐ **The check that caught it: ask the STORAGE, not the record.** `qm listsnapshot` is PVE's own
-bookkeeping; the zvol is the independent witness. **Both layers now, every time.**
+### 🔻 Two Sep 17 numbers were wrong — corrected everywhere they appeared
+- ⭐ **The HA test's `NotReady` prediction was UNFALSIFIED.** The v1.35.8 binary's own `--help` gives a
+  **50 s** grace period; the "~40 s" predicted was an older default, recited. It "passed" only because the
+  node was checked about a minute after the cut — **after both values had elapsed.**
+- **The join comparison was 16 vs 64 lines**, not 14 vs 55. The chapter uses the steadier measure,
+  **4 vs 12 kubeadm phases.** The saved `/tmp` copies had not survived the rollback.
 
-⭐ **And the "kubelet inactive on purpose" claim was an ARTEFACT, not a state.** The kubeadm package
-enables the unit without starting it, so `inactive` was only ever true of a node that had not rebooted
-since install. **Measured after a deliberate reboot: `activating (auto-restart)`, ~17 restarts in three
-minutes, dying on a missing `/var/lib/kubelet/config.yaml`.** ⭐ **That missing file IS the absence of a
-role** — a better teaching point than the wrong one it replaced.
-
-### ✅ What was built, in order
-
-1. **`crictl` added** (`cri-tools` 1.35.0, version-matched) + `/etc/crictl.yaml`; `containerd.io` and
-   `cri-tools` added to the apt holds. **With Docker absent there was otherwise NO way to inspect a
-   container on a node.**
-2. **Rebooted all five onto kernel 6.8.0-139**, which `unattended-upgrades` had installed overnight at
-   02:07 EDT — 🙋 **Andrew's question about a "newer kernel available" message is what surfaced it.**
-   ⭐ **Kernels arrive on these nodes by themselves, so the planned-maintenance drill does not need to
-   be manufactured — only SCHEDULED.** Now a Stage 3 exercise.
-3. **`c01-nodes-ready` taken for real**, then retaken after the reboot so the baseline matches the
-   running kernel.
-4. **kube-vip v1.2.3** (deliberately one release behind; v1.2.4 had been published the previous day),
-   manifest generated with flags **verified against the binary**, `super-admin.conf` workaround applied
-   pre-init and reverted after.
-5. **`kubeadm init`** behind the VIP, after a **dry run that proved `.206` was in the certificate SANs**
-   — the irreversible part, checked while it was still reversible.
-6. **Calico v3.32.2** via the Tigera operator, `goldmane`/`whisker` dropped, CIDR corrected to
-   `10.244.0.0/16`.
-7. **Joins:** control-2 by hand, control-3 by script, worker-1 by hand, worker-2 by script.
-8. **HA proven** by an abrupt `qm stop` of the VIP holder, and **the rollback proven** with planted
-   markers.
-
-### 📊 Numbers worth keeping
-
-| Measurement | Value |
-|---|---|
-| VIP failover after an abrupt power cut | **17 s** (predicted 15–20 from lease 15 / renew 10 / retry 2) |
-| `qm rollback` of five VMs | **6 s** |
-| Rollback → all five reachable | **49 s** (⚠️ full cycle incl. shutdown **not** measured — the timer started in the wrong place) |
-| Cross-node pod ping | **0.35 ms, `ttl=62`** — two hops, so **routed, not encapsulated** |
-| Control-plane cert expiry | **Sep 17, 2027** (kubelet certs are NOT in that list and rotate sooner) |
-
-### ⭐ The lessons, which outlast the build
-
-- 🚨 **A DEFAULT CIDR IS A GUESS ABOUT SOMEONE ELSE'S NETWORK.** Calico's default pool
-  `192.168.0.0/16` **contains** this lab's `192.168.1.0/24`, and the pod CIDR was specified nowhere in
-  the plan. ⭐ **It inverts at work: on a `10.x` estate the dangerous default is Kubernetes' own service
-  CIDR `10.96.0.0/12`.** Second appearance of the pattern — Phase 16 recorded it for Docker's
-  `10.0.0.0/8`.
-- 🚨 **PROVENANCE INCLUDES WHICH TAB.** The AI retracted a TRUE warning about that CIDR after reading
-  Calico's *"with kubeadm, no changes are required"* note — which sits on the **Manifest** tabs, while
-  the **operator** hard-codes the CIDR in a file. ⭐ **The retraction happened before the install path
-  was chosen; getting ahead of a decision converted a correct warning into a false reassurance.**
-- 🚨 **`RESTARTS 0` DOES NOT MEAN A STATIC POD WAS UNTOUCHED.** Editing the manifest DELETES and
-  RECREATES the pod — new UID, new `creationTimestamp`, fresh counter. **The instruments are
-  `creationTimestamp` and the UID.**
-- ⭐ **A TWO-MEMBER etcd IS THE LEAST AVAILABLE CONFIGURATION THERE IS** — quorum 2 of 2, so it
-  tolerates nothing while having twice the hardware to fail. **Do not linger between joins.**
-- ⭐ **THE WORKER JOIN RUNS 4 kubeadm PHASES; THE CONTROL-PLANE JOIN RUNS 12. That diff is the definition
-  of a control plane.** 🔻 *Corrected Sep 23 — this said 14 lines against 55; recounted from the
-  verbatim output, it is 16 against 64 non-blank. The `/tmp` copies did not survive the rollback.*
-- ⭐ **A RESTORE AND A POWER CYCLE PRINT THE SAME THING**, so the rollback test planted markers first —
-  a ConfigMap in etcd *and* a file on every node. **Without a marker the test proves nothing.**
-- ⚠️ **`systemctl is-active ufw` says `active` while the firewall is OFF** (`oneshot` +
-  `RemainAfterExit`). **`ufw status` is the instrument.**
-- ⚠️ **`kubeadm init --dry-run` WROTE A COMPLETE PKI TO DISK**, private keys included, under
-  `/etc/kubernetes/tmp/`. **A flag called `--dry-run` produced key material.**
-
-### 🚨 AND THE AI'S OWN VERIFICATION FAILED SIX TIMES, ALL ONE PATTERN
-
-⛔ **Every one reported success or silence where it should have reported "I could not measure this":**
-a `||` fallback that could never fire (`ip neigh show` exits 0 on no match); an `ls` without `sudo`
-whose permission error was swallowed by `2>/dev/null`, so "no residue" meant "no permission"; an etcd
-leader detection that returned empty and was then asserted as fact in the next line; `jsonpath` with
-`{"\n"}` eaten by two shells; a timer started after the shutdown loop but labelled as including it;
-and a `sed` that duplicated text in a diagram.
-⭐ **THE TRANSFERABLE POINT: the person who writes a verification is the person most likely to write it
-so that it cannot fail.** ⚠️ **Six in one session is not bad luck, it is a missing habit** — every
-check needs a case where it is KNOWN to report failure.
+### 🚨 The AI's own instruments, again — four this session
+⛔ `grep -E` with `\|` (a literal pipe, not alternation) produced false zeros **twice**, the second time
+**after pass 9 had recorded the same bug**. A `sed`-based `MISSING` flag could never fire, because `sed`
+receives no line when `grep` matches nothing. An `awk` printed etcd's learner column instead of its leader
+column. And a recited 40 s was scored as a passed prediction.
+⭐ **Recording a bug does not stop you repeating it.** The durable fix is structural — **every check gets a
+case where it is known to fail** — and the list now lives in `COMMANDS.md` §12, where it is read before
+checks are written, rather than in a log read afterwards.
 
 ### 🔲 Next
-
-✅ **Done Sep 23: chapters 03 and 04 written.** See the `RESUME HERE` block for what comes next.
+**Part 1, step 1 on control-1:** `kubectl top nodes` (expect *Metrics API not available*) and
+`kubectl get apiservices | grep metrics` (expect nothing). Then the Kustomize install — first **without**
+the TLS patch, to see the kubelet certificate error once.
 
 ---
 

@@ -1386,3 +1386,113 @@ rather than assumed:** `qm config 181` shows `agent: enabled=1`, so the nightly 
 be redone.**
 
 ---
+
+---
+
+## DEMOTED VERBATIM FROM `phases/current_phase.md` — Sep 23, 2026 (`MAKE_MEMORIES` pass 10b)
+
+⭐ **The Sep 17, 2026 session handoff — the day the cluster was built and Stages 1 and 2 closed.** Moved
+out because `current_phase.md` holds ONE handoff and the Sep 23 session replaced it.
+🔻 **One number in it was corrected in place on Sep 23 before the move** (the join comparison, 16 vs 64
+lines, 4 vs 12 phases). ⚠️ **And its HA narrative predates the Sep 23 finding that the `NotReady`
+prediction was never actually tested** — see the Stage 1 documentation note above.
+
+## 🧱 SESSION Sep 17, 2026 — the cluster got built, and Stages 1 and 2 both closed
+
+🎯 **Outcome: a real 5-node HA Kubernetes cluster exists, Stage 1 is complete on all six steps, Stage 2
+is complete including a PROVEN rollback, and chapter 02 is written.** 🙋 Andrew drove the manifest,
+`kubeadm init`, Calico, and the control-2 and worker-1 joins by hand; 🤖 the AI scripted control-3 and
+worker-2 (`METHOD.md` repetition rule) and did the verification. **Full detail is in
+`phases/phase18_k8s_cka_build.md` → Stage 1 results + the Stage 2 baseline.** This block is the
+narrative and the lessons.
+
+### 🚨 The session started by finding that the record was wrong about the lab
+
+⭐ **`c01-nodes-ready` was claimed in three files and had never been taken.** `qm listsnapshot` returned
+only `current` on all five nodes and no zvol snapshot existed; the PVE task log held one snapshot on
+201 created and deleted inside three minutes. **Found one step before `kubeadm init`, the build's only
+near-irreversible command, while the newest real rollback point predated the cluster entirely.**
+⭐ **The check that caught it: ask the STORAGE, not the record.** `qm listsnapshot` is PVE's own
+bookkeeping; the zvol is the independent witness. **Both layers now, every time.**
+
+⭐ **And the "kubelet inactive on purpose" claim was an ARTEFACT, not a state.** The kubeadm package
+enables the unit without starting it, so `inactive` was only ever true of a node that had not rebooted
+since install. **Measured after a deliberate reboot: `activating (auto-restart)`, ~17 restarts in three
+minutes, dying on a missing `/var/lib/kubelet/config.yaml`.** ⭐ **That missing file IS the absence of a
+role** — a better teaching point than the wrong one it replaced.
+
+### ✅ What was built, in order
+
+1. **`crictl` added** (`cri-tools` 1.35.0, version-matched) + `/etc/crictl.yaml`; `containerd.io` and
+   `cri-tools` added to the apt holds. **With Docker absent there was otherwise NO way to inspect a
+   container on a node.**
+2. **Rebooted all five onto kernel 6.8.0-139**, which `unattended-upgrades` had installed overnight at
+   02:07 EDT — 🙋 **Andrew's question about a "newer kernel available" message is what surfaced it.**
+   ⭐ **Kernels arrive on these nodes by themselves, so the planned-maintenance drill does not need to
+   be manufactured — only SCHEDULED.** Now a Stage 3 exercise.
+3. **`c01-nodes-ready` taken for real**, then retaken after the reboot so the baseline matches the
+   running kernel.
+4. **kube-vip v1.2.3** (deliberately one release behind; v1.2.4 had been published the previous day),
+   manifest generated with flags **verified against the binary**, `super-admin.conf` workaround applied
+   pre-init and reverted after.
+5. **`kubeadm init`** behind the VIP, after a **dry run that proved `.206` was in the certificate SANs**
+   — the irreversible part, checked while it was still reversible.
+6. **Calico v3.32.2** via the Tigera operator, `goldmane`/`whisker` dropped, CIDR corrected to
+   `10.244.0.0/16`.
+7. **Joins:** control-2 by hand, control-3 by script, worker-1 by hand, worker-2 by script.
+8. **HA proven** by an abrupt `qm stop` of the VIP holder, and **the rollback proven** with planted
+   markers.
+
+### 📊 Numbers worth keeping
+
+| Measurement | Value |
+|---|---|
+| VIP failover after an abrupt power cut | **17 s** (predicted 15–20 from lease 15 / renew 10 / retry 2) |
+| `qm rollback` of five VMs | **6 s** |
+| Rollback → all five reachable | **49 s** (⚠️ full cycle incl. shutdown **not** measured — the timer started in the wrong place) |
+| Cross-node pod ping | **0.35 ms, `ttl=62`** — two hops, so **routed, not encapsulated** |
+| Control-plane cert expiry | **Sep 17, 2027** (kubelet certs are NOT in that list and rotate sooner) |
+
+### ⭐ The lessons, which outlast the build
+
+- 🚨 **A DEFAULT CIDR IS A GUESS ABOUT SOMEONE ELSE'S NETWORK.** Calico's default pool
+  `192.168.0.0/16` **contains** this lab's `192.168.1.0/24`, and the pod CIDR was specified nowhere in
+  the plan. ⭐ **It inverts at work: on a `10.x` estate the dangerous default is Kubernetes' own service
+  CIDR `10.96.0.0/12`.** Second appearance of the pattern — Phase 16 recorded it for Docker's
+  `10.0.0.0/8`.
+- 🚨 **PROVENANCE INCLUDES WHICH TAB.** The AI retracted a TRUE warning about that CIDR after reading
+  Calico's *"with kubeadm, no changes are required"* note — which sits on the **Manifest** tabs, while
+  the **operator** hard-codes the CIDR in a file. ⭐ **The retraction happened before the install path
+  was chosen; getting ahead of a decision converted a correct warning into a false reassurance.**
+- 🚨 **`RESTARTS 0` DOES NOT MEAN A STATIC POD WAS UNTOUCHED.** Editing the manifest DELETES and
+  RECREATES the pod — new UID, new `creationTimestamp`, fresh counter. **The instruments are
+  `creationTimestamp` and the UID.**
+- ⭐ **A TWO-MEMBER etcd IS THE LEAST AVAILABLE CONFIGURATION THERE IS** — quorum 2 of 2, so it
+  tolerates nothing while having twice the hardware to fail. **Do not linger between joins.**
+- ⭐ **THE WORKER JOIN RUNS 4 kubeadm PHASES; THE CONTROL-PLANE JOIN RUNS 12. That diff is the definition
+  of a control plane.** 🔻 *Corrected Sep 23 — this said 14 lines against 55; recounted from the
+  verbatim output, it is 16 against 64 non-blank. The `/tmp` copies did not survive the rollback.*
+- ⭐ **A RESTORE AND A POWER CYCLE PRINT THE SAME THING**, so the rollback test planted markers first —
+  a ConfigMap in etcd *and* a file on every node. **Without a marker the test proves nothing.**
+- ⚠️ **`systemctl is-active ufw` says `active` while the firewall is OFF** (`oneshot` +
+  `RemainAfterExit`). **`ufw status` is the instrument.**
+- ⚠️ **`kubeadm init --dry-run` WROTE A COMPLETE PKI TO DISK**, private keys included, under
+  `/etc/kubernetes/tmp/`. **A flag called `--dry-run` produced key material.**
+
+### 🚨 AND THE AI'S OWN VERIFICATION FAILED SIX TIMES, ALL ONE PATTERN
+
+⛔ **Every one reported success or silence where it should have reported "I could not measure this":**
+a `||` fallback that could never fire (`ip neigh show` exits 0 on no match); an `ls` without `sudo`
+whose permission error was swallowed by `2>/dev/null`, so "no residue" meant "no permission"; an etcd
+leader detection that returned empty and was then asserted as fact in the next line; `jsonpath` with
+`{"\n"}` eaten by two shells; a timer started after the shutdown loop but labelled as including it;
+and a `sed` that duplicated text in a diagram.
+⭐ **THE TRANSFERABLE POINT: the person who writes a verification is the person most likely to write it
+so that it cannot fail.** ⚠️ **Six in one session is not bad luck, it is a missing habit** — every
+check needs a case where it is KNOWN to report failure.
+
+### 🔲 Next
+
+✅ **Done Sep 23: chapters 03 and 04 written.** See the `RESUME HERE` block for what comes next.
+
+---

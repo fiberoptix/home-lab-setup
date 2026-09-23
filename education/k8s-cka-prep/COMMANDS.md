@@ -207,6 +207,7 @@ result. ⭐ **Each check needs a case where it is known to fail.**
 | A timer labelled "from shutdown start" | Started after the shutdown loop | Start the clock at the first action it claims to cover |
 | `grep … \| sed 's/^$/MISSING/'` | When `grep` matches nothing, `sed` receives no line to substitute | Count matches and test the count |
 | "NotReady after ~40 s" — scored as passed | Checked after both 40 s and the real 50 s had passed | Measure finely enough to tell a prediction from its alternative |
+| `grep -E "a\|b"` — alternation written as `\|` | In extended regex `\|` is a **literal pipe**, so the pattern matches nothing and prints `0`. **Made twice in this track**, the second time after it had been recorded | `grep -E "a|b"` — or plain `grep "a\|b"` without `-E`. Test the pattern on a line known to match |
 
 ---
 

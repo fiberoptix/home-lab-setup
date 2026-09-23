@@ -158,6 +158,13 @@ It had been accumulating since Aug 13. **When you write a new handoff, move the 
   even when — especially when — the claim is being shouted.** ⛔ An unmarked `🚨` is an assertion wearing
   the costume of a finding. ⚠️ It is the documentation twin of the "false green": both are a signal that
   looks like confirmation and is not.
+  🚨 **CROSS-PHASE PRINCIPLE (Sep 23, 2026) — A MEASUREMENT TOO COARSE TO SEPARATE A PREDICTION FROM ITS
+  ALTERNATIVE CANNOT CONFIRM IT.** Phase 18's HA test predicted a node would read `NotReady` after ~40 s
+  and scored it as passed; the real default is 50 s, and the node was only checked after a minute, when
+  both had elapsed. ⭐ **Before scoring a prediction, ask what result would have FAILED it — and whether
+  the measurement could have produced that result.** If it could not, the prediction is untested, however
+  green it looks. ⚠️ **Same family as the false green and the unmarked `🚨`: a signal shaped like
+  confirmation that confirms nothing.**
 
   🔻 **DOCUMENTED OVERRIDE — Andrew, Sep 16, 2026: Phase 18 is KUBERNETES (CKA), NOT the next list
   item.** The list says **OpenSearch** comes after Jenkins. Andrew set that aside explicitly, on the
