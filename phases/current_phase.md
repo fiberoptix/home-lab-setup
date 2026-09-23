@@ -1352,67 +1352,6 @@ pubkey is NOT on the host (deliberate, SEC-1 deferred).
 
 ---
 
-## ✅ DONE — Phase 12: Network Perimeter Lockdown (.184 as DMZ) — IMPLEMENTED July 8, 2026
-
-**Status:** ✅ Implemented + validated. Full record: `phases/phase12_network_segmentation.md`.
-
-**What's live (July 8):**
-1. **Router:** public VNC/ARD to .200 deleted (Mac-mini = Tailscale-only). 80/443→.184 kept;
-   Plex + Tailscale UPnP holes kept; .100 = Verizon ARRIS gear, left alone; UPnP stays enabled.
-2. **Capricorn deploy = push:** runner (.182) pulls the images and streams them into .184 via
-   `docker save | ssh docker load`; .184 never contacts the registry (.181:5050). On both
-   `production` (e0f3057) and `develop` (9e5d2dc). Live-tested — pipeline #137 job #722 green.
-3. **.184 inbound-only via Proxmox firewall** (`/etc/pve/firewall/184.fw`, datacenter fw
-   enabled via new `cluster.fw`): IN DROP except 80/443 (any) + SSH from .182/.195/.150 + LAN
-   ICMP; OUT allows gateway .1 + internet, DROPs all RFC1918. Other VMs unaffected (no .fw files).
-   Rollback: `/root/184.fw.bak-20260708` on pve + VM snapshot `pre_phase12_firewall`.
-
-**Validated:** .184 cannot reach .180/.181/.183/.150; internet + DNS from .184 fine; public
-sites 200; admin (.195) + runner (.182) SSH in OK; .181→.184:22 blocked; :8080 blocked from LAN.
-**.195 is a static IP** (Andrew confirmed) so the SSH allowlist won't go stale.
-
-**Remaining (minor, optional):** off-LAN scan of the WAN IP to confirm only 80/443 answer.
-**Next security work lives in Capricorn:** `unified_ui_DEV_PROD_GCP/project/phases/phase22*`
-(the public app has no auth — app-layer hardening is now the weakest link).
-
-**Where it came from:** a security review of the Capricorn app (other project,
-`unified_ui_DEV_PROD_GCP`, `project/phases/phase22*`). While validating exposure I tested from
-.184 itself and found the flat LAN lets the public-facing box reach everything private.
-
-**Verified July 1, 2026 (probes run ON .184):**
-- Network is flat: single `vmbr0`, `192.168.1.0/24`, no VLANs. Only .185 uses Tailscale.
-- .184 (public, Traefik + Capricorn PROD) can reach **.180:5001/5002 (QA — REAL financial data,
-  app has NO auth), .181:80/5050 (GitLab + registry), .183:9000 (Sonar)**. Pulled a real QA
-  transaction from .184 with plain `curl` (total_count 4686).
-- Router forwards only 80/443→.184, no :22 (per MEMORY — still VERIFY the G3100 table).
-- .184 listeners: 80/443/22 + :8080 (Traefik dashboard, LAN-only, not public — bind to localhost).
-
-**Andrew's model (decided this session):**
-1. Public reaches ONLY .184:80/443. Nothing else public.
-2. Internal LAN stays FLAT — everything-to-everything. NO internal micro-segmentation.
-3. .184 does NOT need to reach any internal host → make it **inbound-only (DMZ)**.
-
-**The one blocker to a pure DMZ:** `deploy_prod_local` in Capricorn's `.gitlab-ci.yml` currently
-has .184 `docker login` + `docker pull` from the GitLab registry (.181:5050). Fix = switch to
-**push** (runner does `docker save … | ssh agamache@.184 "docker load"`), removing .184's only
-internal-outbound need. **This edit is in the Capricorn project — do it FIRST**, then this phase's
-firewall change won't break deploys.
-
-**Plan (see phase12 for full detail):**
-1. Verify/tighten router: only 80/443 → .184.
-2. (Capricorn) deploy push-not-pull.
-3. Firewall .184: IN 80/443 any + SSH from .182/.195/.150; OUT internet + gateway .1 only;
-   **DROP OUT to other 192.168.1.x VMs**. Snapshot + console access first (don't lock out SSH).
-4. Optional: bind Traefik :8080 to localhost. Leave all other VMs unchanged (flat).
-
-**⏳ DECISIONS AWAITED from Andrew:**
-- Deploy method: `docker save|load` push (pure DMZ) vs keep .184 pulling + allow only .184→.181:5050?
-- .184's DNS resolver (router .1 vs internal DNS VM) — needed so OUT rules don't break name resolution.
-- Bind/keep Traefik :8080 dashboard?
-- Order confirm: Capricorn deploy change first, then .184 firewall.
-
----
-
 ## 📦 DEMOTION LOG — Aug 24 + Sep 16, 2026 (ONE block, on purpose — append a ROW, never a block)
 
 ⚠️ **This block exists because the first four demotions each left a marker block behind, so the block
@@ -1446,6 +1385,9 @@ artefact per unit of work, the artefacts become the backlog.** One log, appended
 | `Dual-remote (GitHub-safe / GitLab-full) + secret scrub` (June 18) | 86 | `phase3_gitlab_server.md` (verbatim) + 1 item PROMOTED to `MEMORY.md` | 🚨 **The leaked master password was NEVER ROTATED, and this block was the only record of it.** `MEMORY.md` said history had been purged, which reads as remediated — a purge is not a rotation, and GitHub can retain orphaned commits by SHA. Promoted to *Secret hygiene*. Also salvaged: `push_github.sh`'s gate was **proven** with a fake `_gatetest.key`. ⛔ **Nothing deleted on coverage grounds** — all eight governing rules were hand-verified in `CURSOR_RULES`, but see the finding below about the tool |
 
 | `📌 Stage 0 record` (created THIS session) | 277 | `phase18` + `phase17` (verbatim, split at the Phase 17 boundary) | 🚨 **Nothing — this block should never have existed.** Rewriting the `RESUME HERE` heading on Sep 17 pushed the old content down under a NEW `##` heading, taking the count **19 → 20**. ⭐ **The process's own operator added backlog while running the process**, so it was cleaned up in the same pass rather than deferred. ⛔ **Watch for this when editing a block's HEADING: replacing a heading is safe, adding one below it is a demotion you now owe** |
+
+| **Sep 23, 2026 pass 10 ↓** | | | |
+| `✅ DONE — Phase 12: Network Perimeter Lockdown` (July 8) | 61 | `phase12` (verbatim) | Nothing promoted — every live fact was already in `phase12` and `MEMORY.md`. 🚨 **Its closing "DECISIONS AWAITED" list was SPENT** — all four decided and built the same day — so the copy is flagged at the top; **a spent to-do invites redoing finished work.** ⚠️ **The coverage check was first run with `\|` inside `grep -E`**, which searches for a literal pipe, and reported three false zeros — the same bug pass 9 recorded. Rerun with `|` |
 
 ⭐ **A THIRD FINDING, and it is a repeat this log had already warned about.** Pass 9 rebuilt an
 automated coverage checker, validated it with a positive control (100% on a file searched against
