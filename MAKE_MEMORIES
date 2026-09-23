@@ -111,6 +111,16 @@ phases/phaseX_*.md (the working record - where the volume belongs):
          TWO blocks - one RESUME HERE, one CURRENT handoff - plus 16 of acknowledged backlog,
          instead of approximating the spec with a stale handoff and no current one.
          ⛔ A count that does not fall is not automatically a failed pass. Ask WHICH blocks.
+       Sep 23, 2026 (START of pass 10): 18 blocks, 6 dated Jan-July 2026, 1465 lines
+       Sep 23, 2026 (after pass 10a)  : 17 blocks, 5 dated Jan-July 2026, 1407 lines
+       Sep 23, 2026 (after pass 10b)  : 17 blocks, 5 dated Jan-July 2026, 1354 lines
+         ⭐ 10a demoted the oldest (Phase 12, July 8) and found a SPENT 'DECISIONS AWAITED' list —
+         all four decided and built that same day. Second pass running where demotion surfaced a
+         finished to-do still presented as open (pass 8 was the first). ⛔ READ WHAT YOU DEMOTE.
+         🚨 AND THE COVERAGE CHECK REPEATED PASS 9'S OWN BUG: `\|` inside `grep -E` is a literal
+         pipe, so three patterns printed 0. Recorded in pass 9; made again in pass 10. ⭐ A lesson
+         written in a log read AFTER the work does not prevent the error DURING it — it now lives in
+         education/k8s-cka-prep/COMMANDS.md §12, where checks get written.
          ⭐ Pass 9 salvaged a LIVE SECURITY CAVEAT that existed in one place only: the master
          password leaked to public GitHub in June 2026 was purged from history and NEVER ROTATED.
          MEMORY.md said "history was purged", which reads as remediated. A purge is not a rotation.
