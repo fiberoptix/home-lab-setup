@@ -1,0 +1,40 @@
+// Chapter 4, figure 1 — what happened, in order, when the VIP holder lost power.
+// Measured Sep 17, 2026: abrupt `qm stop` of control-3 (VIP holder, NOT the etcd leader).
+// API unreachable through the VIP for ~17 s; VIP reappeared on control-2; etcd held quorum at
+// 2 of 3 with the leader and raft term UNCHANGED. NotReady was OBSERVED at a check ~1 min in;
+// the grace period is 50 s (read from the v1.35.8 binary's --help), NOT the 40 s once predicted.
+//
+// Four boxes, not six: chapter 2 showed six stacked boxes overflow the 1386 px height cap.
+// No prose in the figure — the commentary is a blockquote under it.
+digraph failover {
+    rankdir=TB;
+    bgcolor="white";
+    node [shape=plaintext, fontname="Helvetica", fontsize=15];
+    edge [color="#555555", penwidth=1.6, arrowsize=0.8];
+
+    cut [label=<
+      <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" BGCOLOR="#fbeef4">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>t = 0 · POWER CUT on the VIP holder</B></TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT">control-3 gone, abruptly — no graceful handoff<BR/>kubectl through .206 starts failing</TD></TR>
+      </TABLE>>];
+
+    lease [label=<
+      <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" BGCOLOR="#fdf6e3">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>t ≈ 0–15 s · the lease runs out</B></TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT">nobody renews kube-vip's lease<BR/>survivors wait: lease 15 s · renew 10 s · retry 2 s</TD></TR>
+      </TABLE>>];
+
+    moved [label=<
+      <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" BGCOLOR="#eaf6ee">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>t ≈ 17 s · VIP MOVES, API ANSWERS</B></TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT">control-2 now holds .206/32<BR/>etcd 2 of 3 — quorum held, leader and term UNCHANGED</TD></TR>
+      </TABLE>>];
+
+    notready [label=<
+      <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" BGCOLOR="#eef4fb">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>after the 50 s grace period · NotReady · then power back</B></TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT">member replays its WAL, rejoins at the same raft index<BR/>VIP stays on control-2 — it does not move back</TD></TR>
+      </TABLE>>];
+
+    cut -> lease -> moved -> notready;
+}

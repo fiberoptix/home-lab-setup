@@ -23,10 +23,13 @@ proves the traffic is ROUTED, not encapsulated.**
 markers were planted first** (a ConfigMap in etcd *and* a file on every node). Both came back gone.
 📊 **Restore costs `qm rollback` 6 s, ~49 s to reachable, full cycle under ~2 min** — cheap enough that
 Stage 3 can break this cluster freely.
-🔲 **NEXT: chapters 03 and 04.** ⛔ **Stage 3 does NOT open until they exist** — the plan's own gate is
-*"Stage 1 ends when the cluster is built, tested AND DOCUMENTED"*. ✅ **Chapter 02 is written** (*Giving
-a Node a Role*, 1 figure, docx built, 20.0% marked). ⭐ **Nothing further needs running on the cluster:
-both chapters' material is fully measured in the plan's Stage 1 results block.**
+✅ **STAGE 1 IS DOCUMENTED (Sep 23, 2026) — chapters 02, 03 and 04 all written, so the gate into Stage 3
+is OPEN.** 🔲 **NEXT is Andrew's decision between two bounded pieces of work:** Stage 3's first
+exercise chapter (05 — what a bare kubeadm cluster cannot do, and what you install to fix it), or the
+Swarm track's chapter 8 `recited` rows, which a real multi-node cluster can now convert to verified.
+⚠️ **The cluster ran six days unattended and was healthy on return** — raft term still 5, so no etcd
+election at all in that time. No new kernel has landed yet, so the scheduled maintenance drill has not
+triggered.
 ⚠️ **Read the Stage 1 results block in `phases/phase18_k8s_cka_build.md` before touching this** — it
 holds the corrections (kube-vip did NOT crash-loop; the Calico operator HARD-CODES
 `192.168.0.0/16`; `node.spec.podCIDR` is inert; `RESTARTS 0` does not mean a static pod was
@@ -104,8 +107,9 @@ role** — a better teaching point than the wrong one it replaced.
   `creationTimestamp` and the UID.**
 - ⭐ **A TWO-MEMBER etcd IS THE LEAST AVAILABLE CONFIGURATION THERE IS** — quorum 2 of 2, so it
   tolerates nothing while having twice the hardware to fail. **Do not linger between joins.**
-- ⭐ **THE WORKER JOIN IS 14 LINES; THE CONTROL-PLANE JOIN IS 55. That diff is the definition of a
-  control plane.** Both outputs kept on the nodes for chapter 03.
+- ⭐ **THE WORKER JOIN RUNS 4 kubeadm PHASES; THE CONTROL-PLANE JOIN RUNS 12. That diff is the definition
+  of a control plane.** 🔻 *Corrected Sep 23 — this said 14 lines against 55; recounted from the
+  verbatim output, it is 16 against 64 non-blank. The `/tmp` copies did not survive the rollback.*
 - ⭐ **A RESTORE AND A POWER CYCLE PRINT THE SAME THING**, so the rollback test planted markers first —
   a ConfigMap in etcd *and* a file on every node. **Without a marker the test proves nothing.**
 - ⚠️ **`systemctl is-active ufw` says `active` while the firewall is OFF** (`oneshot` +
@@ -127,9 +131,7 @@ check needs a case where it is KNOWN to report failure.
 
 ### 🔲 Next
 
-**Chapters 03 and 04.** ⛔ **Stage 3 does not open until they exist** — the plan's gate is *"Stage 1 ends
-when the cluster is built, tested AND DOCUMENTED"*. ⭐ **No further lab work is needed: both chapters'
-material is fully measured in the Stage 1 results block.**
+✅ **Done Sep 23: chapters 03 and 04 written.** See the `RESUME HERE` block for what comes next.
 
 ---
 

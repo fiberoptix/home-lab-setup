@@ -585,11 +585,11 @@ through it between the control-2 and control-3 joins. Quorum is `floor(n/2)+1`: 
 **two members need 2**, three need 2. ⛔ **So two members tolerate NO failures while having twice the
 hardware to fail.** ⭐ **Do not linger there and do not reboot anything while you are.**
 
-⭐ **THE WORKER JOIN OUTPUT IS 14 LINES; THE CONTROL-PLANE JOIN IS 55. That diff is the best available
-definition of a control plane.** The worker has no `[download-certs]`, no `[certs] Generating`, no
+⭐ **THE WORKER JOIN IS A QUARTER THE SIZE OF THE CONTROL-PLANE JOIN, and that diff is the best available
+definition of a control plane.** 🔻 **CORRECTED Sep 23, 2026 — this said 14 lines against 55. Recounted from the verbatim outputs: 64 non-blank lines against 16, and the more useful measure is PHASES — 12 against 4.** The saved `/tmp/join-*.txt` files did not survive the rollback and cold starts (`/tmp` is cleared at boot), so the transcript was the only record left to count from. The worker has no `[download-certs]`, no `[certs] Generating`, no
 `[control-plane] Creating static Pod manifest`, no `[etcd] Announced new etcd member` — it writes
-`kubelet.conf`, starts the kubelet, gets a client cert signed, and stops. 📖 **Chapter 03 should print
-the two side by side**; `/tmp/join-cp2.txt` and `/tmp/join-worker1.txt` are kept on the nodes.
+`kubelet.conf`, starts the kubelet, gets a client cert signed, and stops. ✅ **Chapter 03 prints the two
+side by side** (Sep 23). ⚠️ The `/tmp/join-*.txt` copies this line said were "kept on the nodes" are gone.
 
 ✅ **`kubeadm join` for a control plane reported `[certs] Using the existing "sa" key`** — ⭐ **the
 service-account signing key must be IDENTICAL across control planes**, or a token minted by one would
@@ -743,11 +743,21 @@ restore and an ordinary power cycle produce IDENTICAL output**, so markers were 
 5/5, the ConfigMap `NotFound`. ⛔ **Without a marker the test proves nothing**, which is the same
 prove-the-negative rule this project uses everywhere.
 
-🔲 **STAGE 1's DOCUMENTATION IS NOT FINISHED.** ✅ **Chapter 02 written Sep 17** (*Giving a Node a
-Role* — 1 figure, docx built, 20.0% marked). 🔲 **Chapters 03 and 04 still owed**, and the plan says
-**Stage 1 ends when the cluster is built, tested AND DOCUMENTED** — so Stage 3 does not open yet.
-⭐ **Both chapters' material is fully measured and in the Stage 1 results block above**; nothing further
-needs running on the cluster to write them.
+✅ **STAGE 1 IS DOCUMENTED — chapters 02, 03 and 04 all written, Sep 17 and Sep 23, 2026. The gate into
+Stage 3 is OPEN.** Chapter 03 (*A Network, and a Control Plane of Three*) and chapter 04 (*Proving It*)
+each have one figure, a built DOCX, and 19.5% highlighting; every correction in the two records above
+was checked term-by-term into the chapters, and the one that had been dropped (the kube-proxy
+`bindAddress` warning) was added.
+
+🔻 **CORRECTED Sep 23, 2026 — the HA test's fifth prediction was scored ✅ and it was UNFALSIFIED.** The
+prediction was "`NotReady` after ~40 s, the node-monitor grace period". ✅ **Read from the v1.35.8
+binary itself** (`kube-controller-manager --help`, and not set in our manifest): **the default is 50 s**;
+40 s is an older default, recited. The prediction still passed because the node was checked about a
+minute after the power cut — **after BOTH numbers had elapsed, so the measurement could not tell the
+prediction from its alternative.** ⭐ **A measurement too coarse to distinguish a prediction from the
+competing value cannot confirm it.** To test it properly, poll node status once a second from the cut.
+⚠️ The wrong value never reached a tracked file — it lived in the Sep 17 script and chat — but the
+commit message `acea134` says "all five predictions held", and commit messages cannot be edited.
 
 ### Stage 3 — CKA administration, one task type per chapter → **chapters 05+**
 

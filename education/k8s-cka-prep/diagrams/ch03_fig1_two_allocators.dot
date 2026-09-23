@@ -1,0 +1,44 @@
+// Chapter 3, figure 1 — two IP allocators, and only one of them decides a pod's address.
+// kubeadm's controller-manager hands every node a podCIDR (/24). Calico's IPAM ignores it and
+// carves its own /26 blocks from the IPPool. Measured on control-1: podCIDR 10.244.0.0/24,
+// actual CoreDNS pods 10.244.48.66/67 from block 10.244.48.64/26.
+//
+// Top to bottom, as in chapters 1 and 2, so width is never the binding constraint.
+// The comparison of what each JOIN writes is a Markdown table in the chapter, not a figure:
+// CONVENTIONS says purely tabular content must not be rasterised.
+digraph two_allocators {
+    rankdir=TB;
+    nodesep=0.35;
+    bgcolor="white";
+    node [shape=plaintext, fontname="Helvetica", fontsize=15];
+    edge [color="#555555", penwidth=1.6, arrowsize=0.8];
+
+    pool [label=<
+      <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" BGCOLOR="#eef4fb">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>POD NETWORK 10.244.0.0/16</B></TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT">kubeadm init --pod-network-cidr<BR/>AND Calico's IPPool — set in both</TD></TR>
+      </TABLE>>];
+
+    kcm [label=<
+      <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" BGCOLOR="#f4f4f4">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>1 · controller-manager</B></TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT">node.spec.podCIDR<BR/>control-1 → 10.244.0.0/24<BR/><B>no pod lives here</B></TD></TR>
+      </TABLE>>];
+
+    ipam [label=<
+      <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" BGCOLOR="#eaf6ee">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>2 · Calico IPAM</B></TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT">one /26 per node<BR/>picked pseudo-randomly<BR/>control-1 → 10.244.48.64/26</TD></TR>
+      </TABLE>>];
+
+    pods [label=<
+      <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" BGCOLOR="#fdf6e3">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>THE PODS</B></TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT">coredns → 10.244.48.66 and .67<BR/>in Calico's block, not in podCIDR</TD></TR>
+      </TABLE>>];
+
+    pool -> kcm;
+    pool -> ipam;
+    ipam -> pods [label="  decides", fontname="Helvetica", fontsize=13];
+    kcm -> pods [style=dashed, color="#aaaaaa", label="  ignored", fontname="Helvetica", fontsize=13, fontcolor="#777777"];
+}
