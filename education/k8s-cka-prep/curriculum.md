@@ -159,16 +159,17 @@ difference between valid YAML and working routing.
 2. **Create a `Gateway` and an `HTTPRoute` with NO controller running.** ⭐ **Deliberately, before
    installing one.** The objects are accepted and the Gateway never gets an address — **"prove the
    negative before you build the positive" applied to a syllabus topic.**
-3. **Install a controller.** 🔲 **Candidate: NGINX Gateway Fabric or Envoy Gateway — NOT DECIDED and
-   not to be guessed.** ⚠️ Newer Calico versions are *reported* to ship an optional Gateway API
-   implementation; **that is unverified here and must be checked against the Calico version we
-   actually install** before it is written down as an option.
+3. **Install a controller.** ✅ **DECIDED Sep 23, 2026: Traefik v3 with both the Ingress and the Gateway
+   API providers, installed with Helm** — one controller for both syllabus items, chosen by the Stage 3
+   rule *"the simplest thing that lets you practise it"* (the exam supplies its own controller, so which
+   one is not examined). ⚠️ Calico's operator also ships a `GatewayAPI` resource — Envoy Gateway underneath,
+   found Sep 17 — not used here, and its open-source support remains unverified.
 4. 🚨 **Solve the EXPOSURE problem — the real lab constraint.** A Gateway's controller wants a
    `Service` of type `LoadBalancer`, and **this cluster has no LoadBalancer implementation**, so it
    sits `<pending>` and the Gateway gets no address. ✅ **Use `NodePort` first** — it separates *"does
    my HTTPRoute match?"* from *"do I have a load balancer?"*, which is one-instrument-per-question.
-   ⭐ **Then upgrade it with the deferred kube-vip `--services` + cloud-provider exercise**, which
-   makes that exercise a **prerequisite** for this one rather than an optional extra.
+   🔻 **Superseded Sep 23: NodePort is where this stops.** No LoadBalancer implementation is installed;
+   a `LoadBalancer` Service left `<pending>` is itself the lesson for that service type.
 5. **Run the drill the community consistently reports as the fumble:** path-route an `Ingress` to two
    backends, terminate TLS on it, **then reproduce the same routing with `Gateway` + `HTTPRoute`.**
    ⭐ **Both models are on the syllabus and a task can ask for either**, so the skill being trained is

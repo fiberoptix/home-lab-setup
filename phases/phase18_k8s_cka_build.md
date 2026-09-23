@@ -711,6 +711,17 @@ involve draining nodes and losing quorum, which is Stage 3 drill territory anywa
 actually exercised here, and the S / K / 🤖 marking convention exists precisely so nothing recited can
 later be quoted as experience.
 
+⏸️ **DEFERRED, NOT DROPPED — Andrew's call, Sep 23, 2026.** 🙋 *"Put more docker-swarm on hold until I
+actually know what's going on at the new job ... come back later to integrate it in any migration
+testing."* ⭐ **The reasoning that makes it right, not merely convenient:** a migration test is only
+worth its resemblance to the REAL platform, and the firm's Swarm estate — which overlay networks,
+secrets, placement constraints, volume patterns, ingress-mode ports — is not yet known. Tests designed
+now would target this lab's Swarm, not theirs. The `recited` rows do not decay while they wait.
+🔔 **TRIGGER to resume: once Andrew knows the firm's actual Swarm setup.** Resume it together with
+Phase 17 (Jenkins, paused at Part 4), because both are the SOURCE side of the same migration.
+⛔ **To keep the option open, do NOT tear down** the Swarm (`.191`–`.193`, stack `capricorn`) or its
+snapshots `s01`–`s07` (⚠️ they sit on the no-redundancy `vm-ephemeral` stripe — known, accepted).
+
 ### ✅ Stage 2 — COMPLETE, Sep 17, 2026. THE BASELINE, WRITTEN DOWN (step 4)
 
 ⭐ **Recorded because a later "something is wrong" is only meaningful against a recorded normal.**
@@ -809,11 +820,90 @@ cluster-wide, so they must **NOT** land inside `c02-virgin-cluster`. **Two basel
 `c03-equipped-cluster` (metrics-server, a provisioner, ingress + Gateway API — what its *workload*
 tasks resemble). ⭐ **Rolling back to the wrong one silently changes what an exercise tests**, which
 is the quietest way to waste a drill.
-⛔ **The Gateway API controller is NOT chosen** — NGINX Gateway Fabric and Envoy Gateway are both
-candidates, and newer Calico is *reported* to ship one. 🔲 **Unverified; check against the Calico
-version we actually install rather than recording a guess.**
-🔗 **This promotes the deferred kube-vip `--services` exercise from optional to PREREQUISITE**, since
-a real `LoadBalancer` is what upgrades the Gateway from NodePort to an address of its own.
+🔻 **SUPERSEDED Sep 23, 2026 by the approved chapter 05 plan below.** The controller IS chosen —
+**Traefik**, one controller for both Ingress and Gateway API — and the kube-vip `--services` exercise
+is **dropped, not a prerequisite**: this lab exposes the gateway by NodePort only, and a `LoadBalancer`
+Service left `<pending>` is itself the lesson for that service type.
+
+### ✅ Chapter 05 PLAN — APPROVED Sep 23, 2026 (the simplest CKA-congruent shape)
+
+🙋 **Andrew's rule for Stage 3**, set after a discussion that briefly started designing a real trading
+platform: *"Let's stay in-line with studying for CKA and build the simplest things we can do in the lab
+that will allow me to learn and study."* ⭐ **The test for every Stage 3 choice is now two questions:
+does the exam test it, and is this the simplest thing that lets me practise it?** 🟢 The exam hands you
+clusters that are already built and equipped, so **which component is installed is not examined — the
+objects, and the signatures of a component that is missing, are.**
+🔻 **This replaces the Sep 23 draft and its four open decisions (C05-1…C05-4). Replaced, not kept
+beside it — two plans drift.**
+
+**Goal:** give the bare cluster the four things the workload tasks assume, and for each one **show what
+the cluster looks like without it first** — recognising absence is Troubleshooting, the 30% domain.
+
+| # | Install | Method | Why it is the simplest choice | Curriculum it serves |
+|---|---|---|---|---|
+| 1 | metrics-server | **Kustomize** — upstream manifest + one patch | one manifest; patching an upstream file without editing it is exactly what Kustomize is for | HPA, `kubectl top` · **Kustomize** |
+| 2 | local-path-provisioner | plain manifest, set as the default StorageClass | one file, no extra disks, real dynamic provisioning | StorageClasses, dynamic provisioning, PVCs |
+| 3 | Gateway API **standard** CRDs | plain manifest from the upstream release | the CRDs are the lesson | **CRDs** · Gateway API |
+| 4 | Traefik v3, Ingress **and** Gateway API providers | **Helm** — its primary distribution | one controller for both syllabus items | **Helm** · Ingress · Gateway API |
+| 5 | offline snapshot `c03-equipped-cluster` | as for `c02`, both layers checked | — | the second baseline |
+
+**Each part: signature → install → proof.**
+1. **metrics-server.** *Signature:* `kubectl top nodes` → *Metrics API not available*. 🔲 *Recited, verify
+   at build:* it then fails **x509** against the kubelets, whose serving certificates are self-signed.
+   *Lab fix:* `--kubelet-insecure-tls`, added **by the Kustomize patch** → ⚠️ a Lab-vs-PROD callout in the
+   chapter. *Proof:* `kubectl top nodes` and `kubectl top pods -A` return numbers.
+2. **Storage.** *Signature:* a PVC stays `Pending` with no StorageClass. 🔲 *Recited, verify at build:*
+   with `WaitForFirstConsumer` it **stays `Pending` until a pod mounts it — correct, and it looks exactly
+   like the broken case.** *Proof:* the claim binds when a pod uses it; data survives deleting and
+   recreating the pod. ⭐ **Static PVs and PVCs need no provisioner at all** — they go in the exercise
+   chapters, as does "understand CSI", met by inspecting Calico's existing `csi.tigera.io`.
+3. **Gateway API CRDs.** *Signature:* `kubectl api-resources | grep gateway.networking.k8s.io` is empty.
+   *Proof:* `GatewayClass`, `Gateway`, `HTTPRoute` are listed.
+4. **Traefik.** `helm` on **control-1 only**. *Signature:* an `Ingress` with no controller is accepted and
+   routes nothing. *Proof:* one `Ingress` routing to a test Service over **NodePort**, then **the same
+   route rebuilt by hand as `Gateway` + `HTTPRoute`**. 🔲 *Verify at build:* whether the chart ships
+   Gateway API CRDs of its own — we apply the upstream ones first, so the chart must not overwrite them.
+5. **Snapshot** `c03-equipped-cluster`, offline, all five, PVE **and** ZFS layers. ⚠️ **The marker drill
+   is not rerun** — the rollback mechanism is unchanged since `c02`, where it was proven Sep 17.
+
+**Deliberate simplifications, each chosen, none forgotten:**
+- **NodePort only.** No LoadBalancer implementation; a `LoadBalancer` Service left `<pending>` is itself
+  the lesson for that service type. 🔻 **The kube-vip `--services` + cloud-provider exercise is DROPPED
+  from this plan** — it had been recorded as a prerequisite for the Gateway; it is not one.
+- **No CSI storage driver and no extra disks.**
+- **No `ingress2gateway`** — the migration is done by hand, as it would be on exam hosts without the tool.
+- **metrics-server with insecure kubelet TLS** — the certificate-approval command is practised where the
+  exam uses it, in the user-certificate exercise.
+- **No GitOps, but every values file and kustomization is committed** under
+  `education/k8s-cka-prep/manifests/ch05/`, so every install is reproducible.
+
+**Versions:** chosen at build time against each project's own Kubernetes v1.35 support; one release back
+where the newest is only days old (the kube-vip rule). **Hard rule B9 stands:** never ingress-nginx.
+🙋 **Andrew runs the installs; the AI verifies and writes.** **Validation:** each part's proof, then
+`tigerastatus` still healthy and memory headroom re-measured (Sep 23 before: ≈ 2.4 GB free on control-1,
+≈ 3.3 GB per worker). **Deliverable:** chapter 05 + `c03-equipped-cluster`; the exercises (HPA scaling,
+PVC scenarios, routing tasks) are chapters 06 onward, one task type each.
+
+### 🏢 FOR THE WORK REBUILD — the production choices, kept beside the simple ones (Sep 23, 2026)
+
+🙋 Andrew will rebuild a lab at the firm from this project. ⚠️ **What follows is reasoning and general
+industry practice, NOT measured in this lab** — and the input that matters most is unknown: **what the
+existing lab at the firm already uses for each of these, and WHY.** Find that out first; the reasons below
+are what let the answer be evaluated rather than simply accepted or replaced.
+⭐ **The question that decides more than these four: what traffic enters the cluster?** Trading order
+flow is often FIX over plain TCP and market data sometimes multicast — not HTTP. An ingress controller is
+HTTP machinery, so it may govern the web front ends and APIs while order flow uses layer-4 Services.
+
+| Component | Lab (simple, CKA) | Production reasoning | What would change it |
+|---|---|---|---|
+| Storage | local-path | **Split by replication:** self-replicating systems (Redpanda/Kafka, MongoDB replica sets) on **local NVMe through a CSI local-volume driver**; single-copy state (a Postgres primary) on the **firm's array through its vendor CSI driver**, or Ceph via Rook. ⛔ local-path is not production: host directories, no capacity tracking, no quotas, not CSI | the storage the firm already owns |
+| Gateway / Ingress | Traefik, both APIs | **Gateway API as the standard** (ingress-nginx is retired, the Ingress API frozen); **Envoy** is the high-performance norm → Envoy Gateway; do **not** let the CNI operator run the gateway (shared upgrade cycle and blast radius) | an existing F5/NGINX estate; which protocols actually enter |
+| metrics-server TLS | `--kubelet-insecure-tls` | **Proper fix:** kubelet `serverTLSBootstrap` + approving its serving-certificate requests, **plus a restricted automated approver** — the certificates rotate, and without one metrics break silently months later | nothing — firm-independent |
+| Install method | Helm + Kustomize by hand, committed | **GitOps** (Argo CD or Flux): pinned versions, config in git, drift correction, rollback by `git revert`, an audit trail for a regulated firm; Helm for vendor components, Kustomize for per-environment overlays | whether the firm already runs Argo CD or Flux |
+
+⚠️ **Also worth carrying: metrics-server is not monitoring** — it feeds HPAs and `kubectl top` only.
+Monitoring is Prometheus and Grafana, further down the study list. **And expect ingress-nginx on anything
+inherited** — it ran in roughly half of all clusters; treat it as a migration item.
 
 Coverage is driven by `education/k8s-cka-prep/curriculum.md`, weighted by the real exam weights —
 **Troubleshooting 30%, Cluster Architecture 25%, Services & Networking 20%, Workloads & Scheduling 15%,

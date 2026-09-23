@@ -24,9 +24,15 @@ markers were planted first** (a ConfigMap in etcd *and* a file on every node). B
 📊 **Restore costs `qm rollback` 6 s, ~49 s to reachable, full cycle under ~2 min** — cheap enough that
 Stage 3 can break this cluster freely.
 ✅ **STAGE 1 IS DOCUMENTED (Sep 23, 2026) — chapters 02, 03 and 04 all written, so the gate into Stage 3
-is OPEN.** 🔲 **NEXT is Andrew's decision between two bounded pieces of work:** Stage 3's first
-exercise chapter (05 — what a bare kubeadm cluster cannot do, and what you install to fix it), or the
-Swarm track's chapter 8 `recited` rows, which a real multi-node cluster can now convert to verified.
+is OPEN.** ✅ **Chapter 05 plan APPROVED Sep 23** — the simplest CKA-congruent shape: metrics-server (Kustomize),
+local-path-provisioner, the Gateway API CRDs, and Traefik (Helm) for both Ingress and Gateway API, NodePort
+only, then an offline `c03-equipped-cluster`. 🔲 **NEXT: build Part 1, metrics-server — Andrew drives.**
+⭐ **Stage 3 rule: does the exam test it, and is this the simplest way to practise it?** Production
+choices for the work rebuild are parked beside the plan in `phase18`. ⏸️ **The Swarm chapter-8 `recited` rows are
+DEFERRED, not dropped** (Andrew, Sep 23): they resume, together with Phase 17, once he knows the firm's
+actual Swarm setup — a migration test is only worth its resemblance to the real platform. ⛔ Keep the
+Swarm and its snapshots in place meanwhile. 🆕 **Hard rule B9: never install ingress-nginx — retired
+upstream March 2026.**
 ⚠️ **The cluster ran six days unattended and was healthy on return** — raft term still 5, so no etcd
 election at all in that time. No new kernel has landed yet, so the scheduled maintenance drill has not
 triggered.
