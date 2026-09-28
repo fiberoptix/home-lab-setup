@@ -144,6 +144,13 @@ phases/phaseX_*.md (the working record - where the volume belongs):
          awaits approval.
          ⚠️ One guard of the AI's own false-alarmed: a staged-set check compared a SORTED list with an
          unsorted literal. It failed closed (nothing committed), which is the right direction to fail.
+       Sep 28, 2026 (START of pass 12): 12 blocks, 0 dated Jan-July 2026, 1236 lines
+       Sep 28, 2026 (after pass 12)   : 11 blocks, 0 dated Jan-July 2026, 1176 lines
+         Oldest block (Aug 12, 'got the job') -> phase14 verbatim. COVERED: its three live rules were
+         hand-checked in MEMORY.md first. ⭐ The audit again found drift OUTSIDE the block: the phase
+         history table still numbered the backlog "19+" an hour after Phase 19 was created, and the
+         Phase 16 row still cited snapshots purged that evening. Same lesson as pass 11 — a fact in N
+         places: `rg` for it after every change, not just in the file you are editing.
          ⭐ Pass 9 salvaged a LIVE SECURITY CAVEAT that existed in one place only: the master
          password leaked to public GitHub in June 2026 was purged from history and NEVER ROTATED.
          MEMORY.md said "history was purged", which reads as remediated. A purge is not a rotation.
