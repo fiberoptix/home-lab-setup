@@ -632,67 +632,6 @@ is not sticky, now observed four times). `/home/agamache/swarm-ci/{scripts,manif
 
 ---
 
-## 🎉 ANDREW GOT THE JOB (Aug 12, 2026)
-
-The interviews happened **Aug 6 and Aug 7** and the outcome was an offer: **SRE / DevOps on an order
-management system at a financial institution.** Phase 14 was built to prepare for exactly those two days, so
-**Phase 14 is CLOSED — goal met.** Nothing in it is half-finished; all 7 chapters were written,
-audited, highlighted, built to `.docx` and committed, and the highlighting was **visually confirmed
-good in Word by Andrew on Aug 12**, which closes the last open verification item.
-
-**What changes:** the education material is no longer interview prep with a deadline. It is
-onboarding prep for a job he now holds, which means **depth on the real stack** rather than breadth
-before a panel.
-
-✅ **RESOLVED Aug 13 — the real stack has landed.** Andrew wrote it down in
-**`education/fin_tech_stack.txt`**, now the tracked source of truth for the study backlog. Focus is
-**DevOps as it applies to an OMS / platform including portfolio and risk management tools**, and the
-**Q3–4 2026 study list, in its stated priority order**, is: **Kubernetes; Redpanda + Redpanda Connect;
-Docker Swarm; Jenkins; OpenSearch + OpenSearch Dashboards (logging/alerting); Prometheus + Grafana
-(metrics/alerting); Redpanda Connect + Debezium CDC; MongoDB + Postgres; SAML/OIDC integration
-(authentik as a self-hosted OIDC provider); Ansible.**
-
-Three consequences:
-- **Track 1 and track 2 are both confirmed on the list** (Kubernetes/Redpanda, Docker Swarm), so
-  neither was wasted. **Jenkins is explicitly named**, which upgrades Phase 17 from provisional.
-- ⭐ **ROADMAP RULE (Andrew, Aug 13): new phases work through `fin_tech_stack.txt` STEP-BY-STEP, in
-  its stated order.** The list is the backlog — do not invent a curriculum or re-derive priorities.
-  After Swarm, that means **Jenkins**, then OpenSearch, Prometheus/Grafana, Redpanda Connect +
-  Debezium CDC, MongoDB/Postgres, SAML/OIDC (authentik), Ansible.
-- ✅ **Chapter 7 of track 1 was RIGHT — leave it exactly as it is (Andrew, Aug 13).** Its six areas
-  came from the job description and **are genuinely in the target stack**; they are simply **not what
-  was suggested as the first focus.** The four that do not appear on the study list — **Cloudflare
-  edge, Symantec PAM, Vault, PKI/cert-manager** — are **real and correctly documented, just lower
-  priority.** ⚠️ **Do NOT rework, retract or reconcile away chapter 7**, and do not treat
-  `phase15_education_program.md` §4 as having aimed at the wrong target. It was a straw man in the
-  sense that it was unconfirmed, not in the sense that it was wrong. **Sequencing now comes from the
-  study list; coverage from §4 and chapter 7 still stands.**
-
-### 🚨 De-identification — a standing rule, learned the hard way on Aug 13
-
-The first draft of that file named an **employer, a start date and who suggested the list**, and the
-first fix was to **gitignore it**. That fix was wrong twice over:
-
-1. **The facts had already been copied into `MEMORY.md` and `current_phase.md`** — both **tracked and
-   public** — specifically so a cold reload would not need the ignored file. Ignoring the file did
-   nothing about the copies. This was caught only because the GitHub dry-run output was read carefully;
-   **all four of `push_github.sh`'s gates passed, because they look for credentials.**
-2. **An ignored file makes a fresh clone miss the roadmap MEMORY points at**, which is the same trap as
-   telling a reader to run something out of a gitignored `scratch/`.
-
-**Andrew's fix, applied the same day and the one to copy in future:** de-identify the *content* rather
-than hide the file. Generic title, generic framing, a neutral filename, then **track it normally.**
-Also applied repo-wide the same day: the **industry term was genericised to "financial institution"**
-in 7 places across `MEMORY.md`, `current_phase.md`, `phase14`, and **track 1 chapter 1 — whose
-committed `.docx` was rebuilt**, since the Word builds are binaries and a text edit does not reach
-them. ("Order management system" was explicitly kept.) History was **not** rewritten for the
-already-public files; nothing carrying the employer name ever reached GitHub.
-
-🚨 **Never put an employer name, a start date or "my boss" into a tracked file. The push gates protect
-against secrets, not against private.**
-
----
-
 ## 🔵 ACTIVE: Phase 16 — Docker Swarm (education track 2)
 
 **Full plan + implementation log: `phases/phase16_docker_swarm.md`.**
@@ -1217,6 +1156,7 @@ artefact per unit of work, the artefacts become the backlog.** One log, appended
 | `✅ Phase 13 (final): Maintenance window` (July 9) | 16 | `phase13` (verbatim) | Nothing promoted (pin + nag fix in `MEMORY.md`). ⚠️ Its ESP-fallback line went stale TODAY — flagged in the copy |
 | `✅ GitLab backup test-restore drill` (July 9) | 15 | `phase13` (verbatim) | 🔲 **Its cadence "repeat ~quarterly" had no due date anywhere** → next drill **~Oct 9, 2026**, now written into `MEMORY.md` |
 | `✅ qemu-guest-agent rolled out to all 5 live VMs` (July 9) | 16 | `phase13` (verbatim) | Covered — nothing open. **All July blocks are now out of `current_phase.md`** |
+| `🎉 ANDREW GOT THE JOB` (Aug 12) | 60 | `phase14` (verbatim) | COVERED — roadmap rule, chapter-7 rule and de-identification rule all hand-checked live in `MEMORY.md` (ll. 137/151/178). Audit also fixed two stale history rows: "19+" backlog → "20+" (Phase 19 is now storage tiers) and the Phase 16 row's purged snapshots |
 
 ⭐ **A THIRD FINDING, and it is a repeat this log had already warned about.** Pass 9 rebuilt an
 automated coverage checker, validated it with a positive control (100% on a file searched against
