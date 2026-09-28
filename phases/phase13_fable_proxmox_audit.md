@@ -760,3 +760,22 @@ None.
    `proxmoxlib.js` (subscription check → `false`; backup `proxmoxlib.js.bak-nag-20260709`)
    AND rewrote the update-script line with the new perl pattern (idempotent, verified).
 
+---
+
+## DEMOTED VERBATIM FROM `phases/current_phase.md` — Sep 28, 2026 (`MAKE_MEMORIES` pass 11e)
+
+*🔲 **Audited Sep 28, 2026: "repeat ~quarterly" had no date anywhere — next drill due ~Oct 9, 2026.** Date added to `MEMORY.md` the same day. The nightly vzdump job for 181 is still the only one (verified: 1 job in `jobs.cfg`, last run 02:05 Sep 28).*
+
+## ✅ GitLab backup test-restore drill — PASSED (July 9, 1:08–1:20 PM)
+
+Proved the nightly vzdump of VM 181 restores to a **fully working GitLab** (full procedure
++ findings in `phases/phase13_fable_proxmox_audit.md`, bottom section):
+- `qmrestore` last night's backup → VMID 999 on vm-ephemeral (`--unique`): 2m17s, 0 errors.
+- Isolation: NIC on a **host-only bridge vmbr999** (no physical port) + /32 route — clone
+  runs with its baked-in .181 IP but can't touch the LAN; live GitLab unaffected (200 whole time).
+- Verified: 16/16 gitlab-ctl services up, sign-in 200, DB intact (4 users, 5 projects,
+  correct timestamps), **git clone of capricorn from the clone: 306 files, HEAD 92dc5fb** ✅.
+- Teardown clean: VM 999 + bridge destroyed, vm-ephemeral back to 203G.
+- Finding: VM 181 lacks qemu-guest-agent → install during future guest-internals phase.
+- Repeat ~quarterly or after major GitLab upgrades.
+

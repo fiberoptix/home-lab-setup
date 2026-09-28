@@ -1122,21 +1122,6 @@ Follow-up to the restore-drill finding (181 had no agent). For **181, 182, 183, 
 
 ---
 
-## ✅ GitLab backup test-restore drill — PASSED (July 9, 1:08–1:20 PM)
-
-Proved the nightly vzdump of VM 181 restores to a **fully working GitLab** (full procedure
-+ findings in `phases/phase13_fable_proxmox_audit.md`, bottom section):
-- `qmrestore` last night's backup → VMID 999 on vm-ephemeral (`--unique`): 2m17s, 0 errors.
-- Isolation: NIC on a **host-only bridge vmbr999** (no physical port) + /32 route — clone
-  runs with its baked-in .181 IP but can't touch the LAN; live GitLab unaffected (200 whole time).
-- Verified: 16/16 gitlab-ctl services up, sign-in 200, DB intact (4 users, 5 projects,
-  correct timestamps), **git clone of capricorn from the clone: 306 files, HEAD 92dc5fb** ✅.
-- Teardown clean: VM 999 + bridge destroyed, vm-ephemeral back to 203G.
-- Finding: VM 181 lacks qemu-guest-agent → install during future guest-internals phase.
-- Repeat ~quarterly or after major GitLab upgrades.
-
----
-
 ## 📦 DEMOTION LOG — Aug 24 + Sep 16, 2026 (ONE block, on purpose — append a ROW, never a block)
 
 ⚠️ **This block exists because the first four demotions each left a marker block behind, so the block
@@ -1178,6 +1163,7 @@ artefact per unit of work, the artefacts become the backlog.** One log, appended
 | `✅ Phase 13: Proxmox Host Audit + Same-Day Fixes` (July 9) | 57 | `phase13` (verbatim) | Nothing promoted — email alerting, ARC cap, rpcbind, SEC-1/2 deferral all already in `MEMORY.md` (hand-checked, positive control `7.0.14-4`). 🚨 **Its Next-steps list was SPENT** and it claimed the host had no workstation key (false since Aug 12) — flagged in the copy |
 | `✅ Phase 13 (continued): Afternoon Session` (July 9) | 43 | `phase13` (verbatim) | Nothing promoted (hp-bioscfg, ashift, 2x12, WON'T-FIX all in `MEMORY.md`). 🚨 **FOUND A LAPSED TO-DO: 184's `pre_phase12_firewall` snapshot was never deleted** — 2½ months past its date. Raised with Andrew, not actioned |
 | `✅ Phase 13 (final): Maintenance window` (July 9) | 16 | `phase13` (verbatim) | Nothing promoted (pin + nag fix in `MEMORY.md`). ⚠️ Its ESP-fallback line went stale TODAY — flagged in the copy |
+| `✅ GitLab backup test-restore drill` (July 9) | 15 | `phase13` (verbatim) | 🔲 **Its cadence "repeat ~quarterly" had no due date anywhere** → next drill **~Oct 9, 2026**, now written into `MEMORY.md` |
 
 ⭐ **A THIRD FINDING, and it is a repeat this log had already warned about.** Pass 9 rebuilt an
 automated coverage checker, validated it with a positive control (100% on a file searched against
