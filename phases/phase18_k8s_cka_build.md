@@ -796,6 +796,42 @@ Sep 17)**, so no node reboots itself mid-drill — which is what makes leaving `
 archive; this cluster is meant to be patched, and masking it would delete the drill's delivery
 mechanism.
 
+🔄 **REVERSED Sep 28, 2026 (🙋 Andrew: *"We would not have auto-update at work"*) — all five are now
+MASKED like every other VM.** The reasoning above was wrong in two ways:
+- ⛔ **Masking does not delete the drill's delivery mechanism.** The drill installs the kernel ITSELF,
+  inside the window, on a node that is already drained — `apt update && apt full-upgrade` becomes a
+  step of the drill. **That is the production lesson: patch inside the window, not before it.**
+- 🚨 **"No self-reboot" was not the only hazard.** ✅ Measured Sep 28: after `c02` was taken,
+  `unattended-upgrades` changed packages on six separate days (sudo, rsyslog, libxml2, glib, expat,
+  curl, libpcap, python libs, dracut, **kernel `6.8.0-142` on Sep 25**). So **every rollback to `c02`
+  silently removed two weeks of patches, and all five reinstalled them unwatched at ~06:00 UTC the next
+  morning** — and whatever reboots next boots all five onto whatever has queued up, at once.
+  ✅ No damage done: kubelet and containerd had not restarted since the Sep 17 boot on any node.
+
+✅ **Applied and verified Sep 28** with the build script's own `2-personalize.sh --freeze-updates`
+(the nodes were built without that opt-in flag). Doing it found **two bugs in the script, both fixed**:
+🚨 `systemctl mask --now` **masks first, then stops**, so a running timer loses its unit and lands in
+`failed` ("Unit to trigger vanished") — proven on a throwaway timer: `mask --now` → `failed`,
+`stop` then `mask` → `inactive`. And 🚨 `systemctl is-enabled` **exits 1 for a masked unit**, so
+`$(… || echo absent)` produced `masked` + `absent` and the "already masked" branch could never fire —
+the idempotency re-run reported 3 changes instead of 0. After the fix: 0 changes on re-run, all three
+units `masked`/`inactive`, 0 scheduled apt timers, 0 failed units on all five, cluster untouched.
+(The run also installed `tree` and `unzip` — the nodes predate the Sep 16 script split, which added them.)
+
+🔲 **THE DRILL, AS IT NOW RUNS — schedule it within 60–90 days of Sep 28 (by ~end of Dec 2026).**
+Kernel 142 does NOT wait for it: it boots on the nodes' next reboot, which is the PVE host update.
+The drill takes the NEXT kernel. 🚨 **Step 0 is `sudo apt update`** — with `apt-daily.timer` masked,
+package lists never refresh on their own, so `apt list --upgradable | grep linux-image` on stale lists
+prints nothing and reads as "no new kernel yet". Then per node, workers first, one at a time:
+drain → `sudo apt update && sudo apt full-upgrade` (the five holds protect the k8s packages) → reboot
+→ `Ready` → uncordon; on control planes, etcd leader + three healthy members BETWEEN each.
+
+✅ **Sep 28, after the PVE host upgrade (9.2.20) and reboot: the nodes cold-booted onto `6.8.0-142`,
+and `c02-virgin-cluster` was RETAKEN** — old one deleted, new one offline on all five, verified
+1 → 0 → 1 at both the `qm` and ZFS layers. It now holds kernel 142 with auto-updates frozen, so a
+rollback no longer undoes the policy. ⚠️ `c01-nodes-ready` still predates it (kernel 139, updates
+enabled): after rolling back to `c01`, re-run `2-personalize.sh --freeze-updates`.
+
 🆕 **CHAPTER 05 IS FIXED AND IT COMES FIRST IN THE STAGE — *what a bare `kubeadm` cluster cannot do,
 and what you install to fix it* (decided Sep 17, 2026).** 🙋 Andrew's question — *"we must add
 Gateway API to our curriculum, how do we do that?"* — produced a better answer than a new row.

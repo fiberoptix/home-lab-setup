@@ -35,12 +35,71 @@ actual Swarm setup — a migration test is only worth its resemblance to the rea
 Swarm and its snapshots in place meanwhile. 🆕 **Hard rule B9: never install ingress-nginx — retired
 upstream March 2026.**
 ⚠️ **The cluster ran six days unattended and was healthy on return** — raft term still 5, so no etcd
-election at all in that time. No new kernel has landed yet, so the scheduled maintenance drill has not
-triggered.
+election at all in that time.
+🆕 **Sep 28, 2026 — AUTOMATIC UPDATES FROZEN ON ALL FIVE NODES; the Sep 17 "do not mask" call is
+REVERSED.** They were the only VMs in the lab still patching themselves: `unattended-upgrades` had
+installed kernel **`6.8.0-142`** (Sep 25) and ~20 packages **after** `c02` was taken. ✅ Now masked
+**and** stopped on all five (`2-personalize.sh --freeze-updates`, fixed today), verified independently:
+0 scheduled apt timers, 0 failed units, cluster untouched. Full record: `phase18` Stage 3 drill block +
+`MEMORY.md` → PATCHING POLICY. ✅ **`c02-virgin-cluster` was RETAKEN Sep 28** (old one deleted; new one
+offline on all five, verified 1 → 0 → 1 at both the `qm` and ZFS layers): kernel 142, auto-updates
+frozen, PVE 9.2.20 / QEMU 11.0.3. 🚨 **`c01-nodes-ready` still PREDATES THE MASK** (kernel 139, updates
+enabled) — after a rollback to `c01`, re-run `sudo bash 2-personalize.sh --freeze-updates` on all five.
+🔲 **NEXT, in order (Andrew approved Sep 28):** (1) ✅ freeze nodes — done. (2) ✅ **PVE host
+upgraded to 9.2.20 and rebooted on the SAME pinned `7.0.14-4`** (Sep 28, 17:13 → 17:15:56). Cluster shut
+down workers-first, started control-planes-first: 5/5 `Ready` on kernel **142**, 39/39 pods Running, DNS
+verified, auto-updates still frozen. etcd leader is **control-2** (term 6; it was already control-2 at
+term 5 before the reboot — "control-1 as leader" above is the Sep 16 build state). ⚠️ After the cold
+start 15 pods sat in `Unknown` and one `calico-apiserver` flapped not-ready for ~2 min — both cleared
+on their own; **check again a few minutes later before calling a cold start broken.** Host detail:
+`MEMORY.md` → PATCHING POLICY (🚨 the upgrade silently dropped the proven fallback kernel off the ESPs).
+(3) ✅ five-node baseline `c02-virgin-cluster` retaken — cluster back 5/5 Ready, all pods Running. (4) 🔲 **kernel drill on the NEXT kernel, within 60–90
+days** — see `phase18`. (5) 🔲 host kernel `7.0.14-19` trial via phase1b `--next-boot`, later.
 ⚠️ **Read the Stage 1 results block in `phases/phase18_k8s_cka_build.md` before touching this** — it
 holds the corrections (kube-vip did NOT crash-loop; the Calico operator HARD-CODES
 `192.168.0.0/16`; `node.spec.podCIDR` is inert; `RESTARTS 0` does not mean a static pod was
 untouched).
+
+## 📘 SESSION Sep 28, 2026 — patching brought under one policy, host upgraded, baseline retaken
+
+🎯 **Outcome: nothing in the lab updates itself any more; the PVE host is on 9.2.20 on the same pinned
+kernel; the cluster is on kernel 142 with a fresh `c02`. Chapter 05 Part 1 is still the next build step.**
+
+### ✅ Done (Andrew drove the decisions; the AI ran the commands with his go-ahead)
+1. 🙋 *"Did we pin the kernel on all nodes? Are nodes in my refresh script? Should we update the PVE?"*
+   → re-answered at High effort from measurements. The k8s nodes were the **only** VMs still running
+   `unattended-upgrades` (a Sep 17 call of the AI's, now **reversed** — 🙋 *"We would not have
+   auto-update at work"*). Frozen with `2-personalize.sh --freeze-updates`; **two bugs found and fixed
+   in that script** (`mask --now` leaves a timer `failed`; `is-enabled` exits 1 on masked).
+2. **Scripts:** `proxmox-update.sh` → `full-upgrade` (+ boot check, + ESP-fallback warning), now in the
+   repo for the first time; `refresh.sh` deployed copy synced (it LAGGED the repo) + never-add-the-nodes
+   note. Both md5-verified host = repo.
+3. **PVE 9.2.4 → 9.2.20** via tmux on the host, log streamed back; rebooted 17:13 → 17:15:56 on pinned
+   `7.0.14-4`. 🚨 **The upgrade pushed the proven fallback `7.0.6-2` off both ESPs** — caught by the new
+   boot check BEFORE the reboot, restored as a manual kernel. Root snapshot
+   `rpool/ROOT/pve-1@pre-pve-9.2.20-2026-09-28` kept.
+4. **Cluster** shut down workers-first / started control-planes-first around the reboot; **`c02` retaken**.
+5. **`MAKE_MEMORIES` pass 11:** 17 → 11 blocks, **0 July blocks left** (six commits, each verified).
+   Found: three `MEMORY.md` statements still saying Phase 18 was "NOTHING BUILT" (fixed); a lapsed
+   to-do (184's `pre_phase12_firewall` snapshot, due mid-July); an undated drill (GitLab restore → ~Oct 9).
+
+### 🔲 Open — for Andrew
+- ✅ **`CURSOR_RULES` line 119 corrected** (Andrew approved in writing Sep 28) — lists both clusters now.
+- 🔒 **`CURSOR_RULES` STILL SAYS "NO Tailscale anywhere" (lines ~106 and ~123) — FALSE.** Measured Sep 28:
+  `tailscaled` active + enabled on the PVE host, on the tailnet as `pve` `100.108.209.77`, and `MEMORY.md`
+  records it as the tailnet's **subnet router**. A remote path into the LAN that the boot file denies.
+  Also says "Proxmox VE 9.1" (now 9.2.20). **Needs Andrew's written approval — not edited.**
+- ✅ **184's `pre_phase12_firewall` snapshot DELETED** (Andrew, Sep 28): `vm-critical` 668 G → 654 G.
+- 🔄 **GitLab restore drill is now EVENT-DRIVEN** (Andrew questioned "quarterly"): after a major PVE
+  upgrade, a NAS/backup-job change, or a backup failure. No calendar date.
+- Kernel drill within 60–90 days. Host kernel `7.0.14-19` trial later.
+- 💬 **Storage** (`scratch/andrew-ideas.txt`): Andrew sees ~75% on critical storage and asks whether to
+  buy a card + 2×2 TB or shrink 180/184/186. ⚠️ **Not yet discussed — and the numbers disagree:** at 16:57
+  `zpool list` showed `vm-critical` at **7%** (68.3 G of 952 G allocated). Measure what the GUI is
+  counting (likely provisioned/reserved size, unverified) before any spending decision.
+- **Uncommitted:** all of today's work outside the six demotion commits — commit/push not yet approved.
+
+---
 
 ## 🔧 BUILD STANDARD OVERHAUL — a second distro, and the script server nearly deleted itself (Aug 21, 2026, evening) ✅ DONE
 

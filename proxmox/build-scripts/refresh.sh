@@ -33,6 +33,9 @@
 # Consequence to accept: a VM NOT in the list below now gets NO automatic
 # security patching at all. That is deliberate for .186 and .191-.193, whose
 # whole point is a frozen known state - patch those by hand, on purpose.
+#
+# Not covered: snaps refresh themselves on snapd's own timer regardless of the
+# apt masking (e.g. .181, measured Sep 28, 2026). The k8s nodes have no snaps.
 # ---------------------------------------------------------------------------
 #
 # VMs targeted (the list below is keyed by IP, not VMID, so re-numbering a VM in
@@ -47,6 +50,12 @@
 # Deliberately NOT targeted - frozen known state, patch by hand:
 #   .186  vm-k8-redpanda-1 (k3s POC)
 #   .191-.193  docker-swarm-1..3
+#
+# 🚨 NEVER add the Phase 18 kubeadm nodes (.201-.205): this script reboots every
+# target AT ONCE, and rebooting the three control planes together loses etcd
+# quorum. They are patched one node at a time by the maintenance drill
+# (drain -> apt update && apt full-upgrade -> reboot -> Ready -> uncordon), with
+# etcd health confirmed between control planes. Masked like every other VM.
 
 set -u
 

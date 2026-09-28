@@ -201,12 +201,23 @@ if [ "$FREEZE_UPDATES" -eq 1 ]; then
     # can move on its own.
     # 🚨 MASK, do not disable: a masked unit cannot be started even as another unit's
     # dependency, which is the whole point since the timer would otherwise pull it in.
+    # 🚨 STOP, THEN MASK: mask alone does NOT stop a timer that is already running (it
+    # still fires until reboot), and `mask --now` masks FIRST, so the running timer loses
+    # its unit and lands in "failed" (measured Sep 28, 2026). Only masked + inactive is done.
+    # 🚨 `systemctl is-enabled` EXITS 1 for a masked unit: `$(... || echo x)` would append x.
     for u in unattended-upgrades.service apt-daily.timer apt-daily-upgrade.timer; do
-        STATE=$(systemctl is-enabled "$u" 2>/dev/null || echo absent)
-        if [ "$STATE" = "masked" ]; then ok "$u already masked"
+        STATE=$(systemctl is-enabled "$u" 2>/dev/null) || true
+        case "$STATE" in ""|not-found) STATE=absent ;; esac
+        ACTIVE=$(systemctl is-active "$u" 2>/dev/null) || true
+        if [ "$STATE" = "masked" ] && [ "$ACTIVE" = "inactive" ]; then ok "$u masked and stopped"
         elif [ "$STATE" = "absent" ]; then ok "$u not present"
-        elif mutate; then systemctl mask "$u" >/dev/null 2>&1 && did "masked $u"
-        else warn "$u is $STATE"; fi
+        elif mutate; then
+            systemctl stop "$u" >/dev/null 2>&1 || true
+            if systemctl mask "$u" >/dev/null 2>&1; then
+                systemctl reset-failed "$u" >/dev/null 2>&1 || true
+                did "stopped + masked $u"
+            else warn "could NOT mask $u"; fi
+        else warn "$u is $STATE, $ACTIVE"; fi
     done
     # 🚨 Reading /etc/apt/apt.conf.d/20auto-upgrades will LIE to you: it still says
     # Unattended-Upgrade "1" on a masked host. The TIMERS decide; the config only describes.
@@ -221,7 +232,7 @@ printf '  address         : %s\n' "$(ip -o -4 addr show | awk '!/ lo /{print $4}
 printf '  resolves itself : %s\n' "$(getent hosts "$(hostname)" >/dev/null && echo yes || echo 'NO — sudo will warn')"
 printf '  timezone        : %s (NTP synced: %s)\n' "$(val timedatectl show -p Timezone --value)" "$(val timedatectl show -p NTPSynchronized --value)"
 printf '  cockpit         : %s\n' "$(val systemctl is-enabled cockpit.socket)"
-printf '  auto-updates    : %s\n' "$(val systemctl is-enabled apt-daily-upgrade.timer)"
+printf '  auto-updates    : %s, %s\n' "$(val systemctl is-enabled apt-daily-upgrade.timer)" "$(systemctl is-active apt-daily-upgrade.timer 2>/dev/null || true)"
 if [ "$CHECK_ONLY" -eq 1 ]; then printf '\n  --check: nothing was changed.\n'
 else printf '\n  %d change(s) made. Re-run to confirm it reports 0 — that is the idempotency test.\n' "$CHANGED"; fi
 printf '\n  NEXT: 3-k8s-base.sh  (kubeadm-ready node, still with NO role)\n\n'

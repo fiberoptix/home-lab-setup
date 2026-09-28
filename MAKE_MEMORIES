@@ -121,6 +121,29 @@ phases/phaseX_*.md (the working record - where the volume belongs):
          pipe, so three patterns printed 0. Recorded in pass 9; made again in pass 10. ⭐ A lesson
          written in a log read AFTER the work does not prevent the error DURING it — it now lives in
          education/k8s-cka-prep/COMMANDS.md §12, where checks get written.
+       Sep 28, 2026 (START of pass 11): 17 blocks, 5 dated Jan-July 2026, 1372 lines
+       Sep 28, 2026 (after pass 11a-f): 11 blocks, 0 dated Jan-July 2026, 1186 lines
+       Sep 28, 2026 (after handoff)   : 12 blocks, 0 dated Jan-July 2026, 1222 lines
+         ⭐ THE STALE COUNT REACHED ZERO: every block left is from Aug 12 or later. Six demotions, six
+         commits (11a = Sep 23 handoff -> phase18; 11b-f = the five July 9 Phase 13 blocks -> phase13).
+         ⭐ NEW TECHNIQUE, needed because Andrew had NOT approved committing the day's other work:
+         each demotion commit was BUILT FROM HEAD (block removed from HEAD's current_phase.md, appended
+         to HEAD's phase file, blobs written with `git hash-object -w` + `git update-index --cacheinfo`)
+         and the identical change applied on top of the working tree. So the pre-approved demotion
+         commits carried ONLY the demotion, and the unapproved edits in the same two files stayed
+         uncommitted. Script: education/k8s-cka-prep/scratch/demote.py (gitignored).
+         🚨 THE AUDIT FOUND MORE THAN THE BLOCKS: MEMORY.md still said Phase 18 was "NOTHING BUILT" in
+         THREE places (CURRENT STATE, the phase history table, the file table) eleven days after the
+         cluster was built — one of them with a reservation of five IPs nobody used. The PHASE INDEX
+         row had been kept current; its duplicates had not. ⭐ WHEN A FACT LIVES IN N PLACES, UPDATING
+         THE ONE YOU READ LEAVES N-1 LIES. `rg` the phase file name across MEMORY.md at every pass.
+         Also found: a lapsed to-do (184 snapshot, due mid-July — Andrew had it deleted the same
+         day) and a cadence with no date ("quarterly" restore drill — Andrew questioned it and it
+         became event-driven). And CURSOR_RULES line 119 was false (".186 is the ONLY Kubernetes")
+         — corrected with Andrew's written approval; its "NO Tailscale anywhere" is ALSO false and
+         awaits approval.
+         ⚠️ One guard of the AI's own false-alarmed: a staged-set check compared a SORTED list with an
+         unsorted literal. It failed closed (nothing committed), which is the right direction to fail.
          ⭐ Pass 9 salvaged a LIVE SECURITY CAVEAT that existed in one place only: the master
          password leaked to public GitHub in June 2026 was purged from history and NEVER ROTATED.
          MEMORY.md said "history was purged", which reads as remediated. A purge is not a rotation.

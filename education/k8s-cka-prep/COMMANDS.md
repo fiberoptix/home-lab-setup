@@ -158,6 +158,8 @@ kubectl -n kube-system exec etcd-vm-k8s-cka-control-1 -- etcdctl \
 | Is NetworkManager going to fight the CNI? | `dpkg-query -W network-manager` | ✅ | Not installed on these nodes |
 | Is firewalld present? | `systemctl is-active firewalld` | ✅ | Absent |
 | How much memory is free? | `free -m` | ✅ | Sep 23: ≈ 2.4 GB on control-1, ≈ 3.3 GB per worker |
+| Can anything on this node update itself? | `systemctl is-active apt-daily.timer apt-daily-upgrade.timer` · `systemctl list-timers --no-legend \| awk '/apt-daily/ && $1 != "-"'` · `systemctl --failed` | ✅ | Want `inactive`, nothing listed, no apt units failed. **`masked` alone is not the answer** — a masked timer can still be running. Sep 28: frozen on all five |
+| Is a new kernel available? | `sudo apt update` **then** `apt list --upgradable \| grep linux-image` | 🔲 | With `apt-daily.timer` masked the lists never refresh themselves — skipping `apt update` prints nothing and reads as "no kernel yet" |
 
 ---
 
@@ -208,6 +210,9 @@ result. ⭐ **Each check needs a case where it is known to fail.**
 | `grep … \| sed 's/^$/MISSING/'` | When `grep` matches nothing, `sed` receives no line to substitute | Count matches and test the count |
 | "NotReady after ~40 s" — scored as passed | Checked after both 40 s and the real 50 s had passed | Measure finely enough to tell a prediction from its alternative |
 | `grep -E "a\|b"` — alternation written as `\|` | In extended regex `\|` is a **literal pipe**, so the pattern matches nothing and prints `0`. **Made twice in this track**, the second time after it had been recorded | `grep -E "a|b"` — or plain `grep "a\|b"` without `-E`. Test the pattern on a line known to match |
+| `STATE=$(systemctl is-enabled u \|\| echo absent)` | `is-enabled` **exits 1 for a masked unit**, so the fallback fires too: `masked` + `absent`. The "already masked" branch could never match — found when the idempotency re-run reported 3 changes, not 0 | `STATE=$(systemctl is-enabled u) \|\| true` |
+| `systemctl mask --now <timer>` reported as done | It masks FIRST, so the running timer loses its unit and ends `failed`, not stopped. Proven on a throwaway timer | `systemctl stop`, then `systemctl mask` |
+| `systemctl list-timers \| grep -c apt-daily` as "is it scheduled?" | It lists a `failed` timer too, with `-` as its next run — counted 2 on nodes where nothing could fire | Count only rows with a real NEXT: `awk '/apt-daily/ && $1 != "-"'` |
 
 ---
 

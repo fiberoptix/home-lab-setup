@@ -116,7 +116,10 @@ study material, not a production app. Capricorn is not.
        .181 GitLab   .182 Runner   .183 SonarQube
        .184 WWW (`vm-www-1`) - Traefik + Capricorn PROD + splash. Traefik RUNS HERE, it is not a VM
        .185 Jenkins (`vm-jenkins-1`, Phase 17)
-       .186 k3s/Redpanda POC - the ONLY Kubernetes in this lab
+       .186 k3s/Redpanda POC - FROZEN, out of scope; never fold it into the Phase 18 cluster
+       .201-.205 Phase 18 kubeadm cluster (3 control planes + 2 workers), kube-vip VIP .206
+         (Corrected Sep 28, 2026, authorised in writing by Andrew: .186 was listed as "the ONLY
+          Kubernetes in this lab", false since the Phase 18 cluster was built Sep 17.)
        .191/.192/.193 `docker-swarm-1/2/3` (Phase 16)
        .195 this dev box - also the script server (`www/run_www.sh`)
    - ZFS storage: local-zfs (rpool1), vm-critical (rpool2), vm-ephemeral (rpool3)
