@@ -219,6 +219,7 @@ result. ⭐ **Each check needs a case where it is known to fail.**
 | `systemctl list-timers \| grep -c apt-daily` as "is it scheduled?" | It lists a `failed` timer too, with `-` as its next run — counted 2 on nodes where nothing could fire | Count only rows with a real NEXT: `awk '/apt-daily/ && $1 != "-"'` |
 | Node `Ready` as proof it came back after a short outage | Down for less than the 50 s grace period, it is **still** `Ready` | The node's Lease `renewTime`, newer than the start |
 | Node condition `lastHeartbeatTime` as a liveness clock | Re-posted only every few minutes when nothing changes — measured ~4 min stale | The Lease again |
+| A real run I "expected" to abort, piped to `\| head -3` | The case was not a failure case at all — it was a valid reverse move — and `head` only trimmed what I SAW; the script drained and shut down worker-2 (Sep 28) | Test guards with a `--dry-run` that stops after pre-flight. Never test a guard with a mutating run |
 | `awk '/lastHeartbeatTime/{print $2}'` on `-o yaml` | On a YAML list item (`- lastHeartbeatTime:`) field 2 is the LABEL. 🚨 **Its known-fail test "passed" anyway**, because the error happened to read as "no" | `grep -o 'key: "[^"]*"' \| cut -d'"' -f2` — and a known-fail case must fail for the RIGHT reason: read the value |
 
 ---

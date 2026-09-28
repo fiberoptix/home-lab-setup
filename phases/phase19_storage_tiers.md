@@ -70,6 +70,15 @@ over-protection is nearly free once thin); snapshots cannot be placed separately
 - ⭐ **Deleting a snapshot of a thick zvol freed MORE than its `used`** (184: 5.39 G shown, 14 G freed)
   — `used` counts only unique blocks. Measure the pool before and after; do not predict from `used`.
 
+⭐ **The move is now a tracked script: `proxmox/build-scripts/move_k8s_node_pool.sh <201..205>
+[--prove-rollback | --dry-run]`** (`SRC`/`DST`/`ROLLBACK_TO` overridable; locks on its own file).
+🚨 **Incident while promoting it, same evening:** a pre-flight "known-fail" test run for real in the REVERSE
+direction (`SRC=vm-critical DST=vm-ephemeral`) was a **valid** move — it passed pre-flight, drained and
+shut down worker-2, and `| head -3` hid all of it (head shortens the display; it does not stop the
+process). It died at step 2, before any data moved; worker-2 was restarted, its Lease proven renewed,
+uncordoned, cluster 5/5 Ready. ⛔ **A known-fail case must be KNOWN, not assumed — test guards with
+`--dry-run`**, which now exists for exactly this.
+
 ## Undo / recovery map
 
 | If… | Then |

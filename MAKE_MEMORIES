@@ -131,7 +131,8 @@ phases/phaseX_*.md (the working record - where the volume belongs):
          to HEAD's phase file, blobs written with `git hash-object -w` + `git update-index --cacheinfo`)
          and the identical change applied on top of the working tree. So the pre-approved demotion
          commits carried ONLY the demotion, and the unapproved edits in the same two files stayed
-         uncommitted. Script: education/k8s-cka-prep/scratch/demote.py (gitignored).
+         uncommitted. Script: tools/demote_block.py (TRACKED since Sep 28 - it started life in a
+         gitignored scratch/, which a fresh clone would not have; tested in a throwaway worktree).
          🚨 THE AUDIT FOUND MORE THAN THE BLOCKS: MEMORY.md still said Phase 18 was "NOTHING BUILT" in
          THREE places (CURRENT STATE, the phase history table, the file table) eleven days after the
          cluster was built — one of them with a reservation of five IPs nobody used. The PHASE INDEX
@@ -230,6 +231,9 @@ phases/phaseX_*.md (the working record - where the volume belongs):
        git diff MEMORY.md | rg '^-' | rg -v '^---'     # read EVERY removed line
      Every deleted line must be one you meant to delete AND must now exist in the phase file.
   e. COMMIT before demoting the next block, so any loss is one `git show` away.
+  ⭐ TOOL (Sep 28, 2026): `python3 tools/demote_block.py "<heading prefix>" <dest> "<note>" "<log row>"
+     "<pass N>"` stages exactly ONE block built from HEAD, appends it verbatim to <dest> and adds the
+     log row. It does NOT verify for you - still read every removed line (step d) before committing.
 
 🚨 Silent loss of a hard-won finding is the worst failure mode this project has. One block at a
 time, verified, committed between steps. Never batch demotions.
