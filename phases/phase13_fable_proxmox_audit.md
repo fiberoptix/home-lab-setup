@@ -631,3 +631,65 @@ dev VM (VMware Workstation on Windows, HP Z8 G4 = 2x Xeon 8168, 256GB):
 - **Thermals (Jul 9, added tooling):** CPU package 51°C (crit 101), PCH 41°C, NVMe 25–36°C, Quadro P2000 35°C / fan 2461 RPM. All comfortable.
 - **Tools installed Jul 9 (approved):** nvme-cli, numactl, lm-sensors; `coretemp` persisted in `/etc/modules-load.d/coretemp.conf`.
 - **NUMA (numactl):** was 2 SNC nodes at audit time; **1 flat node since SNC disabled Jul 9 PM**.
+
+---
+
+## DEMOTED VERBATIM FROM `phases/current_phase.md` — Sep 28, 2026 (`MAKE_MEMORIES` pass 11b)
+
+*⚠️ **Audited Sep 28, 2026 before demotion — read these first, the block below is SPENT in places.** Its "Next steps": 1 (vzdump for 183/184) became **WON'T-FIX** that same afternoon; 2 (VM 185) — **destroyed Aug 19**; 3 (maintenance window) — **done 12:48 PM the same day**; 5 (commit hold) — lifted long ago. 🚨 "workstation pubkey is NOT on the host" is **FALSE since Aug 12, 2026** — key auth works via `authorized_keys2` (`MEMORY.md`). ✅ Still true: SEC-1/SEC-2 deferred — `PasswordAuthentication yes` verified Sep 28; ARC cap 16 GiB verified live (`zfs_arc_max` = 17179869184).*
+
+## ✅ Phase 13: Proxmox Host Audit + Same-Day Fixes (July 9, 2026)
+
+**Status:** Audit COMPLETE + all approved quick wins IMPLEMENTED. Full record (25 findings,
+severity ratings, implementation log, rollback notes): `phases/phase13_fable_proxmox_audit.md`.
+**Scope was host-only** (hardware/OS/PVE config); VM guest internals deferred to a later phase.
+
+**Overall audit verdict:** host healthy — pools ONLINE 0 errors, NVMe 0–1% wear, no failed
+units, kernel-pin policy working, Phase 12 rules live as documented.
+
+### Done this session (chronological)
+1. **Diag tools installed** (approved): nvme-cli, numactl, lm-sensors; coretemp persisted
+   (`/etc/modules-load.d/coretemp.conf`). CPU pkg 51°C, all thermals healthy.
+2. **Email alerting LIVE (was the #1 finding — every alert dead-ended before):**
+   - PVE: endpoint `gmail-smtp` (smtp.gmail.com:587 STARTTLS, app pw in PASSWORDS.md),
+     `default-matcher` → gmail-smtp. Covers vzdump + PVE alerts.
+   - postfix: relayhost + SASL + root→gmail alias + ipv4 preference. Covers ZED/smartd/cron.
+   - BOTH test mails confirmed received by Andrew. libsasl2-modules installed.
+3. **Stale bookworm apt entries removed** (sources.list emptied; backup
+   `/root/sources.list.bak-20260709`); apt verified clean.
+4. **Full upgrade → PVE 9.2.4**, 0 pending. New kernels 7.0.14-4 + 6.17.13-15 landed on ESPs
+   but **pin 7.0.6-2-pve verified intact** (won't boot until pin-tested). VMs stayed up;
+   running VMs keep old QEMU binary until next stop/start.
+5. **rpcbind + nfs-client disabled** — port 111 closed. NAS backup is CIFS → unaffected.
+6. **ARC cap 8G → 16G** (runtime sysfs + zfs.conf + initramfs; backup /root/zfs.conf.bak-20260709).
+7. **zpool upgrade** rpool/vm-critical/vm-ephemeral (block_cloning_endian, physical_rewrite).
+8. **Deleted VM200 snapshot** `Generic-Host-Config` (+5.1G). Kept 184's `pre_phase12_firewall`
+   deliberately until Phase 12 confidence window closes (delete in ~1-2 weeks).
+
+### Decisions (Andrew)
+- **⏸️ SEC-1 (SSH key-only on host) + SEC-2 (web UI TOTP) DEFERRED** — home lab in apartment,
+  LAN-only, perimeter just locked down (Phase 12). Revisit later. Host SSH still root+password.
+- Committing/pushing everything is ON HOLD (uncommitted: Phase 12 docs, phase13, MEMORY updates).
+
+### Key discoveries for future work
+- **vm-ephemeral pool is ashift=9** (zdb-verified; NM620 drives are 512B-LBA-only so fix =
+  rebuild pool with `-o ashift=12`, ~1h Runner+QA downtime; vm-critical/rpool are correct at 12).
+- **SNC enabled in BIOS** → 2 NUMA nodes (64.1+64.5 GB, distance 10/11); recommend disabling
+  at next BIOS visit. Only **4/6 memory channels** populated (2x32GB more = +bandwidth +192GB).
+- **Host runs Tailscale** (100.108.209.77) — was undocumented. **Idle Quadro P2000** on nouveau.
+- **AMT unverified** — NIC literally named "amt" (I219-LM shared with Intel AMT); check MEBx
+  at next BIOS visit.
+- Fallback kernel 6.17.2-1 NO LONGER on ESPs (only 6.17.13-x, 7.0.x).
+
+### Next steps (in rough priority)
+1. vzdump jobs for VMs 183 + 184 (per phase8 recipe, stagger 02:30/03:00) + one test restore.
+2. VM 185 (OpenClaw, retired) destroy decision → final backup then `qm destroy` (+51G freed).
+3. Maintenance-window batch (console access): verify AMT off + disable SNC in BIOS →
+   pin-test kernel 7.0.14-4 (--next-boot) → rebuild vm-ephemeral ashift=12 → optional host.fw.
+4. Phase 8 monitoring stack (Prometheus/Grafana) — sensors now feed it.
+5. Git commit/push when Andrew lifts the hold.
+
+### Blockers
+None. Host SSH access for automation = root + password (sshpass; PASSWORDS.md) — workstation
+pubkey is NOT on the host (deliberate, SEC-1 deferred).
+
