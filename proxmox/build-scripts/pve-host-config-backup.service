@@ -1,0 +1,8 @@
+[Unit]
+Description=Archive the Proxmox host configuration to the NAS
+After=network-online.target pve-cluster.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/pve-host-config-backup.sh

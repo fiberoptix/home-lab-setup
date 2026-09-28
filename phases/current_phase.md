@@ -101,7 +101,12 @@ kernel; the cluster is on kernel 142 with a fresh `c02`. Chapter 05 Part 1 is st
   purged → `baseline-2026-09-28`. **No hardware bought.**
 - 🚨 **`c01-nodes-ready` cannot be rolled back to while `c02` exists** (ZFS rolls back only to the most
   recent snapshot) — found during Phase 19.
-- **Commits:** Phase 19 committed and pushed (GitLab, then GitHub) at the end of the session.
+- ✅ **Host health audit** (Andrew: "any other maintenance?"): drives/alerts/scrub/TRIM/certs all healthy.
+  🚨 **The host's own config had NO backup** → fixed: `pve-host-config-backup.timer` (01:30, NAS, keep 30),
+  restore-tested. SEC-1/SEC-2 **kept deferred** by Andrew (now knowing the host is a Tailscale subnet
+  router). UPS is **power-only** — 🔲 USB cable + NUT for graceful shutdown, when wanted.
+- 🔲 **Check tomorrow:** the first unattended runs — 01:30 host config, 02:00 GitLab, 02:30 `critical-nightly`.
+- **Commits:** Phase 19 pushed (`92b1822`); the host-config backup addendum is not yet committed.
 
 ---
 

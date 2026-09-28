@@ -88,6 +88,21 @@ over-protection is nearly free once thin); snapshots cannot be placed separately
   **`s02` no longer exists.** Re-running C2 now means rebuilding the Swarm to its Part 2 state.
 - ✅ `CURSOR_RULES` hardware line corrected 128 → 192 GB RAM (measured 6× 32 GB; approved in writing).
 
+## Addendum, same evening — host health audit (🙋 *"any other maintenance, admin, best practices…?"*)
+
+✅ **Healthy, measured Sep 28:** six NVMe at 0–2% wear, 0 media errors, 0 critical warnings, 23–34 °C;
+`smartd` + ZED + PVE notifications all mail root → Gmail; monthly scrub (Sep 13, 0 errors) + monthly TRIM
+(Sep 6); PVE cert valid to Dec 2027; 0 apt pending; VM RAM 126 of 187 GiB + ARC 16 GiB; pool FRAG 6–23%
+(free-space fragmentation — accumulated under THICK provisioning, harmless at 3–8% allocation).
+
+| Finding | Outcome |
+|---|---|
+| 🚨 **The HOST's own config was backed up NOWHERE** (vzdump covers VMs only) | ✅ **FIXED:** `pve-host-config-backup.sh` + `.timer` (01:30 nightly, keep 30) → `nas-critical/host-config/`. Archive holds a `sqlite3 .backup` of `config.db`, `/etc/pve` (incl. `priv/` — **secrets, private NAS only**), network, postfix, kernel pin, `zfs.conf`, ZED/smartd, cron, our units + `/usr/local/bin`, and a manifest + `RESTORE.txt`. ✅ Tested: 68 KB, 16 VM confs, `storage.cfg` restored byte-identical, DB `integrity_check ok`; **known-fail (target not mounted) refused, exit 1, failure email delivered** |
+| Remote access: root SSH by password, no web-UI TOTP, host is a Tailscale **subnet router** | ⏸️ **Andrew kept SEC-1/SEC-2 DEFERRED (Sep 28)** — re-decided with the subnet-router fact on the table, which the July "LAN-only" deferral did not have |
+| UPS | 🙋 **Power only, no data cable** — the host cannot know the power is out, so a long outage is a hard power-off for every VM (GitLab's DB included). 🔲 Fix when wanted: the UPS's USB cable + NUT for a graceful shutdown |
+| Snapshots | All small and intentional (186 `s01`–`s05`, 180 `q01`–`q02`, 185 `j00`–`j03`). ⚠️ Same most-recent rule: 185 can roll back only to `j03`. Root snapshot `@pre-pve-9.2.20-2026-09-28` → delete after the host kernel trial |
+| 7 kernels installed | Optional tidy: the two oldest (6.17.2-1, 6.17.13-13) are on no ESP |
+
 ## How to place a NEW VM from now on
 
 1. **Can this project rebuild it from scratch?** Yes → `vm-ephemeral`. No → `vm-critical`.

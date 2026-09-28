@@ -1,0 +1,9 @@
+[Unit]
+Description=Nightly Proxmox host configuration backup (before the 02:00 VM backups)
+
+[Timer]
+OnCalendar=*-*-* 01:30
+Persistent=true
+
+[Install]
+WantedBy=timers.target
