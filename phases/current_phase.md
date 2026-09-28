@@ -1153,49 +1153,6 @@ Proved the nightly vzdump of VM 181 restores to a **fully working GitLab** (full
 
 ---
 
-## ✅ Phase 13 (continued): Afternoon Session — BIOS checks, ashift rebuild, Z8 tuning (July 9)
-
-**Everything below is also in `phases/phase13_fable_proxmox_audit.md` (findings + implementation log).**
-
-### Done (11:53 AM – 12:35 PM)
-1. **AMT verified DISABLED — no BIOS visit needed.** Discovered HP exposes all 280 BIOS
-   settings read-only via `/sys/class/firmware-attributes/hp-bioscfg/attributes/` on the
-   Proxmox host. "Intel AMT" = Disable, "ME Firmware Mode" = "AMT Disabled". Cross-checked:
-   all AMT ports (623/664/5900/16992-16995) closed from LAN. SEC-5 closed.
-   ⚡ REMEMBER: this sysfs path reads any BIOS setting on HP boxes without rebooting.
-2. **SNC confirmed "Enable" at BIOS level** (same sysfs). Changing it still needs the console.
-3. **vm-ephemeral rebuilt ashift=9 → 12** (PERF-2 closed). Procedure (~10 min total downtime):
-   `qm shutdown 182 200` → `qm move-disk` both scsi0 → vm-critical (--delete) →
-   `zpool destroy vm-ephemeral` → `zpool create -o ashift=12` on same 2 NM620s (by-id,
-   serials …863 + …887, stripe) → `zfs set compression=lz4` → move disks back → start VMs.
-   Verified: zdb ashift=12 both vdevs; runner buildx + QA Capricorn stack healthy.
-   NOTE: NM620 only exposes 512B LBA (no 4Kn) — ashift MUST be set at pool creation.
-4. **Z8 dev-workstation VM tuned (side quest, recorded in phase13 addendum):** 32 → 24 vCPUs
-   as **2 sockets x 12**. sysbench: 898 → 996 ev/s per thread (93% scaling eff., was 83%),
-   thread spread ±11.5% → ±4.3%. **Andrew's find: 2x12 → Windows schedules VM on idle PROC1;
-   1x24 → co-located with Windows on PROC0. Keep 2x12** (VM owns a whole physical socket).
-
-### Andrew's decisions this session
-- **❎ WON'T-FIX:** vzdump jobs for 183/184 (rebuildable; WWW=vanity demo, Sonar barely used).
-  GitLab 181 remains the only backed-up VM (it's the only one with irreplaceable data).
-- ~~**VM 185 (OpenClaw): leave dormant** — don't destroy, don't start.~~ ⛔ **OBSOLETE — Andrew reversed
-  this on Aug 19, 2026 and the VM was destroyed. Historical directive; do not act on it.**
-- **host.fw: HOLD** (was already pending BIOS/ashift; now explicitly deferred with SEC-1/2).
-
-### Remaining open items (all optional)
-- ~~Console visit combo (SNC + kernel pin-test)~~ ✅ DONE 12:48 PM — see section above.
-- ~~Test-restore drill of GitLab backup~~ ✅ PASSED 1:20 PM — see section above.
-- Optional hardware: 2x32GB DDR4-2666 ECC RDIMMs → 6/6 memory channels (+bandwidth, →192GB).
-- Deferred security items: SEC-1 (SSH key-only), SEC-2 (TOTP), host.fw.
-- tailscaled NetInfo log noise (G3100 UPnP flapping) — ignore, or add
-  TS_DEBUG_DISABLE_PORTMAPPER override; Andrew hasn't picked.
-- Delete VM 184 snapshot `pre_phase12_firewall` once Phase 12 is trusted (~mid-July).
-
-### Blockers
-None.
-
----
-
 ## 📦 DEMOTION LOG — Aug 24 + Sep 16, 2026 (ONE block, on purpose — append a ROW, never a block)
 
 ⚠️ **This block exists because the first four demotions each left a marker block behind, so the block
@@ -1235,6 +1192,7 @@ artefact per unit of work, the artefacts become the backlog.** One log, appended
 | **Sep 28, 2026 pass 11 ↓** | | | |
 | `📘 SESSION Sep 23, 2026` (handoff) | 44 | `phase18` (verbatim) | Replaced by the Sep 28 handoff. Nothing promoted — its corrections (50 s, 16 vs 64) and B9 were already in `phase18`/`MEMORY.md`. ⚠️ Its "no new kernel has landed" was already false (142 landed Sep 25) — flagged in the copy |
 | `✅ Phase 13: Proxmox Host Audit + Same-Day Fixes` (July 9) | 57 | `phase13` (verbatim) | Nothing promoted — email alerting, ARC cap, rpcbind, SEC-1/2 deferral all already in `MEMORY.md` (hand-checked, positive control `7.0.14-4`). 🚨 **Its Next-steps list was SPENT** and it claimed the host had no workstation key (false since Aug 12) — flagged in the copy |
+| `✅ Phase 13 (continued): Afternoon Session` (July 9) | 43 | `phase13` (verbatim) | Nothing promoted (hp-bioscfg, ashift, 2x12, WON'T-FIX all in `MEMORY.md`). 🚨 **FOUND A LAPSED TO-DO: 184's `pre_phase12_firewall` snapshot was never deleted** — 2½ months past its date. Raised with Andrew, not actioned |
 
 ⭐ **A THIRD FINDING, and it is a repeat this log had already warned about.** Pass 9 rebuilt an
 automated coverage checker, validated it with a positive control (100% on a file searched against

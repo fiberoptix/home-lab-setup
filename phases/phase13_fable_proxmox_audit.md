@@ -693,3 +693,50 @@ units, kernel-pin policy working, Phase 12 rules live as documented.
 None. Host SSH access for automation = root + password (sshpass; PASSWORDS.md) — workstation
 pubkey is NOT on the host (deliberate, SEC-1 deferred).
 
+---
+
+## DEMOTED VERBATIM FROM `phases/current_phase.md` — Sep 28, 2026 (`MAKE_MEMORIES` pass 11c)
+
+*⚠️ **Audited Sep 28, 2026.** 🚨 **OPEN AND LAPSED: VM 184's snapshot `pre_phase12_firewall` STILL EXISTS** (verified `qm listsnapshot 184`, Sep 28) — "delete ~mid-July" never happened; raised with Andrew. The 2x32GB DIMMs are **DONE** (192 GB since Aug 26). VM 185 destroyed Aug 19. SEC-1/SEC-2/host.fw still deferred. The HP BIOS sysfs path, the NM620 ashift rule and the Z8 2x12 decision are all already in `MEMORY.md`.*
+
+## ✅ Phase 13 (continued): Afternoon Session — BIOS checks, ashift rebuild, Z8 tuning (July 9)
+
+**Everything below is also in `phases/phase13_fable_proxmox_audit.md` (findings + implementation log).**
+
+### Done (11:53 AM – 12:35 PM)
+1. **AMT verified DISABLED — no BIOS visit needed.** Discovered HP exposes all 280 BIOS
+   settings read-only via `/sys/class/firmware-attributes/hp-bioscfg/attributes/` on the
+   Proxmox host. "Intel AMT" = Disable, "ME Firmware Mode" = "AMT Disabled". Cross-checked:
+   all AMT ports (623/664/5900/16992-16995) closed from LAN. SEC-5 closed.
+   ⚡ REMEMBER: this sysfs path reads any BIOS setting on HP boxes without rebooting.
+2. **SNC confirmed "Enable" at BIOS level** (same sysfs). Changing it still needs the console.
+3. **vm-ephemeral rebuilt ashift=9 → 12** (PERF-2 closed). Procedure (~10 min total downtime):
+   `qm shutdown 182 200` → `qm move-disk` both scsi0 → vm-critical (--delete) →
+   `zpool destroy vm-ephemeral` → `zpool create -o ashift=12` on same 2 NM620s (by-id,
+   serials …863 + …887, stripe) → `zfs set compression=lz4` → move disks back → start VMs.
+   Verified: zdb ashift=12 both vdevs; runner buildx + QA Capricorn stack healthy.
+   NOTE: NM620 only exposes 512B LBA (no 4Kn) — ashift MUST be set at pool creation.
+4. **Z8 dev-workstation VM tuned (side quest, recorded in phase13 addendum):** 32 → 24 vCPUs
+   as **2 sockets x 12**. sysbench: 898 → 996 ev/s per thread (93% scaling eff., was 83%),
+   thread spread ±11.5% → ±4.3%. **Andrew's find: 2x12 → Windows schedules VM on idle PROC1;
+   1x24 → co-located with Windows on PROC0. Keep 2x12** (VM owns a whole physical socket).
+
+### Andrew's decisions this session
+- **❎ WON'T-FIX:** vzdump jobs for 183/184 (rebuildable; WWW=vanity demo, Sonar barely used).
+  GitLab 181 remains the only backed-up VM (it's the only one with irreplaceable data).
+- ~~**VM 185 (OpenClaw): leave dormant** — don't destroy, don't start.~~ ⛔ **OBSOLETE — Andrew reversed
+  this on Aug 19, 2026 and the VM was destroyed. Historical directive; do not act on it.**
+- **host.fw: HOLD** (was already pending BIOS/ashift; now explicitly deferred with SEC-1/2).
+
+### Remaining open items (all optional)
+- ~~Console visit combo (SNC + kernel pin-test)~~ ✅ DONE 12:48 PM — see section above.
+- ~~Test-restore drill of GitLab backup~~ ✅ PASSED 1:20 PM — see section above.
+- Optional hardware: 2x32GB DDR4-2666 ECC RDIMMs → 6/6 memory channels (+bandwidth, →192GB).
+- Deferred security items: SEC-1 (SSH key-only), SEC-2 (TOTP), host.fw.
+- tailscaled NetInfo log noise (G3100 UPnP flapping) — ignore, or add
+  TS_DEBUG_DISABLE_PORTMAPPER override; Andrew hasn't picked.
+- Delete VM 184 snapshot `pre_phase12_firewall` once Phase 12 is trusted (~mid-July).
+
+### Blockers
+None.
+
