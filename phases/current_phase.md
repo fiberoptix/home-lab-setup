@@ -42,52 +42,6 @@ holds the corrections (kube-vip did NOT crash-loop; the Calico operator HARD-COD
 `192.168.0.0/16`; `node.spec.podCIDR` is inert; `RESTARTS 0` does not mean a static pod was
 untouched).
 
-## 📘 SESSION Sep 23, 2026 — Stage 1 documented, and Stage 3 given a rule
-
-🎯 **Outcome: chapters 03 and 04 written, so Stage 1 is built, tested AND documented and Stage 3 is open.
-Chapter 05's plan is approved; `COMMANDS.md` exists; Part 1 is handed over and NOT yet run.**
-
-### ✅ Done
-1. **Resumed after six days.** The cluster was healthy unattended — raft term still **5**, so **no etcd
-   election in six days**. No new kernel has landed, so the maintenance drill has not triggered.
-2. **Chapters 03 and 04 written and built** (one figure each, 19.5% highlighting). **All 22 corrections
-   in the phase record were checked into chapters 02–04 term by term; one — the kube-proxy `bindAddress`
-   warning — had been dropped, and was added.**
-3. **Stage 3 got its rule** (🙋 Andrew): *build the simplest thing that lets you study.* ⭐ **Test for every
-   Stage 3 choice: does the exam test it, and is this the simplest way to practise it?** 🟢 The exam hands
-   you equipped clusters, so **which component is installed is not examined** — the objects and the
-   missing-component signatures are.
-4. **Chapter 05 plan approved** — metrics-server (Kustomize), local-path, Gateway API CRDs, Traefik (Helm),
-   NodePort only, then offline `c03-equipped-cluster`. Production choices are parked beside it as a
-   **work-rebuild note**, marked as reasoning, not measurement.
-5. **Hard rule B9:** never install **ingress-nginx** — ✅ verified retired upstream, March 2026.
-6. **The Swarm chapter-8 conversion is DEFERRED** until the firm's real Swarm setup is known.
-7. **`COMMANDS.md` started** — `METHOD.md` expected it from Stage 0 and it never existed.
-8. **metrics-server v0.9.0 chosen** (its matrix: Kubernetes 1.34+).
-
-### 🔻 Two Sep 17 numbers were wrong — corrected everywhere they appeared
-- ⭐ **The HA test's `NotReady` prediction was UNFALSIFIED.** The v1.35.8 binary's own `--help` gives a
-  **50 s** grace period; the "~40 s" predicted was an older default, recited. It "passed" only because the
-  node was checked about a minute after the cut — **after both values had elapsed.**
-- **The join comparison was 16 vs 64 lines**, not 14 vs 55. The chapter uses the steadier measure,
-  **4 vs 12 kubeadm phases.** The saved `/tmp` copies had not survived the rollback.
-
-### 🚨 The AI's own instruments, again — four this session
-⛔ `grep -E` with `\|` (a literal pipe, not alternation) produced false zeros **twice**, the second time
-**after pass 9 had recorded the same bug**. A `sed`-based `MISSING` flag could never fire, because `sed`
-receives no line when `grep` matches nothing. An `awk` printed etcd's learner column instead of its leader
-column. And a recited 40 s was scored as a passed prediction.
-⭐ **Recording a bug does not stop you repeating it.** The durable fix is structural — **every check gets a
-case where it is known to fail** — and the list now lives in `COMMANDS.md` §12, where it is read before
-checks are written, rather than in a log read afterwards.
-
-### 🔲 Next
-**Part 1, step 1 on control-1:** `kubectl top nodes` (expect *Metrics API not available*) and
-`kubectl get apiservices | grep metrics` (expect nothing). Then the Kustomize install — first **without**
-the TLS patch, to see the kubelet certificate error once.
-
----
-
 ## 🔧 BUILD STANDARD OVERHAUL — a second distro, and the script server nearly deleted itself (Aug 21, 2026, evening) ✅ DONE
 
 ⚠️ **This session did NOT advance Phase 17.** Part 4 (deploy to the Swarm) is still the next Jenkins
@@ -1335,6 +1289,8 @@ artefact per unit of work, the artefacts become the backlog.** One log, appended
 
 | **Sep 23, 2026 pass 10 ↓** | | | |
 | `✅ DONE — Phase 12: Network Perimeter Lockdown` (July 8) | 61 | `phase12` (verbatim) | Nothing promoted — every live fact was already in `phase12` and `MEMORY.md`. 🚨 **Its closing "DECISIONS AWAITED" list was SPENT** — all four decided and built the same day — so the copy is flagged at the top; **a spent to-do invites redoing finished work.** ⚠️ **The coverage check was first run with `\|` inside `grep -E`**, which searches for a literal pipe, and reported three false zeros — the same bug pass 9 recorded. Rerun with `|` |
+| **Sep 28, 2026 pass 11 ↓** | | | |
+| `📘 SESSION Sep 23, 2026` (handoff) | 44 | `phase18` (verbatim) | Replaced by the Sep 28 handoff. Nothing promoted — its corrections (50 s, 16 vs 64) and B9 were already in `phase18`/`MEMORY.md`. ⚠️ Its "no new kernel has landed" was already false (142 landed Sep 25) — flagged in the copy |
 
 ⭐ **A THIRD FINDING, and it is a repeat this log had already warned about.** Pass 9 rebuilt an
 automated coverage checker, validated it with a positive control (100% on a file searched against
