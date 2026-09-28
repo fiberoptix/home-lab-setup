@@ -184,6 +184,10 @@ kubectl -n kube-system exec etcd-vm-k8s-cka-control-1 -- etcdctl \
 | Take / restore the baseline | `qm snapshot <id> <name>` · `qm rollback <id> <name>` | ✅ | All five, same name. Rollback of five: 6 s |
 | Simulate a power failure | `qm stop <id>` | ✅ | Abrupt — no graceful lease handoff. That is the point |
 | Prove a restore restored | plant a ConfigMap **and** a file first; after rollback both must be gone | ✅ | A restore and a reboot print the same thing — without a marker you cannot tell |
+| Move a node's disk to another pool **keeping its snapshots** | `zfs send -R <src>@xfer \| zfs recv -u <dst>`, then compare `zfs get guid` per snapshot, destroy `@xfer`, rewrite the conf | ✅ | 🚨 **PVE `move-disk` drops snapshots.** Same GUID = same snapshot. Sep 28: all five moved (Phase 19) |
+| Can I roll back to this snapshot? | `zfs list -t snapshot -s creation -r <zvol>` — is it the LAST one? | ✅ | ZFS rolls back only to the most recent. **`c01` is unreachable while `c02` exists** |
+| Did the node really come back? | `kubectl -n kube-node-lease get lease <node> -o yaml \| grep renewTime` — newer than the VM's start? | ✅ | **"Ready" alone lies for ~50 s** after a node goes down. The Lease renews ~every 10 s |
+| Is the pool actually filling? | `zpool list -o name,cap,health` | ✅ | **Not the PVE GUI** — it said 71% at 6% real (thick). Thin since Sep 28, so CAP is the only number that predicts trouble |
 
 ---
 
@@ -213,6 +217,9 @@ result. ⭐ **Each check needs a case where it is known to fail.**
 | `STATE=$(systemctl is-enabled u \|\| echo absent)` | `is-enabled` **exits 1 for a masked unit**, so the fallback fires too: `masked` + `absent`. The "already masked" branch could never match — found when the idempotency re-run reported 3 changes, not 0 | `STATE=$(systemctl is-enabled u) \|\| true` |
 | `systemctl mask --now <timer>` reported as done | It masks FIRST, so the running timer loses its unit and ends `failed`, not stopped. Proven on a throwaway timer | `systemctl stop`, then `systemctl mask` |
 | `systemctl list-timers \| grep -c apt-daily` as "is it scheduled?" | It lists a `failed` timer too, with `-` as its next run — counted 2 on nodes where nothing could fire | Count only rows with a real NEXT: `awk '/apt-daily/ && $1 != "-"'` |
+| Node `Ready` as proof it came back after a short outage | Down for less than the 50 s grace period, it is **still** `Ready` | The node's Lease `renewTime`, newer than the start |
+| Node condition `lastHeartbeatTime` as a liveness clock | Re-posted only every few minutes when nothing changes — measured ~4 min stale | The Lease again |
+| `awk '/lastHeartbeatTime/{print $2}'` on `-o yaml` | On a YAML list item (`- lastHeartbeatTime:`) field 2 is the LABEL. 🚨 **Its known-fail test "passed" anyway**, because the error happened to read as "no" | `grep -o 'key: "[^"]*"' \| cut -d'"' -f2` — and a known-fail case must fail for the RIGHT reason: read the value |
 
 ---
 

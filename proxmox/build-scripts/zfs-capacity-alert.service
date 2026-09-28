@@ -1,0 +1,6 @@
+[Unit]
+Description=Email if any ZFS pool is over its allocation threshold or not ONLINE
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/zfs-capacity-alert.sh

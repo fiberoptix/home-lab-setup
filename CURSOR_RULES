@@ -13,10 +13,20 @@ EDIT LOG (every authorised change to this file, so the count is visible):
      Jenkins marked ON HOLD. Authorised in writing by Andrew that day.
   6. Sep 16, 2026 - checklist item 2 gains a THIRD boot file, MEMORY_SECRET.md (gitignored,
      never public). Authorised in writing by Andrew that day: "Go ahead".
+  7. Sep 28, 2026 - item 4: .186 no longer "the ONLY Kubernetes"; the Phase 18 cluster listed.
+     Authorised in writing by Andrew that day: "Update CURSOR_RULES for the redpanda note".
+  8. Sep 28, 2026 - item 4: Tailscale runs ON THE HOST (was "NO Tailscale anywhere"); PVE version
+     line no longer pins 9.1. Authorised in writing by Andrew that day ("Yes: I approve correcting
+     both lines in CURSOR_RULES").
+  9. Sep 28, 2026 - STARTUP CHECKLIST item 5 added: the storage check (zpool CAP, stop at 80%).
+     Authorised in writing by Andrew that day ("Yes: I approve adding it exactly as written").
+ 10. Sep 28, 2026 - Hardware line: 128GB -> 192GB RAM (measured: 6x 32GB). Authorised in writing
+     by Andrew that day.
 
 Project: home-lab-setup - Building Proxmox VE DevOps/QA Environment
 
-Hardware: Proxmox host is HP Z6 G4 (single Xeon Platinum 8168 24c/48t, 128GB RAM, 6x NVMe ZFS, Intel VMD)
+Hardware: Proxmox host is HP Z6 G4 (single Xeon Platinum 8168 24c/48t, 192GB RAM (6x 32GB, measured
+Sep 28, 2026), 6x NVMe ZFS, Intel VMD)
 DEV Host: HP Z8 G4 (Dual Xeon Platinum 8168, 256GB RAM) running Ubuntu 25.10 (where we work from)
 Proxmox Server: HP Z6 G4 at 192.168.1.150 (root/[See PASSWORDS.md])
 
@@ -109,7 +119,8 @@ study material, not a production app. Capricorn is not.
     substantive thing a cold session reads and it seeds the mental model before MEMORY.md corrects
     it. ⛔ A convenience copy of a fact is a second place for that fact to go stale. Keep this list
     SHORT and pointing elsewhere; do not grow it.)
-   - Building Proxmox VE 9.1 DevOps/QA lab on HP Z6 G4
+   - Building Proxmox VE 9.x DevOps/QA lab on HP Z6 G4 (9.2.20 as of Sep 28, 2026 - `pveversion`
+     is the source of truth, not this line)
    - Proxmox host .150 + these VMs (⛔ read MEMORY.md -> IPs & HOSTS for the real state, incl. which
      are `onboot 0` and which are awaiting destroy):
        .180 QA (`vm-docker-qa-1`, plain docker compose - NOT swarm, NOT k8s)
@@ -123,8 +134,11 @@ study material, not a production app. Capricorn is not.
        .191/.192/.193 `docker-swarm-1/2/3` (Phase 16)
        .195 this dev box - also the script server (`www/run_www.sh`)
    - ZFS storage: local-zfs (rpool1), vm-critical (rpool2), vm-ephemeral (rpool3)
-   - Access: LAN + Public HTTPS via Traefik on .184. ⛔ NO Tailscale anywhere - OpenClaw was the only
-     host running it and it was destroyed Aug 19, 2026
+   - Access: LAN + Public HTTPS via Traefik on .184 + Tailscale on the PROXMOX HOST: it is on the
+     tailnet as `pve` (100.108.209.77) and is its SUBNET ROUTER - a remote path into the LAN.
+     (Corrected Sep 28, 2026, authorised in writing by Andrew: this said "NO Tailscale anywhere",
+      and the Aug 24 note above repeats it. Measured Sep 28: `tailscaled` active + enabled on .150.
+      OpenClaw was never the only Tailscale host - the host itself was, and still is.)
    - Capricorn = unified finance app (retired Finance/Portfolio/Retirement managers). NOT ours to
      refactor - see PROJECT SCOPE above
    - Domain: gothamtechnologies.com (AWS Route53). `cap.*` = PROD-local on .184;
@@ -132,6 +146,15 @@ study material, not a production app. Capricorn is not.
    - Proxmox Web UI: https://192.168.1.150:8006 (root/[See PASSWORDS.md - ON DEMAND, not at boot])
    - CURRENT PHASE: 18 (Kubernetes / CKA build - 5-node HA cluster, kube-vip).
      Phase 17 (Jenkins) is ON HOLD at Part 4 - PAUSED, not closed. Phases 0-16 closed.
+5. ✅ Storage check (added Sep 28, 2026, Phase 19 - authorised in writing by Andrew):
+   Run: ssh -o BatchMode=yes root@192.168.1.150 'zpool list -H -o name,cap,health'
+   - CAP from `zpool list` = blocks actually allocated. NEVER the PVE GUI or `zfs list` USED
+     (Sep 28: GUI 71% while 6% was written). All VM pools are THIN since Phase 19, so a pool
+     that fills stalls EVERY VM on it at once.
+   - REPORT one line, e.g. "💾 Pools: rpool 3% · vm-critical 8% · vm-ephemeral 3% - all ONLINE"
+   - ⛔ ANY pool >= 80% CAP, or ANY pool not ONLINE: STOP and tell Andrew before doing anything
+     else. >= 70%: say so and flag it (the hourly email alert fires there too).
+   - If the host does not answer SSH, SAY SO - never skip silently. (It does not answer ping.)
 
 === ASKING THE AI TO FIND OR FOCUS ON SOMETHING ===
 (Added Aug 24, 2026. Edit of THIS file authorised in writing by Andrew that day, for this section

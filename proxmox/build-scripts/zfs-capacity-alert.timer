@@ -1,0 +1,10 @@
+[Unit]
+Description=Hourly ZFS pool allocation/health check
+
+[Timer]
+OnCalendar=hourly
+Persistent=true
+RandomizedDelaySec=120
+
+[Install]
+WantedBy=timers.target

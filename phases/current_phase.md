@@ -32,7 +32,8 @@ only, then an offline `c03-equipped-cluster`. 🔲 **NEXT: build Part 1, metrics
 choices for the work rebuild are parked beside the plan in `phase18`. ⏸️ **The Swarm chapter-8 `recited` rows are
 DEFERRED, not dropped** (Andrew, Sep 23): they resume, together with Phase 17, once he knows the firm's
 actual Swarm setup — a migration test is only worth its resemblance to the real platform. ⛔ Keep the
-Swarm and its snapshots in place meanwhile. 🆕 **Hard rule B9: never install ingress-nginx — retired
+Swarm in place meanwhile. 🔄 *Its snapshots `s01`–`s07` were purged Sep 28 by Andrew's decision (Phase 19);
+the only Swarm snapshot now is `baseline-2026-09-28`.* 🆕 **Hard rule B9: never install ingress-nginx — retired
 upstream March 2026.**
 ⚠️ **The cluster ran six days unattended and was healthy on return** — raft term still 5, so no etcd
 election at all in that time.
@@ -85,19 +86,22 @@ kernel; the cluster is on kernel 142 with a fresh `c02`. Chapter 05 Part 1 is st
 
 ### 🔲 Open — for Andrew
 - ✅ **`CURSOR_RULES` line 119 corrected** (Andrew approved in writing Sep 28) — lists both clusters now.
-- 🔒 **`CURSOR_RULES` STILL SAYS "NO Tailscale anywhere" (lines ~106 and ~123) — FALSE.** Measured Sep 28:
-  `tailscaled` active + enabled on the PVE host, on the tailnet as `pve` `100.108.209.77`, and `MEMORY.md`
-  records it as the tailnet's **subnet router**. A remote path into the LAN that the boot file denies.
-  Also says "Proxmox VE 9.1" (now 9.2.20). **Needs Andrew's written approval — not edited.**
+- ✅ **`CURSOR_RULES` Tailscale + PVE-version lines corrected** (Andrew approved in writing Sep 28): the
+  host IS on the tailnet (`pve`, `100.108.209.77`, subnet router). RAM line corrected to 192 GB.
+- ✅ **`CURSOR_RULES` startup item 5 = STORAGE CHECK** (approved in writing): report `zpool list` CAP each
+  boot; ⛔ STOP at ≥ 80% or any pool not ONLINE.
 - ✅ **184's `pre_phase12_firewall` snapshot DELETED** (Andrew, Sep 28): `vm-critical` 668 G → 654 G.
 - 🔄 **GitLab restore drill is now EVENT-DRIVEN** (Andrew questioned "quarterly"): after a major PVE
   upgrade, a NAS/backup-job change, or a backup failure. No calendar date.
 - Kernel drill within 60–90 days. Host kernel `7.0.14-19` trial later.
-- 💬 **Storage** (`scratch/andrew-ideas.txt`): Andrew sees ~75% on critical storage and asks whether to
-  buy a card + 2×2 TB or shrink 180/184/186. ⚠️ **Not yet discussed — and the numbers disagree:** at 16:57
-  `zpool list` showed `vm-critical` at **7%** (68.3 G of 952 G allocated). Measure what the GUI is
-  counting (likely provisioned/reserved size, unverified) before any spending decision.
-- **Uncommitted:** all of today's work outside the six demotion commits — commit/push not yet approved.
+- ✅ **Storage → became PHASE 19, opened and closed the same evening** (`phases/phase19_storage_tiers.md`).
+  The ~75% was reservation (thick zvols), not data. Both pools now THIN (GUI 71% → 7%); k8s 201–205 moved
+  to the mirror with `c01`/`c02` (via `zfs send -R` — PVE move-disk drops snapshots); `critical-nightly`
+  backup job (183, 185, 201–205) + restore drill passed; hourly capacity email (70/80%); Swarm `s01`–`s07`
+  purged → `baseline-2026-09-28`. **No hardware bought.**
+- 🚨 **`c01-nodes-ready` cannot be rolled back to while `c02` exists** (ZFS rolls back only to the most
+  recent snapshot) — found during Phase 19.
+- **Commits:** Phase 19 committed and pushed (GitLab, then GitHub) at the end of the session.
 
 ---
 

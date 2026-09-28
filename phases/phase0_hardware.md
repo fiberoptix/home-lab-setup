@@ -267,6 +267,14 @@ Aug 19 and is still as originally recorded.
 
 ## 📊 Storage Capacity Audit — Aug 19, 2026 (verdict: NO PURCHASE NEEDED)
 
+🆕 **Sep 28, 2026 — asked again, same answer, and this time ACTED ON (Phase 19,
+`phases/phase19_storage_tiers.md`).** Both VM pools are now **thin** (the lever "drop the reservation"
+below, applied to all 27 zvols, with the hourly `zfs-capacity-alert` email as the guard it asked for); the
+"worth attention" item below is resolved by moving the k8s cluster onto the mirror and adding a
+`critical-nightly` backup job. GUI 70.92% → 6.87%. **Still no purchase.** The tripwire below still stands,
+and the first purchase when it fires is **larger drives in the same slots** (`zpool replace` one at a
+time, autoexpand), not a new card — that sidesteps the PCIe-slot constraints recorded at the end.
+
 **Question asked:** *"I think we might be near 70% usage on the critical storage. I'm thinking of
 buying another card and more NVMe sticks."* **Answer: the 70% is real but it is RESERVATION, not
 data. Buy nothing.** All figures below read live from the Proxmox REST API (`/nodes/pve/...`).

@@ -160,6 +160,11 @@ correct home for a cluster whose whole point is to be destroyed and rebuilt from
 plainly so it is never mistaken for an oversight: **a pool failure loses this cluster, and that is
 accepted.** Nothing irreplaceable may ever live here.
 
+🔄 **SUPERSEDED Sep 28, 2026 (Phase 19, 🙋 Andrew): the five nodes now live on `vm-critical` (mirror)**
+and are backed up nightly (`critical-nightly`). The cluster stopped being disposable once it became
+study and onboarding material — losing it mid-study "could be a pain". Moved with `zfs send -R` so
+`c01`/`c02` came along (PVE's own move-disk would have dropped them). Record: `phases/phase19_storage_tiers.md`.
+
 ---
 
 ## 5. Addressing — RESOLVED Sep 16, 2026, and the two unknowns are identified
