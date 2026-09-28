@@ -1106,22 +1106,6 @@ should be re-asked once he is inside.
 
 ---
 
-## ✅ qemu-guest-agent rolled out to all 5 live VMs (July 9, 1:20–1:28 PM)
-
-Follow-up to the restore-drill finding (181 had no agent). For **181, 182, 183, 184, 200**:
-- Installed + enabled `qemu-guest-agent` (Ubuntu pkg 1:8.2.2) inside each guest.
-- `qm set <id> --agent enabled=1` on the host, then **graceful stop/start of each VM**
-  (runner verified idle first; GitLab last). Total blip ~1 min/VM; GitLab ~3 min (Puma warmup).
-- **All 5 answer `qm agent ping`** ✅ — PVE UI now shows guest IPs, clean shutdowns work,
-  snapshot/backup fs-freeze available, future drills can verify via agent.
-- Bonus: the stop/start cycled every VM onto the **new QEMU 11.0.2 binary** from this
-  morning's PVE 9.2.4 upgrade (verified `running-qemu: 11.0.2` on all 5) — that loose end is closed.
-- Post-checks: GitLab 200, public site https 200, QA 200, SonarQube 200, runner active.
-- VM 185 (dormant OpenClaw) untouched — add the agent if it's ever revived. ⛔ **Never revived; destroyed
-  Aug 19, 2026. The agent is now a Part 0 step for the Jenkins VM that replaces it.**
-
----
-
 ## 📦 DEMOTION LOG — Aug 24 + Sep 16, 2026 (ONE block, on purpose — append a ROW, never a block)
 
 ⚠️ **This block exists because the first four demotions each left a marker block behind, so the block
@@ -1164,6 +1148,7 @@ artefact per unit of work, the artefacts become the backlog.** One log, appended
 | `✅ Phase 13 (continued): Afternoon Session` (July 9) | 43 | `phase13` (verbatim) | Nothing promoted (hp-bioscfg, ashift, 2x12, WON'T-FIX all in `MEMORY.md`). 🚨 **FOUND A LAPSED TO-DO: 184's `pre_phase12_firewall` snapshot was never deleted** — 2½ months past its date. Raised with Andrew, not actioned |
 | `✅ Phase 13 (final): Maintenance window` (July 9) | 16 | `phase13` (verbatim) | Nothing promoted (pin + nag fix in `MEMORY.md`). ⚠️ Its ESP-fallback line went stale TODAY — flagged in the copy |
 | `✅ GitLab backup test-restore drill` (July 9) | 15 | `phase13` (verbatim) | 🔲 **Its cadence "repeat ~quarterly" had no due date anywhere** → next drill **~Oct 9, 2026**, now written into `MEMORY.md` |
+| `✅ qemu-guest-agent rolled out to all 5 live VMs` (July 9) | 16 | `phase13` (verbatim) | Covered — nothing open. **All July blocks are now out of `current_phase.md`** |
 
 ⭐ **A THIRD FINDING, and it is a repeat this log had already warned about.** Pass 9 rebuilt an
 automated coverage checker, validated it with a positive control (100% on a file searched against

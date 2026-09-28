@@ -779,3 +779,23 @@ Proved the nightly vzdump of VM 181 restores to a **fully working GitLab** (full
 - Finding: VM 181 lacks qemu-guest-agent → install during future guest-internals phase.
 - Repeat ~quarterly or after major GitLab upgrades.
 
+---
+
+## DEMOTED VERBATIM FROM `phases/current_phase.md` — Sep 28, 2026 (`MAKE_MEMORIES` pass 11f)
+
+*Audited Sep 28, 2026: nothing open from this block. Its QEMU 11.0.2 note is superseded — all 15 running VMs report `running-qemu: 11.0.3` after the Sep 28 host reboot (measured).*
+
+## ✅ qemu-guest-agent rolled out to all 5 live VMs (July 9, 1:20–1:28 PM)
+
+Follow-up to the restore-drill finding (181 had no agent). For **181, 182, 183, 184, 200**:
+- Installed + enabled `qemu-guest-agent` (Ubuntu pkg 1:8.2.2) inside each guest.
+- `qm set <id> --agent enabled=1` on the host, then **graceful stop/start of each VM**
+  (runner verified idle first; GitLab last). Total blip ~1 min/VM; GitLab ~3 min (Puma warmup).
+- **All 5 answer `qm agent ping`** ✅ — PVE UI now shows guest IPs, clean shutdowns work,
+  snapshot/backup fs-freeze available, future drills can verify via agent.
+- Bonus: the stop/start cycled every VM onto the **new QEMU 11.0.2 binary** from this
+  morning's PVE 9.2.4 upgrade (verified `running-qemu: 11.0.2` on all 5) — that loose end is closed.
+- Post-checks: GitLab 200, public site https 200, QA 200, SonarQube 200, runner active.
+- VM 185 (dormant OpenClaw) untouched — add the agent if it's ever revived. ⛔ **Never revived; destroyed
+  Aug 19, 2026. The agent is now a Part 0 step for the Jenkins VM that replaces it.**
+
