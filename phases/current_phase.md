@@ -1137,22 +1137,6 @@ Proved the nightly vzdump of VM 181 restores to a **fully working GitLab** (full
 
 ---
 
-## ✅ Phase 13 (final): Maintenance window — SNC off + kernel 7.0.14-4 adopted (July 9, 12:48–12:56 PM)
-
-1. **SNC disabled in BIOS** (Andrew at console, F10 → "Sub-NUMA Clustering" → Disable) and
-   **kernel 7.0.14-4-pve pin-tested via `--next-boot` in the same reboot.** Booted clean
-   first try: **NUMA now 1 flat node / 128GB** *(192GB since Aug 26, 2026; still 1 flat node)*, all 6 NVMe behind VMD, 0 NVMe errors, pools
-   ONLINE, 5 VMs auto-started, public site 200. Slot 5 Bifurcation x4x4x4x4 + VROC untouched
-   (confirmed: bifurcation, NOT SNC, drives the quad-NVMe card).
-2. **7.0.14-4-pve made the PERMANENT pin** (was 7.0.6-2 since Jun 18). Fallbacks on ESPs:
-   7.0.6-2 + 6.17.13-x. PERF-4 closed → **every audit fix Andrew approved is now done.**
-3. **Subscription nag re-disabled:** widget-toolkit 5.2.6 (from today's upgrade) changed the
-   code, killing the old sed patch in `/usr/local/bin/proxmox-update.sh`. Patched the live
-   `proxmoxlib.js` (subscription check → `false`; backup `proxmoxlib.js.bak-nag-20260709`)
-   AND rewrote the update-script line with the new perl pattern (idempotent, verified).
-
----
-
 ## 📦 DEMOTION LOG — Aug 24 + Sep 16, 2026 (ONE block, on purpose — append a ROW, never a block)
 
 ⚠️ **This block exists because the first four demotions each left a marker block behind, so the block
@@ -1193,6 +1177,7 @@ artefact per unit of work, the artefacts become the backlog.** One log, appended
 | `📘 SESSION Sep 23, 2026` (handoff) | 44 | `phase18` (verbatim) | Replaced by the Sep 28 handoff. Nothing promoted — its corrections (50 s, 16 vs 64) and B9 were already in `phase18`/`MEMORY.md`. ⚠️ Its "no new kernel has landed" was already false (142 landed Sep 25) — flagged in the copy |
 | `✅ Phase 13: Proxmox Host Audit + Same-Day Fixes` (July 9) | 57 | `phase13` (verbatim) | Nothing promoted — email alerting, ARC cap, rpcbind, SEC-1/2 deferral all already in `MEMORY.md` (hand-checked, positive control `7.0.14-4`). 🚨 **Its Next-steps list was SPENT** and it claimed the host had no workstation key (false since Aug 12) — flagged in the copy |
 | `✅ Phase 13 (continued): Afternoon Session` (July 9) | 43 | `phase13` (verbatim) | Nothing promoted (hp-bioscfg, ashift, 2x12, WON'T-FIX all in `MEMORY.md`). 🚨 **FOUND A LAPSED TO-DO: 184's `pre_phase12_firewall` snapshot was never deleted** — 2½ months past its date. Raised with Andrew, not actioned |
+| `✅ Phase 13 (final): Maintenance window` (July 9) | 16 | `phase13` (verbatim) | Nothing promoted (pin + nag fix in `MEMORY.md`). ⚠️ Its ESP-fallback line went stale TODAY — flagged in the copy |
 
 ⭐ **A THIRD FINDING, and it is a repeat this log had already warned about.** Pass 9 rebuilt an
 automated coverage checker, validated it with a positive control (100% on a file searched against

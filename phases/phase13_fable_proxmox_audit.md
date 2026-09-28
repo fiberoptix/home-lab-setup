@@ -740,3 +740,23 @@ pubkey is NOT on the host (deliberate, SEC-1 deferred).
 ### Blockers
 None.
 
+---
+
+## DEMOTED VERBATIM FROM `phases/current_phase.md` — Sep 28, 2026 (`MAKE_MEMORIES` pass 11d)
+
+*⚠️ **Audited Sep 28, 2026.** "Fallbacks on ESPs: 7.0.6-2 + 6.17.13-x" is **no longer automatic**: the Sep 28 upgrade to PVE 9.2.20 pushed `7.0.6-2` off both ESPs, and it is now a **MANUALLY selected** kernel (`MEMORY.md` → PATCHING POLICY). The pin is still `7.0.14-4-pve`.*
+
+## ✅ Phase 13 (final): Maintenance window — SNC off + kernel 7.0.14-4 adopted (July 9, 12:48–12:56 PM)
+
+1. **SNC disabled in BIOS** (Andrew at console, F10 → "Sub-NUMA Clustering" → Disable) and
+   **kernel 7.0.14-4-pve pin-tested via `--next-boot` in the same reboot.** Booted clean
+   first try: **NUMA now 1 flat node / 128GB** *(192GB since Aug 26, 2026; still 1 flat node)*, all 6 NVMe behind VMD, 0 NVMe errors, pools
+   ONLINE, 5 VMs auto-started, public site 200. Slot 5 Bifurcation x4x4x4x4 + VROC untouched
+   (confirmed: bifurcation, NOT SNC, drives the quad-NVMe card).
+2. **7.0.14-4-pve made the PERMANENT pin** (was 7.0.6-2 since Jun 18). Fallbacks on ESPs:
+   7.0.6-2 + 6.17.13-x. PERF-4 closed → **every audit fix Andrew approved is now done.**
+3. **Subscription nag re-disabled:** widget-toolkit 5.2.6 (from today's upgrade) changed the
+   code, killing the old sed patch in `/usr/local/bin/proxmox-update.sh`. Patched the live
+   `proxmoxlib.js` (subscription check → `false`; backup `proxmoxlib.js.bak-nag-20260709`)
+   AND rewrote the update-script line with the new perl pattern (idempotent, verified).
+
