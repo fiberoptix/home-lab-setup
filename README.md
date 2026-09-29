@@ -1,31 +1,32 @@
-# 🏠 Home Lab Setup - Proxmox DevOps Environment
+# 🏠 Home Lab Setup - Proxmox DevOps & Learning Lab
 
-**A complete FREE DevOps/QA home lab on Proxmox VE 9.2**
+**A FREE DevOps/QA home lab on Proxmox VE — and the R&D rig behind four hands-on study tracks**
 
 [![Status](https://img.shields.io/badge/Status-Operational-brightgreen)]()
-[![Proxmox](https://img.shields.io/badge/Proxmox-VE_9.2.3-orange)]()
-[![Kernel](https://img.shields.io/badge/Kernel-7.0.6--2--pve-informational)]()
+[![Proxmox](https://img.shields.io/badge/Proxmox-VE_9.2.20-orange)]()
+[![Kernel](https://img.shields.io/badge/Kernel-7.0.14--4--pve_(pinned)-informational)]()
+[![Kubernetes](https://img.shields.io/badge/Kubernetes-v1.35.8_HA_(kubeadm)-326ce5)]()
 [![Hardware](https://img.shields.io/badge/Hardware-HP_Z6_G4-blue)]()
 
 ---
 
 ## 📋 Project Overview
 
-This repository documents the complete build of a **professional-grade DevOps home lab** running on Proxmox VE 9.1, providing enterprise capabilities at zero software cost:
+This repository documents a **professional-grade DevOps home lab** on a single HP Z6 G4 running
+Proxmox VE, built entirely from free software. It does two jobs:
 
-- 🔧 **Source Control:** GitLab CE with Container & Package Registries
-- 🚀 **CI/CD Pipelines:** Automated build, test, quality gates, and deployment
-- 🔍 **Code Quality:** SonarQube for security & quality scanning
-- 📊 **Monitoring:** Prometheus + Grafana observability stack
-- 🌐 **Dual Access:** Tailscale VPN (admin) + Public HTTPS (QA testing)
-- 🔐 **Security:** Zero-trust VPN, Let's Encrypt SSL, infrastructure isolation
+1. **A working DevOps platform** — GitLab CE with a container registry, GitLab CI runners, SonarQube
+   quality gates, a Jenkins controller, and a local production web server (Traefik + Let's Encrypt).
+2. **A learning lab** — Kubernetes (a five-node HA `kubeadm` cluster and a k3s + Redpanda cluster),
+   a three-manager Docker Swarm, and Jenkins, each written up as a printable study track where every
+   command was run on this hardware and every output quoted is real.
 
-This system was designed out of interest to build and deploy the **Capricorn** project (a unified personal finance application hosted in the same GitLab repository) to multiple environments: **QA** (local Kubernetes/Docker on this home lab) and **PROD** (local production server). The infrastructure provides a complete DevOps pipeline for automated testing, quality gates, and deployment orchestration.
+It was built to deploy the **Capricorn** project (a unified personal finance application) through a
+full pipeline to **QA** (on this lab) and **PROD** (a local production server on this lab):
 
-**Please check out the Capricorn project:**
-- 📦 **GitLab Repository:** http://gitlab.gothamtechnologies.com/capricorn
 - 🌐 **Live Demo (PROD-Local):** https://cap.gothamtechnologies.com ← **Check it out!**
-- ☁️ **GCP Instance:** https://capricorn.gothamtechnologies.com (available on-demand for public demos)
+- ☁️ **GCP Instance:** https://capricorn.gothamtechnologies.com (available on-demand)
+- 📦 **GitLab Repository:** http://gitlab.gothamtechnologies.com/capricorn
 
 **Total Hardware Cost:** $3,894  
 **Monthly Operating Cost:** ~$15-20 (electricity)  
@@ -33,16 +34,30 @@ This system was designed out of interest to build and deploy the **Capricorn** p
 
 ---
 
-## ✨ What's New (since the last update)
+## ✨ What's New (June → September 2026)
 
-A lot has shipped since the initial CI/CD milestone:
-
-- 🌐 **Local Production Server (Phase 7):** Stood up `vm-www-1` with **Traefik** + **Let's Encrypt** SSL, hosting **Capricorn PROD** at `https://cap.gothamtechnologies.com` and a public splash page at `https://www.gothamtechnologies.com`. Replaced paid GCP hosting → **~$400/year saved**. Solved Docker multi-network routing, HTTPS mixed-content, and NAT hairpinning along the way.
-- 🔍 **SonarQube Code Quality (Phase 6):** Upgraded to v26.1.0 and wired quality gates into the CI/CD pipelines for both test-app and Capricorn (28k LOC scanned, gate passing).
-- 🤖 **OpenClaw AI Agent (Phase 11):** Built an AI agent server reachable over Tailscale Serve HTTPS with a Telegram bot. ⛔ ***VM destroyed Aug 19, 2026** — not retired, not dormant, gone. Its VMID and IP now belong to Jenkins. Write-up kept as history only.*
-- 🔁 **Parallel VM `refresh` tooling:** One command updates **and** reboots every lab VM in parallel with a live status dashboard, made **disconnect-proof** via a `tmux` self-wrap (survives a dropped Proxmox web console and is re-attachable).
-- 🔐 **Fleet hardening:** ed25519 SSH key auth deployed to all VMs, passwords pulled out of docs into a git-ignored store, and a persistent SSHFS mount for remote work.
-- 🧩 **Proxmox kernel saga → resolved:** A bad `6.17.4-2` kernel once broke NVMe boot on this Z6 G4 (rolled back + pinned `6.17.2-1`). Researched the regression, then performed a **reversible, console-gated upgrade** (`proxmox-boot-tool --next-boot`) through `6.17.13-13` and finally to **`7.0.6-2-pve`**, alongside a full **PVE 9.1 → 9.2.3** upgrade. Two clean validation reboots, zero NVMe errors. See [`phases/phase1a_*`](phases/phase1a_proxmox_upgrade_fail_rollback.md) (failure/rollback) and [`phases/phase1b_*`](phases/phase1b_proxmox_kernel_upgrade_safe_try.md) (safe upgrade + results).
+- ☸️ **A real HA Kubernetes cluster (Phase 18):** five `kubeadm` nodes — **3 control planes with
+  stacked etcd + 2 workers** — behind a **kube-vip** virtual IP, **Kubernetes v1.35.8**, **Calico**
+  networking. Failover measured at **17 s** after an abrupt power-off of the VIP holder; a snapshot
+  baseline whose rollback was *proven* with planted markers. Written up as study chapters 01–04 and
+  now used for **CKA** exam drilling.
+- 🐳 **Docker Swarm (Phase 16):** a three-manager Swarm running Capricorn, deployed by pipeline, with
+  seven failure "traps" planted, triggered and written up — 8 chapters.
+- 🛠️ **Jenkins (Phase 17):** a controller + SSH agent wired to GitLab (on hold at the Swarm-deploy step).
+- 🗄️ **Storage tiers (Phase 19, Sep 28):** both VM pools switched to **thin provisioning** (the GUI's
+  "71% used" was reservation — real allocation was 6%), the Kubernetes cluster moved onto the mirrored
+  pool **with its snapshots intact**, and critical VMs now **back up nightly** to the NAS.
+- 💾 **Backups & alerting:** nightly VM backups (restore drills passed), a nightly **host
+  configuration** backup, and **email alerts** for pool capacity, pool faults, failing drives and
+  failed backups.
+- 🔄 **One patching policy lab-wide:** no VM updates itself; updates happen deliberately — the
+  `refresh` tool for core VMs, a one-node-at-a-time drain drill for Kubernetes, and a pinned-kernel
+  procedure for the host (now **PVE 9.2.20**, kernel **7.0.14-4**).
+- 🔒 **Perimeter lockdown (Phase 12):** the public web server is an inbound-only DMZ — it can reach the
+  internet but nothing else on the LAN; deployments are pushed to it, it never pulls.
+- 🔍 **Host audit (Phase 13):** 25 findings, email alerting, ARC tuning, a pool rebuilt for 4K sectors,
+  a GitLab backup **test-restore drill** into an isolated network.
+- 🖥️ **Two-distro host automation:** one-command setup for Ubuntu **and** Fedora, plus offline USB kits.
 
 ---
 
@@ -53,127 +68,147 @@ A lot has shipped since the initial CI/CD milestone:
 | Component | Specification |
 |-----------|---------------|
 | **CPU** | Intel Xeon Platinum 8168 (24 cores / 48 threads @ 2.7GHz, single socket) |
-| **RAM** | **192GB** DDR4 ECC (6x 32GB, all 6 channels populated — upgraded Aug 26, 2026) |
-| **Boot Storage** | 2x 500GB NVMe (ZFS mirror) |
-| **VM Storage** | 4x 1TB NVMe (HP Z Turbo Drive Quad Pro) |
+| **RAM** | **192GB** DDR4 ECC (6x 32GB, all 6 channels populated) |
+| **Boot Storage** | 2x 500GB NVMe (WD Blue SN5100, ZFS mirror) |
+| **VM Storage** | 4x 1TB NVMe (Lexar NM620) on an HP Z Turbo Drive Quad Pro card, behind Intel VMD |
 | **Network** | 2x 1GbE onboard NICs |
-| **Total Storage** | 3.5TB usable ZFS pools |
+| **Total Storage** | ~3.3TB usable across three ZFS pools |
 
-**Storage Architecture (ZFS):**
-- `local-zfs` (rpool1): 2x500GB mirror - Proxmox OS, ISOs
-- `vm-critical` (rpool2): 2x1TB mirror - GitLab, SonarQube, Monitoring (data protection)
-- `vm-ephemeral` (rpool3): 2x1TB stripe - Runner, QA Host (disposable workloads)
+All six drives were at **0–2% wear with zero media errors** when last measured (Sep 28, 2026).
+
+---
+
+## 🗄️ Storage & Data Protection
+
+**Two tiers, chosen by one question — *can this project rebuild the VM from scratch?***
+
+| Pool | Layout | Holds | Protection |
+|---|---|---|---|
+| `rpool` | 2x500GB **mirror** | Proxmox OS, ISOs | Mirror + nightly host-config backup |
+| `vm-critical` | 2x1TB **mirror** | GitLab, SonarQube, Jenkins, WWW/PROD, **the Kubernetes cluster** | Mirror + **nightly VM backups** to the NAS |
+| `vm-ephemeral` | 2x1TB **stripe** | QA, CI runner, k3s POC, Docker Swarm, template | Rebuildable from this repo by design |
+
+- **Thin-provisioned** — a VM disk uses only what it has written. On Sep 28 real allocation was
+  **8%** (`vm-critical`) and **3%** (`vm-ephemeral`).
+- ⚠️ **Watch `zpool list` CAP, not the Proxmox GUI.** A thin pool that fills stalls every VM on it, so
+  an hourly check emails at **70%** and **80%**, and the AI's startup checklist stops at 80%.
+- **Scheduled jobs:** host config 01:30 · GitLab 02:00 · critical tier (SonarQube, Jenkins, 5 k8s
+  nodes) 02:30 · monthly ZFS scrub and TRIM. Everything is kept on the NAS, never on the NVMe it protects.
+- 🚨 **Lesson recorded:** Proxmox's built-in *move disk* silently drops snapshots — the cluster was
+  moved with `zfs send -R` and every snapshot checked by GUID
+  ([`move_k8s_node_pool.sh`](proxmox/build-scripts/move_k8s_node_pool.sh)).
+
+Full record: [`phases/phase19_storage_tiers.md`](phases/phase19_storage_tiers.md).
 
 ---
 
 ## 🏗️ Infrastructure Architecture
 
-**10 Virtual Machines (running)** — read live from `qm config` on **Aug 26, 2026**:
+**15 VMs running + 1 template** — read live from `qm config` on **Sep 28, 2026**:
 
-| VMID | Name | Purpose | RAM | Cores | Disk | Pool | IP | onboot |
-|---|---|---|---|---|---|---|---|---|
-| 180 | `vm-docker-qa-1` | Deployed applications (Capricorn QA) | 12GB | 8 | 100GB | vm-ephemeral | .180 | ✅ 1 |
-| 181 | `vm-gitlab-1` | Git + CI/CD + container registry | 24GB | 8 | 500GB | vm-critical | .181 | ✅ 1 |
-| 182 | `vm-gitrun-1` | GitLab CI job execution | 12GB | 8 | 100GB | vm-ephemeral | .182 | ✅ 1 |
-| 183 | `vm-sonarqube-1` | Code quality & security scanning | 12GB | 4 | 30GB | vm-critical | .183 | ✅ 1 |
-| 184 | `vm-www-1` | Traefik + Capricorn PROD + splash | 8GB | 8 | 50GB | vm-critical | .184 | ✅ 1 |
-| 185 | `vm-jenkins-1` | **Jenkins controller + agent** (Phase 17) | 8GB | 4 | 60GB | vm-critical | .185 | ✅ 1 |
-| 186 | `vm-k8-redpanda-1` | k3s + Redpanda PoC (Phase 14) | 16GB | 8 | 300GB | vm-ephemeral | .186 | ⚠️ **0** |
-| 191 | `docker-swarm-1` | Swarm **leader** (Phase 16) | 4GB | 2 | 40GB | vm-ephemeral | .191 | ⚠️ **0** |
-| 192 | `docker-swarm-2` | Swarm manager | 4GB | 2 | 40GB | vm-ephemeral | .192 | ⚠️ **0** |
-| 193 | `docker-swarm-3` | Swarm manager | 4GB | 2 | 40GB | vm-ephemeral | .193 | ⚠️ **0** |
+| VMID | Name | Purpose | RAM | Cores | Disk | Pool | onboot |
+|---|---|---|---|---|---|---|---|
+| 180 | `vm-docker-qa-1` | Capricorn QA (docker compose) | 12GB | 8 | 100GB | ephemeral | ✅ |
+| 181 | `vm-gitlab-1` | GitLab CE 19.3 + container registry | 24GB | 8 | 500GB | critical | ✅ |
+| 182 | `vm-gitrun-1` | GitLab Runner 19.3 (Docker executor) | 12GB | 8 | 100GB | ephemeral | ✅ |
+| 183 | `vm-sonarqube-1` | SonarQube 26.1 | 12GB | 4 | 30GB | critical | ✅ |
+| 184 | `vm-www-1` | Traefik + Capricorn PROD + splash (DMZ) | 8GB | 8 | 50GB | critical | ✅ |
+| 185 | `vm-jenkins-1` | Jenkins 2.568 LTS controller + agent | 8GB | 4 | 60GB | critical | ✅ |
+| 186 | `vm-k8-redpanda-1` | k3s + Redpanda POC (frozen) | 16GB | 8 | 300GB | ephemeral | ⚠️ 0 |
+| 191–193 | `docker-swarm-1..3` | Three-manager Docker Swarm | 4GB each | 2 each | 40GB each | ephemeral | ⚠️ 0 |
+| 201–203 | `vm-k8s-cka-control-1..3` | Kubernetes control planes (stacked etcd) | 4GB each | 2 each | 40GB each | critical | ⚠️ 0 |
+| 204–205 | `vm-k8s-cka-worker-1..2` | Kubernetes workers | 4GB each | 2 each | 40GB each | critical | ⚠️ 0 |
+| 9000 | `tmpl-ubuntu-2404-cloudinit` | Cloud-init template — **stays stopped** | — | — | — | ephemeral | — |
 
-**Stopped on purpose — do not start:**
+- **All guests run Ubuntu 24.04 LTS.** The kube-vip virtual IP is **`.206`**, with no VM behind it.
+- **Resources:** 124GB of 192GB RAM allocated; **64 vCPUs on 48 threads** (CPU is the tighter constraint).
+- 🚨 **The lab VMs are `onboot=0` and stay DOWN after a host reboot** — 186, the Swarm and the
+  Kubernetes cluster must be started by hand (control planes first, then workers).
+- ⛔ **OpenClaw** (Phase 11, an AI agent server) was destroyed Aug 19, 2026; its VMID and IP are Jenkins now.
 
-| VMID | Name | Why |
-|---|---|---|
-| 9000 | `tmpl-ubuntu-2404-cloudinit` | The cloud-init **template** — must stay stopped |
+**VM Configuration Standard:** CPU type `host` · disk `iothread=1,discard=on,cache=none,aio=native` ·
+`firewall=1` on every NIC · QEMU guest agent on every VM (backups freeze the filesystem first).
 
-⛔ **VMID 200 `vm-kubernetes-1` was destroyed Sep 16, 2026** (`qm destroy 200 --purge`, no backup —
-QA is a deploy target, not a data store). It was the pre-rename QA box, cloned to VMID 180 on
-Aug 20; the rollback window closed Sept 3. VM 180 keeps its own verified snapshots. **VMID 200 is
-free**, and any old note reading "VM 200 = `.180`" now describes nothing.
+> **`MEMORY.md` is authoritative** for the host/IP inventory. This table is a convenience copy and
+> will drift; when the two disagree, believe `MEMORY.md` — or better, re-read `qm config` on the host.
 
-🚨 **Four VMs are `onboot=0` and will NOT restart after a host reboot:** **186, 191, 192, 193.** They
-run normally but come back **stopped**, so a power event silently leaves the Swarm down. Restart with
-`for v in 186 191 192 193; do qm start $v; sleep 5; done`, then confirm the cluster actually re-formed
-with `docker node ls` — three stopped VMs are not a Swarm until all three are up.
+**Remote access:** 🔒 **Tailscale** — the **Proxmox host is a subnet router** advertising the lab LAN,
+so tailnet devices reach every VM by its LAN address (no VM runs Tailscale itself). 🌐 **Public
+HTTPS** only for the Capricorn site and splash page, through Traefik on the DMZ box.
 
-⛔ **OpenClaw is gone and is not coming back.** `vm-openclaw-1` was destroyed on Aug 19, 2026
-(`qm destroy 185 --purge`, no backup, no snapshot). **VMID 185 and `192.168.1.185` were reused for
-`vm-jenkins-1`.** Any OpenClaw-era address, port, token or URL you find in an old note does not point
-at a dead host — **it points at Jenkins.** History only: `phases/phase11_openclaw.md`.
+---
 
-**Planned:**
-- **Monitoring** — Prometheus + Grafana (Phase 8)
+## 🔁 Operations
 
-**VM Configuration Standard:**
-- CPU: `host` type (native performance)
-- NUMA: Disabled (single-socket optimization)
-- Disk: `iothread=1,discard=on,cache=none,aio=native` (optimized for ZFS + NVMe)
-- Network: `firewall=1` (all VMs protected)
-- Boot: `onboot=1` for the six core services — ⚠️ **but 186/191/192/193 are `onboot=0`** (see above)
+| Task | How |
+|---|---|
+| **Patch the core VMs** (180–185) | `refresh` on the host — parallel update + reboot with a live status screen, `tmux`-protected |
+| **Patch the Kubernetes nodes** | Never `refresh` (a parallel reboot loses etcd quorum): drain → update → reboot → `Ready` → uncordon, one node at a time |
+| **Patch the host** | `update` (`apt full-upgrade`, never `apt upgrade`), then check the boot report: the kernel **pin** decides what boots, and a known-good fallback must still be on the boot partitions |
+| **New host kernel** | One-shot `proxmox-boot-tool kernel pin --next-boot` trial at the console before making it permanent |
+| **Automatic updates** | **Off on every VM** (masked *and* stopped) — nothing changes unless someone chose to change it |
+| **Place a new VM** | Rebuildable → `vm-ephemeral`; otherwise `vm-critical` **and** add it to the nightly backup job |
 
-**Resource Utilization** (measured live Aug 26, 2026):
-- **104 GB of 192 GB RAM** allocated across the ten running VMs (54%), ~87 GB free
-- **42 of 48 vCPU threads** assigned — CPU, not RAM, is now the tighter constraint
-
-> **`MEMORY.md` remains authoritative** for the host/IP inventory. This table is a convenience copy and
-> will drift; when the two disagree, believe `MEMORY.md` — or better, re-read `qm config` from `.150`.
-
-**Dual-Access Strategy:**
-- 🔒 **Tailscale VPN** — admin access to all services (GitLab, SonarQube, Jenkins, Grafana)
-- 🌐 **Public HTTPS** — QA application testing only (infrastructure stays private)
-
-> ⚠️ **How Tailscale actually reaches the VMs — no VM runs it.** The **Proxmox host `.150` is a subnet
-> router** advertising `192.168.1.0/24`, so tailnet devices address `192.168.1.x` directly. `.185` was
-> once the only VM running a Tailscale client, and **it was destroyed with OpenClaw**, so remote access
-> now depends *entirely* on that one subnet route. 🚨 **If `.150` is down or its route is unapproved,
-> remote admin access to every VM is gone** — there is no second path. Worth remembering before any
-> host reboot.
+Why the kernel is pinned: a `6.17.4-2` kernel once broke NVMe boot on this machine's Intel VMD
+controller. Every kernel change since has been reversible and console-gated —
+[`phase1a`](phases/phase1a_proxmox_upgrade_fail_rollback.md) (the failure) and
+[`phase1b`](phases/phase1b_proxmox_kernel_upgrade_safe_try.md) (the safe method).
 
 ---
 
 ## 📊 Project Status
 
-**Status:** Core platform ✅ **Operational** — CI/CD, code quality, and local production all live.
-
 | Phase | Description | Status |
 |-------|-------------|--------|
-| 0 | Hardware Installation | ✅ Complete |
-| 1 | Proxmox VE Installation | ✅ Complete |
-| 2 | ZFS Storage Configuration | ✅ Complete |
-| 3 | Host Setup Automation | ✅ Complete |
-| 4 | GitLab Server Setup | ✅ Complete |
-| 5 | GitLab Runner Setup | ✅ Complete |
-| 6 | CI/CD Pipelines | ✅ Complete |
-| 6b | SonarQube Integration | ✅ Complete |
-| 7 | Local WWW / PROD Server (Traefik + SSL) | ✅ Complete |
-| 11 | OpenClaw AI Agent Server | ⛔ Built, then **DESTROYED Aug 19, 2026** (VMID/IP reused by Jenkins) |
-| 8 | Monitoring Stack (Prometheus + Grafana) | ⏳ Next |
-| 10 | Backup Configuration | ⏳ Planned |
+| 0 | Hardware installation | ✅ Complete |
+| 1 · 1a · 1b | Proxmox + ZFS · kernel failure & rollback · safe kernel upgrade | ✅ Complete |
+| 2 · 2b | Host setup automation — Ubuntu · Fedora | ✅ Complete |
+| 3 · 4 | GitLab server · GitLab Runner | ✅ Complete |
+| 5 · 6 | CI/CD pipelines · SonarQube quality gates | ✅ Complete |
+| 7 | Local WWW / PROD server (Traefik + Let's Encrypt) | ✅ Complete |
+| 8 | VM backups to NAS (GitLab disaster recovery) | ✅ Complete |
+| 11 | OpenClaw AI agent server | ⛔ Built, then destroyed Aug 19, 2026 |
+| 12 | Network perimeter lockdown (.184 as DMZ) | ✅ Jul 8, 2026 |
+| 13 | Proxmox host audit + fixes | ✅ Jul 9, 2026 |
+| 14 | Kubernetes (k3s) + Redpanda POC | ✅ Closed Aug 12, 2026 |
+| 15 | Education program (multi-track study repo) | ✅ Aug 12, 2026 |
+| 16 | Docker Swarm | ✅ Aug 19, 2026 |
+| 17 | Jenkins | ⏸️ On hold (resume at Part 4) |
+| 18 | **Kubernetes HA (`kubeadm`) + CKA prep** | 🔵 **Active** — built Sep 17; CKA drilling next |
+| 19 | Storage tiers — thin pools, backups by tier | ✅ Sep 28, 2026 |
+| 20+ | Backlog, in order: OpenSearch · Prometheus + Grafana · Redpanda Connect + Debezium CDC · MongoDB + Postgres · SAML/OIDC (authentik) · Ansible | 💭 Planned |
 
-**Infrastructure Status:**
-- ✅ Proxmox VE **9.2.3** at 192.168.1.150 (kernel **7.0.6-2-pve**, pinned & tested; `6.17.13-13` / `6.17.2-1` kept as fallbacks)
-- ✅ GitLab CE at 192.168.1.181 (source control + CI/CD, auto-start)
-- ✅ GitLab Runner at 192.168.1.182 (Docker executor, v19.2.1 as of Aug 19 2026; installed at v18.7.2)
-- ✅ SonarQube at 192.168.1.183:9000 (v26.1.0, auto-start)
-- ✅ QA Host at 192.168.1.180 (vm-docker-qa-1, VMID 180, auto-start)
-- ✅ WWW/PROD at 192.168.1.184 (Traefik + Let's Encrypt, Capricorn PROD + splash, auto-start)
-- ✅ Container Registry at gitlab.gothamtechnologies.com:5050 (operational)
-- ✅ Script server at http://192.168.1.195/ — landing page + `/ubuntu/` and `/fedora/` trees (host setup automation, two distro build standards)
-- 🔁 `refresh` command: parallel update + reboot of all lab VMs, disconnect-proof via tmux
-- ⛔ OpenClaw AI agent at .185 — **destroyed Aug 19, 2026**; VMID 185 / `.185` **rebuilt as `vm-jenkins-1`, now in service** (Phase 17)
+**Services:**
+- ✅ Proxmox VE **9.2.20** at 192.168.1.150 (kernel **7.0.14-4-pve**, pinned; known-good `7.0.6-2` kept as boot fallback)
+- ✅ GitLab CE **19.3.2** at 192.168.1.181 + container registry at `gitlab.gothamtechnologies.com:5050`
+- ✅ GitLab Runner **19.3.2** at 192.168.1.182
+- ✅ SonarQube **26.1** at 192.168.1.183:9000
+- ✅ Jenkins **2.568.3** at 192.168.1.185:8080
+- ✅ Capricorn QA at 192.168.1.180:5001 · PROD at https://cap.gothamtechnologies.com
+- ✅ Kubernetes **v1.35.8** HA cluster at .201–.205, API through the kube-vip VIP **.206**
+- ✅ Docker Swarm (Docker **29.7.2**) at .191–.193 · k3s **v1.36.2** + Redpanda at .186
+- ✅ Script server at http://192.168.1.195/ — host setup for Ubuntu and Fedora
 
-**Applications Deployed via CI/CD:**
-- ⚪ Test App: was http://192.168.1.180:8080 (pipeline validation, Phase 5) — **no longer deployed**; nothing listens on 8080 as of Aug 20, 2026. The pipeline it proved out is still in use
-- ✅ Capricorn: http://192.168.1.180:5001 (QA automated + quality scan; backend on :5002)
-- ✅ Capricorn: https://cap.gothamtechnologies.com (PROD-Local, primary)
-- ☁️ Capricorn: https://capricorn.gothamtechnologies.com (GCP instance, on-demand)
+---
 
-**Code Quality Scanning:**
-- ✅ test-app: 86 LOC, Quality Gate PASSED (0 bugs, 0 security issues)
-- ✅ Capricorn: 28k LOC, Quality Gate PASSED (639 issues identified for improvement)
+## 📖 Education Tracks
+
+[`education/`](education/README.md) holds printable study material written on top of the lab — not
+tutorials, but chapters where **every command was executed on real infrastructure and every output
+quoted is real**, including the failures. Each track has Graphviz diagrams, tested configuration
+artefacts, and a Word build for printing.
+
+| Track | Subject | Status |
+|---|---|---|
+| [k8s-k3s-redpanda](education/k8s-k3s-redpanda/README.md) | Kubernetes (k3s), Redpanda, and an order management system built on both — including the failure drills | 7 chapters |
+| [docker-swarm](education/docker-swarm/README.md) | A three-manager Swarm: shipping to it, deploying through a pipeline, breaking it on purpose, and a Swarm↔Kubernetes crib sheet | 8 chapters |
+| [jenkins](education/jenkins/README.md) | A controller built from nothing, wired to GitLab, deploying to the same Swarm — then made to fail on purpose | 3 chapters (on hold) |
+| [k8s-cka-prep](education/k8s-cka-prep/README.md) | Kubernetes done properly: a five-node `kubeadm` cluster with an HA control plane behind kube-vip, then CKA drilling | 4 chapters (active) |
+
+Track 1 grew out of [Phase 14](phases/phase14_k8s_redpanda_poc.md): a 3-broker Redpanda cluster on
+k3s with a Python producer/consumer OMS, reconciling 10,000 events to exactly 800,000 shares across
+repeated hard kills. Writing conventions for every track: [`education/CONVENTIONS.md`](education/CONVENTIONS.md);
+the learning method: [`education/METHOD.md`](education/METHOD.md).
 
 ---
 
@@ -182,55 +217,33 @@ at a dead host — **it points at Jenkins.** History only: `phases/phase11_openc
 ```
 home-lab-setup/
 ├── README.md                    # This file
-├── CURSOR_RULES                 # AI agent startup instructions
-├── MEMORY.md                    # Current infrastructure state
-├── MAKE_MEMORIES                # Memory creation rules
+├── CURSOR_RULES                 # AI agent startup checklist and project rules
+├── MEMORY.md                    # Current infrastructure state (authoritative)
+├── MAKE_MEMORIES                # How the memory files are maintained (and pruned)
+├── push_gitlab.sh / push_github.sh   # The ONLY way this repo is pushed (GitHub copy is curated)
 │
-├── phases/                      # Detailed phase documentation
-│   ├── current_phase.md         # Active phase tracker
-│   ├── phase0_hardware.md       # Hardware installation notes
-│   ├── phase1_proxmox.md        # Proxmox setup
-│   ├── phase1a_proxmox_upgrade_fail_rollback.md   # Kernel incident + rollback
-│   ├── phase1b_proxmox_kernel_upgrade_safe_try.md # Reversible kernel upgrade + results
-│   ├── phase2_host_setup_automation.md
-│   ├── phase3_gitlab_server.md  # GitLab installation & config
-│   ├── phase4_gitlab_runner.md  # Runner setup & troubleshooting
-│   ├── phase5_ci_cd_pipelines.md # CI/CD implementation
-│   ├── phase6_sonarqube.md      # Code quality integration
-│   ├── phase7_local_www.md      # Local WWW/PROD server (Traefik + SSL)
-│   └── phase11_openclaw.md      # AI agent server (VM DESTROYED Aug 2026 — history only)
+├── phases/                      # One record per phase: plans, commands, failures, results
+│   ├── current_phase.md         # ▶️ RESUME HERE + the current session handoff
+│   ├── phase0 … phase8          # Hardware, Proxmox/ZFS, host automation, GitLab, CI/CD, SonarQube, WWW, backups
+│   ├── phase11 … phase13        # OpenClaw (history), perimeter lockdown, host audit
+│   ├── phase14 … phase17        # k3s + Redpanda, education program, Docker Swarm, Jenkins
+│   ├── phase18_k8s_cka_build.md # Kubernetes HA + CKA (active)
+│   └── phase19_storage_tiers.md # Storage tiers, thin pools, backups by tier
 │
-├── proxmox/                     # Proxmox documentation
-│   ├── Home_Lab_Proxmox_Build_Plan.md    # Master build checklist
-│   ├── Home_Lab_Proxmox_Design.md        # Architecture overview
-│   ├── Home_Lab_Proxmox_Storage.md       # ZFS configuration
-│   ├── Home_Lab_Proxmox_Install.md       # Installation notes
-│   ├── build-scripts/
-│   │   └── refresh.sh           # Parallel VM update+reboot (tmux-persistent)
-│   ├── credentials              # (git-ignored)
-│   └── nas_credentials          # (git-ignored)
+├── proxmox/
+│   ├── Home_Lab_Proxmox_*.md    # Build plan, design, storage, install notes
+│   └── build-scripts/           # Deployed to the host's /usr/local/bin:
+│       ├── refresh.sh           #   parallel VM update + reboot (tmux-protected)
+│       ├── proxmox-update.sh    #   host full-upgrade + boot/kernel report
+│       ├── zfs-capacity-alert.* #   hourly pool capacity/health email
+│       ├── pve-host-config-backup.*  # nightly host-config archive to the NAS
+│       └── move_k8s_node_pool.sh     # snapshot-preserving move of a k8s node between pools
 │
-├── education/                   # Printable study tracks built on the lab (see below)
-│   ├── README.md                # Track index
-│   ├── CONVENTIONS.md           # How a track is written
-│   ├── tools/                   # Shared Word build, highlighter, figure checker
-│   └── k8s-k3s-redpanda/        # Track 1: k3s, Redpanda, an order management system
-│
-├── vmware/                      # VMware ESXi reference (replaced by Proxmox)
-│   └── *.md                     # Design docs for comparison
-│
-└── www/                         # Host setup automation
-    ├── run_www.sh               # Script server launcher
-    ├── docker-compose.yml       # nginx file server
-    ├── nginx.conf               # Web server config
-    └── scripts/                 # Automated host setup scripts
-        ├── host_setup.sh        # Master setup orchestrator
-        ├── setup_docker.sh      # Docker + insecure registry config
-        ├── setup_ssh.sh         # SSH key deployment
-        ├── setup_sudo.sh        # Passwordless sudo
-        ├── setup_cockpit.sh     # Cockpit web admin on :9090
-        ├── setup_smb_mount.sh   # NAS mount configuration
-        └── setup_desktop.sh     # Desktop environment
+├── education/                   # Printable study tracks (see above) + shared tools
+├── tools/                       # Repo maintenance helpers (e.g. demote_block.py)
+├── www/                         # Script server: nginx + ubuntu/ and fedora/ host-setup trees,
+│                                #   plus generated offline USB kits (ubuntu_local/, fedora_local/)
+└── vmware/                      # VMware ESXi reference (replaced by Proxmox)
 ```
 
 ---
@@ -239,31 +252,15 @@ home-lab-setup/
 
 ### Access Proxmox
 ```bash
-# Web UI
-https://192.168.1.150:8006
-Username: root
-
-# SSH
-ssh root@192.168.1.150
+https://192.168.1.150:8006      # Web UI (root)
+ssh root@192.168.1.150          # SSH
 ```
 
-### Access GitLab
+### Access GitLab and SonarQube
 ```bash
-# Web UI
-http://192.168.1.181
-Username: root
-
-# Container Registry
-http://gitlab.gothamtechnologies.com:5050
-```
-
-### Access SonarQube
-```bash
-# Web UI
-http://192.168.1.183:9000
-Username: admin
-
-# Integrated with CI/CD pipelines for automated code scanning
+http://192.168.1.181                        # GitLab (root)
+http://gitlab.gothamtechnologies.com:5050   # Container registry
+http://192.168.1.183:9000                   # SonarQube (admin)
 ```
 
 ### Setup New Host
@@ -298,6 +295,10 @@ with truncated copies of itself. Both scripts now refuse to start there; see pha
 the next byte of the script itself. If you want a single line, keep the file real:
 `cd "$(mktemp -d)" && wget -q http://192.168.1.195/ubuntu/host_setup.sh && bash host_setup.sh`
 
+The Kubernetes nodes use a separate, portable three-script build
+([`education/k8s-cka-prep/scripts/`](education/k8s-cka-prep/scripts/)) — written to be reused on
+other infrastructure, so it has no dependency on this script server.
+
 ### 💾 Offline / USB build kits (both distros) — when the script server is unreachable
 
 🚨 **The script server cannot build the machine it runs on.** `192.168.1.195` is a VMware guest on the
@@ -321,146 +322,63 @@ It prints `OFFLINE MODE`. Internet is still needed for Docker, Chrome and Cursor
 but nothing on the lab network is.
 
 ⛔ **Never hand-edit `www/*_local/*.sh`** — they are generated copies. Edit the source tree and
-regenerate. `./make_local_kits.sh --check` tells you whether a kit has gone stale, which matters
-because a drifted kit builds hosts from bugs you already fixed.
-
-🔑 **The Ubuntu kit carries one extra file: `anysphere.gpg`**, Cursor's apt key, mirrored locally
-because the official URL 403s. A scripts-only copy looks complete but isn't — the offline check counts
-the key as required and refuses to claim offline without it.
+regenerate. `./make_local_kits.sh --check` tells you whether a kit has gone stale.
 
 ⚠️ With `--with-creds` the kit holds the **plaintext NAS password**, and FAT32/exFAT sticks cannot
 enforce `0600` — treat the USB as a secret, or leave the credential out.
 
-Every server gets **Cockpit** at `https://<host>:9090` (log in with the system
-password, not an SSH key — it authenticates via PAM). Self-signed cert, so use Chrome
-or Firefox; the Cursor built-in browser cannot get past the warning.
-
----
-
-## 📚 Key Documentation Files
-
-**Start Here:**
-1. [`MEMORY.md`](MEMORY.md) - Current infrastructure state, IPs, credentials reference
-2. [`/proxmox/Home_Lab_Proxmox_Build_Plan.md`](proxmox/Home_Lab_Proxmox_Build_Plan.md) - Complete build checklist
-3. [`/proxmox/Home_Lab_Proxmox_Design.md`](proxmox/Home_Lab_Proxmox_Design.md) - Architecture overview
-
-**Phase Documentation:**
-- Each phase has detailed implementation notes in `/phases/`
-- Includes: objectives, commands used, issues encountered, solutions
-
----
-
-## 📖 Education Tracks
-
-[`education/`](education/README.md) holds printable study material written on top of the lab — not
-tutorials, but chapters where **every command was executed on real infrastructure and every output
-quoted is real**. Each track is a self-contained series with its own Graphviz diagrams, tested
-config artefacts, and a Word build for printing.
-
-| Track | Subject | Status |
-|---|---|---|
-| [k8s-k3s-redpanda](education/k8s-k3s-redpanda/README.md) | Kubernetes (k3s), Redpanda, and an order management system built on both — including the failure drills | 7 chapters |
-| [docker-swarm](education/docker-swarm/README.md) | Docker Swarm: a three-manager cluster, shipping to it, deploying through a pipeline, breaking it on purpose, and a Swarm↔Kubernetes crib sheet | 8 chapters |
-| [jenkins](education/jenkins/README.md) | Jenkins: a controller built from nothing, wired to GitLab, deploying to the same Swarm — then made to fail on purpose | 3 chapters (on hold) |
-| [k8s-cka-prep](education/k8s-cka-prep/README.md) | Kubernetes done properly: a five-node `kubeadm` cluster with an HA control plane behind kube-vip, then CKA drilling one task type per chapter | 4 chapters (active) |
-
-Track 1 grew out of [Phase 14](phases/phase14_k8s_redpanda_poc.md): a 3-broker Redpanda cluster on
-k3s with a Python producer/consumer OMS, reconciling 10,000 events to exactly 800,000 shares across
-repeated hard kills. The chapters cover what broke and why, which is the useful part.
-
-Writing conventions for all tracks: [`education/CONVENTIONS.md`](education/CONVENTIONS.md).
-
----
-
-## 🛠️ Technology Stack (All FREE)
-
-**Infrastructure:**
-- Proxmox VE 9.2 (hypervisor, kernel 7.0.6-2-pve)
-- Ubuntu Server/Desktop 24.04 LTS (guest OS)
-- ZFS (software RAID)
-
-**DevOps Tools:**
-- GitLab Community Edition (source control, CI/CD, registries)
-- GitLab Runner (Docker executor)
-- SonarQube Community Edition (code quality)
-- Traefik v2.10 (reverse proxy)
-- Let's Encrypt (SSL certificates)
-
-**Monitoring:**
-- Prometheus (metrics)
-- Grafana (dashboards)
-- Node Exporter (system metrics)
-
-**Access:**
-- Tailscale (zero-trust VPN)
-- AWS Route53 (DNS for public QA)
-
----
-
-## 🎯 Use Cases
-
-This lab supports:
-- ✅ Automated CI/CD pipelines (build → test → scan → deploy)
-- ✅ Container/package hosting (Docker Registry, npm, pip, maven)
-- ✅ Code quality gates (SonarQube integration)
-- ✅ Infrastructure monitoring (full observability)
-- ✅ Public QA testing (HTTPS with valid SSL)
-- ✅ Private admin access (Tailscale VPN from anywhere)
-
-**Target Application:** Capricorn (unified personal finance application)
-- Production (Primary): https://cap.gothamtechnologies.com (home lab)
-- Production (Instance): https://capricorn.gothamtechnologies.com (GCP, on-demand)
-- QA: http://192.168.1.180:5001 (home lab)
+Every server gets **Cockpit** at `https://<host>:9090` (log in with the system password — it
+authenticates via PAM). Self-signed cert, so use Chrome or Firefox.
 
 ---
 
 ## 🔐 Security
 
-**Principle: Security by Design**
-- Infrastructure services NOT exposed publicly (GitLab, SonarQube, Grafana)
-- Admin access via Tailscale zero-trust VPN only
-- Public HTTPS limited to QA applications via Traefik
-- UFW firewall on all VMs
-- SSH key authentication (password auth disabled)
-- Let's Encrypt SSL with DNS-01 challenge (Route53)
+What is actually in place (checked Sep 28, 2026):
+
+- ✅ **No infrastructure is exposed publicly.** Only the Capricorn site and splash page are reachable
+  from the internet (80/443 → Traefik on `.184`); GitLab, SonarQube, Jenkins and Proxmox are LAN/Tailscale only.
+- ✅ **The public box is a DMZ:** Proxmox firewall rules let `.184` reach only the internet and the
+  gateway — it cannot open connections to any other LAN address — and accept SSH only from the CI
+  runner, the admin workstation and the host. Deployments are **pushed** to it; it never pulls.
+- ✅ **SSH key authentication** from the admin workstation to every VM and the host.
+- ✅ **Secrets stay out of the public repo:** passwords live in git-ignored files, and
+  `push_github.sh` refuses to push if a tracked file or the outgoing diff looks like a credential.
+- ✅ **Let's Encrypt** certificates via DNS-01 (Route53).
+- ⚠️ **Deliberately deferred:** password SSH logins are still enabled and the Proxmox web UI has no
+  two-factor login; UFW is not enabled inside the VMs. Recorded as a conscious decision, not an oversight.
 
 ---
 
-## ⚙️ Infrastructure Optimizations
+## 🛠️ Technology Stack (All FREE)
 
-**VM Performance Tuning (January 12, 2026):**
-- ✅ Standardized all VMs with optimized disk configuration
-- ✅ Enabled native AIO for lower CPU overhead
-- ✅ Enabled discard (TRIM) for ZFS space reclamation
-- ✅ Configured firewall on all VMs
-- ✅ Enabled auto-start on boot (onboot=1)
-- ✅ Adjusted RAM allocation based on actual usage patterns
+**Infrastructure:** Proxmox VE 9.2 · ZFS · Ubuntu 24.04 LTS guests · cloud-init templates · Tailscale
 
-**Proxmox Kernel Management (resolved June 2026):**
-- ⚠️ **Kernel 6.17.4-2-pve once broke NVMe boot** on this HP Z6 G4 (Intel VMD). Rolled back and pinned `6.17.2-1-pve` while the regression was investigated.
-- ✅ **Reversible upgrade strategy:** used `proxmox-boot-tool kernel pin --next-boot` (one-shot boot with automatic power-cycle revert to the last-good kernel) — every kernel change is console-gated and safe.
-- ✅ **Now running `7.0.6-2-pve`** (validated through two clean reboots: zero NVMe timeouts, ZFS healthy, all 6 NVMe present). Reached via `6.17.2-1 → 6.17.13-13 → 7.0.6-2` plus a full **PVE 9.1 → 9.2.3** upgrade.
-- ✅ **Policy:** rely on the **boot pin** (not package holds) to control which kernel boots; newer kernels can install but won't boot until explicitly pinned and tested.
-- ✅ **Update script:** `/usr/local/bin/proxmox-update.sh` (alias: `update`) — updates packages, disables the subscription nag, checks reboot requirements.
+**DevOps:** GitLab CE (source, CI/CD, registries) · GitLab Runner · SonarQube · Jenkins ·
+Traefik · Let's Encrypt · AWS Route53
 
-**Reboot Tested:** All active VMs auto-start successfully, services operational within 2-3 minutes
+**Containers & orchestration:** Docker · Docker Swarm · Kubernetes (`kubeadm` v1.35 HA with kube-vip
+and Calico; k3s) · Redpanda (Kafka-compatible streaming)
+
+**Operations:** vzdump backups to a NAS · ZFS snapshots · email alerting (ZED, smartd, backup jobs,
+pool capacity)
+
+**Planned:** Prometheus + Grafana, OpenSearch, Debezium CDC, authentik (SAML/OIDC), Ansible
 
 ---
 
 ## 📝 Notes
 
-**Why Proxmox over ESXi?**
-- ✅ Native ZFS support (no VROC driver issues)
-- ✅ Full Linux CLI access
-- ✅ LXC containers for lightweight services
-- ✅ Built-in backup tools (vzdump)
-- ✅ Free clustering support
-- ✅ No UEFI boot issues
+**Why Proxmox over ESXi?** Native ZFS (no VROC driver issues), full Linux CLI, LXC containers,
+built-in backups (vzdump), free clustering, and no UEFI boot issues.
 
-**GitLab Runner Notes:**
-- Docker-in-Docker (DIND) doesn't work reliably
-- Use socket mount instead: `/var/run/docker.sock:/var/run/docker.sock`
-- Container registry requires insecure-registry config (HTTP on port 5050)
+**GitLab Runner:** Docker-in-Docker was unreliable here — mount the host socket instead
+(`/var/run/docker.sock`). The registry runs over HTTP on port 5050, so Docker hosts need it
+configured as an insecure registry.
+
+**How this repo is worked:** each phase is planned, approved, built and documented in `phases/`;
+failures and corrections are kept in the record rather than tidied away, because they are the
+useful part.
 
 ---
 
@@ -468,19 +386,16 @@ This lab supports:
 
 This is a personal home lab project. Documentation and scripts are provided as-is for reference purposes.
 
----
-
 ## 🤝 Contributing
 
 This is a personal project, but feel free to use the documentation as reference for your own home lab!
 
 ---
 
-**Last Updated:** June 18, 2026 (7:40 PM EDT)  
-**Proxmox Version:** VE 9.2.3 (Kernel: 7.0.6-2-pve - pinned & tested)  
-**Build Status:** CI/CD + Code Quality + Local PROD operational | Monitoring next
+**Last Updated:** September 28, 2026  
+**Proxmox Version:** VE 9.2.20 (kernel 7.0.14-4-pve, pinned)  
+**Build Status:** DevOps platform operational · Kubernetes HA cluster built · CKA drilling next
 
 ---
 
 *Built with ❤️ on Proxmox VE*
-
