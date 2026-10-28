@@ -88,8 +88,8 @@ cluster 5/5 `Ready`. Chapter 05 Part 1 is STILL the next build step — this ses
 - ✅ `zfs-import@vm\x2dephemeral.service` enabled — 🚨 **the escaped name; the unescaped one imports
   `vm/ephemeral`** (caught before any boot). 🔲 **UNPROVEN until the next host boot** — check per `phase19`.
 - ✅ Root snapshot `@pre-pve-9.2.20-2026-09-28` deleted (Andrew).
-- ⚠️ `CURSOR_RULES` item 4 still says "9.2.20 as of Sep 28" — the AI may not edit it; it already
-  defers to `pveversion`. `README.md` badges/lines also still say 9.2.20 / `7.0.14-4`.
+- ✅ `CURSOR_RULES` item 4 version line → 9.2.24 (**EDIT LOG entry 11**, approved in writing by Andrew:
+  "Yes: I approve this edit to CURSOR_RULES exactly as written"). ✅ `README.md` → 9.2.24 / `7.0.14-26`.
 - GitLab restore drill **not** triggered — point release, per the event-driven rule.
 - ⚠️ This file now holds **three** session blocks (spec: 2) — the Sep 28 block is owed a `MAKE_MEMORIES` demotion.
 

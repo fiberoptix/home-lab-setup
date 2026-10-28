@@ -22,6 +22,8 @@ EDIT LOG (every authorised change to this file, so the count is visible):
      Authorised in writing by Andrew that day ("Yes: I approve adding it exactly as written").
  10. Sep 28, 2026 - Hardware line: 128GB -> 192GB RAM (measured: 6x 32GB). Authorised in writing
      by Andrew that day.
+ 11. Oct 27, 2026 - item 4's PVE version line: 9.2.20 -> 9.2.24. Authorised in writing by Andrew
+     that day ("Yes: I approve this edit to CURSOR_RULES exactly as written").
 
 Project: home-lab-setup - Building Proxmox VE DevOps/QA Environment
 
@@ -119,7 +121,7 @@ study material, not a production app. Capricorn is not.
     substantive thing a cold session reads and it seeds the mental model before MEMORY.md corrects
     it. ⛔ A convenience copy of a fact is a second place for that fact to go stale. Keep this list
     SHORT and pointing elsewhere; do not grow it.)
-   - Building Proxmox VE 9.x DevOps/QA lab on HP Z6 G4 (9.2.20 as of Sep 28, 2026 - `pveversion`
+   - Building Proxmox VE 9.x DevOps/QA lab on HP Z6 G4 (9.2.24 as of Oct 27, 2026 - `pveversion`
      is the source of truth, not this line)
    - Proxmox host .150 + these VMs (⛔ read MEMORY.md -> IPs & HOSTS for the real state, incl. which
      are `onboot 0` and which are awaiting destroy):

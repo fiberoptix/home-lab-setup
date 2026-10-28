@@ -3,8 +3,8 @@
 **A FREE DevOps/QA home lab on Proxmox VE — and the R&D rig behind four hands-on study tracks**
 
 [![Status](https://img.shields.io/badge/Status-Operational-brightgreen)]()
-[![Proxmox](https://img.shields.io/badge/Proxmox-VE_9.2.20-orange)]()
-[![Kernel](https://img.shields.io/badge/Kernel-7.0.14--4--pve_(pinned)-informational)]()
+[![Proxmox](https://img.shields.io/badge/Proxmox-VE_9.2.24-orange)]()
+[![Kernel](https://img.shields.io/badge/Kernel-7.0.14--26--pve_(pinned)-informational)]()
 [![Kubernetes](https://img.shields.io/badge/Kubernetes-v1.35.8_HA_(kubeadm)-326ce5)]()
 [![Hardware](https://img.shields.io/badge/Hardware-HP_Z6_G4-blue)]()
 
@@ -52,7 +52,7 @@ full pipeline to **QA** (on this lab) and **PROD** (a local production server on
   failed backups.
 - 🔄 **One patching policy lab-wide:** no VM updates itself; updates happen deliberately — the
   `refresh` tool for core VMs, a one-node-at-a-time drain drill for Kubernetes, and a pinned-kernel
-  procedure for the host (now **PVE 9.2.20**, kernel **7.0.14-4**).
+  procedure for the host (now **PVE 9.2.24**, kernel **7.0.14-26**).
 - 🔒 **Perimeter lockdown (Phase 12):** the public web server is an inbound-only DMZ — it can reach the
   internet but nothing else on the LAN; deployments are pushed to it, it never pulls.
 - 🔍 **Host audit (Phase 13):** 25 findings, email alerting, ARC tuning, a pool rebuilt for 4K sectors,
@@ -145,7 +145,7 @@ HTTPS** only for the Capricorn site and splash page, through Traefik on the DMZ 
 | **Patch the core VMs** (180–185) | `refresh` on the host — parallel update + reboot with a live status screen, `tmux`-protected |
 | **Patch the Kubernetes nodes** | Never `refresh` (a parallel reboot loses etcd quorum): drain → update → reboot → `Ready` → uncordon, one node at a time |
 | **Patch the host** | `update` (`apt full-upgrade`, never `apt upgrade`), then check the boot report: the kernel **pin** decides what boots, and a known-good fallback must still be on the boot partitions |
-| **New host kernel** | One-shot `proxmox-boot-tool kernel pin --next-boot` trial at the console before making it permanent |
+| **New host kernel** | One-shot `proxmox-boot-tool kernel pin --next-boot` trial at the console before making it permanent. A hang before root mounts does **not** revert on its own — pick the old kernel in the boot menu. After pinning, `update --boot-check`: moving the pin drops the old one off the boot partitions |
 | **Automatic updates** | **Off on every VM** (masked *and* stopped) — nothing changes unless someone chose to change it |
 | **Place a new VM** | Rebuildable → `vm-ephemeral`; otherwise `vm-critical` **and** add it to the nightly backup job |
 
@@ -179,7 +179,7 @@ controller. Every kernel change since has been reversible and console-gated —
 | 20+ | Backlog, in order: OpenSearch · Prometheus + Grafana · Redpanda Connect + Debezium CDC · MongoDB + Postgres · SAML/OIDC (authentik) · Ansible | 💭 Planned |
 
 **Services:**
-- ✅ Proxmox VE **9.2.20** at 192.168.1.150 (kernel **7.0.14-4-pve**, pinned; known-good `7.0.6-2` kept as boot fallback)
+- ✅ Proxmox VE **9.2.24** at 192.168.1.150 (kernel **7.0.14-26-pve**, pinned; known-good `7.0.14-4` and `7.0.6-2` kept as boot fallbacks)
 - ✅ GitLab CE **19.3.2** at 192.168.1.181 + container registry at `gitlab.gothamtechnologies.com:5050`
 - ✅ GitLab Runner **19.3.2** at 192.168.1.182
 - ✅ SonarQube **26.1** at 192.168.1.183:9000
@@ -234,7 +234,7 @@ home-lab-setup/
 │   ├── Home_Lab_Proxmox_*.md    # Build plan, design, storage, install notes
 │   └── build-scripts/           # Deployed to the host's /usr/local/bin:
 │       ├── refresh.sh           #   parallel VM update + reboot (tmux-protected)
-│       ├── proxmox-update.sh    #   host full-upgrade + boot/kernel report
+│       ├── proxmox-update.sh    #   host full-upgrade + boot/kernel report (--boot-check: report only)
 │       ├── zfs-capacity-alert.* #   hourly pool capacity/health email
 │       ├── pve-host-config-backup.*  # nightly host-config archive to the NAS
 │       └── move_k8s_node_pool.sh     # snapshot-preserving move of a k8s node between pools
@@ -392,8 +392,8 @@ This is a personal project, but feel free to use the documentation as reference 
 
 ---
 
-**Last Updated:** September 28, 2026  
-**Proxmox Version:** VE 9.2.20 (kernel 7.0.14-4-pve, pinned)  
+**Last Updated:** October 27, 2026  
+**Proxmox Version:** VE 9.2.24 (kernel 7.0.14-26-pve, pinned)  
 **Build Status:** DevOps platform operational · Kubernetes HA cluster built · CKA drilling next
 
 ---
