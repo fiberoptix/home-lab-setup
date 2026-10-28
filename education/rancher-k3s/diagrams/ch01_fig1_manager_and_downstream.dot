@@ -1,0 +1,47 @@
+// Chapter 1, figure 1 — the enterprise shape (Rancher alone on its own cluster, apps downstream)
+// next to this lab's shape (one cluster doing both jobs). Stacked top to bottom so width never
+// becomes the binding constraint on the printed page. No prose: the lesson is in the chapter.
+digraph manager_and_downstream {
+    rankdir=TB;
+    bgcolor="white";
+    newrank=true;
+    node [shape=plaintext, fontname="Helvetica", fontsize=15];
+    edge [color="#555555", penwidth=1.6, arrowsize=0.8, fontname="Helvetica", fontsize=12];
+
+    subgraph cluster_ent {
+        label=<<B>ENTERPRISE SHAPE</B>>; fontname="Helvetica"; fontsize=16; color="#999999"; style=rounded;
+
+        mgmt [label=<
+          <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="6" BGCOLOR="#eef4fb">
+            <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>MANAGEMENT CLUSTER  "local"</B></TD></TR>
+            <TR><TD ALIGN="LEFT" BALIGN="LEFT">3 nodes · Rancher × 3 replicas<BR/>runs Rancher and NOTHING else</TD></TR>
+          </TABLE>>];
+
+        ds1 [label=<
+          <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="6" BGCOLOR="#eaf6ee">
+            <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>DOWNSTREAM  prod</B></TD></TR>
+            <TR><TD ALIGN="LEFT" BALIGN="LEFT">applications<BR/>cattle-cluster-agent</TD></TR>
+          </TABLE>>];
+
+        ds2 [label=<
+          <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="6" BGCOLOR="#eaf6ee">
+            <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>DOWNSTREAM  qa</B></TD></TR>
+            <TR><TD ALIGN="LEFT" BALIGN="LEFT">applications<BR/>cattle-cluster-agent</TD></TR>
+          </TABLE>>];
+
+        ds1 -> mgmt [label="  agent dials OUT\l", style=dashed];
+        ds2 -> mgmt [label="  agent dials OUT\l", style=dashed];
+    }
+
+    subgraph cluster_lab {
+        label=<<B>THIS LAB  (VM 187)</B>>; fontname="Helvetica"; fontsize=16; color="#999999"; style=rounded;
+
+        lab [label=<
+          <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="6" BGCOLOR="#fdf6e3">
+            <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>ONE CLUSTER  "local"</B>  ·  1 node · Rancher × 1</TD></TR>
+            <TR><TD ALIGN="LEFT" BALIGN="LEFT">Rancher + Fleet + monitoring<BR/>AND the demo app  (lab-only shortcut)<BR/>no agent: Rancher uses the API it lives in<BR/>no downstream clusters</TD></TR>
+          </TABLE>>];
+    }
+
+    mgmt -> lab [style=invis];
+}

@@ -1,0 +1,48 @@
+// Chapter 1, figure 2 — what runs on VM 187, bottom layer first in reading order (top = VM).
+// Each box names who installed it, because "where did this come from?" is the question the
+// chapter answers. Top to bottom keeps the figure narrow enough for 10pt type on paper.
+digraph the_stack {
+    rankdir=TB;
+    ranksep=0.35;
+    bgcolor="white";
+    node [shape=plaintext, fontname="Helvetica", fontsize=15];
+    edge [color="#555555", penwidth=1.6, arrowsize=0.8, fontname="Helvetica", fontsize=12];
+
+    vm [label=<
+      <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" BGCOLOR="#f2f2f2">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>1 · VM 187</B>  vm-k3s-rancher-1  ·  192.168.1.187</TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT">Ubuntu 24.04 · 6 vCPU · 24 GB · 120 GB on vm-ephemeral<BR/>no Docker · auto-updates frozen</TD></TR>
+      </TABLE>>];
+
+    k3s [label=<
+      <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" BGCOLOR="#eef4fb">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>2 · K3s v1.35.9</B>  one process  (ours)</TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT">containerd · kine + SQLite (state.db) · CoreDNS<BR/>Traefik (ingress) · local-path storage · metrics-server</TD></TR>
+      </TABLE>>];
+
+    cm [label=<
+      <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" BGCOLOR="#eaf6ee">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>3 · cert-manager v1.21.3</B>  (Helm, ours)</TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT">issues the certificate Traefik serves for Rancher</TD></TR>
+      </TABLE>>];
+
+    rancher [label=<
+      <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" BGCOLOR="#fdf6e3">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>4 · Rancher 2.15.2</B>  (Helm, ours)  →  then Rancher adds:</TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT">rancher-webhook · system-upgrade-controller<BR/>Fleet (controller, gitjob, agent)<BR/>Cluster API + turtles  (dormant here)</TD></TR>
+      </TABLE>>];
+
+    mon [label=<
+      <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" BGCOLOR="#f7eef4">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>5 · rancher-monitoring 110.0.2</B>  (Helm, ours)</TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT">Prometheus · Alertmanager · Grafana · exporters</TD></TR>
+      </TABLE>>];
+
+    app [label=<
+      <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" BGCOLOR="#ffffff">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>6 · hello-lab</B>  (deployed by Fleet from GitLab)</TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT">+ hello-lab-push  (deployed by a CI job)</TD></TR>
+      </TABLE>>];
+
+    vm -> k3s -> cm -> rancher -> mon -> app;
+}

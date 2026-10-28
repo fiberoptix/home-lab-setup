@@ -1,0 +1,84 @@
+# ── COPY for the rancher-k3s study track. Source of truth: GitLab production/rancher-k3s → .gitlab-ci.yml @ 0682a5d (as built Oct 27, 2026). ──
+# production/rancher-k3s — build hello-lab, push it, and let Fleet (pull model) deploy it.
+#
+#   build       docker build + push  :$CI_COMMIT_SHORT_SHA  (only when hello-lab/ changed)
+#   bump        rewrite newTag in fleet/hello-lab/kustomization.yaml, commit "[skip ci]", push
+#               -> Fleet on vm-k3s-rancher-1 sees the commit and rolls the Deployment.
+#               GitLab holds NO cluster credential for this path.
+#   deploy_push (manual) the PUSH-model comparison: kubectl from the runner with a ServiceAccount
+#               that can only touch namespace hello-lab-push. ⚠️ The runner mounts the Docker socket
+#               (ledger L19), so anything on .182 can read that credential — that is the trade-off
+#               being compared.
+#
+# Images go ONLY to $CI_REGISTRY_IMAGE/<app> (production/rancher-k3s/...). Never production/capricorn.
+
+stages: [build, bump, deploy]
+
+variables:
+  IMAGE: $CI_REGISTRY_IMAGE/hello-lab
+
+.app_changed: &app_changed
+  - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    changes: [hello-lab/**/*]
+
+build:
+  stage: build
+  image: docker:27
+  tags: [docker]
+  rules: *app_changed
+  script:
+    - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$CI_REGISTRY"
+    - docker build --pull --build-arg GIT_SHA="$CI_COMMIT_SHORT_SHA" -t "$IMAGE:$CI_COMMIT_SHORT_SHA" hello-lab
+    - docker push "$IMAGE:$CI_COMMIT_SHORT_SHA"
+
+bump:
+  stage: bump
+  image: alpine:3.22
+  tags: [docker]
+  rules: *app_changed
+  needs: [build]
+  resource_group: fleet-bump
+  variables:
+    GIT_STRATEGY: none
+  script:
+    - apk add --no-cache git >/dev/null
+    - git config --global user.name "ci-tag-bump"
+    - git config --global user.email "ci-tag-bump@gitlab.gothamtechnologies.com"
+    # The source writes ${BUMP_TOKEN} below; shown as <BUMP_TOKEN> so the home-lab-setup GitHub guard passes.
+    - git clone -q "http://oauth2:<BUMP_TOKEN>@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git" repo && cd repo
+    # A newer app commit already on main gets its own pipeline; never roll back to an older tag.
+    - LATEST=$(git log -1 --format=%H -- hello-lab)
+    - if [ "$LATEST" != "$CI_COMMIT_SHA" ]; then echo "main has a newer hello-lab commit ($LATEST); skipping"; exit 0; fi
+    - |
+      sed -i -E "s|^( *newTag:).*|\1 ${CI_COMMIT_SHORT_SHA} # written by the CI bump job — do not edit by hand|" fleet/hello-lab/kustomization.yaml
+    - git diff --quiet && { echo "tag already ${CI_COMMIT_SHORT_SHA}"; exit 0; }
+    - 'git commit -qam "deploy: hello-lab ${CI_COMMIT_SHORT_SHA} [skip ci]"'
+    - git push -q origin HEAD:"$CI_DEFAULT_BRANCH" || { git pull -q --rebase origin "$CI_DEFAULT_BRANCH" && git push -q origin HEAD:"$CI_DEFAULT_BRANCH"; }
+    - git log -1 --oneline
+
+deploy_push:
+  stage: deploy
+  image: alpine:3.22
+  tags: [docker]
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes: [hello-lab/**/*]
+      when: manual
+      allow_failure: true
+  needs: [build]
+  variables:
+    KUBECTL_VERSION: v1.35.9
+    KUBECTL_SHA256: 3cfeaf80be482b435b0aa214aff6e0b2c312ee23c0ff20810c75517b6004c6eb
+  script:
+    - apk add --no-cache curl >/dev/null
+    - curl -fsSLo /usr/local/bin/kubectl "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl"
+    - echo "${KUBECTL_SHA256}  /usr/local/bin/kubectl" | sha256sum -c -
+    - chmod +x /usr/local/bin/kubectl
+    - export KUBECONFIG="$PUSH_KUBECONFIG"
+    - kubectl auth whoami
+    - |
+      kubectl kustomize push/hello-lab-push \
+        | sed -E "s#(image: .*/hello-lab):.*#\1:${CI_COMMIT_SHORT_SHA}#" \
+        | kubectl apply -f -
+    - kubectl -n hello-lab-push rollout status deploy/hello-lab --timeout=180s
+    - kubectl -n hello-lab-push get deploy hello-lab -o jsonpath='{.spec.template.spec.containers[0].image}{"\n"}'

@@ -1,0 +1,21 @@
+// Chapter 2, figure 1 — the install order as a dependency chain. Each box says what the step
+// gives the next one; the right-hand column names the check that proves it from OUTSIDE the
+// tool that made the change. Top to bottom for print legibility.
+digraph install_order {
+    rankdir=TB;
+    ranksep=0.3;
+    bgcolor="white";
+    node [shape=plaintext, fontname="Helvetica", fontsize=15];
+    edge [color="#555555", penwidth=1.6, arrowsize=0.8];
+
+    step [label=<
+      <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="6">
+        <TR><TD BGCOLOR="#dddddd" ALIGN="LEFT"><B>STEP</B></TD><TD BGCOLOR="#dddddd" ALIGN="LEFT"><B>GIVES THE NEXT STEP</B></TD><TD BGCOLOR="#dddddd" ALIGN="LEFT"><B>PROVE IT WITH</B></TD></TR>
+        <TR><TD BGCOLOR="#f2f2f2" ALIGN="LEFT"><B>1 · DNS</B></TD><TD ALIGN="LEFT" BALIGN="LEFT">a hostname for the Ingress</TD><TD ALIGN="LEFT" BALIGN="LEFT">lookup from a POD</TD></TR>
+        <TR><TD BGCOLOR="#eef4fb" ALIGN="LEFT"><B>2 · K3s</B></TD><TD ALIGN="LEFT" BALIGN="LEFT">an API · Traefik · storage</TD><TD ALIGN="LEFT" BALIGN="LEFT">node Ready · curl → 404</TD></TR>
+        <TR><TD BGCOLOR="#eaf6ee" ALIGN="LEFT"><B>3 · Helm v3</B></TD><TD ALIGN="LEFT" BALIGN="LEFT">a way to install charts</TD><TD ALIGN="LEFT" BALIGN="LEFT">helm list -A  (KUBECONFIG!)</TD></TR>
+        <TR><TD BGCOLOR="#fdf6e3" ALIGN="LEFT"><B>4 · cert-manager</B></TD><TD ALIGN="LEFT" BALIGN="LEFT">Issuer + Certificate types</TD><TD ALIGN="LEFT" BALIGN="LEFT">3 pods Running</TD></TR>
+        <TR><TD BGCOLOR="#f7eef4" ALIGN="LEFT"><B>5 · Rancher</B></TD><TD ALIGN="LEFT" BALIGN="LEFT">the management cluster "local"</TD><TD ALIGN="LEFT" BALIGN="LEFT">/ping → pong via Ingress</TD></TR>
+        <TR><TD BGCOLOR="#ffffff" ALIGN="LEFT"><B>6 · first login</B></TD><TD ALIGN="LEFT" BALIGN="LEFT">server-url · real admin password</TD><TD ALIGN="LEFT" BALIGN="LEFT">bootstrap password REJECTED</TD></TR>
+      </TABLE>>];
+}

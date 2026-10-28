@@ -1,0 +1,16 @@
+# ── COPY for the rancher-k3s study track. Source of truth: proxmox/build-scripts/rancher-k3s/fleet-gitrepo.yaml (as built Oct 27, 2026). ──
+# Fleet GitRepo: the pull-model link from GitLab production/rancher-k3s to the local cluster.
+# Workspace fleet-local = Rancher's own cluster. Credentials come from Secret
+# gitlab-rancher-k3s-read (deploy token, read_repository), created by 6-gitops.sh.
+apiVersion: fleet.cattle.io/v1alpha1
+kind: GitRepo
+metadata:
+  name: hello-lab
+  namespace: fleet-local
+spec:
+  repo: http://gitlab.gothamtechnologies.com/production/rancher-k3s.git
+  branch: main
+  paths:
+    - fleet/hello-lab
+  clientSecretName: gitlab-rancher-k3s-read
+  pollingInterval: 15s

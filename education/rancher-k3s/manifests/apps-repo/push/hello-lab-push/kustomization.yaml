@@ -1,0 +1,23 @@
+# ── COPY for the rancher-k3s study track. Source of truth: GitLab production/rancher-k3s → push/hello-lab-push/kustomization.yaml @ 0682a5d (as built Oct 27, 2026). ──
+# Push-model copy of hello-lab, applied by the manual `deploy_push` CI job with a ServiceAccount
+# that can only touch this namespace. Same base and image tag as the Fleet copy; no Ingress, so
+# it never competes with Fleet for the hello-rancher hostname.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: hello-lab-push
+resources:
+  - ../../fleet/hello-lab
+patches:
+  - patch: |-
+      $patch: delete
+      apiVersion: networking.k8s.io/v1
+      kind: Ingress
+      metadata:
+        name: hello-lab
+  - target:
+      kind: Deployment
+      name: hello-lab
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 1

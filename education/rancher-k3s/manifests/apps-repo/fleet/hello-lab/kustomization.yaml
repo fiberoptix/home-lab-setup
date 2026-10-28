@@ -1,0 +1,11 @@
+# ── COPY for the rancher-k3s study track. Source of truth: GitLab production/rancher-k3s → fleet/hello-lab/kustomization.yaml @ 0682a5d (as built Oct 27, 2026). ──
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - deployment.yaml
+  - service.yaml
+  - ingress.yaml
+images:
+  - name: hello-lab
+    newName: gitlab.gothamtechnologies.com:5050/production/rancher-k3s/hello-lab
+    newTag: 3a2687e8 # written by the CI bump job — do not edit by hand

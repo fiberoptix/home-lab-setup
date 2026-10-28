@@ -1,0 +1,32 @@
+// Chapter 4, figure 1 — pull versus push: which way each connection goes, and the credential it
+// carries. Arrows point from the side that opens the connection. Green = read-only, held by the
+// cluster; red = can change the cluster, held outside it.
+digraph pull_vs_push {
+    rankdir=TB;
+    ranksep=0.9;
+    nodesep=0.3;
+    bgcolor="white";
+    pad=0.25;
+    node [shape=plaintext, fontname="Helvetica", fontsize=15];
+    edge [penwidth=2.0, arrowsize=0.9, fontname="Helvetica", fontsize=13];
+
+    gitlab [label=<
+      <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="6" BGCOLOR="#f2f2f2">
+        <TR><TD COLSPAN="3"><B>GITLAB</B></TD></TR>
+        <TR><TD PORT="repo" BGCOLOR="#ffffff">Git repo</TD>
+            <TD PORT="reg" BGCOLOR="#ffffff">registry :5050</TD>
+            <TD PORT="runner" BGCOLOR="#fdecea">CI runner .182<BR/>holds SA token</TD></TR>
+      </TABLE>>];
+
+    vm [label=<
+      <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="6" BGCOLOR="#f2f2f2">
+        <TR><TD PORT="fleet" BGCOLOR="#eaf6ee">Fleet<BR/>(gitjob)</TD>
+            <TD PORT="ctr" BGCOLOR="#eaf6ee">containerd<BR/>(registries.yaml)</TD>
+            <TD PORT="api" BGCOLOR="#ffffff">API server<BR/>→ hello-lab-push</TD></TR>
+        <TR><TD COLSPAN="3"><B>VM 187 — THE CLUSTER</B></TD></TR>
+      </TABLE>>];
+
+    vm:fleet:n -> gitlab:repo:s [color="#2e7d32", fontcolor="#2e7d32", label=<PULL<BR/>read_repository>];
+    vm:ctr:n -> gitlab:reg:s [color="#2e7d32", fontcolor="#2e7d32", label=<PULL<BR/>read_registry>];
+    gitlab:runner:s -> vm:api:n [color="#c62828", fontcolor="#c62828", label=<PUSH<BR/>SA token, 1 year>];
+}

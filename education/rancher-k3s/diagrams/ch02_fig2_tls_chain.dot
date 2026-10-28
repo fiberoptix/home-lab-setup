@@ -1,0 +1,46 @@
+// Chapter 2, figure 2 — the certificate chain behind Rancher's Ingress with
+// ingress.tls.source=rancher, as traced on VM 187 (Oct 27, 2026). Every box is a real object;
+// the dashed edge is the trust the browser lacks. Top to bottom for print legibility.
+digraph tls_chain {
+    rankdir=TB;
+    ranksep=0.35;
+    bgcolor="white";
+    node [shape=plaintext, fontname="Helvetica", fontsize=15];
+    edge [color="#555555", penwidth=1.6, arrowsize=0.8, fontname="Helvetica", fontsize=12];
+
+    ca [label=<
+      <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" BGCOLOR="#fdf6e3">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>1 · Secret tls-rancher</B>  (made by RANCHER)</TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT">self-signed CA  "dynamiclistener-ca"<BR/>valid 10 years  (to 2036)</TD></TR>
+      </TABLE>>];
+
+    issuer [label=<
+      <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" BGCOLOR="#eaf6ee">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>2 · Issuer rancher</B>  (cert-manager)</TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT">type CA → points at tls-rancher<BR/>signs with a CA it does not own</TD></TR>
+      </TABLE>>];
+
+    cert [label=<
+      <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" BGCOLOR="#eaf6ee">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>3 · Certificate tls-rancher-ingress</B></TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT">leaf for rancher.gothamtechnologies.com<BR/>90 days · renewed automatically</TD></TR>
+      </TABLE>>];
+
+    traefik [label=<
+      <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" BGCOLOR="#eef4fb">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>4 · Ingress rancher → Traefik :443</B></TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT">serves that leaf  (serial matches)</TD></TR>
+      </TABLE>>];
+
+    browser [label=<
+      <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" BGCOLOR="#f2f2f2">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>BROWSER / curl</B></TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT">does not trust dynamiclistener-ca<BR/>→ warning · curl exit 60</TD></TR>
+      </TABLE>>];
+
+    ca -> issuer [label="  CA key\l"];
+    issuer -> cert [label="  signs\l"];
+    cert -> traefik [label="  Secret tls-rancher-ingress\l"];
+    traefik -> browser [label="  TLS handshake\l"];
+    browser -> ca [label="  missing trust\l(fetch from /cacerts)\l", style=dashed, constraint=false];
+}

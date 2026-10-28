@@ -1,0 +1,32 @@
+// Chapter 5, figure 1 — drill D2: what stopped and what kept working with deploy/rancher at 0.
+// Only the measured items are in the green box; nothing here is inferred.
+digraph rancher_gone {
+    rankdir=TB;
+    ranksep=0.4;
+    bgcolor="white";
+    pad=0.2;
+    node [shape=plaintext, fontname="Helvetica", fontsize=15];
+    edge [color="#555555", penwidth=1.6, arrowsize=0.8];
+
+    stopped [label=<
+      <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="6" BGCOLOR="#fdecea">
+        <TR><TD ALIGN="LEFT"><B>STOPPED</B>  deploy/rancher → 0 replicas</TD></TR>
+        <TR><TD ALIGN="LEFT">Rancher UI: 503</TD></TR>
+      </TABLE>>];
+
+    kept [label=<
+      <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="6" BGCOLOR="#eaf6ee">
+        <TR><TD ALIGN="LEFT" COLSPAN="2"><B>KEPT WORKING</B>  (measured)</TD></TR>
+        <TR><TD ALIGN="LEFT">hello-lab via Traefik</TD><TD ALIGN="LEFT">30 / 30 requests OK</TD></TR>
+        <TR><TD ALIGN="LEFT">Fleet: gitjob, controller, agent</TD><TD ALIGN="LEFT">new commit applied in 22 s</TD></TR>
+        <TR><TD ALIGN="LEFT">K3s API server</TD><TD ALIGN="LEFT">kubectl on the VM worked</TD></TR>
+      </TABLE>>];
+
+    back [label=<
+      <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="6" BGCOLOR="#f2f2f2">
+        <TR><TD ALIGN="LEFT"><B>RESTORED</B>  scale to 1 → pong in 34 s</TD></TR>
+      </TABLE>>];
+
+    stopped -> kept [label="  meanwhile\l", fontname="Helvetica", fontsize=12];
+    kept -> back;
+}

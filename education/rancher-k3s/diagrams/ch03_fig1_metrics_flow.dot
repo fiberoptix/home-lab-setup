@@ -1,0 +1,55 @@
+// Chapter 3, figure 1 — how metrics flow through rancher-monitoring on VM 187, and the two
+// places the chapter's surprises sit: the volume whose size is only a label, and the alert
+// route that ends in "null". Top to bottom for print legibility; no prose inside boxes.
+digraph metrics_flow {
+    rankdir=TB;
+    ranksep=0.35;
+    nodesep=0.12;
+    bgcolor="white";
+    node [shape=plaintext, fontname="Helvetica", fontsize=15];
+    edge [color="#555555", penwidth=1.6, arrowsize=0.8, fontname="Helvetica", fontsize=12];
+
+    sources [label=<
+      <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" BGCOLOR="#eef4fb">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>SCRAPED  (15 targets, every 30 s)</B></TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT">node-exporter · kube-state-metrics<BR/>apiserver · coredns · rancher · fleet</TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT">K3s process ← PushProx (host net)</TD></TR>
+      </TABLE>>];
+
+    prom [label=<
+      <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" BGCOLOR="#eaf6ee">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>PROMETHEUS</B>  (via the operator)</TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT">13 ServiceMonitors · 31 PrometheusRules<BR/>~208,000 active series</TD></TR>
+      </TABLE>>];
+
+    disk [label=<
+      <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" BGCOLOR="#fdecea">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>STORAGE</B>  local-path</TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT">"20Gi" = a DIRECTORY<BR/>on the 116 GB node disk<BR/>only retentionSize caps it</TD></TR>
+      </TABLE>>];
+
+    grafana [label=<
+      <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" BGCOLOR="#fdf6e3">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>GRAFANA</B>  behind nginx proxy</TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT">proxy_cache_valid any 5m<BR/>→ caches errors for 5 minutes</TD></TR>
+      </TABLE>>];
+
+    am [label=<
+      <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" BGCOLOR="#fdecea">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>ALERTMANAGER</B></TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT">one receiver: "null"<BR/>Watchdog fires → nobody</TD></TR>
+      </TABLE>>];
+
+    ui [label=<
+      <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" BGCOLOR="#f2f2f2">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>RANCHER UI</B>  Monitoring menu</TD></TR>
+      </TABLE>>];
+
+    { rank=same; disk; am; }
+    sources -> prom [label="  scrape\l"];
+    prom -> disk [label="  write\l"];
+    am -> grafana [style=invis];
+    prom -> grafana [label="  query\l", constraint=false];
+    prom -> am [label="  firing alerts\l"];
+    grafana -> ui [label="  proxied\l"];
+}

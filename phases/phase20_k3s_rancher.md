@@ -2,6 +2,7 @@
 
 **Status: 🔵 BUILT Oct 27, 2026 (AI-built at Andrew's instruction, 22:10–23:00) — Parts 0–6 done, drills
 D1–D4 done, D5 due Oct 28 ~23:00 (24 h of Prometheus data), D6 waits for a newer Rancher release.**
+📚 **Study track `education/rancher-k3s/` WRITTEN Oct 27, 23:25–23:50** (5 chapters + `COMMANDS.md` + README, all 🤖 AI-executed) — see the EDUCATION TRACK section. **Not yet committed.**
 🙋 *"Write a plan to build rancher into a new VM vm-k3s-rancher-1 with all the things you said and ideally
 I'd like you to build it for me completely."* · *"Try to build the whole thing and note errors."*
 
@@ -72,6 +73,96 @@ The pipeline → registry → Fleet path is proven; `hello-lab` is the template 
 - **Patching:** `refresh` on the PVE host patches `.187`'s OS; K3s/Rancher upgrades are drills, never a click
   on "upgrade" for `local` in the UI (F5).
 
+## 📚 EDUCATION TRACK `education/rancher-k3s/` — PLAN (Oct 27, 2026, 23:25) — ✅ APPROVED 23:24 · ✅ WRITTEN by 23:50
+
+🙋 Approval (23:24): *"Go ahead. You're writing this so I can learn about Rancher. Later we will build a
+proper k8s cluster by hand. Now I just need to learn enough to know how it works."* ⭐ **So the weighting is
+CONCEPTUAL** — what each piece is, why it is there, what depends on what — with the procedure kept as the
+evidence, not as a runbook to memorise. Live outputs re-captured read-only from `.187` at 23:24–23:30.
+
+🙋 *"let's create some documentation about how to install and configure rancher. use the
+@education/CONVENTIONS.md and @education/METHOD.md to create documentation so I can learn how we built
+this implementation and call the directory /rancher-k3s inside /education."* This supersedes **Q4**
+below ("no education track yet"). Per `CURSOR_RULES` education rule 6, **this file is the track's
+phase file** — no new phase number.
+
+### Decisions (Andrew, Oct 27, 23:2x — answered as multiple choice)
+
+| # | Question | Answer |
+|---|---|---|
+| T1 | The AI built Phase 20, but METHOD says Andrew runs anything new | **Write now, every chapter DECLARED "AI-executed"** in its opening paragraph (the Swarm chapter 7 precedent). A hands-on replay can come later; when it does, a chapter's declaration is removed only after Andrew has run that chapter |
+| T2 | Scope | **5 chapters + `COMMANDS.md`** (outline below) |
+| T3 | Phase file | **This file** (`phase20`) |
+| T4 | Finish level | **Full conventions:** Graphviz diagrams, Lab-vs-PROD callouts, 20 % highlight pass, docx builds, `figcheck` clean |
+
+### 🚨 The honesty rules this track runs under (because the AI ran it)
+
+1. **Every chapter opens with the 🤖 DECLARATION block** (Swarm ch7 wording adapted): commands executed
+   and outputs real, but run by the AI at Andrew's instruction — one step weaker than an Andrew-run chapter.
+   The track README and the shelf table in `education/README.md` say the same.
+2. **No invented output.** An output block is either (a) quoted from this file / the session record, or
+   (b) **re-captured now from the live VM by READ-ONLY commands** (`get`, `describe`, `version`, `curl`,
+   `helm list`), with the capture date in the chapter's verified-facts header. Build-time output that
+   was not recorded (e.g. a full `helm install` transcript) is **described, not reconstructed**.
+3. **`COMMANDS.md` marks every entry** ✅ *ran here (AI)* or ⚠️ *standard, not run here*.
+4. **"In production you would…" is marked verified or recited**, every time (CONVENTIONS).
+5. **No secrets, ever:** no passwords, tokens or token names' values; `PASSWORDS.md` is referenced, never read
+   into a chapter. Hostnames and the `192.168.1.x` plan are already public in this repo and may appear.
+
+### Chapter plan (procedure, not story — tripping points at the step; CONVENTIONS shape)
+
+| Ch | Title (H1: `# Rancher on K3s · Chapter N — …`) | Content | Figures | Lab-vs-PROD candidates (threshold: WRONG in prod, not smaller) |
+|---|---|---|---|---|
+| 1 | **What Rancher Is, and Why It Gets Its Own Cluster** | Rancher = a Helm app on Kubernetes; the `local` (management) cluster vs downstream clusters; why not the Docker install / LXC / inside a managed cluster (blast radius, cluster-admin everywhere); why single-node K3s and why 1.35; what Rancher pulls in beyond the docs (F12); community vs Prime patch policy → upgrading every minor is mandatory | fig1 the stack on VM 187 · fig2 manager/downstream in prod vs this lab | 🚨 **Apps on the `local` cluster** |
+| 2 | **Installing It: K3s, Helm, cert-manager, Rancher** | VM prep assumed (pointer); DNS that pods can resolve (and why a private IP in public Route53); K3s from a downloaded, pinned installer, `config.yaml` (`0600`, `tls-san`, CIDR check), verify; Helm **v3** + F11 (`sudo` loses `KUBECONFIG`); cert-manager; Rancher values file (`replicas=1`, `ingress.tls.source=rancher`, saved for upgrades), E1 at its step, first login + bootstrap retired; F5 (`system-upgrade-controller` = a path around the pin); snapshot | fig3 install order / what depends on what · fig4 the TLS chain (cert-manager → Rancher CA → Traefik) | 🚨 **Self-signed Rancher CA → clicking through the browser warning**; ⚠️ kubeconfig never leaves the VM (good practice, likely prose not callout) |
+| 3 | **Seeing It: rancher-monitoring** | CRD chart + chart, version tied to the Rancher minor; explicit `retention`/`retentionSize` because the pool is thin; verify from Prometheus targets, not the Grafana tile; F3 the cached 502; F9 footprint; D5 shown as 🔲 pending until measured | fig5 how metrics reach Grafana through Rancher's proxy | Prometheus on single-disk `local-path`, no backup (decide at writing — may be a table row) |
+| 4 | **Shipping to It: GitOps with Fleet, and the Push Model** | apps-repo layout; CI build → registry → bump commit `[skip ci]` (E4 YAML traps at the step); `registries.yaml` (K3s ignores `daemon.json`; node-wide credential); Fleet `GitRepo` over HTTP with a deploy token (F6); push → serving in 36–42 s; push model with a namespace-scoped SA; F2 Fleet status lags → check `rollout status`; container hygiene F1 (SIGTERM / PID 1) | fig6 pull model vs push model — who holds which credential · fig7 the delivery path with measured timings | 🚨 **Plaintext registry + git over HTTP carrying credentials** · 🚨 **Cluster token held by a privileged runner** (push model) |
+| 5 | **Breaking It** | D1 reboot (the 87 s SIGTERM miss → 63 s), D2 Rancher at 0 replicas (apps + GitOps carry on — F7), D3 broken manifest (`ErrApplied`; alert on `Ready` not `Stalled` — F8), D4 registry 401 hidden by Rancher's summary (F4); each as prediction → measured → what to conclude at 3am; D5/D6 stated as not yet run | fig8 what keeps running when Rancher is gone | none expected (drills, not shortcuts) |
+
+Plus **`README.md`** (chapter table, the declaration, versions, what this track is for, link to the build
+scripts) and **`COMMANDS.md`** (indexed by the question each command answers, in incident order).
+
+### Artefacts and layout
+
+- `education/rancher-k3s/{README.md, COMMANDS.md, chapter01…05_*.md, diagrams/, images/, docx/, manifests/, scratch/}`.
+- **`manifests/`** = copies of the tested YAML (`rancher-values.yaml`, `monitoring-values.yaml`,
+  `fleet-gitrepo.yaml`, `push-rbac.yaml`, and the `hello-lab` Fleet bundle), each with a header naming its
+  source of truth. **The scripts stay in `proxmox/build-scripts/rancher-k3s/`** (infra owns VM provisioning;
+  copying them invites drift); chapters quote the relevant fragments inline and name the path.
+- Tooling unchanged — `build_docx.py` / `figcheck.py` / `highlight.py` find a track by its chapter files.
+- Also updated: `education/README.md` track table (row 5, "Built in the lab? Yes — **AI-executed**"),
+  `MEMORY.md` PHASE INDEX Phase 20 row (track exists), this file's status line.
+
+### Work order and validation
+
+1. Re-capture live outputs (read-only) on `.187`. 2. Chapters 1 → 5 in order, each written at ~20 %
+highlight, figures rendered and `figcheck rancher-k3s` clean before moving on. 3. `COMMANDS.md`, README,
+shelf row. 4. `build_docx.py rancher-k3s`; `highlight.py --check` per chapter; per-section highlight
+density measured. 5. A secrets scan of the track (`rg` for the password/token patterns) before any commit.
+6. Commit + push only when Andrew says (ask GitHub / GitLab / both).
+
+**Out of scope:** the replay itself, the real-app deployment (a later chapter 6 when it happens), D5/D6
+results (added when measured), any change to the running VM.
+
+### ✅ What was written (Oct 27, 23:50)
+
+| Artefact | Result |
+|---|---|
+| Chapters 1–5 | `chapter01_what_rancher_is` … `chapter05_breaking_it`, each 21–22 % highlighted (per-section 17–25 %), 1 or 2 Lab-vs-PROD callouts in Ch 1–4, none in Ch 5 (drills) |
+| Figures | 8 (`ch01_fig1/2`, `ch02_fig1/2`, `ch03_fig1`, `ch04_fig1/2`, `ch05_fig1`) — `figcheck rancher-k3s`: all ≥ 10 pt (lowest `ch03_fig1` 10.5) |
+| `COMMANDS.md`, `README.md` | Indexed by question; every row marked ✅ ran here (AI) / ⚠️ standard / 🔲 planned |
+| Word | `docx/` × 5 built; inner `document.xml` checked — Key runs 77–173, media present, no markup leaks |
+| Shelf / MEMORY | `education/README.md` row added; MEMORY task-router row, PHASE INDEX row 20 and files table updated |
+
+**Corrections made while writing (outputs re-checked against the captures):** ch3's targets block had a
+duplicated `rancher-monitoring-prometheus` line in place of `rancher-monitoring-operator`, and its PV
+command had been simplified — both restored to the captured text; "Fleet puts hand edits back" corrected
+(drift correction is opt-in, `correctDrift`, recited); ch1's 29 pods clarified (31 listed, two completed
+install jobs). **New read-only captures ~23:45:** `6-gitops.sh --check` all in sync; the Fleet-made Helm
+release `hello-lab-fleet-hello-lab` is at **revision 21**, chart `…-v0.0.0+git-0682a5dc00f4`; `hello-lab-push`
+holds **no Secrets** (the push token is signed, not stored); no secret files left in `/root` on `.187`.
+🔲 Still in `/tmp` on `.195`: `gl-phase20.tok` (the root PAT, 0600) — goes with revoking the PAT.
+
 ## ▶️ BUILD RESULTS (Oct 27, 2026) — read this first
 
 | | |
@@ -109,6 +200,9 @@ The manual `deploy_push` job is the push-model comparison (ServiceAccount limite
   `DefaultTimeoutStopSec`. Python as PID 1 has no default SIGTERM action. After adding a handler to
   hello-lab: **shutdown 4 s; reboot-to-Rancher 151 s → 63 s.** The same bug makes every rollout wait the
   30 s `terminationGracePeriod`. ⭐ At work: check PID-1 signal handling in every image (or use `tini`).
+  🔎 *Precision (from the session record, Oct 27 23:50):* the handler (`3a2687e`) was already in the Fleet
+  copies before D1; the container that hung the shutdown was the **push-model copy**, still on the old
+  image `fd227698` because its manual job had not been re-run. Re-running `deploy_push` fixed it.
 - **F2 — Fleet reported the app `NotReady` / `[progressing] Updated: 1/2` for ~4 min after a COMPLETE,
   healthy rollout** (Deployment 2/2, `NewReplicaSetAvailable`). The agent evaluated status once, mid-rollout
   (`update-status … not ready` at 22:44:45) and did not re-check until the agent restarted. ⚠️ **Fleet's
@@ -139,6 +233,25 @@ The manual `deploy_push` job is the push-model comparison (ServiceAccount limite
   defaults to `/etc/rancher/k3s/k3s.yaml`, Helm does not. The scripts export `KUBECONFIG`.
 - **F12 — Rancher pulled in more than the docs list:** `cattle-capi-system` (CAPI controller),
   `cattle-turtles-system`, `helmops`, `system-upgrade-controller` — ~20 pods before any app.
+- **F13 — The TLS chain, traced (found while writing the track, Oct 27 23:28).** With
+  `ingress.tls.source=rancher`, **Rancher generates its own 10-year self-signed CA** (`O=dynamiclistener-org,
+  CN=dynamiclistener-ca@…`, Secret `cattle-system/tls-rancher`, valid to 2036); cert-manager's `Issuer
+  rancher` is a **CA issuer pointing at that Secret**; `Certificate tls-rancher-ingress` (SAN only, empty
+  subject, **90 days**) is what the Ingress names and **Traefik serves — served serial `25B9DC7A…` = the
+  Secret's**. `curl` without the CA → exit 60; with the CA from `https://rancher…/cacerts` → 200. ⭐ So
+  cert-manager here **renews a leaf from a CA it does not own**, and "the browser warning" is the missing
+  trust in Rancher's CA, not a broken certificate.
+- **F14 — Alerts go nowhere (found while writing the track).** Alertmanager's config has ONE receiver,
+  `"null"`, on every route; 31 `PrometheusRule` objects are loaded and no `AlertmanagerConfig` exists. Rules
+  evaluate and alerts can fire, **but nobody is told.** Lab-acceptable; at work this is the first thing to wire.
+  (At 23:40 exactly one alert was firing: `Watchdog`, the always-on alert whose job is to prove the pipeline
+  delivers — delivered to `"null"`.)
+- **F15 — The Prometheus PVC's 20 Gi is a LABEL, not a limit (found while writing the track, 23:40).**
+  `local-path` provisions a **directory** on the node's root filesystem
+  (`/var/lib/rancher/k3s/storage/pvc-8c51…_cattle-monitoring-system_…`, 94 MB); inside the pod `df -h
+  /prometheus` shows **`/dev/sda1 115.2G`** — the whole disk. So **`retentionSize: 15GiB` is the ONLY cap that
+  works**; the plan's "Prometheus on a 20 Gi PVC" protected nothing by itself. D5 must therefore check that
+  `retentionSize` is honoured (it is the real guard), and the VM's 120 G disk is the real outer bound.
 
 ### 🧪 Drills
 
@@ -319,7 +432,8 @@ snapshot** (Phase 19): once `r03` exists, `r01`/`r02` are unreachable without de
   ✅ Scoped reading of **B10** confirmed ("OK in production space"): images go only to
   `production/rancher-k3s/<app>`, which cannot overwrite `production/capricorn/*` — the hazard B10 exists for.
 - 🙋 *"You can do whatever you want in the new DNS and repo and VM - you control everything."*
-- **Q4 — Write-up:** **no education track yet** — this phase file is the record.
+- **Q4 — Write-up:** **no education track yet** — this phase file is the record. 🔄 *Superseded Oct 27,
+  23:2x: Andrew asked for the track `education/rancher-k3s/` — see the EDUCATION TRACK plan above.*
 - **Q5 — Build mode:** **build the whole thing, log errors, keep going where later parts do not depend on
   the failure**; Andrew returns to help with what is logged.
 

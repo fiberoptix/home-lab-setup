@@ -1,0 +1,20 @@
+// Chapter 4, figure 2 — the delivery path from a commit to a serving pod, with the times measured
+// during the build. Left column: what happens; right column: who does it, and how long it took.
+digraph delivery_path {
+    rankdir=TB;
+    bgcolor="white";
+    node [shape=plaintext, fontname="Helvetica", fontsize=15];
+
+    path [label=<
+      <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="6">
+        <TR><TD BGCOLOR="#dddddd"><B>STEP</B></TD><TD BGCOLOR="#dddddd"><B>WHO</B></TD><TD BGCOLOR="#dddddd"><B>TIME</B></TD></TR>
+        <TR><TD ALIGN="LEFT" BGCOLOR="#f2f2f2">commit to hello-lab/</TD><TD ALIGN="LEFT">developer</TD><TD>0 s</TD></TR>
+        <TR><TD ALIGN="LEFT" BGCOLOR="#eef4fb">build image :&lt;sha&gt; → registry</TD><TD ALIGN="LEFT">CI build job</TD><TD>9 s</TD></TR>
+        <TR><TD ALIGN="LEFT" BGCOLOR="#eef4fb">rewrite newTag, commit [skip ci]</TD><TD ALIGN="LEFT">CI bump job</TD><TD>6 s</TD></TR>
+        <TR><TD ALIGN="LEFT" BGCOLOR="#eaf6ee">notice main moved → Bundle</TD><TD ALIGN="LEFT">gitjob (poll)</TD><TD>≤ 15 s</TD></TR>
+        <TR><TD ALIGN="LEFT" BGCOLOR="#eaf6ee">Bundle → BundleDeployment</TD><TD ALIGN="LEFT">fleet-controller</TD><TD ROWSPAN="3">rest</TD></TR>
+        <TR><TD ALIGN="LEFT" BGCOLOR="#eaf6ee">helm upgrade the release</TD><TD ALIGN="LEFT">fleet-agent</TD></TR>
+        <TR><TD ALIGN="LEFT" BGCOLOR="#fdf6e3">rolling update, new version answers</TD><TD ALIGN="LEFT">Kubernetes</TD></TR>
+        <TR><TD ALIGN="LEFT" BGCOLOR="#dddddd" COLSPAN="2"><B>push → new version serving</B></TD><TD BGCOLOR="#dddddd"><B>36–42 s</B></TD></TR>
+      </TABLE>>];
+}

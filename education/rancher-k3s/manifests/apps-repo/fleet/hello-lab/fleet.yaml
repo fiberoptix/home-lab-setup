@@ -1,0 +1,4 @@
+# ── COPY for the rancher-k3s study track. Source of truth: GitLab production/rancher-k3s → fleet/hello-lab/fleet.yaml @ 0682a5d (as built Oct 27, 2026). ──
+defaultNamespace: hello-lab
+kustomize:
+  dir: .
