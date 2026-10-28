@@ -318,3 +318,41 @@ outage step. 🔻 **The open to-do was "trial `7.0.14-19`"; by the night it ran,
 Revert: `proxmox-boot-tool kernel pin 7.0.14-4-pve && proxmox-boot-tool refresh` + reboot (console advised).
 
 ---
+
+---
+
+## DEMOTED VERBATIM FROM `phases/current_phase.md` — Oct 27, 2026 (`MAKE_MEMORIES` pass 13)
+
+⚠️ Copied verbatim from `current_phase.md` (the Oct 27, 2026 PVE-update session handoff, superseded the same night by the Phase 20 handoff). The one still-open item — `zfs-import@vm\x2dephemeral` UNPROVEN until the next host boot — was PROMOTED to `MEMORY.md` (PHASE INDEX, Phase 19 row). Its "three session blocks" note is spent (`MAKE_MEMORIES` pass 13).
+
+## 📘 SESSION Oct 27, 2026 — PVE 9.2.20 → 9.2.24, kernel `7.0.14-26` adopted, two procedure bugs found
+
+🎯 **Outcome: host on PVE 9.2.24 + kernel `7.0.14-26-pve` (pinned, two clean boots), all 15 VMs back,
+cluster 5/5 `Ready`. Chapter 05 Part 1 is STILL the next build step — this session did not touch Phase 18.**
+
+### ✅ Done (Andrew at the console and approving each outage step; the AI ran the commands)
+1. Root snapshot `rpool/ROOT/pve-1@pre-pve-9.2.21-2026-10-27` → `proxmox-update.sh` in tmux: 54 upgraded
+   + 1 new, exit 0. Pin and `7.0.6-2` intact; VMs untouched by the upgrade itself.
+2. Graceful shutdown of all 15 → `--next-boot` trial of `7.0.14-26` → clean → permanent pin → second
+   clean reboot → manual VMs started control-planes-first. **PROD down ~21:10–21:14 and ~21:16–21:19.**
+3. Full record: `phase1b` → last section. Policy bullet: `MEMORY.md` → PATCHING POLICY.
+
+### 🚨 Found (all written into the owning files)
+- **`--next-boot` does NOT auto-revert a pre-root-mount hang** — persistent `loader.conf` default,
+  cleared only after root mounts. Recovery = hand-pick in the systemd-boot menu. `phase1b` corrected in
+  four places. Found from the tool's source **before** the reboot, not after.
+- **Moving the pin drops the old pin off the ESPs** — `7.0.14-4` vanished; re-added as manual. `phase1b` 5a.
+- **`vm-ephemeral` is lazily imported by PVE, not at boot** (same on Sep 28) — `phase19` → Open.
+
+### 🔲 Open — for Andrew
+- ✅ `proxmox-update.sh --boot-check` — the ESP check, runnable after a pin change; also warns when no
+  MANUAL fallback besides the pin exists (positive-control tested). Deployed, md5 host = repo
+  (`0dfa608b…`), old copy `/root/proxmox-update.sh.pre-2026-10-27`.
+- ✅ `zfs-import@vm\x2dephemeral.service` enabled — 🚨 **the escaped name; the unescaped one imports
+  `vm/ephemeral`** (caught before any boot). 🔲 **UNPROVEN until the next host boot** — check per `phase19`.
+- ✅ Root snapshot `@pre-pve-9.2.20-2026-09-28` deleted (Andrew).
+- ✅ `CURSOR_RULES` item 4 version line → 9.2.24 (**EDIT LOG entry 11**, approved in writing by Andrew:
+  "Yes: I approve this edit to CURSOR_RULES exactly as written"). ✅ `README.md` → 9.2.24 / `7.0.14-26`.
+- GitLab restore drill **not** triggered — point release, per the event-driven rule.
+- ⚠️ This file now holds **three** session blocks (spec: 2) — the Sep 28 block is owed a `MAKE_MEMORIES` demotion.
+

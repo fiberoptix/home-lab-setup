@@ -96,37 +96,6 @@ thing and note errors. I'll come back to help manage them."*
 - 🔲 **D5 due ≥ Oct 28 23:00** — Prometheus disk vs the 44.3 MB baseline. **D6** when Rancher > 2.15.2 ships.
 - ⚠️ This file now holds **four** session blocks (spec: 2) — two demotions owed under `MAKE_MEMORIES`.
 
-## 📘 SESSION Oct 27, 2026 — PVE 9.2.20 → 9.2.24, kernel `7.0.14-26` adopted, two procedure bugs found
-
-🎯 **Outcome: host on PVE 9.2.24 + kernel `7.0.14-26-pve` (pinned, two clean boots), all 15 VMs back,
-cluster 5/5 `Ready`. Chapter 05 Part 1 is STILL the next build step — this session did not touch Phase 18.**
-
-### ✅ Done (Andrew at the console and approving each outage step; the AI ran the commands)
-1. Root snapshot `rpool/ROOT/pve-1@pre-pve-9.2.21-2026-10-27` → `proxmox-update.sh` in tmux: 54 upgraded
-   + 1 new, exit 0. Pin and `7.0.6-2` intact; VMs untouched by the upgrade itself.
-2. Graceful shutdown of all 15 → `--next-boot` trial of `7.0.14-26` → clean → permanent pin → second
-   clean reboot → manual VMs started control-planes-first. **PROD down ~21:10–21:14 and ~21:16–21:19.**
-3. Full record: `phase1b` → last section. Policy bullet: `MEMORY.md` → PATCHING POLICY.
-
-### 🚨 Found (all written into the owning files)
-- **`--next-boot` does NOT auto-revert a pre-root-mount hang** — persistent `loader.conf` default,
-  cleared only after root mounts. Recovery = hand-pick in the systemd-boot menu. `phase1b` corrected in
-  four places. Found from the tool's source **before** the reboot, not after.
-- **Moving the pin drops the old pin off the ESPs** — `7.0.14-4` vanished; re-added as manual. `phase1b` 5a.
-- **`vm-ephemeral` is lazily imported by PVE, not at boot** (same on Sep 28) — `phase19` → Open.
-
-### 🔲 Open — for Andrew
-- ✅ `proxmox-update.sh --boot-check` — the ESP check, runnable after a pin change; also warns when no
-  MANUAL fallback besides the pin exists (positive-control tested). Deployed, md5 host = repo
-  (`0dfa608b…`), old copy `/root/proxmox-update.sh.pre-2026-10-27`.
-- ✅ `zfs-import@vm\x2dephemeral.service` enabled — 🚨 **the escaped name; the unescaped one imports
-  `vm/ephemeral`** (caught before any boot). 🔲 **UNPROVEN until the next host boot** — check per `phase19`.
-- ✅ Root snapshot `@pre-pve-9.2.20-2026-09-28` deleted (Andrew).
-- ✅ `CURSOR_RULES` item 4 version line → 9.2.24 (**EDIT LOG entry 11**, approved in writing by Andrew:
-  "Yes: I approve this edit to CURSOR_RULES exactly as written"). ✅ `README.md` → 9.2.24 / `7.0.14-26`.
-- GitLab restore drill **not** triggered — point release, per the event-driven rule.
-- ⚠️ This file now holds **three** session blocks (spec: 2) — the Sep 28 block is owed a `MAKE_MEMORIES` demotion.
-
 ## 🔧 BUILD STANDARD OVERHAUL — a second distro, and the script server nearly deleted itself (Aug 21, 2026, evening) ✅ DONE
 
 ⚠️ **This session did NOT advance Phase 17.** Part 4 (deploy to the Swarm) is still the next Jenkins
@@ -696,6 +665,7 @@ artefact per unit of work, the artefacts become the backlog.** One log, appended
 | `✅ Phase 15 — The Education Program` (Aug 12–13) | 420 | `phase15` (verbatim) + 2 rules PROMOTED to `MEMORY.md` | 🚨 **Two live rules lived only here / deep in `phase14`:** track 1's `figcheck` exits 1 BY DESIGN (four accepted sub-10pt figures — a fresh session would "fix" it), and `qm set` on a running VM silently only stages a CPU/RAM change. Everything else COVERED (METHOD "Who does the work", CONVENTIONS chapter scope, CURSOR_RULES edu rule 6, CIFS audit regex at MEMORY l.44, SSH/Tailscale/remote runbook). Its Next list was SPENT — flagged in the copy |
 | `🔵 ACTIVE: Phase 16 — Docker Swarm` (Aug 13) | 55 | `phase16` (verbatim) | 🚨 **Status was false:** "ACTIVE … Next: Part 2" six days after the phase closed — a fresh session reading top-down would resume finished work. All facts COVERED (38G-not-40G, `gsettings` desktop detection, `19x.fw` vs swarm ports, `s01-base-clean`, `provision_nodes.sh`) |
 | `📘 SESSION Sep 28, 2026` (handoff) | 46 | `phase18` (verbatim) | Replaced by two later handoffs. Every live fact already COVERED (`--freeze-updates`, event-driven restore drill, STORAGE CHECK in CURSOR_RULES, `c01` rollback trap, kernel drill, UPS/NUT, `pve-host-config-backup`); its 🔲s were SPENT — flagged in the copy |
+| `📘 SESSION Oct 27, 2026 — PVE 9.2.20 → 9.2.24` (handoff) | 30 | `phase1b` (verbatim) + 1 check PROMOTED to `MEMORY.md` | Superseded the same night by the Phase 20 handoff. 🚨 **The `vm-ephemeral` boot-import check (unproven until the next host boot) lived only here and in `phase19`** — promoted to the MEMORY Phase 19 row (commit 13c). Rest COVERED (`--next-boot` trap + pin-drop in `phase1b`/MEMORY, `--boot-check`, EDIT LOG 11 in CURSOR_RULES) |
 
 ⭐ **A THIRD FINDING, and it is a repeat this log had already warned about.** Pass 9 rebuilt an
 automated coverage checker, validated it with a positive control (100% on a file searched against
