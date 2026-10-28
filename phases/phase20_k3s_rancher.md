@@ -28,7 +28,7 @@ no GitHub mirror). Only `education/fin_tech_stack.txt` is left uncommitted, on p
 
 | Item | Detail |
 |---|---|
-| **`MAKE_MEMORIES` pass** | Next step Andrew asked for, then commit + push. `current_phase.md` holds **four** session blocks (spec 2) → demote at least two — the candidates are the **Sep 28** block and the **Oct 27 PVE-update** block; keep the Phase 20 block as the newest |
+| **`MAKE_MEMORIES` pass** | ✅ **Done Oct 27 (pass 13)** — `current_phase.md` 13 → 9 blocks: the Sep 28 and Oct 27 PVE-update handoffs, the stale "ACTIVE: Phase 16" block and Phase 15 demoted (commits 13a–d); the Phase 20 block kept as the newest handoff. Backlog left: five Aug 19–21 blocks |
 | **D5** | ≥ **Oct 28, 23:00**: `sudo kubectl exec -n cattle-monitoring-system prometheus-rancher-monitoring-prometheus-0 -c prometheus -- du -sh /prometheus` on `.187`; compare with baseline **44.3 MB / ~207k head series / zvol 10.2 G**; confirm `retentionSize 15GiB` is honoured. Record in the Drills table |
 | **D6** | When a community Rancher newer than 2.15.2 exists: upgrade drill with the SAME `rancher-values.yaml` (and the matching rancher-monitoring chart — 110.x is tied to 2.15) |
 | **Root PAT `phase20-ai-build`** | 7-day GitLab root token (scope `api`), expires **2026-11-03** — revoke when Phase 20 is closed. Value in `PASSWORDS.md` |

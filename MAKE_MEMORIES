@@ -152,6 +152,22 @@ phases/phaseX_*.md (the working record - where the volume belongs):
          history table still numbered the backlog "19+" an hour after Phase 19 was created, and the
          Phase 16 row still cited snapshots purged that evening. Same lesson as pass 11 — a fact in N
          places: `rg` for it after every change, not just in the file you are editing.
+       Oct 27, 2026 (START of pass 13): 13 blocks, 0 dated Jan-July 2026, 1242 lines
+       Oct 27, 2026 (after pass 13a-d): 9 blocks, 0 dated Jan-July 2026, 686 lines
+         Four demotions, four commits: 13a Phase 15 (Aug 12-13, the oldest, 420 lines) -> phase15;
+         13b the "ACTIVE: Phase 16" block -> phase16; 13c Sep 28 handoff -> phase18; 13d the Oct 27
+         PVE-update handoff -> phase1b. Kept: RESUME HERE + the Phase 20 handoff = the spec's 2.
+         Backlog left: the five Aug 19-21 blocks.
+         🚨 THE OLDEST BLOCK STILL HELD TWO LIVE RULES that a first grep missed: track 1's `figcheck`
+         exits 1 BY DESIGN (a fresh session would "fix" four accepted figures), and `qm set` on a
+         running VM only STAGES a CPU/RAM change (it was in phase14 only, at line 1713). Both now in
+         MEMORY.md. A third (the vm-ephemeral boot-import check, unproven until the next host boot)
+         lived only in a handoff and phase19 - promoted to the PHASE INDEX Phase 19 row.
+         🚨 "ACTIVE ... Next: Part 2" for a phase closed six days later sat in this file for 75 days.
+         A status heading goes false silently; demotion is what retires it.
+         ⚠️ The log-row line count is TYPED BY HAND into demote_block.py and was wrong three times out
+         of four (block-span vs the tool's trimmed count). Take the number from the tool's "staged: -N
+         lines" output and fix the row before committing.
          ⭐ Pass 9 salvaged a LIVE SECURITY CAVEAT that existed in one place only: the master
          password leaked to public GitHub in June 2026 was purged from history and NEVER ROTATED.
          MEMORY.md said "history was purged", which reads as remediated. A purge is not a rotation.

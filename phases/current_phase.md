@@ -60,7 +60,7 @@ on their own; **check again a few minutes later before calling a cold start brok
 `MEMORY.md` → PATCHING POLICY (🚨 the upgrade silently dropped the proven fallback kernel off the ESPs).
 (3) ✅ five-node baseline `c02-virgin-cluster` retaken — cluster back 5/5 Ready, all pods Running. (4) 🔲 **kernel drill on the NEXT kernel, within 60–90
 days** — see `phase18`. (5) ✅ **host kernel trial DONE Oct 27, 2026 — on `7.0.14-26` (not `-19`; the
-target moved), PVE 9.2.24.** See the Oct 27 session block below. ✅ Cluster 5/5 `Ready`, 39/39 pods after it.
+target moved), PVE 9.2.24.** Record: `phase1b` → last section (that session's handoff block was demoted there too). ✅ Cluster 5/5 `Ready`, 39/39 pods after it.
 ⚠️ **Read the Stage 1 results block in `phases/phase18_k8s_cka_build.md` before touching this** — it
 holds the corrections (kube-vip did NOT crash-loop; the Calico operator HARD-CODES
 `192.168.0.0/16`; `node.spec.podCIDR` is inert; `RESTARTS 0` does not mean a static pod was
@@ -94,7 +94,8 @@ thing and note errors. I'll come back to help manage them."*
   password (pre-existing), so it is shared — rotating it is a lab-wide decision.
 - 🔲 **Revoke the 7-day root PAT `phase20-ai-build`** when Phase 20 is closed (expires 2026-11-03 anyway).
 - 🔲 **D5 due ≥ Oct 28 23:00** — Prometheus disk vs the 44.3 MB baseline. **D6** when Rancher > 2.15.2 ships.
-- ⚠️ This file now holds **four** session blocks (spec: 2) — two demotions owed under `MAKE_MEMORIES`.
+- ✅ `MAKE_MEMORIES` pass 13 done (Oct 27): 13 → 9 blocks; the two older handoffs, the stale "ACTIVE: Phase 16"
+  block and Phase 15 demoted. Backlog left: the five Aug 19–21 blocks below.
 
 ## 🔧 BUILD STANDARD OVERHAUL — a second distro, and the script server nearly deleted itself (Aug 21, 2026, evening) ✅ DONE
 
