@@ -46,6 +46,8 @@
 #   .183  vm-sonarqube-1
 #   .184  vm-www-1
 #   .185  vm-jenkins-1 (added Aug 20, 2026, Phase 17 - replaced the destroyed vm-openclaw-1)
+#   .187  vm-k3s-rancher-1 (added Oct 27, 2026, Phase 20 - single-node K3s + Rancher; OS only,
+#         K3s/Rancher are pinned and not apt-managed; one node, so a reboot is safe: ~63 s to Rancher)
 #
 # Deliberately NOT targeted - frozen known state, patch by hand:
 #   .186  vm-k8-redpanda-1 (k3s POC)
@@ -89,6 +91,7 @@ VMS=(
     "192.168.1.183"
     "192.168.1.184"
     "192.168.1.185"
+    "192.168.1.187"
 )
 
 SSH_USER="agamache"

@@ -1,0 +1,8 @@
+# Rancher Helm values for vm-k3s-rancher-1 (Phase 20). Upgrades MUST reuse these.
+# bootstrapPassword is deliberately absent — it is passed from a root-only file at install time
+# and lives in PASSWORDS.md.
+hostname: rancher.gothamtechnologies.com
+replicas: 1
+ingress:
+  tls:
+    source: rancher

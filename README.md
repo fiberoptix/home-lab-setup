@@ -34,8 +34,12 @@ full pipeline to **QA** (on this lab) and **PROD** (a local production server on
 
 ---
 
-## ✨ What's New (June → September 2026)
+## ✨ What's New (June → October 2026)
 
+- 🐮 **Rancher on single-node K3s (Phase 20, Oct 27):** Rancher Manager 2.15 (community) evaluated as
+  a Kubernetes admin GUI, installed the enterprise way — by Helm onto its own cluster — with monitoring
+  and **Fleet GitOps** from a GitLab repo (commit → serving in ~40 s). Drills showed apps and GitOps keep
+  running with Rancher scaled to zero, and that one container ignoring SIGTERM added 90 s to every reboot.
 - ☸️ **A real HA Kubernetes cluster (Phase 18):** five `kubeadm` nodes — **3 control planes with
   stacked etcd + 2 workers** — behind a **kube-vip** virtual IP, **Kubernetes v1.35.8**, **Calico**
   networking. Failover measured at **17 s** after an abrupt power-off of the VIP holder; a snapshot
@@ -86,7 +90,7 @@ All six drives were at **0–2% wear with zero media errors** when last measured
 |---|---|---|---|
 | `rpool` | 2x500GB **mirror** | Proxmox OS, ISOs | Mirror + nightly host-config backup |
 | `vm-critical` | 2x1TB **mirror** | GitLab, SonarQube, Jenkins, WWW/PROD, **the Kubernetes cluster** | Mirror + **nightly VM backups** to the NAS |
-| `vm-ephemeral` | 2x1TB **stripe** | QA, CI runner, k3s POC, Docker Swarm, template | Rebuildable from this repo by design |
+| `vm-ephemeral` | 2x1TB **stripe** | QA, CI runner, k3s POC, Rancher/K3s, Docker Swarm, template | Rebuildable from this repo by design |
 
 - **Thin-provisioned** — a VM disk uses only what it has written. On Sep 28 real allocation was
   **8%** (`vm-critical`) and **3%** (`vm-ephemeral`).
@@ -104,7 +108,7 @@ Full record: [`phases/phase19_storage_tiers.md`](phases/phase19_storage_tiers.md
 
 ## 🏗️ Infrastructure Architecture
 
-**15 VMs running + 1 template** — read live from `qm config` on **Sep 28, 2026**:
+**16 VMs running + 1 template** — read live from `qm config` on **Sep 28, 2026** (VM 187 added Oct 27):
 
 | VMID | Name | Purpose | RAM | Cores | Disk | Pool | onboot |
 |---|---|---|---|---|---|---|---|
@@ -115,13 +119,14 @@ Full record: [`phases/phase19_storage_tiers.md`](phases/phase19_storage_tiers.md
 | 184 | `vm-www-1` | Traefik + Capricorn PROD + splash (DMZ) | 8GB | 8 | 50GB | critical | ✅ |
 | 185 | `vm-jenkins-1` | Jenkins 2.568 LTS controller + agent | 8GB | 4 | 60GB | critical | ✅ |
 | 186 | `vm-k8-redpanda-1` | k3s + Redpanda POC (frozen) | 16GB | 8 | 300GB | ephemeral | ⚠️ 0 |
+| 187 | `vm-k3s-rancher-1` | Single-node K3s + Rancher Manager + Fleet GitOps | 24GB | 6 | 120GB | ephemeral | ✅ |
 | 191–193 | `docker-swarm-1..3` | Three-manager Docker Swarm | 4GB each | 2 each | 40GB each | ephemeral | ⚠️ 0 |
 | 201–203 | `vm-k8s-cka-control-1..3` | Kubernetes control planes (stacked etcd) | 4GB each | 2 each | 40GB each | critical | ⚠️ 0 |
 | 204–205 | `vm-k8s-cka-worker-1..2` | Kubernetes workers | 4GB each | 2 each | 40GB each | critical | ⚠️ 0 |
 | 9000 | `tmpl-ubuntu-2404-cloudinit` | Cloud-init template — **stays stopped** | — | — | — | ephemeral | — |
 
 - **All guests run Ubuntu 24.04 LTS.** The kube-vip virtual IP is **`.206`**, with no VM behind it.
-- **Resources:** 124GB of 192GB RAM allocated; **64 vCPUs on 48 threads** (CPU is the tighter constraint).
+- **Resources:** 148GB of 192GB RAM allocated; **70 vCPUs on 48 threads** (CPU is the tighter constraint; measured Oct 27).
 - 🚨 **The lab VMs are `onboot=0` and stay DOWN after a host reboot** — 186, the Swarm and the
   Kubernetes cluster must be started by hand (control planes first, then workers).
 - ⛔ **OpenClaw** (Phase 11, an AI agent server) was destroyed Aug 19, 2026; its VMID and IP are Jenkins now.
@@ -142,7 +147,7 @@ HTTPS** only for the Capricorn site and splash page, through Traefik on the DMZ 
 
 | Task | How |
 |---|---|
-| **Patch the core VMs** (180–185) | `refresh` on the host — parallel update + reboot with a live status screen, `tmux`-protected |
+| **Patch the core VMs** (180–185, 187) | `refresh` on the host — parallel update + reboot with a live status screen, `tmux`-protected |
 | **Patch the Kubernetes nodes** | Never `refresh` (a parallel reboot loses etcd quorum): drain → update → reboot → `Ready` → uncordon, one node at a time |
 | **Patch the host** | `update` (`apt full-upgrade`, never `apt upgrade`), then check the boot report: the kernel **pin** decides what boots, and a known-good fallback must still be on the boot partitions |
 | **New host kernel** | One-shot `proxmox-boot-tool kernel pin --next-boot` trial at the console before making it permanent. A hang before root mounts does **not** revert on its own — pick the old kernel in the boot menu. After pinning, `update --boot-check`: moving the pin drops the old one off the boot partitions |
@@ -176,7 +181,8 @@ controller. Every kernel change since has been reversible and console-gated —
 | 17 | Jenkins | ⏸️ On hold (resume at Part 4) |
 | 18 | **Kubernetes HA (`kubeadm`) + CKA prep** | 🔵 **Active** — built Sep 17; CKA drilling next |
 | 19 | Storage tiers — thin pools, backups by tier | ✅ Sep 28, 2026 |
-| 20+ | Backlog, in order: OpenSearch · Prometheus + Grafana · Redpanda Connect + Debezium CDC · MongoDB + Postgres · SAML/OIDC (authentik) · Ansible | 💭 Planned |
+| 20 | **Rancher on single-node K3s** + Fleet GitOps from GitLab | 🔵 Built Oct 27, 2026 — drills D5/D6 pending |
+| 21+ | Backlog, in order: OpenSearch · Prometheus + Grafana · Redpanda Connect + Debezium CDC · MongoDB + Postgres · SAML/OIDC (authentik) · Ansible | 💭 Planned |
 
 **Services:**
 - ✅ Proxmox VE **9.2.24** at 192.168.1.150 (kernel **7.0.14-26-pve**, pinned; known-good `7.0.14-4` and `7.0.6-2` kept as boot fallbacks)
@@ -187,6 +193,7 @@ controller. Every kernel change since has been reversible and console-gated —
 - ✅ Capricorn QA at 192.168.1.180:5001 · PROD at https://cap.gothamtechnologies.com
 - ✅ Kubernetes **v1.35.8** HA cluster at .201–.205, API through the kube-vip VIP **.206**
 - ✅ Docker Swarm (Docker **29.7.2**) at .191–.193 · k3s **v1.36.2** + Redpanda at .186
+- ✅ Rancher **2.15.2** on K3s **v1.35.9** at .187 (https://rancher.gothamtechnologies.com, LAN only)
 - ✅ Script server at http://192.168.1.195/ — host setup for Ubuntu and Fedora
 
 ---
@@ -228,7 +235,8 @@ home-lab-setup/
 │   ├── phase11 … phase13        # OpenClaw (history), perimeter lockdown, host audit
 │   ├── phase14 … phase17        # k3s + Redpanda, education program, Docker Swarm, Jenkins
 │   ├── phase18_k8s_cka_build.md # Kubernetes HA + CKA (active)
-│   └── phase19_storage_tiers.md # Storage tiers, thin pools, backups by tier
+│   ├── phase19_storage_tiers.md # Storage tiers, thin pools, backups by tier
+│   └── phase20_k3s_rancher.md   # Rancher on single-node K3s, Fleet GitOps, drills
 │
 ├── proxmox/
 │   ├── Home_Lab_Proxmox_*.md    # Build plan, design, storage, install notes
@@ -237,7 +245,8 @@ home-lab-setup/
 │       ├── proxmox-update.sh    #   host full-upgrade + boot/kernel report (--boot-check: report only)
 │       ├── zfs-capacity-alert.* #   hourly pool capacity/health email
 │       ├── pve-host-config-backup.*  # nightly host-config archive to the NAS
-│       └── move_k8s_node_pool.sh     # snapshot-preserving move of a k8s node between pools
+│       ├── move_k8s_node_pool.sh     # snapshot-preserving move of a k8s node between pools
+│       └── rancher-k3s/              # Phase 20 build scripts (provision, K3s, Rancher, monitoring, GitOps)
 │
 ├── education/                   # Printable study tracks (see above) + shared tools
 ├── tools/                       # Repo maintenance helpers (e.g. demote_block.py)

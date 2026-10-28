@@ -1,0 +1,32 @@
+# rancher-monitoring values for vm-k3s-rancher-1 (Phase 20, Part 5). Upgrades MUST reuse these.
+# The global/k3s keys mirror what Rancher's Apps UI sets when it installs this chart on K3s.
+global:
+  cattle:
+    clusterId: local
+    clusterName: local
+
+# K3s runs the control plane inside one process: scrape it through PushProx, and point the
+# dashboards' job selectors at that job instead of separate controller-manager/scheduler/proxy pods.
+k3sServer:
+  enabled: true
+kubeControllerManager:
+  jobNameOverride: k3s-server
+kubeScheduler:
+  jobNameOverride: k3s-server
+kubeProxy:
+  jobNameOverride: k3s-server
+
+prometheus:
+  prometheusSpec:
+    # 🚨 vm-ephemeral is a THIN pool; one VM filling it stalls every VM on it (Phase 19).
+    # retentionSize stays well under the PVC so Prometheus deletes blocks before the disk fills.
+    retention: 7d
+    retentionSize: 15GiB
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: local-path
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 20Gi

@@ -1,6 +1,6 @@
 # Current Phase
 
-**Updated:** October 27, 2026 - 9:30 PM EDT
+**Updated:** October 27, 2026 - 11:10 PM EDT
 
 📐 **Shape, and how to keep it:** `▶️ RESUME HERE` is the **first block** as of Aug 24 — it had been
 at line 389 under six stale session blocks, so the one thing you must read first was the one you had
@@ -9,6 +9,10 @@ counts blocks (spec: 2) and step 2 demotes at least one per pass, so this file d
 growing — see that file for why the previous append-only version went undetected for seven months.
 
 ## ▶️ RESUME HERE — 🔵 **PHASE 18: THE CLUSTER EXISTS. STAGES 1 AND 2 ARE COMPLETE.**
+
+🆕 **Oct 27 (late): PHASE 20 BUILT — Rancher on single-node K3s, VM 187 `.187`** — a separate track; it
+does **not** touch the CKA cluster and does not change the Phase 18 next step below. Open items for Andrew
+are in the Phase 20 session block underneath; the record is `phases/phase20_k3s_rancher.md` → ▶️ BUILD RESULTS.
 
 ✅ **A REAL 5-NODE HA KUBERNETES CLUSTER IS RUNNING as of Sep 17, 2026** — `vm-k8s-cka-control-1/2/3`
 at `.201`–`.203` and `vm-k8s-cka-worker-1/2` at `.204`/`.205`, all **v1.35.8 `Ready`**, three stacked
@@ -61,6 +65,36 @@ target moved), PVE 9.2.24.** See the Oct 27 session block below. ✅ Cluster 5/5
 holds the corrections (kube-vip did NOT crash-loop; the Calico operator HARD-CODES
 `192.168.0.0/16`; `node.spec.podCIDR` is inert; `RESTARTS 0` does not mean a static pod was
 untouched).
+
+## 📘 SESSION Oct 27, 2026 (22:00–23:10) — Phase 20: Rancher on K3s built end to end (AI-built)
+
+🎯 **Outcome: https://rancher.gothamtechnologies.com is up (Rancher 2.15.2 on K3s v1.35.9, VM 187), with
+monitoring, and http://hello-rancher.gothamtechnologies.com/ is deployed by Fleet GitOps from GitLab
+`production/rancher-k3s` — push → serving in ~40 s. Drills D1–D4 passed.** 🙋 *"Try to build the whole
+thing and note errors. I'll come back to help manage them."*
+
+### ✅ Done (the AI built it; Andrew set scope, names and repo location)
+1. VM 187 (template 9000 → new `rancher-k3s/1-provision-vm.sh` → `2-personalize.sh` → full-upgrade), in
+   `refresh.sh` (md5 host = repo), Route53 `rancher` + `hello-rancher` → `.187`.
+2. K3s → Helm v3 → cert-manager → Rancher → rancher-monitoring → GitLab project + tokens + CI → Fleet
+   GitRepo → push-model SA. Scripts `3-`…`6-*.sh` all re-ran with 0 changes. Snapshots `r01` → `r02` → `r03`.
+3. Drills: reboot 63 s to Rancher (after a fix), Rancher at 0 replicas does not stop apps OR GitOps, broken
+   manifest is safe and reverts in 21 s, broken registry credential diagnosed and restored in 16 s.
+
+### 🚨 Found (all in `phase20` → findings F1–F12, errors E1–E7)
+- **One container ignoring SIGTERM cost 87 s on every VM reboot** (Python as PID 1). Fixed in the app.
+- **Fleet's status lagged a finished rollout by ~4 min**; **Rancher's pod summary hides a registry 401**.
+- Rancher 2.15.2 has **no `telemetry-opt` setting** (script error, fixed).
+
+### 🔲 Open — for Andrew
+- 🔲 **Log in and look around** — `admin`, password in `PASSWORDS.md`. The CA is Rancher's own, so the
+  browser warns.
+- 🔲 **E7: the GitLab root password was printed in this session's tool output** (redaction miss, local
+  transcript only). The same string is already in tracked `MEMORY.md`/`current_phase.md` as the SMB
+  password (pre-existing), so it is shared — rotating it is a lab-wide decision.
+- 🔲 **Revoke the 7-day root PAT `phase20-ai-build`** when Phase 20 is closed (expires 2026-11-03 anyway).
+- 🔲 **D5 due ≥ Oct 28 23:00** — Prometheus disk vs the 44.3 MB baseline. **D6** when Rancher > 2.15.2 ships.
+- ⚠️ This file now holds **four** session blocks (spec: 2) — two demotions owed under `MAKE_MEMORIES`.
 
 ## 📘 SESSION Oct 27, 2026 — PVE 9.2.20 → 9.2.24, kernel `7.0.14-26` adopted, two procedure bugs found
 

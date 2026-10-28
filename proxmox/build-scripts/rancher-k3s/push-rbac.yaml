@@ -1,0 +1,45 @@
+# Push-model comparison: the identity GitLab CI uses (job deploy_push). Namespace-scoped on
+# purpose — it can manage hello-lab-push and nothing else, and cannot read Secrets.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: hello-lab-push
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: gitlab-deployer
+  namespace: hello-lab-push
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: gitlab-deployer
+  namespace: hello-lab-push
+rules:
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+  - apiGroups: ["apps"]
+    resources: ["replicasets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["services"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: gitlab-deployer
+  namespace: hello-lab-push
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: gitlab-deployer
+subjects:
+  - kind: ServiceAccount
+    name: gitlab-deployer
+    namespace: hello-lab-push
