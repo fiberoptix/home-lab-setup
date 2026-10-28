@@ -698,64 +698,6 @@ is not sticky, now observed four times). `/home/agamache/swarm-ci/{scripts,manif
 
 ---
 
-## 🔵 ACTIVE: Phase 16 — Docker Swarm (education track 2)
-
-**Full plan + implementation log: `phases/phase16_docker_swarm.md`.**
-
-### ✅ Part 1 COMPLETE (Aug 13, 2026, 12:12–12:26 PM EDT)
-
-Three nodes exist and are ready for `swarm init`:
-
-| VMID | Name | IP | Spec | State |
-|---|---|---|---|---|
-| 191 | `docker-swarm-1` | 192.168.1.191 | 2 vCPU / 4 GB / 40 GB `vm-ephemeral` | running, `onboot=1`, Swarm inactive |
-| 192 | `docker-swarm-2` | 192.168.1.192 | 2 vCPU / 4 GB / 40 GB `vm-ephemeral` | running, `onboot=1`, Swarm inactive |
-| 193 | `docker-swarm-3` | 192.168.1.193 | 2 vCPU / 4 GB / 40 GB `vm-ephemeral` | running, `onboot=1`, Swarm inactive |
-
-Docker **29.7.2** / Compose **v5.4.0**, Ubuntu 24.04 LTS from template 9000. All three snapshotted
-**`s01-base-clean`**, taken hot and together (~1.6 s each, guest-agent freeze/thaw, nothing stopped).
-
-**Built by two committed idempotent scripts**, not by typing commands three times —
-`education/docker-swarm/scripts/provision_nodes.sh` (runs on the pve host) and `post_setup.sh` (runs
-on each node). Three full clones took **38 seconds**; personalization ran on all three **in parallel**
-in ~3 minutes.
-
-**Pre-flight decisions taken:** **A5 closed** — the stack file and scripts live in
-`education/docker-swarm/{manifests,scripts}/`, keeping the track self-contained per `CONVENTIONS.md`
-and setting the pattern later tracks copy. **A2 deferred to Part 4** (whether this repo gains a
-`.gitlab-ci.yml`), because it is really one decision together with the `workflow: rules:` guard that
-stops every `push_gitlab.sh` backup from spawning a pipeline. **A3 stays deferred into Part 5** by
-design. **Nothing blocks Part 2.**
-
-**What was worth learning in an otherwise smooth build:**
-- ✅ **`growpart` ran** — the plan's loudest warning was a non-event. ⚠️ But **`df -h /` reads 38G, not
-  40G**: `sda15` (106M EFI) and `sda16` (913M `/boot`) come out of the 40 GB virtual disk. **38G is
-  correct — do not go hunting the missing 2 GB.**
-- ⚠️ **`host_setup.sh` really does install Chrome + Cursor on a headless node, and now we know why:**
-  it runs the desktop branch if it finds `gnome-shell` **or `gsettings`**, and the Ubuntu 24.04 cloud
-  image ships `gsettings`. The log even says "Desktop environment detected". Purging took each node
-  from **4.4 GB to 2.2 GB used** — the ~1.8 GB the plan predicted. Apply this to every future clone.
-- ✅ **`refresh.sh` needed no edit.** It targets an explicit allow-list (`.180`–`.184`), so new VMs are
-  excluded by construction. The guest half still mattered: `unattended-upgrades`, `apt-daily` and
-  `apt-daily-upgrade` are **masked** on all three (B4).
-- ✅ **Nothing obstructs Swarm's ports.** `/etc/pve/firewall/` holds only `184.fw`, `185.fw` and
-  `cluster.fw` — there is **no `19x.fw`**, so the guest firewall is off despite `firewall=1` on the
-  NIC, and `2377`/`7946`/`4789` are clear. ⚠️ Adding a `19x.fw` later without those three rules
-  **breaks the cluster silently.**
-- ✅ **The registry config came free from the standard script**, which was the whole argument for using
-  it: `insecure-registries` is in `/etc/docker/daemon.json` on all three, and `/v2/` answers **401**
-  from `.191` (up, requiring auth).
-- ✅ **No backup job sweeps them in** — `/etc/pve/jobs.cfg` has one job, scoped to `vmid 181`.
-  Consistent with "backups: none, snapshots instead" for rebuildable VMs.
-
-### ⬜ Next: Part 2 — form the cluster
-
-`docker swarm init --advertise-addr 192.168.1.191`, join `.192`/`.193` as managers, confirm one
-`Leader` + two `Reachable`, then `s02-swarm-up` on all three together (B3). After that, chapter 1
-can be drafted, since it covers Parts 1–2 and half of it has now actually been run.
-
----
-
 ## 📦 DEMOTION LOG — Aug 24 + Sep 16, 2026 (ONE block, on purpose — append a ROW, never a block)
 
 ⚠️ **This block exists because the first four demotions each left a marker block behind, so the block
@@ -801,6 +743,7 @@ artefact per unit of work, the artefacts become the backlog.** One log, appended
 | `✅ qemu-guest-agent rolled out to all 5 live VMs` (July 9) | 16 | `phase13` (verbatim) | Covered — nothing open. **All July blocks are now out of `current_phase.md`** |
 | `🎉 ANDREW GOT THE JOB` (Aug 12) | 58 | `phase14` (verbatim) | COVERED — roadmap rule, chapter-7 rule and de-identification rule all hand-checked live in `MEMORY.md` (ll. 137/151/178). Audit also fixed two stale history rows: "19+" backlog → "20+" (Phase 19 is now storage tiers) and the Phase 16 row's purged snapshots |
 | `✅ Phase 15 — The Education Program` (Aug 12–13) | 420 | `phase15` (verbatim) + 2 rules PROMOTED to `MEMORY.md` | 🚨 **Two live rules lived only here / deep in `phase14`:** track 1's `figcheck` exits 1 BY DESIGN (four accepted sub-10pt figures — a fresh session would "fix" it), and `qm set` on a running VM silently only stages a CPU/RAM change. Everything else COVERED (METHOD "Who does the work", CONVENTIONS chapter scope, CURSOR_RULES edu rule 6, CIFS audit regex at MEMORY l.44, SSH/Tailscale/remote runbook). Its Next list was SPENT — flagged in the copy |
+| `🔵 ACTIVE: Phase 16 — Docker Swarm` (Aug 13) | 55 | `phase16` (verbatim) | 🚨 **Status was false:** "ACTIVE … Next: Part 2" six days after the phase closed — a fresh session reading top-down would resume finished work. All facts COVERED (38G-not-40G, `gsettings` desktop detection, `19x.fw` vs swarm ports, `s01-base-clean`, `provision_nodes.sh`) |
 
 ⭐ **A THIRD FINDING, and it is a repeat this log had already warned about.** Pass 9 rebuilt an
 automated coverage checker, validated it with a positive control (100% on a file searched against

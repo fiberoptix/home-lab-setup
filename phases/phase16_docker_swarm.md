@@ -4135,3 +4135,65 @@ prompt ate the join-token line. Harmless here, but **from now on: `ssh` alone an
 
 ---
 
+---
+
+## DEMOTED VERBATIM FROM `phases/current_phase.md` — Oct 27, 2026 (`MAKE_MEMORIES` pass 13)
+
+⚠️ Copied verbatim from `current_phase.md` (written Aug 13, 2026, after Part 1). **STALE as a status:** it says "ACTIVE" and "Next: Part 2", but Phase 16 CLOSED Aug 19, 2026 — this file's own close-out is authoritative. Kept as the Part 1 handoff record.
+
+## 🔵 ACTIVE: Phase 16 — Docker Swarm (education track 2)
+
+**Full plan + implementation log: `phases/phase16_docker_swarm.md`.**
+
+### ✅ Part 1 COMPLETE (Aug 13, 2026, 12:12–12:26 PM EDT)
+
+Three nodes exist and are ready for `swarm init`:
+
+| VMID | Name | IP | Spec | State |
+|---|---|---|---|---|
+| 191 | `docker-swarm-1` | 192.168.1.191 | 2 vCPU / 4 GB / 40 GB `vm-ephemeral` | running, `onboot=1`, Swarm inactive |
+| 192 | `docker-swarm-2` | 192.168.1.192 | 2 vCPU / 4 GB / 40 GB `vm-ephemeral` | running, `onboot=1`, Swarm inactive |
+| 193 | `docker-swarm-3` | 192.168.1.193 | 2 vCPU / 4 GB / 40 GB `vm-ephemeral` | running, `onboot=1`, Swarm inactive |
+
+Docker **29.7.2** / Compose **v5.4.0**, Ubuntu 24.04 LTS from template 9000. All three snapshotted
+**`s01-base-clean`**, taken hot and together (~1.6 s each, guest-agent freeze/thaw, nothing stopped).
+
+**Built by two committed idempotent scripts**, not by typing commands three times —
+`education/docker-swarm/scripts/provision_nodes.sh` (runs on the pve host) and `post_setup.sh` (runs
+on each node). Three full clones took **38 seconds**; personalization ran on all three **in parallel**
+in ~3 minutes.
+
+**Pre-flight decisions taken:** **A5 closed** — the stack file and scripts live in
+`education/docker-swarm/{manifests,scripts}/`, keeping the track self-contained per `CONVENTIONS.md`
+and setting the pattern later tracks copy. **A2 deferred to Part 4** (whether this repo gains a
+`.gitlab-ci.yml`), because it is really one decision together with the `workflow: rules:` guard that
+stops every `push_gitlab.sh` backup from spawning a pipeline. **A3 stays deferred into Part 5** by
+design. **Nothing blocks Part 2.**
+
+**What was worth learning in an otherwise smooth build:**
+- ✅ **`growpart` ran** — the plan's loudest warning was a non-event. ⚠️ But **`df -h /` reads 38G, not
+  40G**: `sda15` (106M EFI) and `sda16` (913M `/boot`) come out of the 40 GB virtual disk. **38G is
+  correct — do not go hunting the missing 2 GB.**
+- ⚠️ **`host_setup.sh` really does install Chrome + Cursor on a headless node, and now we know why:**
+  it runs the desktop branch if it finds `gnome-shell` **or `gsettings`**, and the Ubuntu 24.04 cloud
+  image ships `gsettings`. The log even says "Desktop environment detected". Purging took each node
+  from **4.4 GB to 2.2 GB used** — the ~1.8 GB the plan predicted. Apply this to every future clone.
+- ✅ **`refresh.sh` needed no edit.** It targets an explicit allow-list (`.180`–`.184`), so new VMs are
+  excluded by construction. The guest half still mattered: `unattended-upgrades`, `apt-daily` and
+  `apt-daily-upgrade` are **masked** on all three (B4).
+- ✅ **Nothing obstructs Swarm's ports.** `/etc/pve/firewall/` holds only `184.fw`, `185.fw` and
+  `cluster.fw` — there is **no `19x.fw`**, so the guest firewall is off despite `firewall=1` on the
+  NIC, and `2377`/`7946`/`4789` are clear. ⚠️ Adding a `19x.fw` later without those three rules
+  **breaks the cluster silently.**
+- ✅ **The registry config came free from the standard script**, which was the whole argument for using
+  it: `insecure-registries` is in `/etc/docker/daemon.json` on all three, and `/v2/` answers **401**
+  from `.191` (up, requiring auth).
+- ✅ **No backup job sweeps them in** — `/etc/pve/jobs.cfg` has one job, scoped to `vmid 181`.
+  Consistent with "backups: none, snapshots instead" for rebuildable VMs.
+
+### ⬜ Next: Part 2 — form the cluster
+
+`docker swarm init --advertise-addr 192.168.1.191`, join `.192`/`.193` as managers, confirm one
+`Leader` + two `Reachable`, then `s02-swarm-up` on all three together (B3). After that, chapter 1
+can be drafted, since it covers Parts 1–2 and half of it has now actually been run.
+
