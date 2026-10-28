@@ -5,6 +5,73 @@ D1–D4 done, D5 due Oct 28 ~23:00 (24 h of Prometheus data), D6 waits for a new
 🙋 *"Write a plan to build rancher into a new VM vm-k3s-rancher-1 with all the things you said and ideally
 I'd like you to build it for me completely."* · *"Try to build the whole thing and note errors."*
 
+## ▶️ RESUME HERE — state at session close (Oct 27, 2026, 23:10)
+
+🙋 Andrew, 23:09: *"Confirm that we now have a working Rancher in K3s and we have documented the build
+and are ready to action MAKE_MEMORIES then commit and push. Later we can deploy an actual app to it."*
+→ **Confirmed.** 🙋 23:10: *"make sure to document the above in the phase file so when I come back and ask
+you to read it you remember everything we did"* → this section.
+
+**✅ Verified working at ~23:05 Oct 27 (final health check, after the drills):** `/ping` → `pong`, dashboard
+200, admin login OK (bootstrap value rejected), management cluster `local` Ready=True, **0 pods not
+Running**, Fleet GitRepo `hello-lab` **1/1** on commit `0682a5d`, `hello-rancher` serving `3a2687e8`
+delivered by Fleet. Survived 2 reboots unattended; app + GitOps kept working with Rancher at 0 replicas.
+
+**✅ Recorded and pushed:** this file (build results, E1–E7, F1–F12, drills), `MEMORY.md` (PHASE INDEX
+row, `.187` host row, phase-table row 20 → backlog renumbered 21+, files table, `refresh.sh` lines, the
+stale "only Kubernetes is k3s on 186" line corrected), `README.md`, `current_phase.md` (pointer at the top
+of RESUME HERE + an Oct 27 Phase 20 session block). **home-lab-setup commit `84c15fd`** → GitLab
+(snapshot `74ba8ad`) and GitHub. Apps repo `production/rancher-k3s` is at `0682a5d` (GitLab only — it has
+no GitHub mirror). Only `education/fin_tech_stack.txt` is left uncommitted, on purpose (Andrew).
+
+### 🔲 Open items (carry these forward)
+
+| Item | Detail |
+|---|---|
+| **`MAKE_MEMORIES` pass** | Next step Andrew asked for, then commit + push. `current_phase.md` holds **four** session blocks (spec 2) → demote at least two — the candidates are the **Sep 28** block and the **Oct 27 PVE-update** block; keep the Phase 20 block as the newest |
+| **D5** | ≥ **Oct 28, 23:00**: `sudo kubectl exec -n cattle-monitoring-system prometheus-rancher-monitoring-prometheus-0 -c prometheus -- du -sh /prometheus` on `.187`; compare with baseline **44.3 MB / ~207k head series / zvol 10.2 G**; confirm `retentionSize 15GiB` is honoured. Record in the Drills table |
+| **D6** | When a community Rancher newer than 2.15.2 exists: upgrade drill with the SAME `rancher-values.yaml` (and the matching rancher-monitoring chart — 110.x is tied to 2.15) |
+| **Root PAT `phase20-ai-build`** | 7-day GitLab root token (scope `api`), expires **2026-11-03** — revoke when Phase 20 is closed. Value in `PASSWORDS.md` |
+| **E7 — shared password** | Printed once in this session's tool output (local only). The same string is already in tracked `MEMORY.md` / `current_phase.md` as the SMB password, so rotating it is a lab-wide decision for Andrew |
+| **Token renewals** | Deploy tokens + `BUMP_TOKEN` expire **2027-10-27**; push-model SA token **2027-10-28** |
+
+### 🚀 Next: deploying a real app (Andrew: "Later we can deploy an actual app to it")
+
+The pipeline → registry → Fleet path is proven; `hello-lab` is the template to copy. Per app:
+1. **DNS:** a new Route53 A record `<name>.gothamtechnologies.com` → `192.168.1.187` (zone
+   `Z09296022UK9OS9I920TO`, AWS CLI on `.195`) — there is **no wildcard**.
+2. **Repo layout** in `production/rancher-k3s`: `<app>/` (source + Dockerfile) and `fleet/<app>/`
+   (`fleet.yaml` with its own `defaultNamespace`, `kustomization.yaml` with an `images:` entry, manifests,
+   Ingress `ingressClassName: traefik`).
+3. **Fleet:** add `fleet/<app>` to `paths:` in `proxmox/build-scripts/rancher-k3s/fleet-gitrepo.yaml` and
+   re-run `6-gitops.sh` (or give the app its own GitRepo).
+4. **CI:** copy the `build`/`bump` jobs with `changes: [<app>/**/*]` and the app's own `kustomization.yaml`
+   path. Images go ONLY to `gitlab.gothamtechnologies.com:5050/production/rancher-k3s/<app>` (B10 scoped
+   reading). The registry pull credential in `registries.yaml` is node-wide — nothing per namespace.
+5. **Container hygiene:** must exit on SIGTERM (F1 — otherwise +30 s per rollout and +90 s per reboot);
+   non-root, probes, memory limit, as `hello-lab/deployment.yaml` does.
+6. **Data:** `local-path` PVCs live on this one VM's disk on `vm-ephemeral` (no backup job) — fine for a
+   demo, not for data that matters.
+7. ⚠️ **Lab-only anti-pattern:** apps on Rancher's own `local` cluster. At work they go on downstream clusters.
+
+### 🧰 Operating it (so nothing has to be rediscovered)
+
+- **Shell:** `ssh agamache@192.168.1.187`, then `sudo kubectl …`. For Helm: `sudo -E env
+  KUBECONFIG=/etc/rancher/k3s/k3s.yaml helm …` (plain `sudo helm` cannot find the cluster — F11).
+  ⛔ Never copy the kubeconfig to `.195`.
+- **Scripts on the VM:** `~agamache/rancher-k3s/` (copies of `3-`…`6-*.sh` + yaml). Repo is the source of
+  truth: `proxmox/build-scripts/rancher-k3s/` — edit there, `scp` over, re-run, expect `0 change(s)`.
+  `4-rancher.sh` / `6-gitops.sh` need their root-only secrets file **only** to (re)write credentials;
+  values in `PASSWORDS.md`, shred the file after.
+- **Apps repo clone:** `/home/agamache/DevShare/cursor-projects/rancher-k3s` — `origin` has no
+  credentials; push with `http://oauth2:<token>@gitlab.gothamtechnologies.com/production/rancher-k3s.git`.
+  **Pull before committing** (the bump job commits to `main` after every app build — see E5).
+- **Fleet status:** `sudo kubectl get gitrepo -n fleet-local`; if it says NotReady, check
+  `kubectl rollout status` first (F2). Roll back = `git revert` the bump commit.
+- **Rollback of the whole VM:** `qm rollback 187 r03-gitops-wired` on `.150` (newest snapshot only — ZFS).
+- **Patching:** `refresh` on the PVE host patches `.187`'s OS; K3s/Rancher upgrades are drills, never a click
+  on "upgrade" for `local` in the UI (F5).
+
 ## ▶️ BUILD RESULTS (Oct 27, 2026) — read this first
 
 | | |
