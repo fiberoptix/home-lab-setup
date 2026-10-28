@@ -1588,3 +1588,56 @@ checks are written, rather than in a log read afterwards.
 `kubectl get apiservices | grep metrics` (expect nothing). Then the Kustomize install — first **without**
 the TLS patch, to see the kubelet certificate error once.
 
+---
+
+## DEMOTED VERBATIM FROM `phases/current_phase.md` — Oct 27, 2026 (`MAKE_MEMORIES` pass 13)
+
+⚠️ Copied verbatim from `current_phase.md` (the Sep 28, 2026 session handoff). Its 🔲 items are SPENT as of Oct 27, 2026: the "check tomorrow" unattended runs were Sep 29; the host-config backup addendum was committed (`9cebed1`); the `7.0.14-19` trial was superseded by adopting `7.0.14-26` on Oct 27 (`phase1b`). Still-live items are in `MEMORY.md` (kernel drill, UPS/NUT, event-driven restore drill, `c01` rollback trap).
+
+## 📘 SESSION Sep 28, 2026 — patching brought under one policy, host upgraded, baseline retaken
+
+🎯 **Outcome: nothing in the lab updates itself any more; the PVE host is on 9.2.20 on the same pinned
+kernel; the cluster is on kernel 142 with a fresh `c02`. Chapter 05 Part 1 is still the next build step.**
+
+### ✅ Done (Andrew drove the decisions; the AI ran the commands with his go-ahead)
+1. 🙋 *"Did we pin the kernel on all nodes? Are nodes in my refresh script? Should we update the PVE?"*
+   → re-answered at High effort from measurements. The k8s nodes were the **only** VMs still running
+   `unattended-upgrades` (a Sep 17 call of the AI's, now **reversed** — 🙋 *"We would not have
+   auto-update at work"*). Frozen with `2-personalize.sh --freeze-updates`; **two bugs found and fixed
+   in that script** (`mask --now` leaves a timer `failed`; `is-enabled` exits 1 on masked).
+2. **Scripts:** `proxmox-update.sh` → `full-upgrade` (+ boot check, + ESP-fallback warning), now in the
+   repo for the first time; `refresh.sh` deployed copy synced (it LAGGED the repo) + never-add-the-nodes
+   note. Both md5-verified host = repo.
+3. **PVE 9.2.4 → 9.2.20** via tmux on the host, log streamed back; rebooted 17:13 → 17:15:56 on pinned
+   `7.0.14-4`. 🚨 **The upgrade pushed the proven fallback `7.0.6-2` off both ESPs** — caught by the new
+   boot check BEFORE the reboot, restored as a manual kernel. Root snapshot
+   `rpool/ROOT/pve-1@pre-pve-9.2.20-2026-09-28` kept.
+4. **Cluster** shut down workers-first / started control-planes-first around the reboot; **`c02` retaken**.
+5. **`MAKE_MEMORIES` pass 11:** 17 → 11 blocks, **0 July blocks left** (six commits, each verified).
+   Found: three `MEMORY.md` statements still saying Phase 18 was "NOTHING BUILT" (fixed); a lapsed
+   to-do (184's `pre_phase12_firewall` snapshot, due mid-July); an undated drill (GitLab restore → ~Oct 9).
+
+### 🔲 Open — for Andrew
+- ✅ **`CURSOR_RULES` line 119 corrected** (Andrew approved in writing Sep 28) — lists both clusters now.
+- ✅ **`CURSOR_RULES` Tailscale + PVE-version lines corrected** (Andrew approved in writing Sep 28): the
+  host IS on the tailnet (`pve`, `100.108.209.77`, subnet router). RAM line corrected to 192 GB.
+- ✅ **`CURSOR_RULES` startup item 5 = STORAGE CHECK** (approved in writing): report `zpool list` CAP each
+  boot; ⛔ STOP at ≥ 80% or any pool not ONLINE.
+- ✅ **184's `pre_phase12_firewall` snapshot DELETED** (Andrew, Sep 28): `vm-critical` 668 G → 654 G.
+- 🔄 **GitLab restore drill is now EVENT-DRIVEN** (Andrew questioned "quarterly"): after a major PVE
+  upgrade, a NAS/backup-job change, or a backup failure. No calendar date.
+- Kernel drill within 60–90 days. Host kernel `7.0.14-19` trial later.
+- ✅ **Storage → became PHASE 19, opened and closed the same evening** (`phases/phase19_storage_tiers.md`).
+  The ~75% was reservation (thick zvols), not data. Both pools now THIN (GUI 71% → 7%); k8s 201–205 moved
+  to the mirror with `c01`/`c02` (via `zfs send -R` — PVE move-disk drops snapshots); `critical-nightly`
+  backup job (183, 185, 201–205) + restore drill passed; hourly capacity email (70/80%); Swarm `s01`–`s07`
+  purged → `baseline-2026-09-28`. **No hardware bought.**
+- 🚨 **`c01-nodes-ready` cannot be rolled back to while `c02` exists** (ZFS rolls back only to the most
+  recent snapshot) — found during Phase 19.
+- ✅ **Host health audit** (Andrew: "any other maintenance?"): drives/alerts/scrub/TRIM/certs all healthy.
+  🚨 **The host's own config had NO backup** → fixed: `pve-host-config-backup.timer` (01:30, NAS, keep 30),
+  restore-tested. SEC-1/SEC-2 **kept deferred** by Andrew (now knowing the host is a Tailscale subnet
+  router). UPS is **power-only** — 🔲 USB cable + NUT for graceful shutdown, when wanted.
+- 🔲 **Check tomorrow:** the first unattended runs — 01:30 host config, 02:00 GitLab, 02:30 `critical-nightly`.
+- **Commits:** Phase 19 pushed (`92b1822`); the host-config backup addendum is not yet committed.
+

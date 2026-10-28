@@ -127,55 +127,6 @@ cluster 5/5 `Ready`. Chapter 05 Part 1 is STILL the next build step — this ses
 - GitLab restore drill **not** triggered — point release, per the event-driven rule.
 - ⚠️ This file now holds **three** session blocks (spec: 2) — the Sep 28 block is owed a `MAKE_MEMORIES` demotion.
 
-## 📘 SESSION Sep 28, 2026 — patching brought under one policy, host upgraded, baseline retaken
-
-🎯 **Outcome: nothing in the lab updates itself any more; the PVE host is on 9.2.20 on the same pinned
-kernel; the cluster is on kernel 142 with a fresh `c02`. Chapter 05 Part 1 is still the next build step.**
-
-### ✅ Done (Andrew drove the decisions; the AI ran the commands with his go-ahead)
-1. 🙋 *"Did we pin the kernel on all nodes? Are nodes in my refresh script? Should we update the PVE?"*
-   → re-answered at High effort from measurements. The k8s nodes were the **only** VMs still running
-   `unattended-upgrades` (a Sep 17 call of the AI's, now **reversed** — 🙋 *"We would not have
-   auto-update at work"*). Frozen with `2-personalize.sh --freeze-updates`; **two bugs found and fixed
-   in that script** (`mask --now` leaves a timer `failed`; `is-enabled` exits 1 on masked).
-2. **Scripts:** `proxmox-update.sh` → `full-upgrade` (+ boot check, + ESP-fallback warning), now in the
-   repo for the first time; `refresh.sh` deployed copy synced (it LAGGED the repo) + never-add-the-nodes
-   note. Both md5-verified host = repo.
-3. **PVE 9.2.4 → 9.2.20** via tmux on the host, log streamed back; rebooted 17:13 → 17:15:56 on pinned
-   `7.0.14-4`. 🚨 **The upgrade pushed the proven fallback `7.0.6-2` off both ESPs** — caught by the new
-   boot check BEFORE the reboot, restored as a manual kernel. Root snapshot
-   `rpool/ROOT/pve-1@pre-pve-9.2.20-2026-09-28` kept.
-4. **Cluster** shut down workers-first / started control-planes-first around the reboot; **`c02` retaken**.
-5. **`MAKE_MEMORIES` pass 11:** 17 → 11 blocks, **0 July blocks left** (six commits, each verified).
-   Found: three `MEMORY.md` statements still saying Phase 18 was "NOTHING BUILT" (fixed); a lapsed
-   to-do (184's `pre_phase12_firewall` snapshot, due mid-July); an undated drill (GitLab restore → ~Oct 9).
-
-### 🔲 Open — for Andrew
-- ✅ **`CURSOR_RULES` line 119 corrected** (Andrew approved in writing Sep 28) — lists both clusters now.
-- ✅ **`CURSOR_RULES` Tailscale + PVE-version lines corrected** (Andrew approved in writing Sep 28): the
-  host IS on the tailnet (`pve`, `100.108.209.77`, subnet router). RAM line corrected to 192 GB.
-- ✅ **`CURSOR_RULES` startup item 5 = STORAGE CHECK** (approved in writing): report `zpool list` CAP each
-  boot; ⛔ STOP at ≥ 80% or any pool not ONLINE.
-- ✅ **184's `pre_phase12_firewall` snapshot DELETED** (Andrew, Sep 28): `vm-critical` 668 G → 654 G.
-- 🔄 **GitLab restore drill is now EVENT-DRIVEN** (Andrew questioned "quarterly"): after a major PVE
-  upgrade, a NAS/backup-job change, or a backup failure. No calendar date.
-- Kernel drill within 60–90 days. Host kernel `7.0.14-19` trial later.
-- ✅ **Storage → became PHASE 19, opened and closed the same evening** (`phases/phase19_storage_tiers.md`).
-  The ~75% was reservation (thick zvols), not data. Both pools now THIN (GUI 71% → 7%); k8s 201–205 moved
-  to the mirror with `c01`/`c02` (via `zfs send -R` — PVE move-disk drops snapshots); `critical-nightly`
-  backup job (183, 185, 201–205) + restore drill passed; hourly capacity email (70/80%); Swarm `s01`–`s07`
-  purged → `baseline-2026-09-28`. **No hardware bought.**
-- 🚨 **`c01-nodes-ready` cannot be rolled back to while `c02` exists** (ZFS rolls back only to the most
-  recent snapshot) — found during Phase 19.
-- ✅ **Host health audit** (Andrew: "any other maintenance?"): drives/alerts/scrub/TRIM/certs all healthy.
-  🚨 **The host's own config had NO backup** → fixed: `pve-host-config-backup.timer` (01:30, NAS, keep 30),
-  restore-tested. SEC-1/SEC-2 **kept deferred** by Andrew (now knowing the host is a Tailscale subnet
-  router). UPS is **power-only** — 🔲 USB cable + NUT for graceful shutdown, when wanted.
-- 🔲 **Check tomorrow:** the first unattended runs — 01:30 host config, 02:00 GitLab, 02:30 `critical-nightly`.
-- **Commits:** Phase 19 pushed (`92b1822`); the host-config backup addendum is not yet committed.
-
----
-
 ## 🔧 BUILD STANDARD OVERHAUL — a second distro, and the script server nearly deleted itself (Aug 21, 2026, evening) ✅ DONE
 
 ⚠️ **This session did NOT advance Phase 17.** Part 4 (deploy to the Swarm) is still the next Jenkins
@@ -744,6 +695,7 @@ artefact per unit of work, the artefacts become the backlog.** One log, appended
 | `🎉 ANDREW GOT THE JOB` (Aug 12) | 58 | `phase14` (verbatim) | COVERED — roadmap rule, chapter-7 rule and de-identification rule all hand-checked live in `MEMORY.md` (ll. 137/151/178). Audit also fixed two stale history rows: "19+" backlog → "20+" (Phase 19 is now storage tiers) and the Phase 16 row's purged snapshots |
 | `✅ Phase 15 — The Education Program` (Aug 12–13) | 420 | `phase15` (verbatim) + 2 rules PROMOTED to `MEMORY.md` | 🚨 **Two live rules lived only here / deep in `phase14`:** track 1's `figcheck` exits 1 BY DESIGN (four accepted sub-10pt figures — a fresh session would "fix" it), and `qm set` on a running VM silently only stages a CPU/RAM change. Everything else COVERED (METHOD "Who does the work", CONVENTIONS chapter scope, CURSOR_RULES edu rule 6, CIFS audit regex at MEMORY l.44, SSH/Tailscale/remote runbook). Its Next list was SPENT — flagged in the copy |
 | `🔵 ACTIVE: Phase 16 — Docker Swarm` (Aug 13) | 55 | `phase16` (verbatim) | 🚨 **Status was false:** "ACTIVE … Next: Part 2" six days after the phase closed — a fresh session reading top-down would resume finished work. All facts COVERED (38G-not-40G, `gsettings` desktop detection, `19x.fw` vs swarm ports, `s01-base-clean`, `provision_nodes.sh`) |
+| `📘 SESSION Sep 28, 2026` (handoff) | 46 | `phase18` (verbatim) | Replaced by two later handoffs. Every live fact already COVERED (`--freeze-updates`, event-driven restore drill, STORAGE CHECK in CURSOR_RULES, `c01` rollback trap, kernel drill, UPS/NUT, `pve-host-config-backup`); its 🔲s were SPENT — flagged in the copy |
 
 ⭐ **A THIRD FINDING, and it is a repeat this log had already warned about.** Pass 9 rebuilt an
 automated coverage checker, validated it with a positive control (100% on a file searched against
