@@ -96,6 +96,22 @@ uncordoned, cluster 5/5 Ready. ⛔ **A known-fail case must be KNOWN, not assume
 - ⚠️ Phase 16 trap **C2** was recorded as needing "a restore to `s02-swarm-up`" to re-run honestly —
   **`s02` no longer exists.** Re-running C2 now means rebuilding the Swarm to its Part 2 state.
 - ✅ `CURSOR_RULES` hardware line corrected 128 → 192 GB RAM (measured 6× 32 GB; approved in writing).
+- 🆕 ⚠️ **`vm-ephemeral` is NOT imported at boot — Proxmox imports it LAZILY** (found Oct 27, 2026 during
+  the kernel trial; **also present on the Sep 28 boot**, so not kernel-related). Measured:
+  `vm-critical` has `zfs-import@vm-critical.service`; `vm-ephemeral` has **none**; both pools are
+  `cachefile=none`, so `zfs-import-cache` logs *"no pools available to import"*. ~15 s later `pvestatd`
+  logs *"cannot open 'vm-ephemeral': no such pool"* and the PVE storage plugin imports it on demand
+  (ZED `pool_import`). ⭐ **It works because everything that touches it goes through PVE storage
+  activation** — but `zpool list` straight after boot shows only two pools, which **reads like a lost
+  pool** (it did on Oct 27 until re-checked 45 s later). ✅ **FIXED Oct 27, 2026 (Andrew's call):**
+  `zfs-import@vm\x2dephemeral.service` enabled, mirroring `vm-critical`. 🚨 **THE INSTANCE NAME MUST BE
+  ESCAPED** — `systemctl enable "zfs-import@$(systemd-escape vm-ephemeral).service"`. The unit uses `%I`,
+  which turns a bare `-` into `/`: the AI first enabled `zfs-import@vm-ephemeral.service` and
+  `systemctl show -p ExecStart` revealed it would run **`zpool import … vm/ephemeral`** — caught and
+  replaced within a minute, before any boot. ⚠️ **UNPROVEN until the next host boot** (cannot be
+  exercised live: the pool is imported and exporting it would pull disks from running VMs). 🔲 **Next
+  boot: `journalctl -b -u 'zfs-import@vm\x2dephemeral'` must show it imported the pool, and `zpool list`
+  must show three pools BEFORE `pvestatd` starts.** Undo: `systemctl disable` the same escaped name.
 
 ## Addendum, same evening — host health audit (🙋 *"any other maintenance, admin, best practices…?"*)
 
@@ -109,7 +125,7 @@ uncordoned, cluster 5/5 Ready. ⛔ **A known-fail case must be KNOWN, not assume
 | 🚨 **The HOST's own config was backed up NOWHERE** (vzdump covers VMs only) | ✅ **FIXED:** `pve-host-config-backup.sh` + `.timer` (01:30 nightly, keep 30) → `nas-critical/host-config/`. Archive holds a `sqlite3 .backup` of `config.db`, `/etc/pve` (incl. `priv/` — **secrets, private NAS only**), network, postfix, kernel pin, `zfs.conf`, ZED/smartd, cron, our units + `/usr/local/bin`, and a manifest + `RESTORE.txt`. ✅ Tested: 68 KB, 16 VM confs, `storage.cfg` restored byte-identical, DB `integrity_check ok`; **known-fail (target not mounted) refused, exit 1, failure email delivered** |
 | Remote access: root SSH by password, no web-UI TOTP, host is a Tailscale **subnet router** | ⏸️ **Andrew kept SEC-1/SEC-2 DEFERRED (Sep 28)** — re-decided with the subnet-router fact on the table, which the July "LAN-only" deferral did not have |
 | UPS | 🙋 **Power only, no data cable** — the host cannot know the power is out, so a long outage is a hard power-off for every VM (GitLab's DB included). 🔲 Fix when wanted: the UPS's USB cable + NUT for a graceful shutdown |
-| Snapshots | All small and intentional (186 `s01`–`s05`, 180 `q01`–`q02`, 185 `j00`–`j03`). ⚠️ Same most-recent rule: 185 can roll back only to `j03`. Root snapshot `@pre-pve-9.2.20-2026-09-28` → delete after the host kernel trial |
+| Snapshots | All small and intentional (186 `s01`–`s05`, 180 `q01`–`q02`, 185 `j00`–`j03`). ⚠️ Same most-recent rule: 185 can roll back only to `j03`. Root snapshot `@pre-pve-9.2.20-2026-09-28` → delete after the host kernel trial. ✅ *Oct 27, 2026: trial DONE (`7.0.14-26` adopted) → **`@pre-pve-9.2.20-2026-09-28` DELETED** (Andrew; 0 clones, 1.2 G reclaimed). Only root snapshot now: `@pre-pve-9.2.21-2026-10-27` — delete once `7.0.14-26` has soaked* |
 | 7 kernels installed | Optional tidy: the two oldest (6.17.2-1, 6.17.13-13) are on no ESP |
 
 ## How to place a NEW VM from now on

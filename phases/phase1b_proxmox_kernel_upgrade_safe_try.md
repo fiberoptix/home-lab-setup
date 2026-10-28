@@ -149,6 +149,20 @@ proxmox-boot-tool kernel pin 6.17.13-13-pve --next-boot
   automatically reverts to the permanently-pinned `6.17.2-1-pve` — no manual GRUB
   rescue needed (unlike Jan 12).
 
+> 🔻 **CORRECTED Oct 27, 2026 — the auto-revert above is FALSE on this host, for the hang that matters.**
+> Read from the tool's own source and the ESP, not inferred: `--next-boot` writes
+> `/etc/kernel/next-boot-pin`, and `refresh` turns it into **`default proxmox-<new>.conf` in
+> `loader.conf` on both ESPs** — a persistent default, **not** a one-shot EFI variable. It is undone
+> only by `proxmox-boot-cleanup.service` (`kernel unpin --next-boot` + `refresh`), which runs
+> `After=systemd-remount-fs.service` — i.e. **after root is mounted**. Root is ZFS on the very NVMe
+> behind VMD that the Jan 12 regression killed, so **a Jan 12-style hang happens BEFORE the cleanup can
+> run, and a power-cycle boots the trial kernel AGAIN.** ⭐ **The real safety net is a HAND PICK:**
+> power-cycle → at the systemd-boot menu press ↓ at once (**`timeout 3`**, any key stops it) → choose
+> the old pinned kernel's entry. That boot runs the cleanup and the host is back to normal.
+> ⚠️ **Never exercised before Oct 27 because every trial (Jun 18, Jul 9, Oct 27) booted clean** — a
+> rollback path that has never fired is a claim, not a property. Check with
+> `mount -o ro /dev/disk/by-uuid/<esp> /mnt && cat /mnt/loader/loader.conf` before the reboot.
+
 ### 3. Reboot (maintenance window, console attached)
 ```bash
 reboot
@@ -173,8 +187,18 @@ apt-mark unhold proxmox-default-kernel proxmox-kernel-6.17.2-1-pve-signed
 ```
 - Update `MEMORY.md` (PROXMOX KERNEL MANAGEMENT) + this file's status.
 
+> 🆕 **Oct 27, 2026 — after making the pin permanent, READ THE ESP LIST before the confirmation reboot.**
+> Moving the pin **drops the OLD pinned kernel off both ESPs** (automatic selection keeps the pin, the
+> running kernel and the newest per series — the old pin is none of those once the new one is running).
+> Measured: pinning `7.0.14-26` removed `7.0.14-4`, the kernel this host had run since Jul 9, leaving
+> `7.0.6-2` as the only proven fallback. Fix = `proxmox-boot-tool kernel add <old-pin> && proxmox-boot-tool refresh`
+> (it becomes MANUALLY selected; undo with `kernel remove`). Same trap as the Sep 28 upgrade, different trigger.
+> ✅ **Check it with `update --boot-check`** (added Oct 27) — the upgrade script's boot check, no apt.
+
 ### 5b. If BAD (boot hang / NVMe timeout) → auto-revert + clean up
 1. Hard power-cycle → host boots the permanently-pinned `6.17.2-1-pve` on its own.
+   🔻 *Oct 27, 2026: NOT on its own if the hang precedes root mount — pick the old kernel in the
+   systemd-boot menu (3 s timeout). See the correction under step 2.*
 2. Verify recovery:
    ```bash
    uname -r            # back to 6.17.2-1-pve
@@ -206,7 +230,7 @@ Add boot params (from the regression research) via `/etc/kernel/cmdline`, then
 
 | Risk | Mitigation |
 |------|-----------|
-| New kernel hangs at boot (NVMe timeout, like Jan 12) | `--next-boot` one-shot + permanent pin on 6.17.2-1 → power-cycle auto-reverts |
+| New kernel hangs at boot (NVMe timeout, like Jan 12) | `--next-boot` one-shot + permanent pin on 6.17.2-1 → power-cycle auto-reverts 🔻 *(Oct 27: only if the hang is AFTER root mounts; otherwise pick the old entry in the systemd-boot menu — console required)* |
 | Need manual recovery | Console/physical access required during the window (home lab — available) |
 | apt solver pulls unwanted packages | Install the explicit `-signed` kernel pkg, don't unhold default-kernel until verified |
 | VMD-specific incompatibility persists | Step 6 cmdline mitigations; else stay on 6.17.2-1 |
@@ -232,7 +256,8 @@ result lived in `current_phase.md` for three months, so the phase file read as a
 `6.17.13-13`; what actually got adopted was `7.0.6-2-pve`, because the PVE 9.2 upgrade pulled it in
 first. **The reversible procedure is what transferred, not the version number.**
 
-🔻 **SUPERSEDED — the host now runs `7.0.14-4-pve`** (pin-tested and adopted July 9, 2026, PVE 9.2.4).
+🔻 **SUPERSEDED — the host now runs `7.0.14-26-pve`** (pin-tested and adopted Oct 27, 2026, PVE 9.2.24 —
+see the last section; before that `7.0.14-4-pve` from July 9, PVE 9.2.4).
 So the versions below are history. ⭐ **The PROCEDURE is the durable part and it is still the standard:**
 `kernel pin <ver> --next-boot` → `refresh` → reboot → verify → only then make the pin permanent →
 **reboot a second time to prove it boots without the next-boot crutch** → keep the previous kernels
@@ -256,5 +281,40 @@ reversible `--next-boot` procedure, then adopted it permanently.
 
 **Now running:** PVE 9.2.3, kernel **7.0.6-2-pve** (pinned). Revert if ever needed:
 `proxmox-boot-tool kernel pin 6.17.13-13-pve && proxmox-boot-tool refresh` (console advised).
+
+---
+
+## Tested + adopted kernel 7.0.14-26-pve, with PVE 9.2.20 → 9.2.24 (Oct 27, 2026, 21:02–21:22 EDT)
+
+**Status:** COMPLETE ✅ — Andrew at the console, the AI ran the commands with his go-ahead at each
+outage step. 🔻 **The open to-do was "trial `7.0.14-19`"; by the night it ran, `7.0.14-26` was current
+— the target moved a second time (`-25` in the morning's cached lists, `-26` after `apt update`).**
+
+1. **Root snapshot** `rpool/ROOT/pve-1@pre-pve-9.2.21-2026-10-27` (named from the morning's lists; the
+   upgrade actually landed 9.2.24).
+2. **`proxmox-update.sh` in tmux** → **54 upgraded + 1 new, 0 removed, `EXIT=0`**, log
+   `/root/pve-update-2026-10-27.log` on the host. pve-manager **9.2.24**, qemu-server 9.2.13,
+   pve-qemu-kvm 11.0.3-4, proxmox-kernel-helper 9.2.1 (re-installed systemd-boot on both ESPs),
+   tailscale 1.104.4, plus openssl/curl/bind9/expat/xz security updates. Boot check: pin unchanged on
+   `7.0.14-4`, **`7.0.6-2` survived** this time (it is manually selected since Sep 28). VMs stayed up,
+   GUI + `cap.*` 200, 0 failed units. `grub-probe: unknown filesystem` ×2 again — harmless.
+3. **All 15 VMs shut down gracefully** (k8s workers → control planes → 186/swarm → 185 → 184/180 →
+   182/183 → 181), 21:07 → 21:10, none forced.
+4. **`kernel pin 7.0.14-26-pve --next-boot` + `refresh`** → ESP `loader.conf` read back as
+   `default proxmox-7.0.14-26-pve.conf` → **the auto-revert correction under step 2 was found HERE**,
+   before the reboot, and Andrew re-confirmed knowing the recovery is a menu pick.
+5. **Reboot 1** 21:12:06 → SSH 21:13:09. `7.0.14-26-pve`, all pools healthy, **6/6 NVMe, 0 NVMe/VMD
+   errors**, zfs kmod **2.4.4 = userland 2.4.4** (the 2.4.3/2.4.4 mismatch is closed), next-boot pin
+   cleared by the cleanup service, journal errors = the known HP `_SB.WMIV` ACPI noise only.
+   180–185 auto-started, all six `qm agent ping` OK, `cap.*` 200.
+6. **Permanent pin `7.0.14-26`** → 🚨 **`7.0.14-4` fell off both ESPs** (see the note under 5a) →
+   `kernel add 7.0.14-4-pve` + `refresh`; both ESPs re-read.
+7. **Reboot 2 (confirmation, no crutch)** 21:16:53 → SSH 21:18:02, clean on `7.0.14-26`, same checks green.
+8. **Manual VMs:** 201–203, 60 s, 204–205, then 186 + 191–193. k8s **5/5 `Ready`, 39/39 pods Running**,
+   `/readyz` ok, VIP `.206` answers, node auto-updates still inactive; 186/191–193 SSH OK.
+
+**Now running:** PVE **9.2.24**, kernel **7.0.14-26-pve** (pinned). ESPs: manual `7.0.14-4` + `7.0.6-2`
+(both proven here), auto `6.17.13-21`, `7.0.14-19`, `7.0.14-26`. **PROD outage:** ~21:10–21:14 and ~21:16–21:19.
+Revert: `proxmox-boot-tool kernel pin 7.0.14-4-pve && proxmox-boot-tool refresh` + reboot (console advised).
 
 ---

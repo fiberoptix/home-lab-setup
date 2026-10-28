@@ -4,6 +4,8 @@
 #
 # Lives at: /usr/local/bin/proxmox-update.sh on the Proxmox host (192.168.1.150)
 # Invoked as: `update` (alias in /root/.bashrc). Run by hand only - nothing schedules it.
+#   update --boot-check   only the boot check, no apt. Run it after ANY pin change too:
+#                         Oct 27, 2026, pinning 7.0.14-26 dropped the old pin 7.0.14-4 off the ESPs.
 #
 # 🚨 full-upgrade, never `apt upgrade`: on Proxmox, `apt upgrade` holds back any
 # package that needs a NEW dependency. Measured Sep 28, 2026: it would have kept
@@ -21,6 +23,46 @@ set -u
 pinned() { proxmox-boot-tool kernel list 2>/dev/null | awk '/^Pinned kernel:/{getline; print $1}'; }
 
 PIN_BEFORE=$(pinned)
+
+boot_check() {
+    PIN_AFTER=$(pinned)
+    RUNNING_KERNEL=$(uname -r)
+    NEWEST_KERNEL=$(ls /boot/vmlinuz-*-pve 2>/dev/null | sed 's|/boot/vmlinuz-||' | sort -V | tail -1)
+    echo "    Running kernel : $RUNNING_KERNEL"
+    echo "    Pinned kernel  : ${PIN_AFTER:-NONE}"
+    echo "    Newest on disk : ${NEWEST_KERNEL:-?}"
+    echo ""
+    if [ -z "$PIN_AFTER" ]; then
+        echo "🚨 NO KERNEL PIN - the next reboot boots the NEWEST kernel ($NEWEST_KERNEL)."
+        echo "   Do not reboot until that is intended."
+    elif [ "$PIN_AFTER" != "$PIN_BEFORE" ]; then
+        echo "🚨 PIN CHANGED during the upgrade: ${PIN_BEFORE:-NONE} -> $PIN_AFTER. Do not reboot until explained."
+    else
+        echo "    Pin unchanged - the next reboot boots $PIN_AFTER."
+        if [ -n "$NEWEST_KERNEL" ] && [ "$NEWEST_KERNEL" != "$PIN_AFTER" ]; then
+            echo "    $NEWEST_KERNEL is installed but NOT booted. Adopt it only via the phase1b --next-boot trial."
+        fi
+    fi
+    echo ""
+    echo "    Kernels on the boot partitions (fallbacks if a boot fails):"
+    proxmox-boot-tool kernel list 2>/dev/null | sed -n '/^Manually selected kernels:/,/^$/p;/^Automatically selected kernels:/,/^$/p' \
+        | grep -vE '^(Manually|Automatically) selected kernels:|^None\.$|^$' | sort -uV | sed 's/^/      /'
+    echo "    ⚠️  Is a kernel that has already BOOTED on this hardware in that list, besides the pin?"
+    echo "       New kernels and pin changes push older ones off the ESPs (Sep 28: 7.0.6-2; Oct 27: 7.0.14-4)."
+    echo "       If not: proxmox-boot-tool kernel add <known-good> && proxmox-boot-tool refresh"
+    MANUAL=$(proxmox-boot-tool kernel list 2>/dev/null | sed -n '/^Manually selected kernels:/,/^$/p' \
+        | grep -vE '^Manually selected kernels:|^None\.$|^$' | grep -vx "$PIN_AFTER")
+    if [ -z "$MANUAL" ]; then
+        echo "🚨 No MANUALLY selected fallback besides the pin - proven fallbacks are kept on the ESPs by hand."
+    fi
+}
+
+if [ "${1:-}" = "--boot-check" ]; then
+    echo "Boot check only - no packages touched"
+    echo ""
+    boot_check
+    exit 0
+fi
 
 echo "========================================"
 echo "Proxmox Update Script"
@@ -59,31 +101,7 @@ echo ""
 
 # Step 4: What the NEXT boot will do
 echo "[4/4] Boot check..."
-PIN_AFTER=$(pinned)
-RUNNING_KERNEL=$(uname -r)
-NEWEST_KERNEL=$(ls /boot/vmlinuz-*-pve 2>/dev/null | sed 's|/boot/vmlinuz-||' | sort -V | tail -1)
-echo "    Running kernel : $RUNNING_KERNEL"
-echo "    Pinned kernel  : ${PIN_AFTER:-NONE}"
-echo "    Newest on disk : ${NEWEST_KERNEL:-?}"
-echo ""
-if [ -z "$PIN_AFTER" ]; then
-    echo "🚨 NO KERNEL PIN - the next reboot boots the NEWEST kernel ($NEWEST_KERNEL)."
-    echo "   Do not reboot until that is intended."
-elif [ "$PIN_AFTER" != "$PIN_BEFORE" ]; then
-    echo "🚨 PIN CHANGED during the upgrade: ${PIN_BEFORE:-NONE} -> $PIN_AFTER. Do not reboot until explained."
-else
-    echo "    Pin unchanged - the next reboot boots $PIN_AFTER."
-    if [ -n "$NEWEST_KERNEL" ] && [ "$NEWEST_KERNEL" != "$PIN_AFTER" ]; then
-        echo "    $NEWEST_KERNEL is installed but NOT booted. Adopt it only via the phase1b --next-boot trial."
-    fi
-fi
-echo ""
-echo "    Kernels on the boot partitions (fallbacks if a boot fails):"
-proxmox-boot-tool kernel list 2>/dev/null | sed -n '/^Manually selected kernels:/,/^$/p;/^Automatically selected kernels:/,/^$/p' \
-    | grep -vE '^(Manually|Automatically) selected kernels:|^None\.$|^$' | sort -uV | sed 's/^/      /'
-echo "    ⚠️  Is a kernel that has already BOOTED on this hardware in that list, besides the pin?"
-echo "       New kernels push older ones off the ESPs (Sep 28, 2026: 7.0.6-2 was dropped)."
-echo "       If not: proxmox-boot-tool kernel add <known-good> && proxmox-boot-tool refresh"
+boot_check
 
 echo ""
 echo "========================================"

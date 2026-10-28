@@ -996,7 +996,7 @@ It had been accumulating since Aug 13. **When you write a new handoff, move the 
     is STATIC IP (SSH allowlist rule safe). Related Capricorn work: `unified_ui_DEV_PROD_GCP`
     `project/phases/phase22*` (app has NO auth + is the sole public door → app hardening matters).
 
-- Proxmox running at 192.168.1.150 (HP Z6 G4: single Xeon Platinum 8168 24c/48t, **192GB RAM**, ZFS) — **PVE 9.2.4**, kernel **7.0.14-4-pve** (pinned + tested Jul 9, 2026; SNC disabled → single NUMA node)
+- Proxmox running at 192.168.1.150 (HP Z6 G4: single Xeon Platinum 8168 24c/48t, **192GB RAM**, ZFS) — **PVE 9.2.24**, kernel **7.0.14-26-pve** (pinned + tested Oct 27, 2026; was 9.2.4 / 7.0.14-4 from Jul 9; SNC disabled → single NUMA node)
 - **RAM upgraded 128GB → 192GB on Aug 26, 2026** (6x 32GB Hynix `HMA84GR7AFR4N-VK`, all six identical).
   Filled the two free slots `CPU0-DIMM3`/`DIMM4`, so **all 6 memory channels are now populated** at
   1 DIMM per channel and the clock **stayed at 2666 MT/s** (verified via `Configured Memory Speed`).
@@ -1841,6 +1841,18 @@ hurts most (GitLab, the runner) were in the `enabled` group.
   byte-for-byte the last good one. ⚠️ `grub-probe: error: unknown filesystem` ×4 during kernel postinst
   — 🟡 believed harmless (host boots via `proxmox-boot-tool`/systemd-boot, and grub cannot probe a ZFS
   root; both ESP copies succeeded), first time recorded.
+- ✅ **HOST UPGRADED Oct 27, 2026: PVE 9.2.20 → 9.2.24 AND kernel `7.0.14-26-pve` ADOPTED** (54 upgraded
+  + 1 new, exit 0; `--next-boot` trial → permanent pin → second clean reboot; Andrew at the console).
+  zfs kmod now **2.4.4 = userland** — mismatch closed. ESPs: **manual `7.0.14-4` + `7.0.6-2`** (both booted
+  here), auto `6.17.13-21`, `7.0.14-19`, `7.0.14-26`. Rollback point `rpool/ROOT/pve-1@pre-pve-9.2.21-2026-10-27`.
+  Full record: `phase1b` → last section. Two findings that change the PROCEDURE, both now in `phase1b`:
+  🚨 **`--next-boot` does NOT auto-revert after a pre-root-mount hang** — it is a persistent
+  `loader.conf` default cleared only by a service that runs after root mounts, so a Jan 12-style NVMe
+  hang loops; **recovery is picking the old kernel in the systemd-boot menu (3 s timeout).**
+  🚨 **Moving the pin drops the OLD pin off the ESPs** — `7.0.14-4` vanished the moment `7.0.14-26` was
+  pinned; re-added as manual. ⭐ **Read the ESP list after every upgrade AND after every pin change —
+  `update --boot-check` does exactly that without touching apt** (added Oct 27; it also warns if no
+  MANUAL fallback besides the pin exists, since the proven fallbacks are kept on the ESPs by hand).
 - ⚠️ **After a host reboot, `.186` and `.191`–`.193` stay DOWN** (`onboot=0`, like the k8s nodes) — start
   them by hand if they were running. Sep 28: started again after the reboot.
 - 🚨 **Hazard found while doing this — `refresh.sh` can be broken by a REBUILT VM.** It SSHes with
@@ -2168,9 +2180,14 @@ Installs: Docker, SSH keys, passwordless sudo, NAS mount, insecure-registry conf
 
 ## PROXMOX KERNEL MANAGEMENT
 
-**Current Status:** June 18, 2026 — on 6.17.13-13-pve, PVE 9.2.3, holds removed
+**Current Status:** Oct 27, 2026 — on `7.0.14-26-pve`, PVE 9.2.24, no holds. 🔻 *(This line said
+"June 18, 2026 — on 6.17.13-13-pve, PVE 9.2.3" through two later kernel adoptions.)*
 
 ### Active Kernel
+- 🆕 **Running + permanently pinned since Oct 27, 2026: `7.0.14-26-pve`** ✅ (PVE 9.2.24; `--next-boot`
+  trial + two clean reboots, 0 NVMe timeouts). Fallbacks on both ESPs: **manual `7.0.14-4` + `7.0.6-2`**.
+  Detail: `MEMORY.md` → PATCHING POLICY and `phase1b` → last section. 🔻 *The bullets below are the
+  Jul 9 state, kept as history.*
 - **Running + permanently pinned:** **7.0.14-4-pve** ✅ (tested Jul 9, 2026 via --next-boot
   during the SNC BIOS change window, then pinned permanent — 0 NVMe timeouts, all 6 NVMe
   behind VMD, ZFS healthy). Prior good: 7.0.6-2-pve (Jun 18 → Jul 9).
@@ -2206,8 +2223,8 @@ purged the bad kernel.
 ```bash
 # Pinned kernel (always boots this one):
 proxmox-boot-tool kernel list
-# Shows: Pinned kernel: 7.0.14-4-pve
-#   (7.0.6-2-pve and 6.17.13-x-pve also installed as fallbacks)
+# Shows: Pinned kernel: 7.0.14-26-pve   (Oct 27, 2026)
+#   Manually selected: 7.0.14-4-pve, 7.0.6-2-pve  - the proven fallbacks, kept on the ESPs by hand
 
 # Holds: NONE — removed Jun 18, 2026. apt install works normally again.
 apt-mark showhold   # (empty)
@@ -2222,7 +2239,7 @@ apt-mark showhold   # (empty)
   `proxmox-boot-tool kernel pin`-ed and tested with console access.
 
 **KERNEL POLICY (post Jun 18, 2026):** Holds are removed; rely on the **boot pin**
-instead. The pin is on `7.0.14-4-pve`. Before adopting any future newer kernel, use the
+instead. The pin is on `7.0.14-26-pve` (since Oct 27, 2026; was `7.0.14-4-pve`). Before adopting any future newer kernel, use the
 reversible `--next-boot` procedure in
 `phases/phase1b_proxmox_kernel_upgrade_safe_try.md` **with physical/console access**,
 verify NVMe + ZFS, then make the pin permanent (this is exactly how 6.17.13-13, 7.0.6-2
