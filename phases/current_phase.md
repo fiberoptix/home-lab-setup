@@ -71,37 +71,6 @@ holds the corrections (kube-vip did NOT crash-loop; the Calico operator HARD-COD
 `192.168.0.0/16`; `node.spec.podCIDR` is inert; `RESTARTS 0` does not mean a static pod was
 untouched).
 
-## 📘 SESSION Oct 27, 2026 (22:00–23:10) — Phase 20: Rancher on K3s built end to end (AI-built)
-
-🎯 **Outcome: https://rancher.gothamtechnologies.com is up (Rancher 2.15.2 on K3s v1.35.9, VM 187), with
-monitoring, and http://hello-rancher.gothamtechnologies.com/ is deployed by Fleet GitOps from GitLab
-`production/rancher-k3s` — push → serving in ~40 s. Drills D1–D4 passed.** 🙋 *"Try to build the whole
-thing and note errors. I'll come back to help manage them."*
-
-### ✅ Done (the AI built it; Andrew set scope, names and repo location)
-1. VM 187 (template 9000 → new `rancher-k3s/1-provision-vm.sh` → `2-personalize.sh` → full-upgrade), in
-   `refresh.sh` (md5 host = repo), Route53 `rancher` + `hello-rancher` → `.187`.
-2. K3s → Helm v3 → cert-manager → Rancher → rancher-monitoring → GitLab project + tokens + CI → Fleet
-   GitRepo → push-model SA. Scripts `3-`…`6-*.sh` all re-ran with 0 changes. Snapshots `r01` → `r02` → `r03`.
-3. Drills: reboot 63 s to Rancher (after a fix), Rancher at 0 replicas does not stop apps OR GitOps, broken
-   manifest is safe and reverts in 21 s, broken registry credential diagnosed and restored in 16 s.
-
-### 🚨 Found (all in `phase20` → findings F1–F12, errors E1–E7)
-- **One container ignoring SIGTERM cost 87 s on every VM reboot** (Python as PID 1). Fixed in the app.
-- **Fleet's status lagged a finished rollout by ~4 min**; **Rancher's pod summary hides a registry 401**.
-- Rancher 2.15.2 has **no `telemetry-opt` setting** (script error, fixed).
-
-### 🔲 Open — for Andrew
-- 🔲 **Log in and look around** — `admin`, password in `PASSWORDS.md`. The CA is Rancher's own, so the
-  browser warns.
-- 🔲 **E7: the GitLab root password was printed in this session's tool output** (redaction miss, local
-  transcript only). The same string is already in tracked `MEMORY.md`/`current_phase.md` as the SMB
-  password (pre-existing), so it is shared — rotating it is a lab-wide decision.
-- 🔲 **Revoke the 7-day root PAT `phase20-ai-build`** when Phase 20 is closed (expires 2026-11-03 anyway).
-- ✅ **D5 measured Oct 28 20:50** — 1.0 GB after ~22 h (~45 MB/h); 7-day retention governs, ~6–8 GB steady state; the 15 GiB cap was never reached, so it is unproven. Recorded in `phase20` + track ch5. **D6** when Rancher > 2.15.2 ships.
-- ✅ `MAKE_MEMORIES` pass 13 done (Oct 27): 13 → 9 blocks; the two older handoffs, the stale "ACTIVE: Phase 16"
-  block and Phase 15 demoted. Backlog left: the five Aug 19–21 blocks below.
-
 ## 🔧 BUILD STANDARD OVERHAUL — a second distro, and the script server nearly deleted itself (Aug 21, 2026, evening) ✅ DONE
 
 ⚠️ **This session did NOT advance Phase 17.** Part 4 (deploy to the Swarm) is still the next Jenkins
@@ -672,6 +641,7 @@ artefact per unit of work, the artefacts become the backlog.** One log, appended
 | `🔵 ACTIVE: Phase 16 — Docker Swarm` (Aug 13) | 55 | `phase16` (verbatim) | 🚨 **Status was false:** "ACTIVE … Next: Part 2" six days after the phase closed — a fresh session reading top-down would resume finished work. All facts COVERED (38G-not-40G, `gsettings` desktop detection, `19x.fw` vs swarm ports, `s01-base-clean`, `provision_nodes.sh`) |
 | `📘 SESSION Sep 28, 2026` (handoff) | 46 | `phase18` (verbatim) | Replaced by two later handoffs. Every live fact already COVERED (`--freeze-updates`, event-driven restore drill, STORAGE CHECK in CURSOR_RULES, `c01` rollback trap, kernel drill, UPS/NUT, `pve-host-config-backup`); its 🔲s were SPENT — flagged in the copy |
 | `📘 SESSION Oct 27, 2026 — PVE 9.2.20 → 9.2.24` (handoff) | 30 | `phase1b` (verbatim) + 1 check PROMOTED to `MEMORY.md` | Superseded the same night by the Phase 20 handoff. 🚨 **The `vm-ephemeral` boot-import check (unproven until the next host boot) lived only here and in `phase19`** — promoted to the MEMORY Phase 19 row (commit 13c). Rest COVERED (`--next-boot` trap + pin-drop in `phase1b`/MEMORY, `--boot-check`, EDIT LOG 11 in CURSOR_RULES) |
+| `📘 SESSION Oct 27, 2026 (22:00–23:10) — Phase 20` (handoff) | 30 | `phase20` (verbatim) | Previous session handoff. Open items all COVERED in `phase20` → 🔲 Open items (D6, root PAT, E7, token renewals) **except "Andrew: log in and look around" — added there**. Its "Not yet committed" study-track status was false since `427f22c` (Oct 28) — corrected in `phase20` line 5 |
 
 ⭐ **A THIRD FINDING, and it is a repeat this log had already warned about.** Pass 9 rebuilt an
 automated coverage checker, validated it with a positive control (100% on a file searched against

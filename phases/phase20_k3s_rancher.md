@@ -451,3 +451,41 @@ snapshot** (Phase 19): once `r03` exists, `r01`/`r02` are unreachable without de
   (`education/k8s-rancher/`)? A track brings CONVENTIONS/METHOD, a prediction log and printable chapters.
 - **Q5 — Build mode:** straight through Parts 0–6 stopping only on a failure or surprise, then the drills
   together? Or a checkpoint after each part?
+
+---
+
+## DEMOTED VERBATIM FROM `phases/current_phase.md` — Nov 4, 2026 (`MAKE_MEMORIES` pass 14a)
+
+Demoted verbatim from phases/current_phase.md by MAKE_MEMORIES pass 14a (Nov 4, 2026) — the previous session's handoff, replaced by the Nov 4 one. Its open items are in this file's 🔲 Open items table above.
+
+## 📘 SESSION Oct 27, 2026 (22:00–23:10) — Phase 20: Rancher on K3s built end to end (AI-built)
+
+🎯 **Outcome: https://rancher.gothamtechnologies.com is up (Rancher 2.15.2 on K3s v1.35.9, VM 187), with
+monitoring, and http://hello-rancher.gothamtechnologies.com/ is deployed by Fleet GitOps from GitLab
+`production/rancher-k3s` — push → serving in ~40 s. Drills D1–D4 passed.** 🙋 *"Try to build the whole
+thing and note errors. I'll come back to help manage them."*
+
+### ✅ Done (the AI built it; Andrew set scope, names and repo location)
+1. VM 187 (template 9000 → new `rancher-k3s/1-provision-vm.sh` → `2-personalize.sh` → full-upgrade), in
+   `refresh.sh` (md5 host = repo), Route53 `rancher` + `hello-rancher` → `.187`.
+2. K3s → Helm v3 → cert-manager → Rancher → rancher-monitoring → GitLab project + tokens + CI → Fleet
+   GitRepo → push-model SA. Scripts `3-`…`6-*.sh` all re-ran with 0 changes. Snapshots `r01` → `r02` → `r03`.
+3. Drills: reboot 63 s to Rancher (after a fix), Rancher at 0 replicas does not stop apps OR GitOps, broken
+   manifest is safe and reverts in 21 s, broken registry credential diagnosed and restored in 16 s.
+
+### 🚨 Found (all in `phase20` → findings F1–F12, errors E1–E7)
+- **One container ignoring SIGTERM cost 87 s on every VM reboot** (Python as PID 1). Fixed in the app.
+- **Fleet's status lagged a finished rollout by ~4 min**; **Rancher's pod summary hides a registry 401**.
+- Rancher 2.15.2 has **no `telemetry-opt` setting** (script error, fixed).
+
+### 🔲 Open — for Andrew
+- 🔲 **Log in and look around** — `admin`, password in `PASSWORDS.md`. The CA is Rancher's own, so the
+  browser warns.
+- 🔲 **E7: the GitLab root password was printed in this session's tool output** (redaction miss, local
+  transcript only). The same string is already in tracked `MEMORY.md`/`current_phase.md` as the SMB
+  password (pre-existing), so it is shared — rotating it is a lab-wide decision.
+- 🔲 **Revoke the 7-day root PAT `phase20-ai-build`** when Phase 20 is closed (expires 2026-11-03 anyway).
+- ✅ **D5 measured Oct 28 20:50** — 1.0 GB after ~22 h (~45 MB/h); 7-day retention governs, ~6–8 GB steady state; the 15 GiB cap was never reached, so it is unproven. Recorded in `phase20` + track ch5. **D6** when Rancher > 2.15.2 ships.
+- ✅ `MAKE_MEMORIES` pass 13 done (Oct 27): 13 → 9 blocks; the two older handoffs, the stale "ACTIVE: Phase 16"
+  block and Phase 15 demoted. Backlog left: the five Aug 19–21 blocks below.
+
