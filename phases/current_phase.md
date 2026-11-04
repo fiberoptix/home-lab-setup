@@ -128,59 +128,6 @@ untouched).
   passed Oct 27) — ask first; Swarm chapter 8 — ask which Swarm features the new job actually uses;
   Sep 28 logs in `education/k8s-cka-prep/scratch/` (agreed: delete "next session" — ask).
 
-## 🔧 BUILD STANDARD OVERHAUL — a second distro, and the script server nearly deleted itself (Aug 21, 2026, evening) ✅ DONE
-
-⚠️ **This session did NOT advance Phase 17.** Part 4 (deploy to the Swarm) is still the next Jenkins
-action — see RESUME HERE below, which is unchanged and still correct. Tonight was Phase **2/2b**.
-
-🙋 **Andrew: "I created some new host setup scripts on my laptop… please review them"**, then
-**"YOU wrote the Fedora scripts… I trust you to fix anything. What needs fixing?"**
-
-**Full detail is in `phases/phase2_host_setup_automation.md` and `phases/phase2b_fedora_host_setup.md`.
-Do not duplicate it here.** What a cold reader needs:
-
-| What changed | Why it matters later |
-|---|---|
-| **Script trees renamed** `www/scripts` → **`www/ubuntu`**, `www/scripts_fedora` → **`www/fedora`** | Old URLs still work via **301s in `nginx.conf`** — deployed VMs have the old `SCRIPT_SERVER` baked in and must keep working |
-| **`www/index.html` landing page** at `http://192.168.1.195/` | The **copy to trust** for build commands; rewrites the host from `window.location`, so it is right from any interface |
-| **`--hostname <name>` now on BOTH distros** | Fixes `/etc/hosts` (which `hostnamectl` never touches) and pins cloud-init, without which an Ubuntu clone **silently reverts at the next reboot** |
-| **`--server` now on BOTH distros** | Exposed a bug that had been putting **1.44 GB of Chrome + Cursor on every headless Ubuntu host** |
-| **`smb_credentials` moved to `www/smb_credentials`** | *Above* the two bind-mounted trees, so nginx cannot serve or `autoindex`-list it at all |
-
-🚨 **The one that could have cost real work: `host_setup.sh` ATE THE SCRIPT LIBRARY.** Running it
-with the working directory inside `www/ubuntu/` zeroed **all seven sub-scripts + `anysphere.gpg`** in
-a single run. `wget -O` truncates its destination *before* transferring; the script downloads
-sub-scripts *next to itself*; nginx serves that same directory *off disk*. So wget emptied each file,
-asked nginx for it, and got back its own zeros. ⭐ **A program that fetches its inputs into its own
-source directory, from a server backed by that directory, will eat itself.**
-Fixed twice: both trees **refuse to start** in the source tree, and **downloads are now atomic**
-(`.part` + `mv`) — which matters more, because *any* failed download previously replaced a working
-script with an empty file, worst in the re-run-to-repair case. **Fedora had the identical `curl -o`
-flaw** and escaped only because its distro guard exits first on Debian.
-⚠️ **Recovery was luck:** `git checkout` would have restored *pre-session* content, and
-`www/ubuntu/setup_hostname.sh` was **untracked** — git had nothing. Only stray `/tmp/tmp.*/`
-bootstrap-test copies saved it. ⭐ **Commit before testing anything that writes into the repo.**
-
-🩹 **Also fixed: `/` appeared to redirect to `/ubuntu/`.** The server was innocent — it returned
-`200` the whole time. The *previously committed* config had `location / { return 301 /scripts/; }`,
-and **a 301 is permanent, so browsers cache it indefinitely, often through a hard reload.** A cached
-hop plus the new compat rule landed on `/ubuntu/`. ⛔ **Redirecting `/scripts/` back to `/` would be
-an infinite loop** (the browser bounces `/` straight back); bare `/scripts/` now **serves** the
-landing page instead. ⭐ **Only 301 to clients that will not hold you to it** — the remaining compat
-redirects now carry `Cache-Control: no-store` for exactly that reason.
-
-✅ **`.185` (Jenkins) reclaimed 1.5 GB** — purged Chrome + Cursor, simulated first, Jenkins stayed
-`active`/`200` throughout. 🛑 **`apt-get autoremove` DECLINED on purpose (Andrew's call):** it wanted
-**100 packages / 382 MB** of X11 + GTK libraries, and `.185` is a **CI host** — headless browser
-testing needs exactly those. **Do not "finish the cleanup" without revisiting that trade.**
-
-⚠️ **Unproven:** the `--server` *success* path has not run on real hardware on either distro. Fedora
-was validated in a **stubbed sandbox** (branch selection + the D-Bus bypass, not real `dnf`), and the
-only Ubuntu box available is the dev workstation, which must not be reconfigured. **VM 185 or a fresh
-build is the honest place to confirm both.**
-
----
-
 ## 📦 DEMOTION LOG — Aug 24 + Sep 16, 2026 (ONE block, on purpose — append a ROW, never a block)
 
 ⚠️ **This block exists because the first four demotions each left a marker block behind, so the block
@@ -235,6 +182,7 @@ artefact per unit of work, the artefacts become the backlog.** One log, appended
 | `🔧 BUILD STANDARD CHANGED — Cockpit is now on every Ubuntu server` (Aug 20) | 42 | `phase2` (verbatim) | COVERED: `setup_cockpit.sh` design + "fix the builder" lesson (MEMORY l.~1200, `phase2` §3). 🚨 Its "not yet proven" was SPENT (proven Phase 17 Part 0) and its `www/scripts/` paths stale since Aug 21 — both flagged in the copy |
 | `🩹 LAB-WIDE nofail SWEEP + a security find on .184` (Aug 20) | 61 | `phase2` (verbatim) | COVERED: `--no-nas`, the `:445` pre-check, `sudo SKIP_NAS=1` (env_reset) gotcha, the bounded-delay correction, .184 no-NAS rule (MEMORY + `phase2`). 🚨 **Its open item "template 9000 not checked for a NAS fstab entry" had been open 76 days — CLOSED Nov 4 by reading the template disk read-only (`virt-cat`): clean.** |
 | `🔵 PHASE 17 PARTS 0 + 1 — Jenkins is up` (Aug 20) | 38 | `phase17` (verbatim) | COVERED: J-P2…J-P5, `j02-jenkins-up`, ledger J2, the trap protocol (all in `phase17`); no-chapter-0 rule and patching policy in MEMORY. Its "✅ DONE" heading is true for Parts 0–1 only — the phase is paused, flagged in the copy |
+| `🔧 BUILD STANDARD OVERHAUL — a second distro, and the script server nearly deleted itself` (Aug 21) | 50 | `phase2` (verbatim) + 1 caveat PROMOTED to `MEMORY.md` | COVERED: tree rename + 301s, landing page, `--hostname`, `www/smb_credentials`, the self-eating `wget -O` + atomic `.part`, "a 301 is a promise" (MEMORY l.~1698, `nginx.conf`), `.185` autoremove declined. 🚨 **"`--server` success path unproven on real hardware" lived ONLY here and is STILL TRUE** (no Ubuntu/Fedora host built with `host_setup.sh` since Aug 21) — promoted. **Last pre-Sep block: the file is now RESUME + one handoff + this log** |
 
 ⭐ **A THIRD FINDING, and it is a repeat this log had already warned about.** Pass 9 rebuilt an
 automated coverage checker, validated it with a positive control (100% on a file searched against

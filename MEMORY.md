@@ -1593,6 +1593,7 @@ events.
 **`--server` (BOTH distros, added Aug 21, 2026)** skips Chrome and Cursor and the GNOME steps on a
 headless host, keeping the CLI tools and shell aliases. Rarely needed by hand: **the auto-detection
 was fixed at the same time and now does this on its own.**
+⚠️ **UNPROVEN as of Nov 4, 2026: the `--server` SUCCESS path has never run on a real host on either distro** (Fedora: stubbed sandbox only; Ubuntu: no VM built with `host_setup.sh` since Aug 21 — 201–205 and 187 use their own scripts, `.185` was purged by hand). The first headless build with it is the test — check that Chrome/Cursor are absent afterwards.
 
 🚨 **The bug it fixed had been installing 1.44 GB of desktop software on every server.** The gate in
 `host_setup.sh` was `gnome-shell || gsettings` — and `gsettings` ships in `libglib2.0-bin`, which
