@@ -419,3 +419,126 @@ build stages not running on the `production` branch; installing terraform/gcloud
 creating the GCP service-account key file from a variable; and `git` missing for `docker buildx`
 metadata.
 
+---
+
+## DEMOTED VERBATIM FROM `phases/current_phase.md` — Nov 4, 2026 (`MAKE_MEMORIES` pass 15)
+
+⚠️ **Demoted verbatim from `current_phase.md` Nov 4, 2026 (MAKE_MEMORIES pass 15a). Two parts are SUPERSEDED:** its *"exactly one scheduled job"* coverage paragraph (Phase 19, Sep 28: two jobs, 184 deliberately unbacked; Nov 4: 201–205 out of the nightly job), and VM 200, destroyed Sep 16. Live rules are in `MEMORY.md` (180 gets no backup, AUTOSTART POLICY, `.pw` = `password=<value>`, read `jobs.cfg` not `pvesm status`).
+
+## 🔧 UNPLANNED INTERRUPT — QA server re-numbered 200 → 180 (Aug 20, 2026, ~11:25–11:40 AM EDT) ✅ DONE
+
+🤖 **AI-executed infrastructure plumbing, Andrew approved the 8-step plan and said "go ahead."**
+
+**What and why.** The QA box was **VMID 200, hostname `vm-kubernetes-1`, IP `.180`** — a VMID that didn't
+match its IP and a hostname advertising Kubernetes it has never run (it runs **Capricorn QA on plain
+`docker compose`**, not even Swarm). It is now **VMID 180, `vm-docker-qa-1`, `.180`**, matching the
+`18x → .18x` convention every other VM follows. 🚨 **Proxmox cannot re-number a VM in place — "renumbering"
+is always a clone**, which is why this was a copy-and-validate job rather than an edit.
+
+~~**The old VM 200 is STOPPED with `onboot 0`, deliberately kept as the rollback until ~Sept 3, 2026,
+then destroy.**~~ ⛔ **EXECUTED Sep 16, 2026 — VM 200 is DESTROYED** (`--purge`, no backup) and this
+directive is spent. Nothing here is actionable any more; the `pre-clone-20260820` snapshot below went
+with it.
+
+⚠️ **Two hazards found before starting, both real:**
+
+1. **The CIFS mount in `/etc/fstab` had no `nofail`** — an unreachable NAS could hang boot. Fixed on the
+   original before cloning, so both VMs carry the fix. **Proof it worked is not the fstab line, it's
+   the generated unit:** `systemctl show mnt-DevShare.mount` went to **`RequiredBy=` empty,
+   `WantedBy=remote-fs.target`** — a *want*, not a *requirement*, so a dead NAS can no longer block boot.
+2. **No cloud-init drive on this VM, so the IP is static inside the guest** — the clone claims `.180`
+   too. **`onboot 0` on VM 200 is therefore load-bearing, not tidiness**: without it a host reboot
+   starts both and they fight over the address.
+
+🚨 **The snapshot outlives the fix: `pre-clone-20260820` still records `onboot: 1`.** Rolling VM 200 back
+during the validation window **re-arms autostart** and re-creates the IP collision. `qm config 200`
+shows the live value; `qm config 200 --snapshot <name>` shows the snapshot's — they differ, and reading
+the raw `200.conf` shows *both* pairs, which is easy to misread.
+
+**Three things that did NOT break, each worth knowing:**
+
+| Survived | Why |
+|---|---|
+| **Networking, despite a new MAC** | The clone got `BC:24:11:20:08:8B` (was `…DB:8D:CD`). Netplan here matches on **interface name `ens18`**, not MAC, so `.180` came straight back. Had it matched on MAC the box would have booted deaf — the escape hatch was **`agent: enabled=1`**, since `qm guest exec` runs over virtio-serial and needs no network at all |
+| **SSH from the dev box** | A clone keeps the **same host keys**, and the IP didn't change, so `known_hosts` needed no clearing |
+| **`refresh.sh`** | It targets hosts **by IP, not VMID**, so re-numbering was invisible to it. Only its comment block was wrong |
+
+**Verified after a deliberate cold stop/start** (not just after the clone boot): hostname persisted, NAS
+auto-mounted, **zero failed systemd units**, all four `capricorn-*` containers up on their own restart
+policies, `:5001` and `:5002` both **HTTP 200** from off-box. Snapshot **`q01-cloned-verified`** taken.
+Docker's restart policies brought the stack back with no intervention.
+
+✅ **CLONE ACCEPTED — Andrew re-ran the last Capricorn QA deployment from GitLab and it worked.** So the
+**stored CI credentials still authenticate against the renamed host**, and **key-based SSH from the dev
+box still works with no password**. That closes the migration: nothing in the pipeline referenced the
+VMID or the hostname, only `192.168.1.180`. ✅ Independently swept — **no `/etc/hosts`, `~/.ssh/config`
+or `known_hosts` entry on `.181`–`.184` or the dev box ever named `vm-kubernetes-1`.** Everything in
+this lab addresses that box by IP, which is exactly why a re-number was cheap.
+
+🚨 **AUTOSTART LOCKED DOWN (Andrew, same session): only 180, 181, 182, 183, 184 come back after a host
+reboot.** **186 and 191/192/193 were all `onboot 1` and are now `onboot 0`** — they were quietly
+starting themselves. ⚠️ **This means the Docker Swarm is DOWN after any host reboot**, so
+`qm start 191 192 193` becomes a **prerequisite for Phase 17's Jenkins→Swarm deploys**, not an
+afterthought. **Boot order also set** — GitLab first with a 60 s head start, then 182/183, then 180/184.
+Both recorded in `MEMORY.md` → *AUTOSTART POLICY*. ✅ Verified **no HA resources and no cluster**, so
+`onboot` is the only thing that can start a guest.
+
+📸 **Snapshot `q02-qa-deploy-verified` taken OFFLINE** (VM shut down first, so disk state is consistent
+by construction rather than by fs-freeze). It captures the accepted post-migration baseline: GitLab
+deploy re-run successfully, `onboot=1`, `startup order=3`. ✅ **Unlike VM 200's snapshot, this one
+records the CORRECT `onboot` value**, so rolling back to it is safe. VM 180 was restarted and
+re-verified afterwards: no failed units, NAS mounted, four containers up, `:5001`/`:5002` HTTP 200.
+
+🖼️ **Fixed the one stale reference outside the docs: `education/k8s-k3s-redpanda/diagrams/ch01_fig1_stack.dot`**
+labelled a box `VM 200 / QA/k8s / .180`. Now `VM 180 / QA / .180` — **the "k8s" label was always wrong
+and actively undercut that chapter**, whose whole point is that VM 186 is the only k3s box. PNG
+re-rendered and **chapter 1's `.docx` rebuilt; the other six were left alone, so no rebuild noise.**
+⚠️ **Known and accepted limitation:** the figure still omits 191–193 (built Aug 13, after the chapter)
+and 185. It depicts the lab as of the k3s track and is not a live inventory.
+
+📌 **RULING — VM 180 gets NO backup. Built, proven, then removed the same hour on Andrew's
+instruction.** The AI created `nas-docker-qa` + a nightly job and proved it with a real run (live
+`snapshot`, **2m20s, 10.66 GB**, `gmail-smtp` notification, artifact confirmed on the NAS). Andrew:
+*"VM180 does not need backups. Remove the one you added."* **All of it is gone** — job, archive,
+storage, credential file, local mountpoint, and the NAS folder. Verified: one storage list, one job
+(`gitlab-nightly`), four `.pw` files. ⭐ **The reasoning generalises and is the part to keep: QA is
+rebuilt by GitLab CI on every deploy, so it is a deploy target, not a data store. Only irreplaceable
+state earns a backup.** 🚨 **Do not re-add it as a "helpful" gap-fill.**
+
+📊 **Two things worth keeping from the exercise anyway.** Sizing: **80% of that 100 GB disk was zeros
+and was sparse-skipped**, so archive size tracks *used* data, not provisioned size. And teardown:
+`pvesm free` clears the archive but **PVE's `dump/` subdir survives and the CIFS dentry cache lies
+about it** — `ls`/`find` showed a `dump` directory that `stat`/`rmdir` said did not exist and `rm -rf`
+refused as *"Directory not empty."* **A fresh mount with `noserverino` fixed it instantly.** A deleted
+folder may still enumerate as `d????????? ? ?`; `test -d` is the honest check. Full note in
+`proxmox/Home_Lab_Proxmox_Storage.md`.
+
+🚨 **The wider coverage gap is REAL and still open, and 180 is now deliberately part of it.** The lab has
+**exactly one scheduled job** (`gitlab-nightly`, 181). Swarm nodes 191–193 have NAS storages but only
+**one hand-made dump each from Aug 13, no schedule**; **180, 184, and 186 have nothing.** ⚠️ **Don't
+infer coverage from `pvesm status` — read `/etc/pve/jobs.cfg`.** ⭐ **184 is the one that should still
+bother us**: unlike QA it runs Capricorn **PROD** and the public site, so the "rebuildable" argument
+that justifies skipping 180 does **not** cover it. **Andrew's call, not raised as urgent.**
+
+🔁 **REPEATED A DOCUMENTED MISTAKE — worth reading, because the trap caught two different sessions.**
+Four manual `mount -t cifs` attempts from `.150` all returned **error(13) Permission denied**, *including
+the exact path `nas-gitlab` already mounts successfully*. The AI first concluded the credential in
+`PASSWORDS.md` was stale. **It is not.** 🚨 **`/etc/pve/priv/storage/<id>.pw` contains `password=<value>`
+plus a newline, NOT a bare password** — so its 19 bytes are `password=<value>`, and passing
+`$(cat …pw)` as the password sends the literal string `password=<value>`. **`MEMORY.md` already
+warned about this** (same sub-bullet, from a Jul 2026 session that made the identical error and had to
+retract a fake "credential outage"). ⭐ **The lesson that didn't stick the first time: a byte count is not
+a value.** Reading the existing note before probing would have saved all four attempts.
+
+⚠️ **Attempts were stopped at four deliberately** — Synology-style auto-block trips around five failures
+and would blackhole the Proxmox host's IP, killing the nightly GitLab backup and every guest's
+`/mnt/DevShare`. ✅ **No harm done — re-verified afterwards:** all four NAS storages `active`,
+`pvesm list nas-gitlab` works, a write-and-delete into it succeeded, and `.180`/`.181` still have
+`/mnt/DevShare` mounted.
+
+**Docs updated:** `MEMORY.md` (4 places), `README.md` (also corrected OpenClaw from "retired" to
+destroyed), `refresh.sh` comment — **and re-deployed to `/usr/local/bin/refresh.sh`, which was
+byte-identical to the repo copy beforehand and is again now.** `SYSTEM_VERIFICATION.md` was **banner-ed
+as a stale historical snapshot rather than edited** — it is a dated Jan 14, 2026 report, and it is
+missing five VMs and understates GitLab's RAM. Historical phase files 2/4/5/7 left untouched.
+
