@@ -972,6 +972,39 @@ the cluster looks like without it first** — recognising absence is Troubleshoo
    grows; 3 `sh.helm.release.v1.traefik.vN` Secrets) → 1 replica, route still serving. Exercises **X14, X15**.
 5. **Snapshot** `c03-equipped-cluster`, offline, all five, PVE **and** ZFS layers. ⚠️ **The marker drill
    is not rerun** — the rollback mechanism is unchanged since `c02`, where it was proven Sep 17.
+   ✅ **TAKEN Nov 4, 2026, 12:42 EST** (AI ran it at Andrew's go-ahead). 🙋 **What `c03` means (Andrew):**
+   *"our snapshot should roll us back to a state where k8s is built and configured and working like the cka
+   lab's baseline will be … As long as we can always roll back our lab to 'ready' for work and excercizes
+   that's good."* → **`c03` is the "ready" reset point from now on**; every exercise adds its own setup on top.
+   Before: test objects removed (Andrew's choice — add-ons only), 5/5 `Ready`, 0 pods not Running, Helm
+   release `traefik` rev 3. Shutdown workers-first took **~5 min** (12:37 → 12:41:56); all five `stopped`
+   before the guarded snapshot loop. Verified **5 = 5 = 5**: `qm listsnapshot` on each, ZFS
+   `vm-critical/vm-20[1-5]-disk-0@c03-equipped-cluster`, and 5 disks in the VM configs (one each). Cold start
+   control-planes-first at 12:43; at +100 s: 5/5 `Ready`, **42 pods all Running** (39 + metrics-server,
+   local-path, Traefik), raft term **54 → 55** (one election, the boot), leader **control-2**, VIP on
+   **control-3**, `/livez` 200 via `.206`, APIService `True`, `top` 5 nodes, `local-path (default)`, 10
+   Gateway CRDs, GatewayClass/Gateway `True`, Traefik 404 on both workers' `:30080`.
+   🚨 **ZFS rolls back only to the newest snapshot: `c02-virgin-cluster` is now reachable only by deleting
+   `c03`** (Andrew accepted, Nov 4). Chain: `c01` → `c02` → `c03`.
+   🚨 **FOUND WHILE CHECKING HEALTH BEFORE IT — the nightly backup causes etcd elections.** Raft term was
+   **54** (6 on Sep 28) with no one using the cluster. etcd logs (retained back to Nov 3 only) put the
+   elections in the **07 UTC hour both nights**; on Nov 4 control-1 logged **17 leader-change lines at
+   07:34:26 UTC = 02:34:26 EST**, inside **VM 201's `critical-nightly` backup (02:33:44–02:34:37)**, with 77
+   `apply request took too long` and 46 `leader failed to send out heartbeat on time` that hour. The
+   fs-freeze/thaw is sub-second; the ~50 s backup read of the zvol is what slows etcd's fsync past the
+   heartbeat. ~48 terms over ~37 nights since the job began Sep 28 fits one or two a night. **Self-heals;
+   nothing looked wrong.** ✅ **DECIDED AND DONE, Nov 4 (Andrew):** *"1. delete the other CKA backups on the
+   NAS 2. run a final backup of them now in stop mode 3. Take 201–205 out of the nightly job."* Run by the
+   AI, backup **first** so the NAS was never empty: all five shut down workers-first (12:50 → 12:54), then
+   `vzdump 201 … 205 --mode stop --protected 1` → five archives `vzdump-qemu-20x-2026_11_04-12_5x.vma.zst`
+   (1.87–2.18 GB, 52–56 s each), **taken with all five off together — the `c03` state, consistent across
+   etcd members** (stop mode on *running* VMs would have cycled them one at a time, minutes apart). Each
+   checked: `.protected` present, notes "FINAL CKA set…", `zstd -t` OK. Then the **35** older nightly
+   archives freed by a guarded loop (exactly 35, none from the new set; 0 failed). Job `critical-nightly`
+   now `vmid 183,185`, comment updated. Cold start: 5/5 `Ready`, 42/42 Running, term **57**, leader
+   control-2, Traefik 404. ⚠️ 201–205 now sit in PVE's "not backed up" list — expected. 🙋 Andrew asked whether to clean the logs first —
+   no: the cold start resets container logs anyway, the errors are a record not a fault, and they recur
+   nightly while the job runs as is.
 
 **Deliberate simplifications, each chosen, none forgotten:**
 - **NodePort only.** No LoadBalancer implementation; a `LoadBalancer` Service left `<pending>` is itself

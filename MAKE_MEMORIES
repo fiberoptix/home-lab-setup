@@ -180,9 +180,29 @@ phases/phaseX_*.md (the working record - where the volume belongs):
          variable; never print it.
          ⭐ THE DEMOTION AUDIT IS WHAT FOUND IT - for the fourth pass running, reading a block to route
          it surfaced a live problem nobody was looking for (an overtaken GitHub hold, too).
+       Nov 4, 2026 (START of pass 15): 8 blocks, 0 dated Jan-July 2026, 527 lines
+       Nov 4, 2026 (after pass 15a-e) : 3 blocks = AT SPEC (RESUME + 1 handoff + the log), 224 lines
+         ✅ CONVERGED: 39 -> 3 since Aug 24. Five demotions, five commits, every block from Aug 20-21:
+         15a QA renumber -> phase5; 15b Cockpit -> phase2; 15c nofail sweep -> phase2; 15d Phase 17
+         Parts 0-1 -> phase17; 15e build-standard overhaul -> phase2. From here each pass demotes the
+         PREVIOUS handoff and writes the new one - net zero.
+         🚨 THE AUDIT AGAIN FOUND LIVE ITEMS NOBODY WAS TRACKING, two of five blocks:
+         (1) "template 9000 not checked for a NAS fstab entry" - open 76 days. CLOSED by reading the
+         template disk read-only on the host (`virt-cat -a /dev/zvol/... /etc/fstab`; virt-cat has no
+         --ro flag, it is read-only by design) - clean. ⭐ An "unverified, needs a boot" item often
+         does not need the boot: read the disk.
+         (2) "--server success path unproven" - STILL TRUE, lived only in the block -> promoted to MEMORY.
+         ⭐ Check "unproven" claims against what was BUILT since, not what was planned: phase18 said the
+         k8s nodes would run host_setup.sh --server; they were built with their own scripts instead.
+         🚨 THE VERIFY SNIPPET BELOW HAD A BUG (fixed): `while read -r` without `IFS=` strips leading
+         spaces, so every INDENTED continuation line reported MISSING (5 false alarms on 15a). With
+         `IFS=` it was 0. It failed in the safe direction (alarm, not silence) - still, a check that
+         cries wolf on every indented line trains you to ignore it.
+         Placeholder trick that worked: pass "NNN" as the row count, take N from the tool's
+         "staged: -N lines", then sed it into BOTH the staged blob and the worktree.
          ⚠️ The AI wrote verification temp files to /dev/shm (outside the project) - a host rule
          breach; deleted. Verify removed lines with a pipe:
-           while read -r l; do git show :<dest> | grep -qxF -- "$l" || echo "MISSING: $l"; done \
+           while IFS= read -r l; do git show :<dest> | grep -qxF -- "$l" || echo "MISSING: $l"; done \
              < <(git diff --cached phases/current_phase.md | grep '^-' | grep -v '^---' | sed 's/^-//' | grep -v '^\s*$')
          ⭐ Pass 9 salvaged a LIVE SECURITY CAVEAT that existed in one place only: the master
          password leaked to public GitHub in June 2026 was purged from history and NEVER ROTATED.

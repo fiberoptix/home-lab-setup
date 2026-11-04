@@ -25,6 +25,7 @@ same answer `phase0_hardware.md` → Storage Capacity Audit gave on Aug 19.
 | **Thin-provision everything** | + an email alert + a boot-time check in `CURSOR_RULES` (< 80%) |
 | **Snapshots that matter live on critical** | — so the k8s nodes moved, taking `c01`/`c02` with them |
 | **Nightly backups for critical** | NAS; restore drills event-driven (a new job IS an event) |
+| 🆕 **k8s 201–205 OUT of the nightly job (Andrew, Nov 4, 2026)** | 🚨 The 02:30 snapshot-mode backup was causing an etcd election most nights (raft term 6 → 54, Sep 28 → Nov 4; `phase18` Ch 05 plan item 5). Now: **one protected, offline-together set** on `nas-critical` (`vzdump-qemu-20[1-5]-2026_11_04-12_5x`, stop mode, all five shut down first = the `c03-equipped-cluster` state) + the `c03` ZFS snapshots on the mirror. The 35 older nightly archives were deleted. **They stay on `vm-critical`.** ⚠️ They now show in PVE's "not backed up" list — expected. A new CKA baseline = a new offline set, by hand |
 | **Swarm snapshots `s01`–`s07` purged** | NAS backups from Aug 13 kept; one fresh offline baseline taken |
 | **Money only when real allocation nears ~60%** | First purchase = larger drives in the same slots, not a new card |
 

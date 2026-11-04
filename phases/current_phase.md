@@ -1,6 +1,6 @@
 # Current Phase
 
-**Updated:** November 4, 2026 - 11:40 AM EST
+**Updated:** November 4, 2026 - 1:40 PM EST
 
 📐 **Shape, and how to keep it:** `▶️ RESUME HERE` is the **first block** as of Aug 24 — it had been
 at line 389 under six stale session blocks, so the one thing you must read first was the one you had
@@ -8,7 +8,13 @@ to scroll to find. **Keep it first.** Below it, newest session first. `MAKE_MEMO
 counts blocks (spec: 2) and step 2 demotes at least one per pass, so this file drains instead of
 growing — see that file for why the previous append-only version went undetected for seven months.
 
-## ▶️ RESUME HERE — 🔵 **PHASE 18: THE CLUSTER EXISTS. STAGES 1 AND 2 ARE COMPLETE.**
+## ▶️ RESUME HERE — 🔵 **PHASE 18, STAGE 3: CHAPTER 05 EQUIPMENT BUILT — `c03-equipped-cluster` IS THE "READY" RESET POINT.**
+
+🎯 **Cold-start summary (Nov 4, 2026):** the cluster carries metrics-server, local-path (default SC),
+Gateway API v1.6.3 standard CRDs and Traefik (Helm, NodePort 30080/30443). **Reset = roll back all five
+to `c03`**, offline, both layers. 🔲 **NEXT: the etcd `wal_fsync` p99 baseline, then write Chapter 05.**
+Commands are handed to Andrew as a separate `ssh` block first; on "check", read his terminal file
+(`phase18` §12). The detail for everything below is in `phase18` → Chapter 05 plan items 1–5.
 
 🔐 **Nov 4, 2026 — A REAL PASSWORD WAS FOUND ON PUBLIC GITHUB, AND IS NOW REDACTED + GATED.** The NAS/SMB
 password (= GitLab root, Phase 20 E7) sat in plain prose 7× in 4 tracked files, public since `46a01db`
@@ -44,9 +50,13 @@ bind, survive-a-pod-delete and reclaim-`Delete` all proven** (item 2). ✅ **Nov
 API standard CRDs v1.6.3** (10 CRDs + a `safe-upgrades` admission policy; v1.6.3 because stable Traefik
 v3.7.17 is built on it) (item 3). ✅ **Nov 4: Part 4 BUILT — Helm v4.3.1 on control-1 only, Traefik
 chart 42.3.0 (v3.7.17) on NodePort 30080/30443; one Ingress and the same route as Gateway + HTTPRoute both
-serving; upgrade + rollback drilled** (item 4). 🔲 **NEXT: Part 5, offline snapshot `c03-equipped-cluster`
-on all five** (decide first whether the `hello` test objects stay in it), then the etcd `wal_fsync` p99
-baseline before the first breaking drill. ⚠️ **Run every step on control-1** (`ssh agamache@192.168.1.201`) — the workstation has no kubeconfig.
+serving; upgrade + rollback drilled** (item 4). ✅ **Nov 4: Part 5 — `c03-equipped-cluster` TAKEN, offline,
+all five, 5/5/5 at PVE + ZFS, cold start proven. 🎯 `c03` IS THE "READY" RESET POINT** (Andrew: roll back to
+"ready" for work and exercises). 🚨 `c02` is now reachable only by deleting `c03`. 🚨 **Found: the 02:30
+`critical-nightly` backup triggers an etcd election most nights** (term 6 → 54 since Sep 28; Nov 4 at 02:34:26,
+during VM 201's backup) → ✅ **201–205 REMOVED from the job (Andrew, Nov 4)**; one protected stop-mode set
+taken with all five off (= `c03` state), the 35 old nightly archives deleted (`phase18` item 5). 🔲 **NEXT: the etcd `wal_fsync` p99 baseline** (before the first breaking drill — it
+now has a known nightly disturbance to measure against), **then write Chapter 05.** ⚠️ **Run every step on control-1** (`ssh agamache@192.168.1.201`) — the workstation has no kubeconfig.
 🎯 **NEW Nov 4 — THE EXERCISE BANK: `education/k8s-cka-prep/exercises.md`.** Exam-shaped tasks (X01–X15 +
 backlog) for a timed mock exam later. 🚨 **Every Stage 3 part adds at least one task before it is called
 done** — rule and shape in `phase18` → § *EXERCISE BANK*.
@@ -58,7 +68,8 @@ Swarm in place meanwhile. 🔄 *Its snapshots `s01`–`s07` were purged Sep 28 b
 the only Swarm snapshot now is `baseline-2026-09-28`.* 🆕 **Hard rule B9: never install ingress-nginx — retired
 upstream March 2026.**
 ⚠️ **The cluster ran six days unattended and was healthy on return** — raft term still 5, so no etcd
-election at all in that time.
+election at all in that time. 🔻 *(Sep 23 reading — before the nightly backup job existed. From Sep 28 to
+Nov 4 that job caused ~48 elections; 201–205 were taken out of it Nov 4.)*
 🆕 **Sep 28, 2026 — AUTOMATIC UPDATES FROZEN ON ALL FIVE NODES; the Sep 17 "do not mask" call is
 REVERSED.** They were the only VMs in the lab still patching themselves: `unattended-upgrades` had
 installed kernel **`6.8.0-142`** (Sep 25) and ~20 packages **after** `c02` was taken. ✅ Now masked
@@ -84,7 +95,7 @@ holds the corrections (kube-vip did NOT crash-loop; the Calico operator HARD-COD
 `192.168.0.0/16`; `node.spec.podCIDR` is inert; `RESTARTS 0` does not mean a static pod was
 untouched).
 
-## 📘 SESSION Nov 4, 2026 (10:57–11:50 EST) — back after 5 weeks: Ch 05 Part 1 built, exercise bank started
+## 📘 SESSION Nov 4, 2026 (10:57–13:40 EST) — back after 5 weeks: Ch 05 Parts 1–5 built, exercise bank X01–X15, CKA nightly backup removed
 
 🙋 *"I'm back after a long time. where are we on phase18?"* → nothing had moved since Sep 23.
 
@@ -107,7 +118,18 @@ untouched).
    Committed `1c1610e`; pushed GitLab then GitHub.
 8. **Ch 05 Part 4 — Helm v4.3.1 + Traefik 42.3.0 BUILT by Andrew** (Ingress, then Gateway + HTTPRoute by hand;
    `allowedRoutes: Same` refusal seen; upgrade + rollback). Record: `phase18` item 4; `COMMANDS.md` §13;
-   `manifests/ch05/traefik/`; X14, X15. Also fixed X11's verify (`grep -c` = 2, not 1).
+   `manifests/ch05/traefik/`; X14, X15. Also fixed X11's verify (`grep -c` = 2, not 1). Committed `8fe2142`; pushed both.
+9. **Ch 05 Part 5 — `c03-equipped-cluster`** taken 12:42 (AI ran it, Andrew's go-ahead), test objects removed
+   first; cold start 5/5 Ready, 42/42 pods, every add-on re-proven. **Found the backup → etcd election link.**
+10. **Backups of 201–205 reworked (Andrew's call):** final stop-mode set with all five off, protected and
+    `zstd -t` checked → 35 old archives deleted → `critical-nightly` = 183,185 only. Cluster 5/5 after.
+11. `MAKE_MEMORIES` pass 15: **7 → 3 blocks — the file is at spec** (RESUME + this handoff + the log).
+    15a QA renumber → `phase5`; 15b Cockpit → `phase2`; 15c `nofail` sweep → `phase2` (**closed its 76-day-old
+    open item: template 9000 read with `virt-cat`, no NAS entry**); 15d Phase 17 Parts 0–1 → `phase17`;
+    15e build-standard overhaul → `phase2` (**promoted "`--server` success path still unproven" to MEMORY**).
+
+**Andrew's working rules set this session** (all in `phase18` §12): ssh as its own block before the
+commands; "check" = read his terminal file; **CKA work pushes to BOTH remotes, GitLab first** (still ask).
 
 ### 🚨 Found
 - **The password on public GitHub** (see RESUME HERE). Found while reading the next block to demote —
@@ -121,9 +143,9 @@ untouched).
 ### 🔲 Open — for Andrew
 - ✅ **Password: REDACTED + `push_github.sh` step 5 gate, proven on the real leak** (blocked → redact →
   pass). Andrew: no rotation, no purge. ✅ Swarm GitHub hold lifted — L19–L22 stay public.
-- ✅ GitLab pushed (`dde819b`); GitHub after the redaction, with Andrew's go-ahead.
-- 🔲 **Phase 18 next: Ch 05 Part 5, snapshot `c03-equipped-cluster`** (offline, all five, both layers), then the
-  `wal_fsync` baseline, then write Chapter 05.
+- ✅ GitLab pushed (`dde819b`); GitHub after the redaction, with Andrew's go-ahead. Parts 2–4 pushed to both.
+- ✅ **Nightly backup of 201–205: removed** (it caused etcd elections); protected offline set + `c03` instead.
+- 🔲 **Phase 18 next: the `wal_fsync` p99 baseline, then write Chapter 05.**
 - 🔲 Carried: kernel drill (by ~end Dec); delete `rpool/ROOT/pve-1@pre-pve-9.2.20-2026-09-28` (host trial
   passed Oct 27) — ask first; Swarm chapter 8 — ask which Swarm features the new job actually uses;
   Sep 28 logs in `education/k8s-cka-prep/scratch/` (agreed: delete "next session" — ask).
