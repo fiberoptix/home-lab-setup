@@ -622,7 +622,7 @@ It had been accumulating since Aug 13. **When you write a new handoff, move the 
   ✅ **Resting state HEALTHY**: 2/2, 3/3, 1/1, 1/1, smoke gate green, quorum restored, **leader moved to
   `docker-swarm-1`** (leadership not sticky — observed twice), C3 constraints removed, `pg_password_v2`
   deleted. ✅ **`s05-review-c6b-closed` taken Aug 18 ~8:15 PM (Andrew authorized)** — all three VMs, hot
-  fsfreeze, description warns that `s04` still contains the **broken `on-failure` policy**. 🔲 **GitHub push held**; GitLab only.
+  fsfreeze, description warns that `s04` still contains the **broken `on-failure` policy**. ~~GitHub push held; GitLab only~~ 🔓 hold lifted Nov 4, 2026 (Andrew).
   **Previously, Aug 18 (5:00–6:30 PM) — five drills whose findings were about the APPLICATION,
   not Swarm.** Resting state: stack healthy, **1621 DB rows = 939 tax reference (from `initdb`) + 682
   written by the app**, snapshot **`s04-drills-complete`** (all three VMs gracefully shut down first).
@@ -676,13 +676,12 @@ It had been accumulating since Aug 13. **When you write a new handoff, move the 
   **`UpdateStatus` is ABSENT, not empty**, until a service is first updated (`map has no entry for key`)
   — ⭐ the one place suppressing stderr is RIGHT, because the code handles the silence, unlike the
   precondition case above.
-  📌 **GITHUB PUSH IS HELD (Andrew's call, Aug 18):** the drill commit describes Capricorn source and an
-  unauthenticated destructive endpoint; it lives on the **private GitLab mirror only**. Do not push
-  `main` to `origin` without asking.
-  🚨 **Nov 4, 2026 audit (`MAKE_MEMORIES` pass 14b): this hold was OVERTAKEN, with no record of it being
-  lifted** — `phase16` with ledger rows **L19–L22** (the attack-path prose) is on public `origin/main`, and
-  Aug 19's *"deal with it at GitHub-push time, in one review pass"* lived only in a `current_phase.md`
-  block. 🔲 **Whether that prose stays public is OPEN for Andrew.**
+  📌 ~~**GITHUB PUSH IS HELD (Andrew's call, Aug 18)**~~ 🔓 **LIFTED by Andrew, Nov 4, 2026:** *"I don't
+  think there's a reason to hold the swarm material."* The Aug 18 commit (Capricorn source excerpts, the
+  existence of an unauthenticated destructive endpoint) and ledger L19–L22 had already gone public
+  unrecorded; they now stay public **by decision**. ⛔ **What is STILL private and must stay so:** the
+  endpoint's SPECIFICS (route, tables, guard) live only in gitignored `working/capricorn-app-findings-2026-08-18.md`
+  — do not restate them in tracked files. Never push `main` to `origin` without asking.
   ⭐ **Andrew's paste-runner (Aug 18):** paste command blocks into
   `education/*/scripts/run_commands.sh` (git-ignored) and execute the file rather than pasting into an
   interactive shell — **this eliminates the mispaste class outright**, since both prior incidents were

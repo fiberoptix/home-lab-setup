@@ -14,7 +14,8 @@ growing — see that file for why the previous append-only version went undetect
 password (= GitLab root, Phase 20 E7) sat in plain prose 7× in 4 tracked files, public since `46a01db`
 (Aug 13). Redacted to `<value>`; **Andrew chose NOT to rotate** (lab-only, LAN-only) and not to purge;
 `push_github.sh` **step 5** now blocks any known secret value. Detail: `MEMORY.md` → GIT → *Secret hygiene*.
-🔲 Still open for Andrew: whether ledger L19–L22 (attack-path prose, `phase16`) should stay public.
+🔓 The Aug 18 Swarm GitHub hold is **LIFTED** (Andrew, Nov 4) — L19–L22 stay public by decision; the
+Capricorn endpoint specifics stay in gitignored `working/`.
 
 🆕 **Oct 27 (late): PHASE 20 BUILT — Rancher on single-node K3s, VM 187 `.187`** — a separate track; it
 does **not** touch the CKA cluster and does not change the Phase 18 next step below. Open items for Andrew
@@ -97,14 +98,14 @@ untouched).
 - **The password on public GitHub** (see RESUME HERE). Found while reading the next block to demote —
   🚨 **demotion stopped there on purpose**, because moving it verbatim moves the secret.
 - **The Aug 18 "GitHub push HELD" for Swarm material was overtaken unrecorded** — `phase16` ledger L19–L22
-  (attack-path prose) is public. Flagged in `MEMORY.md` beside the hold note.
+  (attack-path prose) is public. 🔓 Andrew lifted the hold the same day (`MEMORY.md` beside the old note).
 - 🤖 **The AI broke a host rule once:** wrote two temp files to `/dev/shm` on the dev box while verifying 14a
   ("NEVER write outside project directory on this host"). Deleted at once (verified 0 left); later checks
   used pipes only.
 
 ### 🔲 Open — for Andrew
 - ✅ **Password: REDACTED + `push_github.sh` step 5 gate, proven on the real leak** (blocked → redact →
-  pass). Andrew: no rotation, no purge. 🔲 Whether L19–L22 stay public.
+  pass). Andrew: no rotation, no purge. ✅ Swarm GitHub hold lifted — L19–L22 stay public.
 - ✅ GitLab pushed (`dde819b`); GitHub after the redaction, with Andrew's go-ahead.
 - 🔲 **Phase 18 next: Ch 05 Part 2, local-path-provisioner**, + its PVC-`Pending` exercise.
 - 🔲 Carried: kernel drill (by ~end Dec); delete `rpool/ROOT/pve-1@pre-pve-9.2.20-2026-09-28` (host trial
