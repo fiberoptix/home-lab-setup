@@ -1174,8 +1174,11 @@ no RAM state, `$SNAP` newest on every snapshotted zvol — only `disk-0` carries
 none) → `qm stop` all five (**hard stop on purpose: the disks are about to be discarded**, and it skips the
 ~5 min graceful shutdown) → `qm rollback` → start → 5/5 SSH → 5/5 Ready **with leases renewed after the
 start** → `lab_check.sh` retried until `CLEAN`. ✅ `--check` passes; ✅ refuses `SNAP=c02-virgin-cluster`
-(`c03` is newer) and a non-existent name, VMs untouched. 🔲 **`--yes` not yet run — ask Andrew; record the
-stop-to-clean time** (estimate: under ~3 min without the graceful shutdown).
+(`c03` is newer) and a non-existent name, VMs untouched. ✅ **`--yes` FIRST RUN, Nov 4 14:22 EST (Andrew's
+go-ahead): **250 s** from launch (pre-flight ~41 s · hard stop 20 s · rollback 7 s · SSH 29 s and 5/5 Ready with fresh leases 54 s after start · `CLEAN` 182 s after start)** — `CLEAN` on the existing fingerprint, so no re-record was needed. ✅ **Proven a
+rollback, not a reboot:** `journalctl --list-boots` on .201 and .205 — previous boot ends 17:38 UTC (the
+pre-`c03` shutdown); the post-snapshot boot (cold start → 19:22) is gone. ⭐ The boot list is a marker the
+system plants for you.
 
 ⏱️ **Practise against the clock here, not earlier** — 15–20 tasks in 120 minutes is roughly 6–8 minutes
 each, and speed is a separate skill from correctness.

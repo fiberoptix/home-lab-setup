@@ -14,8 +14,8 @@ growing — see that file for why the previous append-only version went undetect
 Gateway API v1.6.3 standard CRDs and Traefik (Helm, NodePort 30080/30443). 🔄 **Every session starts with
 `bash education/k8s-cka-prep/scripts/lab_check.sh`** (workstation; 422 checks against `c03`, names the lowest
 drifted layer). L4 drift → the exercise's Reset or `--clean`; L1–L3 → `scripts/reset_cluster.sh --check`, then
-`--yes` (hard stop, roll all five back to `c03`, boot, fresh leases, `lab_check`). ⚠️ **`--yes` not yet run — ask
-Andrew before its first run, and record the stop-to-clean time.** ✅ **Nov 4: `wal_fsync` baseline taken (p99 ≤ 128 ms idle — `phase18` §11) and
+`--yes` (hard stop, roll all five back to `c03`, boot, fresh leases, `lab_check`). ✅ **Proven Nov 4: 250 s
+launch → `CLEAN`** (182 s from start); a real rollback (the post-snapshot boot is gone from `journalctl --list-boots`). ✅ **Nov 4: `wal_fsync` baseline taken (p99 ≤ 128 ms idle — `phase18` §11) and
 Chapters 05–08 WRITTEN** (05 metrics+storage, 06 Gateway/Helm/Traefik+`c03`, 07 anatomy reference, 08 building it
 at work); ch01–04 corrected quietly. 🔲 **NEXT: Stage 3 drills — exercise chapters from 09, from `c03`.**
 Commands are handed to Andrew as a separate `ssh` block first; on "check", read his terminal file
@@ -138,7 +138,7 @@ untouched).
 13. **Reset tooling** (`education/k8s-cka-prep/scripts/`, Andrew asked for it): `lab_check.sh` +
     `c03-equipped-cluster.fingerprint` (recorded live, cross-checked against the c03 inventory; stable over
     three runs; ✅ positive control: planted ns + `~/answers` + cordon all caught, `--clean` reverted them);
-    `reset_cluster.sh` (✅ `--check` passes; ✅ refuses `c02` and a missing name; `--yes` NOT run).
+    `reset_cluster.sh` (✅ `--check` passes; ✅ refuses `c02` and a missing name; ✅ `--yes` 14:22: 250 s to `CLEAN`).
 
 **Andrew's working rules set this session** (all in `phase18` §12): ssh as its own block before the
 commands; "check" = read his terminal file; **CKA work pushes to BOTH remotes, GitLab first** (still ask).
@@ -163,9 +163,7 @@ commands; "check" = read his terminal file; **CKA work pushes to BOTH remotes, G
 - ✅ **Nightly backup of 201–205: removed** (it caused etcd elections); protected offline set + `c03` instead.
 - ✅ `wal_fsync` baseline taken; Chapters 05–08 written + docx (Nov 4). 🔲 **Phase 18 next: exercise chapters 09+;
   coverage matrix before the first mock exam.**
-- 🔲 **First real `reset_cluster.sh --yes`** — ask Andrew; time it and put the number in `scripts/README.md`
-  and `COMMANDS.md` §11 (both say "not yet run"). If its `lab_check` reads drift only from the snapshot's own
-  quirks, re-record the fingerprint straight after (`--record`).
+- ✅ First real `reset_cluster.sh --yes` (Nov 4 14:22): 250 s, `CLEAN` first time, rollback proven by boot list.
 - 🔲 Carried: kernel drill (by ~end Dec); delete `rpool/ROOT/pve-1@pre-pve-9.2.20-2026-09-28` (host trial
   passed Oct 27) — ask first; Swarm chapter 8 — ask which Swarm features the new job actually uses;
   Sep 28 logs in `education/k8s-cka-prep/scratch/` (agreed: delete "next session" — ask).

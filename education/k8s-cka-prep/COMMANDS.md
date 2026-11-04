@@ -191,7 +191,8 @@ kubectl -n kube-system exec etcd-vm-k8s-cka-control-1 -- etcdctl \
 | Did the node really come back? | `kubectl -n kube-node-lease get lease <node> -o yaml \| grep renewTime` — newer than the VM's start? | ✅ | **"Ready" alone lies for ~50 s** after a node goes down. The Lease renews ~every 10 s |
 | Is the pool actually filling? | `zpool list -o name,cap,health` | ✅ | **Not the PVE GUI** — it said 71% at 6% real (thick). Thin since Sep 28, so CAP is the only number that predicts trouble |
 | Is the cluster still the baseline? | `bash scripts/lab_check.sh` (workstation) · `--clean` for exercise leftovers | ✅ | Names the **lowest** drifted layer: L1–L3 → hard reset, L4 → the exercise's Reset. Nov 4: a cordon alone moved `calico-typha` 3 → 2 |
-| Put all five back to `c03` | `bash scripts/reset_cluster.sh --check`, then `--yes` | ⚠️ | `--check` ✅ ran (refused `c02` and a missing name). `--yes` not yet run — hard stop, rollback, boot, fresh leases, then `lab_check.sh` |
+| Put all five back to `c03` | `bash scripts/reset_cluster.sh --check`, then `--yes` | ✅ | `--check` refused `c02` and a missing name. `--yes` Nov 4: **250 s** launch to `CLEAN` (182 s from start) |
+| Was that a rollback, or just a reboot? | `journalctl --list-boots --no-pager \| tail -3` on a node | ✅ | After a rollback the boots since the snapshot are **gone** — the previous boot ends at the pre-snapshot shutdown. A reboot keeps them |
 
 ---
 

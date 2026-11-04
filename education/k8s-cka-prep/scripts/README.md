@@ -103,8 +103,9 @@ takes or deletes a snapshot. **A new baseline is a deliberate step by hand, then
 ✅ **`lab_check.sh` was proven with a positive control (Nov 4):** a planted namespace, an `~/answers`
 folder and a cordon were all reported, `--clean` removed them, and the next run read `CLEAN`. It also
 caught a side effect nobody planted: cordoning one node made the Tigera operator scale `calico-typha`
-from 3 to 2. 🔲 **`reset_cluster.sh --yes` has not been run yet** — its first run will measure the real
-stop-to-clean time.
+from 3 to 2. ✅ **`reset_cluster.sh --yes` first run, Nov 4 14:22 EST: **250 s** from launch (pre-flight ~41 s · hard stop 20 s · rollback 7 s · SSH 29 s and 5/5 Ready with fresh leases 54 s after start · `CLEAN` 182 s after start).** Proven a
+rollback rather than a reboot: `journalctl --list-boots` on the nodes no longer holds the boot that followed the
+snapshot — the previous boot ends at the pre-snapshot shutdown (17:38 UTC).
 
 ---
 
