@@ -1,7 +1,7 @@
 # Rancher on K3s · Chapter 5 — Breaking It: Four Drills
 
 > **Series:** Home-Lab Education · Phase 20 (Rancher on K3s)
-> **Drills run:** October 27, 2026, about 22:45–23:00 EDT on VM 187 `vm-k3s-rancher-1` (`192.168.1.187`), measured from the workstation `.195`
+> **Drills run:** October 27, 2026, about 22:45–23:00 EDT (D5 measured October 28, 20:50) on VM 187 `vm-k3s-rancher-1` (`192.168.1.187`), measured from the workstation `.195`
 > **Versions at time of writing:** K3s v1.35.9+k3s1 · Rancher 2.15.2 · Fleet as bundled · Ubuntu 24.04.5, systemd defaults
 > **Script:** none — each drill was a one-off command sequence, quoted (abbreviated) below
 > **Read this after:** Chapter 4 · **before:** the hand-built cluster that comes next
@@ -31,7 +31,7 @@ A system you have only seen working is a system you do not understand yet. Each 
 | D2 | Rancher scaled to zero | [The apps and GitOps do not need Rancher to keep running]{custom-style="Key"} |
 | D3 | A broken manifest committed to Git | The old version keeps serving; alert on `Ready`, not `Stalled` |
 | D4 | The registry password made wrong | Rancher's summary hides the 401; the pod's Events do not |
-| D5 | *(not yet run)* Prometheus disk after 24 h | Is `retentionSize` really enforced? |
+| D5 | Nothing — a day of Prometheus data, measured | 1 GB a day; the 7-day window governs, the 15 GiB cap is a backstop |
 | D6 | *(not yet run)* upgrade Rancher | Waits for a newer community release |
 
 ⚠️ A prediction that came true is still worth recording, and one that did not is worth more:
@@ -296,20 +296,85 @@ credential, the next retry succeeded.
 
 ---
 
-## D5 and D6 — not yet run
+## D5 — How fast does Prometheus grow?
 
-**D5 — is `retentionSize` enforced?** [Chapter 3 showed that `retentionSize: 15GiB` is the only thing]{custom-style="Key"}
-stopping Prometheus filling the node's disk. Baseline at 22:59 on October 27: **44.3 MB** on disk,
-**~207,000** active series. Due after 24 hours of data (October 28, 23:00 or later), re-measured with:
+**Prediction:** after a day, the data is far below the 15 GiB cap — so D5 measures the growth rate and
+confirms the limits are live, but [cannot prove the size cap works]{custom-style="Key"}. Chapter 3 showed
+why the cap matters: `retentionSize: 15GiB` is the only thing stopping Prometheus filling the node's disk.
+
+**Run:** read-only, on October 28 at 20:50 — [21 hours 51 minutes after the baseline, slightly short of the]{custom-style="Key"}
+planned 24. The size on disk, broken down, then Prometheus's own view of its limits
+(`P="sudo kubectl exec -n cattle-monitoring-system prometheus-rancher-monitoring-prometheus-0 -c prometheus --"`):
 
 ```bash
-sudo kubectl exec -n cattle-monitoring-system prometheus-rancher-monitoring-prometheus-0 -c prometheus -- du -sh /prometheus
+$P du -sh /prometheus
+$P sh -c "du -sh /prometheus/* | sort -k2"
+$P wget -qO- "http://localhost:9090/api/v1/query?query=prometheus_tsdb_retention_limit_bytes"
+$P wget -qO- "http://localhost:9090/api/v1/query?query=prometheus_tsdb_size_retentions_total"
 ```
 
-A day of data is unlikely to reach 15 GiB, so [D5 mainly checks the growth rate; it does not prove the cap]{custom-style="Key"}. Proving the cap
-means waiting for it, or temporarily setting a much smaller `retentionSize` and watching old blocks go.
+*(The two API queries are piped through a one-line `python3` that prints only the value.)*
 
-**D6 — upgrade Rancher.** Rancher 2.15.2 was still the newest community release when this was written.
+```
+1.0G	/prometheus
+
+139.8M	/prometheus/01M612NSGSE4RW0CKY0X30ZGNM
+174.7M	/prometheus/01M61Q8ZRSAXVY1RKANSNZ2DM2
+70.8M	/prometheus/01M62506PKP6ATPP9HMYE3S7SD
+71.2M	/prometheus/01M62BVXYM4EWEJEXX1Z7K4SVZ
+174.8M	/prometheus/01M62BW6HQXJ6T3NFWS5NQ4WRA
+112.8M	/prometheus/chunks_head
+0	/prometheus/lock
+20.0K	/prometheus/queries.active
+313.6M	/prometheus/wal
+
+16106127360
+0
+```
+
+**Measured:**
+
+| | Baseline (Oct 27, 22:59) | After 21 h 51 m (Oct 28, 20:50) |
+|---|---|---|
+| Data on disk | 44.3 MB | **1.0 GB** — about 45 MB an hour |
+| Active series | ~207,000 | **140,037** |
+| Size limit Prometheus is enforcing | — | **16106127360 bytes = 15 GiB** |
+| Deletions caused by the size limit | — | **0** |
+| Prometheus memory | 884 Mi | 956 Mi |
+| VM disk on the Proxmox pool | 10.2 G | 10.8 G (pool `vm-ephemeral` 4 % full) |
+
+Read the breakdown. [The five directories with long names are **blocks**]{custom-style="Key"} — finished, compressed chunks of
+history, 662 MB together. `wal` (314 MB) and `chunks_head` (113 MB) [are the **working space**: the newest]{custom-style="Key"}
+data, not yet compacted into a block. [The working space stays roughly the same size; the blocks are what
+accumulate]{custom-style="Key"}. [The baseline's 207,000 series was start-up churn]{custom-style="Key"}; 140,000 is the settled number.
+
+**The retention window.** Two limits apply, and whichever is reached first wins:
+
+- [**time — 7 days.** Anything older is deleted.]{custom-style="Key"}
+- **size — 15 GiB.** If the data reached that, the oldest would go early, even inside the week.
+
+At this rate [the 7-day limit is the one that governs]{custom-style="Key"}. You always have about the last
+week of metrics, and once a full week exists [the disk use levels off at roughly **6–8 GB**]{custom-style="Key"} — each new day
+replaces the oldest. It is less than 7 × 1 GB because the ~0.4 GB of working space does not repeat each day,
+and compaction shrinks older blocks somewhat. Deletion happens a whole block at a time, so slightly more
+than seven days is kept. [The size limit would only bind if growth roughly doubled]{custom-style="Key"} — past about 2 GB a day,
+which a noisy new app could cause. ⚠️ The steady-state figure is a projection from one day of data.
+
+**At 3am:**
+
+- ⭐ [Read the retention limits from Prometheus itself]{custom-style="Key"}
+  (`prometheus_tsdb_retention_limit_bytes`), not from the values file — that proves the setting reached the
+  running process.
+- `prometheus_tsdb_size_retentions_total` counting up means the size cap is deleting data **before** the
+  time window is up: [you are keeping less history than you think]{custom-style="Key"}. Worth an alert.
+- [Growth tracks the number of active series, not the number of apps.]{custom-style="Key"} A sudden jump in series is the thing
+  to watch.
+- 🔲 **Not proven:** that the cap actually deletes. Proving it means waiting for 15 GiB, or temporarily
+  setting a much smaller `retentionSize` and watching old blocks go — a change to the VM, not run here.
+
+## D6 — not yet run
+
+**Upgrade Rancher.** Rancher 2.15.2 was still the newest community release when this was written.
 When a newer one exists, the drill is: the same `rancher-values.yaml`, `helm upgrade` to the new version,
 and [the matching `rancher-monitoring` chart line]{custom-style="Key"} (Chapter 3, §2a). It is the procedure Chapter 1, §7 said
 community users are pushed into regularly.
@@ -377,4 +442,4 @@ Answer these out loud. Section references, not answers.
 7. Why was `crictl rmi` necessary in D4, and what does that tell you about a real bad credential? (D4)
 8. An image pull fails with a `401` from `/jwt/auth`. What has that ruled out? (D4)
 9. Rancher's pod view shows `error: false`. Where do you look instead? (D4)
-10. What exactly will D5 prove after 24 hours, and what will it not prove? (D5)
+10. How much metrics history does this lab keep, roughly how much disk does it settle at, and which limit decides that? What did D5 not prove? (D5)

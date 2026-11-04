@@ -9,7 +9,7 @@ by him. "✅ ran here" means executed in this lab with the output understood; it
 **Verified?** column:
 - ✅ **ran here (AI)** — executed on VM 187, output in the chapter named
 - ⚠️ **standard, not run here** — believed correct, **not** exercised. Do not present as tested.
-- 🔲 **planned** — designed, not yet run (drills D5, D6)
+- 🔲 **planned** — designed, not yet run (drill D6, and proving the D5 size cap)
 
 ---
 
@@ -95,7 +95,7 @@ The Prometheus API checks run inside the Prometheus pod:
 | `$P wget -qO- 'http://localhost:9090/api/v1/alerts' \| python3 -c 'import json,sys; a=json.load(sys.stdin)["data"]["alerts"]; print(len(a),"alerts;", sorted({(x["labels"]["alertname"],x["state"]) for x in a}))'` | What is firing? | ✅ Ch 3 |
 | `$P wget -qO- 'http://localhost:9090/api/v1/query?query=prometheus_tsdb_head_series'` | How many active series (memory driver) | ✅ Ch 3 |
 | `sudo kubectl get prometheus -n cattle-monitoring-system rancher-monitoring-prometheus -o jsonpath='{.spec.retention} {.spec.retentionSize} {.spec.scrapeInterval}'` | What retention is really applied | ✅ Ch 3 |
-| `$P du -sh /prometheus` | How big the data really is | ✅ Ch 3 · 🔲 D5 |
+| `$P du -sh /prometheus` | How big the data really is | ✅ Ch 3, Ch 5 D5 |
 | `$P df -h /prometheus` | Is the volume's size enforced? (No — the whole disk shows) | ✅ Ch 3 |
 | `sudo kubectl get servicemonitors -A --no-headers \| wc -l` · `… prometheusrules …` | What the operator is configured with | ✅ Ch 3 |
 | `sudo kubectl get secret -n cattle-monitoring-system alertmanager-rancher-monitoring-alertmanager -o jsonpath='{.data.alertmanager\.yaml}' \| base64 -d \| grep -nE 'receiver\|name:\|_configs\|route'` | Where alerts go — structure only | ✅ Ch 3 |
@@ -153,5 +153,6 @@ The Prometheus API checks run inside the Prometheus pod:
 | `systemctl show -p DefaultTimeoutStopUSec` | systemd's stop limit (1min 30s) | ✅ D1 |
 | `sudo kubectl -n cattle-system scale deploy/rancher --replicas=0` (then `=1`) | Take Rancher away; bring it back | ✅ D2 |
 | `for i in $(seq 1 30); do curl -sf --max-time 2 <url> >/dev/null && OK=$((OK+1)) \|\| FAIL=$((FAIL+1)); sleep 1; done` | Count availability during a drill | ✅ D2–D4 |
-| `$P du -sh /prometheus` after 24 h | Is `retentionSize` holding? | 🔲 D5 |
+| `$P du -sh /prometheus` after a day, plus `prometheus_tsdb_retention_limit_bytes` and `prometheus_tsdb_size_retentions_total` | How fast does it grow, are the limits live, has the size cap fired? | ✅ D5 |
+| A temporarily tiny `retentionSize`, then watch old blocks go | Does the size cap actually delete? | 🔲 not run |
 | `helm upgrade rancher … -f rancher-values.yaml` to a newer version | The upgrade drill | 🔲 D6 |

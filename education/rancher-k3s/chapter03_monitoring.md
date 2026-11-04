@@ -256,9 +256,10 @@ sudo kubectl get prometheus -n cattle-monitoring-system rancher-monitoring-prome
 ```
 
 **Measured growth so far:** 44.3 MB at 22:59, 75.9 MB at 23:24 — about 208,000 active series, scraped every
-30 seconds. Early growth includes the write-ahead log and is not a rate to extrapolate. ⚠️ **Whether
-`retentionSize` is honoured has not been tested yet**: that is drill D5, due after 24 hours of data
-(Chapter 5).
+30 seconds. Early growth includes the write-ahead log and is not a rate to extrapolate. **After a day
+(drill D5, Chapter 5): 1.0 GB, about 45 MB an hour** — so the 7-day limit governs and the disk settles at
+roughly 6–8 GB, about half the 15 GiB cap. ⚠️ Whether the cap actually deletes has not been tested: it was
+never reached.
 
 ---
 

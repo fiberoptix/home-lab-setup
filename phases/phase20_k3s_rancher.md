@@ -1,7 +1,7 @@
 # Phase 20 — Rancher on a single-node K3s VM (`vm-k3s-rancher-1`), with GitLab → Fleet GitOps
 
 **Status: 🔵 BUILT Oct 27, 2026 (AI-built at Andrew's instruction, 22:10–23:00) — Parts 0–6 done, drills
-D1–D4 done, D5 due Oct 28 ~23:00 (24 h of Prometheus data), D6 waits for a newer Rancher release.**
+D1–D5 done (D5 measured Oct 28 20:50: 1 GB/day, 7-day window governs), D6 waits for a newer Rancher release.**
 📚 **Study track `education/rancher-k3s/` WRITTEN Oct 27, 23:25–23:50** (5 chapters + `COMMANDS.md` + README, all 🤖 AI-executed) — see the EDUCATION TRACK section. **Not yet committed.**
 🙋 *"Write a plan to build rancher into a new VM vm-k3s-rancher-1 with all the things you said and ideally
 I'd like you to build it for me completely."* · *"Try to build the whole thing and note errors."*
@@ -30,7 +30,7 @@ no GitHub mirror). Only `education/fin_tech_stack.txt` is left uncommitted, on p
 | Item | Detail |
 |---|---|
 | **`MAKE_MEMORIES` pass** | ✅ **Done Oct 27 (pass 13)** — `current_phase.md` 13 → 9 blocks: the Sep 28 and Oct 27 PVE-update handoffs, the stale "ACTIVE: Phase 16" block and Phase 15 demoted (commits 13a–d); the Phase 20 block kept as the newest handoff. Backlog left: five Aug 19–21 blocks |
-| **D5** | ≥ **Oct 28, 23:00**: `sudo kubectl exec -n cattle-monitoring-system prometheus-rancher-monitoring-prometheus-0 -c prometheus -- du -sh /prometheus` on `.187`; compare with baseline **44.3 MB / ~207k head series / zvol 10.2 G**; confirm `retentionSize 15GiB` is honoured. Record in the Drills table |
+| **D5** | ✅ **Measured Oct 28, 20:50 (21 h 51 m of data)** — 1.0 GB, cap not reached (`size_retentions_total 0`), projected ~7–8 GB at 7 d, so time retention binds first and `retentionSize` is the backstop. Result in the Drills table. 🔲 *Optional:* prove the cap itself with a temporarily tiny `retentionSize` (would change the VM — ask first) |
 | **D6** | When a community Rancher newer than 2.15.2 exists: upgrade drill with the SAME `rancher-values.yaml` (and the matching rancher-monitoring chart — 110.x is tied to 2.15) |
 | **Root PAT `phase20-ai-build`** | 7-day GitLab root token (scope `api`), expires **2026-11-03** — revoke when Phase 20 is closed. Value in `PASSWORDS.md` |
 | **E7 — shared password** | Printed once in this session's tool output (local only). The same string is already in tracked `MEMORY.md` / `current_phase.md` as the SMB password, so rotating it is a lab-wide decision for Andrew |
@@ -261,7 +261,7 @@ The manual `deploy_push` job is the push-model comparison (ServiceAccount limite
 | D2 | App keeps serving; Fleet keeps delivering without Rancher | 30/30 OK; Fleet applied replicas=3 in 22 s; Rancher back in 34 s | ✅ both |
 | D3 | Fleet shows an error, old version keeps running, revert recovers | `ErrApplied` + exact API error; 3/3 kept serving; revert → Ready in 21 s | ✅ (+ `Stalled=False` surprise, F8) |
 | D4 | New pod `ImagePullBackOff` with a 401; survivor serves; restore recovers | Exactly that; 15/15 OK during; restore + K3s restart → Running in **16 s**, no pod delete needed. Rancher's summary omits the 401 (F4) | ✅ |
-| D5 | `retentionSize` enforced | **Baseline 22:59 Oct 27: `/prometheus` = 44.3 MB, ~207k head series, VM zvol 10.2 G used.** Re-measure ≥ Oct 28 23:00: `sudo kubectl exec -n cattle-monitoring-system prometheus-rancher-monitoring-prometheus-0 -c prometheus -- du -sh /prometheus` | 🔲 due |
+| D5 | `retentionSize` enforced | **Baseline 22:59 Oct 27:** 44.3 MB, ~207k head series, zvol 10.2 G. **Oct 28 20:50 (21 h 51 m):** `/prometheus` **1.0 G** (5 blocks 662 MB · WAL 314 MB · head chunks 113 MB) → **~45 MB/h, ~1.1 GB/day**; head series **140k** (the 207k was start-up churn); Prometheus itself reports `retention_limit_bytes` **16106127360 = 15 GiB** (setting applied) and `size_retentions_total` **0** (never triggered); in-pod `df` 15.3 G used of 115.2 G; zvol refer 10.8 G (used 12.3 G with snapshots), pool `vm-ephemeral` 4 %; Prometheus memory 956 Mi; no pod restarts since the D1 reboot. ⭐ **At this rate 7 d ≈ 7–8 GB, about half the cap — so `retention: 7d` governs and `retentionSize: 15GiB` is a backstop for a series explosion.** ⚠️ Projection from one day (compaction will shrink it somewhat, new apps grow it) | ✅ growth measured, setting confirmed live · 🔲 cap enforcement itself NOT proven (never reached — predicted in Ch 5) |
 | D6 | Upgrade path | Rancher 2.15.2 is still the newest community release | 🔲 when one exists |
 
 ## Why

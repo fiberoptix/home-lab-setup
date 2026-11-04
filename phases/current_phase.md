@@ -93,7 +93,7 @@ thing and note errors. I'll come back to help manage them."*
   transcript only). The same string is already in tracked `MEMORY.md`/`current_phase.md` as the SMB
   password (pre-existing), so it is shared — rotating it is a lab-wide decision.
 - 🔲 **Revoke the 7-day root PAT `phase20-ai-build`** when Phase 20 is closed (expires 2026-11-03 anyway).
-- 🔲 **D5 due ≥ Oct 28 23:00** — Prometheus disk vs the 44.3 MB baseline. **D6** when Rancher > 2.15.2 ships.
+- ✅ **D5 measured Oct 28 20:50** — 1.0 GB after ~22 h (~45 MB/h); 7-day retention governs, ~6–8 GB steady state; the 15 GiB cap was never reached, so it is unproven. Recorded in `phase20` + track ch5. **D6** when Rancher > 2.15.2 ships.
 - ✅ `MAKE_MEMORIES` pass 13 done (Oct 27): 13 → 9 blocks; the two older handoffs, the stale "ACTIVE: Phase 16"
   block and Phase 15 demoted. Backlog left: the five Aug 19–21 blocks below.
 
