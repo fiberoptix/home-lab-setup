@@ -41,9 +41,10 @@ are **multi-part**, and each shows a **weight**. So every task here:
 
 ## 🏁 Running a mock exam (the procedure, for a future session)
 
-1. **Baseline:** roll back to the right snapshot first (`c03-equipped-cluster` once it exists; until then
-   the current state — metrics-server installed, nothing else). ⚠️ The wrong baseline silently changes what
-   a task tests (`phase18` §6).
+1. **Baseline:** `bash scripts/lab_check.sh` from the workstation. ✅ `CLEAN` = the cluster matches
+   `c03-equipped-cluster`, start. Drift at L4 only → `--clean`; drift at L1–L3 → `bash scripts/reset_cluster.sh
+   --check`, then `--yes` (rolls all five back to `c03`). ⚠️ The wrong baseline silently changes what a task
+   tests (`phase18` §6).
 2. **Pick 15–17 tasks weighted like the exam:** Troubleshooting 30 · Cluster Architecture 25 · Services &
    Networking 20 · Workloads & Scheduling 15 · Storage 10. Prefer ✅ *drilled* setups; a 🔲 setup gets a
    dry check by the AI first.
@@ -51,7 +52,8 @@ are **multi-part**, and each shows a **weight**. So every task here:
    ⏱️ Budget ≈ **7 minutes a task** ([`logistics.md`](logistics.md)); skip and return rather than sink 15.
 4. **Andrew works only from the allowed docs** (kubernetes.io/docs, the Helm and Gateway API docs).
    🤫 **The AI says nothing until asked** (`phase18` §12, Stage 3 posture).
-5. **Grade** with each task's Verify, score by weight (pass mark 🟢 **66%**), then **Reset** everything.
+5. **Grade** with each task's Verify, score by weight (pass mark 🟢 **66%**), then **Reset** everything:
+   each task's Reset line, then `lab_check.sh` — and a `reset_cluster.sh --yes` if it reports L1–L3 drift.
 6. **Write the result into the task's Drilled log** below — date, minutes, pass/fail, what slowed him down.
    Weak areas feed the next lab session; then re-sit a Killer.sh session ([`lab-parity.md`](lab-parity.md) §6).
 
@@ -410,6 +412,9 @@ kubectl get pods -A --field-selector spec.nodeName=vm-k8s-cka-worker-2 -o jsonpa
 kubectl -n x10 get deploy web -o jsonpath='{.status.availableReplicas}'         # 2
 ```
 **Reset:** `kubectl uncordon vm-k8s-cka-worker-2 && kubectl delete ns x10`.
+⚠️ **Side effect, measured Nov 4:** while worker-2 is cordoned the Tigera operator scales `calico-typha` from
+**3 to 2** replicas (it sizes Typha by schedulable nodes); uncordoning brings it back to 3. `lab_check.sh`
+reports it as drift until then — expected, not a fault.
 
 <details><summary>Answer key</summary>
 

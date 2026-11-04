@@ -1157,6 +1157,25 @@ are undone with `kubectl delete`. **Reserve the full restore for exercises that 
 cluster:** etcd, control-plane components, certificates, node failure. ⭐ Worth scripting a
 `rollback_cluster.sh` on the PVE host and **measuring how long it takes**, because the cost of a restore
 is what decides how boldly you are willing to break things.
+✅ **BUILT Nov 4, 2026 (🙋 Andrew asked for it), as two scripts in `education/k8s-cka-prep/scripts/`, run from
+the dev box.** ⭐ **Design point: a check plus a rollback, not an "undo" script** — an undo can only reverse
+damage it knows about, and the snapshot is the only trustworthy "clean". **`lab_check.sh`** compares the live
+cluster with `c03-equipped-cluster.fingerprint` (422 lines: node OS, config sha256s incl. public certs only,
+etcd/Calico/APIServices, API objects by name, Helm, home dirs) and names the **lowest** drifted layer —
+L1–L3 → hard reset, L4 → the exercise's Reset or `--clean` (namespaces `x01`…, `~/answers`, `~/x01`…,
+cordons). Fingerprint recorded live at 19:13 UTC on the `c03` state, cross-checked against the 18:34 inventory
+(kubelet + containerd configs identical on 5/5), stable across three runs. ✅ **Positive control:** a planted
+`x99` namespace, `~/answers` on worker-1 and a cordon on worker-2 were all reported; `--clean` reverted them;
+next run `CLEAN`. 🆕 **It also caught an unplanted side effect: the cordon made the Tigera operator scale
+`calico-typha` 3 → 2** (Typha is sized by schedulable nodes); uncordon restored 3 — noted on X10.
+🔧 Bug found by the control: `--clean` claimed to remove `~/answers` on all five (`rm -rf` succeeds on a
+missing path) — fixed with an existence test. **`reset_cluster.sh`**: pre-flight (VM names, snapshot present,
+no RAM state, `$SNAP` newest on every snapshotted zvol — only `disk-0` carries snapshots; cloudinit has
+none) → `qm stop` all five (**hard stop on purpose: the disks are about to be discarded**, and it skips the
+~5 min graceful shutdown) → `qm rollback` → start → 5/5 SSH → 5/5 Ready **with leases renewed after the
+start** → `lab_check.sh` retried until `CLEAN`. ✅ `--check` passes; ✅ refuses `SNAP=c02-virgin-cluster`
+(`c03` is newer) and a non-existent name, VMs untouched. 🔲 **`--yes` not yet run — ask Andrew; record the
+stop-to-clean time** (estimate: under ~3 min without the graceful shutdown).
 
 ⏱️ **Practise against the clock here, not earlier** — 15–20 tasks in 120 minutes is roughly 6–8 minutes
 each, and speed is a separate skill from correctness.

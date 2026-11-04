@@ -8,11 +8,14 @@ to scroll to find. **Keep it first.** Below it, newest session first. `MAKE_MEMO
 counts blocks (spec: 2) and step 2 demotes at least one per pass, so this file drains instead of
 growing — see that file for why the previous append-only version went undetected for seven months.
 
-## ▶️ RESUME HERE — 🔵 **PHASE 18, STAGE 3: CHAPTER 05 EQUIPMENT BUILT — `c03-equipped-cluster` IS THE "READY" RESET POINT.**
+## ▶️ RESUME HERE — 🔵 **PHASE 18, STAGE 3: CHAPTERS 05–08 WRITTEN, RESET TOOLING BUILT — `c03-equipped-cluster` IS THE "READY" RESET POINT.**
 
 🎯 **Cold-start summary (Nov 4, 2026):** the cluster carries metrics-server, local-path (default SC),
-Gateway API v1.6.3 standard CRDs and Traefik (Helm, NodePort 30080/30443). **Reset = roll back all five
-to `c03`**, offline, both layers. ✅ **Nov 4: `wal_fsync` baseline taken (p99 ≤ 128 ms idle — `phase18` §11) and
+Gateway API v1.6.3 standard CRDs and Traefik (Helm, NodePort 30080/30443). 🔄 **Every session starts with
+`bash education/k8s-cka-prep/scripts/lab_check.sh`** (workstation; 422 checks against `c03`, names the lowest
+drifted layer). L4 drift → the exercise's Reset or `--clean`; L1–L3 → `scripts/reset_cluster.sh --check`, then
+`--yes` (hard stop, roll all five back to `c03`, boot, fresh leases, `lab_check`). ⚠️ **`--yes` not yet run — ask
+Andrew before its first run, and record the stop-to-clean time.** ✅ **Nov 4: `wal_fsync` baseline taken (p99 ≤ 128 ms idle — `phase18` §11) and
 Chapters 05–08 WRITTEN** (05 metrics+storage, 06 Gateway/Helm/Traefik+`c03`, 07 anatomy reference, 08 building it
 at work); ch01–04 corrected quietly. 🔲 **NEXT: Stage 3 drills — exercise chapters from 09, from `c03`.**
 Commands are handed to Andrew as a separate `ssh` block first; on "check", read his terminal file
@@ -97,7 +100,7 @@ holds the corrections (kube-vip did NOT crash-loop; the Calico operator HARD-COD
 `192.168.0.0/16`; `node.spec.podCIDR` is inert; `RESTARTS 0` does not mean a static pod was
 untouched).
 
-## 📘 SESSION Nov 4, 2026 (10:57–13:40 EST) — back after 5 weeks: Ch 05 Parts 1–5 built, exercise bank X01–X15, CKA nightly backup removed
+## 📘 SESSION Nov 4, 2026 (10:57–14:20 EST) — back after 5 weeks: Ch 05 Parts 1–5 built, Chapters 05–08 written, reset tooling, exercise bank X01–X15, CKA nightly backup removed
 
 🙋 *"I'm back after a long time. where are we on phase18?"* → nothing had moved since Sep 23.
 
@@ -129,6 +132,13 @@ untouched).
     15a QA renumber → `phase5`; 15b Cockpit → `phase2`; 15c `nofail` sweep → `phase2` (**closed its 76-day-old
     open item: template 9000 read with `virt-cat`, no NAS entry**); 15d Phase 17 Parts 0–1 → `phase17`;
     15e build-standard overhaul → `phase2` (**promoted "`--server` success path still unproven" to MEMORY**).
+12. **etcd baseline + CHAPTERS 05–08 WRITTEN** (AI; Andrew's AskQuestion choices: quiet ch01–04 fixes, two
+    build chapters, a work chapter, an AI-collected anatomy reference, exercises shift to 09+). Findings in
+    `phase18` → ✅ WRITTEN Nov 4. Committed + pushed both: GitLab `84c96be`, GitHub `98052aa`.
+13. **Reset tooling** (`education/k8s-cka-prep/scripts/`, Andrew asked for it): `lab_check.sh` +
+    `c03-equipped-cluster.fingerprint` (recorded live, cross-checked against the c03 inventory; stable over
+    three runs; ✅ positive control: planted ns + `~/answers` + cordon all caught, `--clean` reverted them);
+    `reset_cluster.sh` (✅ `--check` passes; ✅ refuses `c02` and a missing name; `--yes` NOT run).
 
 **Andrew's working rules set this session** (all in `phase18` §12): ssh as its own block before the
 commands; "check" = read his terminal file; **CKA work pushes to BOTH remotes, GitLab first** (still ask).
@@ -138,6 +148,10 @@ commands; "check" = read his terminal file; **CKA work pushes to BOTH remotes, G
   🚨 **demotion stopped there on purpose**, because moving it verbatim moves the secret.
 - **The Aug 18 "GitHub push HELD" for Swarm material was overtaken unrecorded** — `phase16` ledger L19–L22
   (attack-path prose) is public. 🔓 Andrew lifted the hold the same day (`MEMORY.md` beside the old note).
+- **A cordon alone scales `calico-typha` 3 → 2** (the Tigera operator sizes Typha by schedulable nodes);
+  uncordon restores 3. Found by `lab_check.sh`'s positive control; noted on X10 in `exercises.md`.
+- **Writing the chapters found ch04 wrong** (kubelet client cert lasts a year, not "much shorter"); fixed
+  quietly, and in `phase18` + `COMMANDS.md`. Also measured: **no API audit log, no encryption at rest**.
 - 🤖 **The AI broke a host rule once:** wrote two temp files to `/dev/shm` on the dev box while verifying 14a
   ("NEVER write outside project directory on this host"). Deleted at once (verified 0 left); later checks
   used pipes only.
@@ -149,6 +163,9 @@ commands; "check" = read his terminal file; **CKA work pushes to BOTH remotes, G
 - ✅ **Nightly backup of 201–205: removed** (it caused etcd elections); protected offline set + `c03` instead.
 - ✅ `wal_fsync` baseline taken; Chapters 05–08 written + docx (Nov 4). 🔲 **Phase 18 next: exercise chapters 09+;
   coverage matrix before the first mock exam.**
+- 🔲 **First real `reset_cluster.sh --yes`** — ask Andrew; time it and put the number in `scripts/README.md`
+  and `COMMANDS.md` §11 (both say "not yet run"). If its `lab_check` reads drift only from the snapshot's own
+  quirks, re-record the fingerprint straight after (`--record`).
 - 🔲 Carried: kernel drill (by ~end Dec); delete `rpool/ROOT/pve-1@pre-pve-9.2.20-2026-09-28` (host trial
   passed Oct 27) — ask first; Swarm chapter 8 — ask which Swarm features the new job actually uses;
   Sep 28 logs in `education/k8s-cka-prep/scratch/` (agreed: delete "next session" — ask).

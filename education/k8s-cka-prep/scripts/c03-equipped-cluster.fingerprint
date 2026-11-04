@@ -1,0 +1,424 @@
+# lab_check.sh fingerprint — recorded 2026-11-04T19:13:18Z from the live cluster
+# Regenerate ONLY straight after a reset to the snapshot it describes.
+L1 vm-k8s-cka-control-1 apt-holds containerd.io,cri-tools,kubeadm,kubectl,kubelet
+L4 vm-k8s-cka-control-1 home ch05,custom-resources.yaml,custom-resources.yaml.orig-upstream
+L1 vm-k8s-cka-control-1 kernel 6.8.0-142-generic
+L1 vm-k8s-cka-control-1 module br_netfilter loaded
+L1 vm-k8s-cka-control-1 module overlay loaded
+L1 vm-k8s-cka-control-1 service containerd active enabled
+L1 vm-k8s-cka-control-1 service kubelet active enabled
+L1 vm-k8s-cka-control-1 swap-devices 0
+L1 vm-k8s-cka-control-1 sysctl net.bridge.bridge-nf-call-ip6tables=1
+L1 vm-k8s-cka-control-1 sysctl net.bridge.bridge-nf-call-iptables=1
+L1 vm-k8s-cka-control-1 sysctl net.ipv4.ip_forward=1
+L1 vm-k8s-cka-control-1 unit apt-daily-upgrade.timer masked
+L1 vm-k8s-cka-control-1 unit apt-daily.timer masked
+L1 vm-k8s-cka-control-1 unit unattended-upgrades.service masked
+L1 vm-k8s-cka-control-2 apt-holds containerd.io,cri-tools,kubeadm,kubectl,kubelet
+L4 vm-k8s-cka-control-2 home 
+L1 vm-k8s-cka-control-2 kernel 6.8.0-142-generic
+L1 vm-k8s-cka-control-2 module br_netfilter loaded
+L1 vm-k8s-cka-control-2 module overlay loaded
+L1 vm-k8s-cka-control-2 service containerd active enabled
+L1 vm-k8s-cka-control-2 service kubelet active enabled
+L1 vm-k8s-cka-control-2 swap-devices 0
+L1 vm-k8s-cka-control-2 sysctl net.bridge.bridge-nf-call-ip6tables=1
+L1 vm-k8s-cka-control-2 sysctl net.bridge.bridge-nf-call-iptables=1
+L1 vm-k8s-cka-control-2 sysctl net.ipv4.ip_forward=1
+L1 vm-k8s-cka-control-2 unit apt-daily-upgrade.timer masked
+L1 vm-k8s-cka-control-2 unit apt-daily.timer masked
+L1 vm-k8s-cka-control-2 unit unattended-upgrades.service masked
+L1 vm-k8s-cka-control-3 apt-holds containerd.io,cri-tools,kubeadm,kubectl,kubelet
+L4 vm-k8s-cka-control-3 home 
+L1 vm-k8s-cka-control-3 kernel 6.8.0-142-generic
+L1 vm-k8s-cka-control-3 module br_netfilter loaded
+L1 vm-k8s-cka-control-3 module overlay loaded
+L1 vm-k8s-cka-control-3 service containerd active enabled
+L1 vm-k8s-cka-control-3 service kubelet active enabled
+L1 vm-k8s-cka-control-3 swap-devices 0
+L1 vm-k8s-cka-control-3 sysctl net.bridge.bridge-nf-call-ip6tables=1
+L1 vm-k8s-cka-control-3 sysctl net.bridge.bridge-nf-call-iptables=1
+L1 vm-k8s-cka-control-3 sysctl net.ipv4.ip_forward=1
+L1 vm-k8s-cka-control-3 unit apt-daily-upgrade.timer masked
+L1 vm-k8s-cka-control-3 unit apt-daily.timer masked
+L1 vm-k8s-cka-control-3 unit unattended-upgrades.service masked
+L1 vm-k8s-cka-worker-1 apt-holds containerd.io,cri-tools,kubeadm,kubectl,kubelet
+L4 vm-k8s-cka-worker-1 home 
+L1 vm-k8s-cka-worker-1 kernel 6.8.0-142-generic
+L1 vm-k8s-cka-worker-1 module br_netfilter loaded
+L1 vm-k8s-cka-worker-1 module overlay loaded
+L1 vm-k8s-cka-worker-1 service containerd active enabled
+L1 vm-k8s-cka-worker-1 service kubelet active enabled
+L1 vm-k8s-cka-worker-1 swap-devices 0
+L1 vm-k8s-cka-worker-1 sysctl net.bridge.bridge-nf-call-ip6tables=1
+L1 vm-k8s-cka-worker-1 sysctl net.bridge.bridge-nf-call-iptables=1
+L1 vm-k8s-cka-worker-1 sysctl net.ipv4.ip_forward=1
+L1 vm-k8s-cka-worker-1 unit apt-daily-upgrade.timer masked
+L1 vm-k8s-cka-worker-1 unit apt-daily.timer masked
+L1 vm-k8s-cka-worker-1 unit unattended-upgrades.service masked
+L1 vm-k8s-cka-worker-2 apt-holds containerd.io,cri-tools,kubeadm,kubectl,kubelet
+L4 vm-k8s-cka-worker-2 home 
+L1 vm-k8s-cka-worker-2 kernel 6.8.0-142-generic
+L1 vm-k8s-cka-worker-2 module br_netfilter loaded
+L1 vm-k8s-cka-worker-2 module overlay loaded
+L1 vm-k8s-cka-worker-2 service containerd active enabled
+L1 vm-k8s-cka-worker-2 service kubelet active enabled
+L1 vm-k8s-cka-worker-2 swap-devices 0
+L1 vm-k8s-cka-worker-2 sysctl net.bridge.bridge-nf-call-ip6tables=1
+L1 vm-k8s-cka-worker-2 sysctl net.bridge.bridge-nf-call-iptables=1
+L1 vm-k8s-cka-worker-2 sysctl net.ipv4.ip_forward=1
+L1 vm-k8s-cka-worker-2 unit apt-daily-upgrade.timer masked
+L1 vm-k8s-cka-worker-2 unit apt-daily.timer masked
+L1 vm-k8s-cka-worker-2 unit unattended-upgrades.service masked
+L2 vm-k8s-cka-control-1 manifests etcd.yaml,kube-apiserver.yaml,kube-controller-manager.yaml,kube-scheduler.yaml,kube-vip.yaml
+L2 vm-k8s-cka-control-1 sha /etc/apt/sources.list.d/docker.list 0fe75a56291cfbed
+L2 vm-k8s-cka-control-1 sha /etc/apt/sources.list.d/kubernetes.list 189402109f243648
+L2 vm-k8s-cka-control-1 sha /etc/apt/sources.list.d/ubuntu.sources e93b42f6049cd241
+L2 vm-k8s-cka-control-1 sha /etc/containerd/config.toml 4f37049fd2f5e651
+L2 vm-k8s-cka-control-1 sha /etc/crictl.yaml ad526395cca4db1e
+L2 vm-k8s-cka-control-1 sha /etc/default/kubelet 2737f011e1fc6995
+L2 vm-k8s-cka-control-1 sha /etc/kubernetes/manifests/etcd.yaml 3292c6fde1a1733d
+L2 vm-k8s-cka-control-1 sha /etc/kubernetes/manifests/kube-apiserver.yaml 65ebcb5fdc2b5feb
+L2 vm-k8s-cka-control-1 sha /etc/kubernetes/manifests/kube-controller-manager.yaml cfc30e5f22d9da76
+L2 vm-k8s-cka-control-1 sha /etc/kubernetes/manifests/kube-scheduler.yaml 5717249f66f12fe0
+L2 vm-k8s-cka-control-1 sha /etc/kubernetes/manifests/kube-vip.yaml f815760d24e71932
+L2 vm-k8s-cka-control-1 sha /etc/kubernetes/pki/apiserver-etcd-client.crt 9c2435e38aaadab3
+L2 vm-k8s-cka-control-1 sha /etc/kubernetes/pki/apiserver-kubelet-client.crt a45896c467574282
+L2 vm-k8s-cka-control-1 sha /etc/kubernetes/pki/apiserver.crt c7728c2ee02da2ed
+L2 vm-k8s-cka-control-1 sha /etc/kubernetes/pki/ca.crt f953ed3f36817c04
+L2 vm-k8s-cka-control-1 sha /etc/kubernetes/pki/etcd/ca.crt 7b79d859c9174f94
+L2 vm-k8s-cka-control-1 sha /etc/kubernetes/pki/etcd/healthcheck-client.crt 8f427959fb467059
+L2 vm-k8s-cka-control-1 sha /etc/kubernetes/pki/etcd/peer.crt 29cdae0290df12ad
+L2 vm-k8s-cka-control-1 sha /etc/kubernetes/pki/etcd/server.crt 390aba8e29e60a87
+L2 vm-k8s-cka-control-1 sha /etc/kubernetes/pki/front-proxy-ca.crt 76ebf29882a39e5f
+L2 vm-k8s-cka-control-1 sha /etc/kubernetes/pki/front-proxy-client.crt 2d02597bb675b57e
+L2 vm-k8s-cka-control-1 sha /etc/modules-load.d/k8s.conf fcaf07413a456d65
+L2 vm-k8s-cka-control-1 sha /etc/modules-load.d/modules.conf c0d37c5c430cb5c9
+L2 vm-k8s-cka-control-1 sha /etc/sysctl.d/10-bufferbloat.conf 763c2e237645fb7c
+L2 vm-k8s-cka-control-1 sha /etc/sysctl.d/10-console-messages.conf 14524a83a266454d
+L2 vm-k8s-cka-control-1 sha /etc/sysctl.d/10-ipv6-privacy.conf e07c86211944a534
+L2 vm-k8s-cka-control-1 sha /etc/sysctl.d/10-kernel-hardening.conf 2bbc2c5684414517
+L2 vm-k8s-cka-control-1 sha /etc/sysctl.d/10-magic-sysrq.conf f9107778c619246f
+L2 vm-k8s-cka-control-1 sha /etc/sysctl.d/10-map-count.conf 867f4371a9cc5a79
+L2 vm-k8s-cka-control-1 sha /etc/sysctl.d/10-network-security.conf 258805ec72eada3c
+L2 vm-k8s-cka-control-1 sha /etc/sysctl.d/10-ptrace.conf 4add0d9ecbcc91e4
+L2 vm-k8s-cka-control-1 sha /etc/sysctl.d/10-zeropage.conf 5c745f62d086d9b9
+L2 vm-k8s-cka-control-1 sha /etc/sysctl.d/99-cloudimg-ipv6.conf 17e0d61c3bef9f13
+L2 vm-k8s-cka-control-1 sha /etc/sysctl.d/99-sysctl.conf 97c5b93ecd5329df
+L2 vm-k8s-cka-control-1 sha /etc/sysctl.d/k8s.conf 20b3ff4e3ecaeec5
+L2 vm-k8s-cka-control-1 sha /usr/lib/systemd/system/kubelet.service ccc966cee3d366b3
+L2 vm-k8s-cka-control-1 sha /usr/lib/systemd/system/kubelet.service.d/10-kubeadm.conf 3b6e4cb3ac34a6df
+L2 vm-k8s-cka-control-1 sha /var/lib/kubelet/config.yaml 51b81a9047b7df8c
+L2 vm-k8s-cka-control-1 sha /var/lib/kubelet/kubeadm-flags.env 85acc6540970620a
+L2 vm-k8s-cka-control-2 manifests etcd.yaml,kube-apiserver.yaml,kube-controller-manager.yaml,kube-scheduler.yaml,kube-vip.yaml
+L2 vm-k8s-cka-control-2 sha /etc/apt/sources.list.d/docker.list 0fe75a56291cfbed
+L2 vm-k8s-cka-control-2 sha /etc/apt/sources.list.d/kubernetes.list 189402109f243648
+L2 vm-k8s-cka-control-2 sha /etc/apt/sources.list.d/ubuntu.sources e93b42f6049cd241
+L2 vm-k8s-cka-control-2 sha /etc/containerd/config.toml 4f37049fd2f5e651
+L2 vm-k8s-cka-control-2 sha /etc/crictl.yaml ad526395cca4db1e
+L2 vm-k8s-cka-control-2 sha /etc/default/kubelet 2737f011e1fc6995
+L2 vm-k8s-cka-control-2 sha /etc/kubernetes/manifests/etcd.yaml 5cd62532d19a707c
+L2 vm-k8s-cka-control-2 sha /etc/kubernetes/manifests/kube-apiserver.yaml 49fc4c53135df93e
+L2 vm-k8s-cka-control-2 sha /etc/kubernetes/manifests/kube-controller-manager.yaml cfc30e5f22d9da76
+L2 vm-k8s-cka-control-2 sha /etc/kubernetes/manifests/kube-scheduler.yaml 5717249f66f12fe0
+L2 vm-k8s-cka-control-2 sha /etc/kubernetes/manifests/kube-vip.yaml f815760d24e71932
+L2 vm-k8s-cka-control-2 sha /etc/kubernetes/pki/apiserver-etcd-client.crt 21e95ab4f3d66194
+L2 vm-k8s-cka-control-2 sha /etc/kubernetes/pki/apiserver-kubelet-client.crt 537c65bc3e3557fe
+L2 vm-k8s-cka-control-2 sha /etc/kubernetes/pki/apiserver.crt b580c65c77a9fdb8
+L2 vm-k8s-cka-control-2 sha /etc/kubernetes/pki/ca.crt f953ed3f36817c04
+L2 vm-k8s-cka-control-2 sha /etc/kubernetes/pki/etcd/ca.crt 7b79d859c9174f94
+L2 vm-k8s-cka-control-2 sha /etc/kubernetes/pki/etcd/healthcheck-client.crt 31e747eacf7b66e9
+L2 vm-k8s-cka-control-2 sha /etc/kubernetes/pki/etcd/peer.crt c82e525f78b35511
+L2 vm-k8s-cka-control-2 sha /etc/kubernetes/pki/etcd/server.crt d7d7245f979c4ecb
+L2 vm-k8s-cka-control-2 sha /etc/kubernetes/pki/front-proxy-ca.crt 76ebf29882a39e5f
+L2 vm-k8s-cka-control-2 sha /etc/kubernetes/pki/front-proxy-client.crt 93cb387f99397c9b
+L2 vm-k8s-cka-control-2 sha /etc/modules-load.d/k8s.conf fcaf07413a456d65
+L2 vm-k8s-cka-control-2 sha /etc/modules-load.d/modules.conf c0d37c5c430cb5c9
+L2 vm-k8s-cka-control-2 sha /etc/sysctl.d/10-bufferbloat.conf 763c2e237645fb7c
+L2 vm-k8s-cka-control-2 sha /etc/sysctl.d/10-console-messages.conf 14524a83a266454d
+L2 vm-k8s-cka-control-2 sha /etc/sysctl.d/10-ipv6-privacy.conf e07c86211944a534
+L2 vm-k8s-cka-control-2 sha /etc/sysctl.d/10-kernel-hardening.conf 2bbc2c5684414517
+L2 vm-k8s-cka-control-2 sha /etc/sysctl.d/10-magic-sysrq.conf f9107778c619246f
+L2 vm-k8s-cka-control-2 sha /etc/sysctl.d/10-map-count.conf 867f4371a9cc5a79
+L2 vm-k8s-cka-control-2 sha /etc/sysctl.d/10-network-security.conf 258805ec72eada3c
+L2 vm-k8s-cka-control-2 sha /etc/sysctl.d/10-ptrace.conf 4add0d9ecbcc91e4
+L2 vm-k8s-cka-control-2 sha /etc/sysctl.d/10-zeropage.conf 5c745f62d086d9b9
+L2 vm-k8s-cka-control-2 sha /etc/sysctl.d/99-cloudimg-ipv6.conf 17e0d61c3bef9f13
+L2 vm-k8s-cka-control-2 sha /etc/sysctl.d/99-sysctl.conf 97c5b93ecd5329df
+L2 vm-k8s-cka-control-2 sha /etc/sysctl.d/k8s.conf 20b3ff4e3ecaeec5
+L2 vm-k8s-cka-control-2 sha /usr/lib/systemd/system/kubelet.service ccc966cee3d366b3
+L2 vm-k8s-cka-control-2 sha /usr/lib/systemd/system/kubelet.service.d/10-kubeadm.conf 3b6e4cb3ac34a6df
+L2 vm-k8s-cka-control-2 sha /var/lib/kubelet/config.yaml 51b81a9047b7df8c
+L2 vm-k8s-cka-control-2 sha /var/lib/kubelet/kubeadm-flags.env 85acc6540970620a
+L2 vm-k8s-cka-control-3 manifests etcd.yaml,kube-apiserver.yaml,kube-controller-manager.yaml,kube-scheduler.yaml,kube-vip.yaml
+L2 vm-k8s-cka-control-3 sha /etc/apt/sources.list.d/docker.list 0fe75a56291cfbed
+L2 vm-k8s-cka-control-3 sha /etc/apt/sources.list.d/kubernetes.list 189402109f243648
+L2 vm-k8s-cka-control-3 sha /etc/apt/sources.list.d/ubuntu.sources e93b42f6049cd241
+L2 vm-k8s-cka-control-3 sha /etc/containerd/config.toml 4f37049fd2f5e651
+L2 vm-k8s-cka-control-3 sha /etc/crictl.yaml ad526395cca4db1e
+L2 vm-k8s-cka-control-3 sha /etc/default/kubelet 2737f011e1fc6995
+L2 vm-k8s-cka-control-3 sha /etc/kubernetes/manifests/etcd.yaml 94b1af4cc77b1b5c
+L2 vm-k8s-cka-control-3 sha /etc/kubernetes/manifests/kube-apiserver.yaml 7a9adb065096e4e8
+L2 vm-k8s-cka-control-3 sha /etc/kubernetes/manifests/kube-controller-manager.yaml cfc30e5f22d9da76
+L2 vm-k8s-cka-control-3 sha /etc/kubernetes/manifests/kube-scheduler.yaml 5717249f66f12fe0
+L2 vm-k8s-cka-control-3 sha /etc/kubernetes/manifests/kube-vip.yaml f815760d24e71932
+L2 vm-k8s-cka-control-3 sha /etc/kubernetes/pki/apiserver-etcd-client.crt d8a1d8fc3f55d2da
+L2 vm-k8s-cka-control-3 sha /etc/kubernetes/pki/apiserver-kubelet-client.crt ea850b08cf650d06
+L2 vm-k8s-cka-control-3 sha /etc/kubernetes/pki/apiserver.crt 1f5e7164927b9e59
+L2 vm-k8s-cka-control-3 sha /etc/kubernetes/pki/ca.crt f953ed3f36817c04
+L2 vm-k8s-cka-control-3 sha /etc/kubernetes/pki/etcd/ca.crt 7b79d859c9174f94
+L2 vm-k8s-cka-control-3 sha /etc/kubernetes/pki/etcd/healthcheck-client.crt 5301a49d7a47ebda
+L2 vm-k8s-cka-control-3 sha /etc/kubernetes/pki/etcd/peer.crt b36c94161328a924
+L2 vm-k8s-cka-control-3 sha /etc/kubernetes/pki/etcd/server.crt 562b327e209f9221
+L2 vm-k8s-cka-control-3 sha /etc/kubernetes/pki/front-proxy-ca.crt 76ebf29882a39e5f
+L2 vm-k8s-cka-control-3 sha /etc/kubernetes/pki/front-proxy-client.crt 6cf66b2118dd234f
+L2 vm-k8s-cka-control-3 sha /etc/modules-load.d/k8s.conf fcaf07413a456d65
+L2 vm-k8s-cka-control-3 sha /etc/modules-load.d/modules.conf c0d37c5c430cb5c9
+L2 vm-k8s-cka-control-3 sha /etc/sysctl.d/10-bufferbloat.conf 763c2e237645fb7c
+L2 vm-k8s-cka-control-3 sha /etc/sysctl.d/10-console-messages.conf 14524a83a266454d
+L2 vm-k8s-cka-control-3 sha /etc/sysctl.d/10-ipv6-privacy.conf e07c86211944a534
+L2 vm-k8s-cka-control-3 sha /etc/sysctl.d/10-kernel-hardening.conf 2bbc2c5684414517
+L2 vm-k8s-cka-control-3 sha /etc/sysctl.d/10-magic-sysrq.conf f9107778c619246f
+L2 vm-k8s-cka-control-3 sha /etc/sysctl.d/10-map-count.conf 867f4371a9cc5a79
+L2 vm-k8s-cka-control-3 sha /etc/sysctl.d/10-network-security.conf 258805ec72eada3c
+L2 vm-k8s-cka-control-3 sha /etc/sysctl.d/10-ptrace.conf 4add0d9ecbcc91e4
+L2 vm-k8s-cka-control-3 sha /etc/sysctl.d/10-zeropage.conf 5c745f62d086d9b9
+L2 vm-k8s-cka-control-3 sha /etc/sysctl.d/99-cloudimg-ipv6.conf 17e0d61c3bef9f13
+L2 vm-k8s-cka-control-3 sha /etc/sysctl.d/99-sysctl.conf 97c5b93ecd5329df
+L2 vm-k8s-cka-control-3 sha /etc/sysctl.d/k8s.conf 20b3ff4e3ecaeec5
+L2 vm-k8s-cka-control-3 sha /usr/lib/systemd/system/kubelet.service ccc966cee3d366b3
+L2 vm-k8s-cka-control-3 sha /usr/lib/systemd/system/kubelet.service.d/10-kubeadm.conf 3b6e4cb3ac34a6df
+L2 vm-k8s-cka-control-3 sha /var/lib/kubelet/config.yaml 51b81a9047b7df8c
+L2 vm-k8s-cka-control-3 sha /var/lib/kubelet/kubeadm-flags.env 85acc6540970620a
+L2 vm-k8s-cka-worker-1 manifests 
+L2 vm-k8s-cka-worker-1 sha /etc/apt/sources.list.d/docker.list 0fe75a56291cfbed
+L2 vm-k8s-cka-worker-1 sha /etc/apt/sources.list.d/kubernetes.list 189402109f243648
+L2 vm-k8s-cka-worker-1 sha /etc/apt/sources.list.d/ubuntu.sources e93b42f6049cd241
+L2 vm-k8s-cka-worker-1 sha /etc/containerd/config.toml 4f37049fd2f5e651
+L2 vm-k8s-cka-worker-1 sha /etc/crictl.yaml ad526395cca4db1e
+L2 vm-k8s-cka-worker-1 sha /etc/default/kubelet 2737f011e1fc6995
+L2 vm-k8s-cka-worker-1 sha /etc/kubernetes/pki/ca.crt f953ed3f36817c04
+L2 vm-k8s-cka-worker-1 sha /etc/modules-load.d/k8s.conf fcaf07413a456d65
+L2 vm-k8s-cka-worker-1 sha /etc/modules-load.d/modules.conf c0d37c5c430cb5c9
+L2 vm-k8s-cka-worker-1 sha /etc/sysctl.d/10-bufferbloat.conf 763c2e237645fb7c
+L2 vm-k8s-cka-worker-1 sha /etc/sysctl.d/10-console-messages.conf 14524a83a266454d
+L2 vm-k8s-cka-worker-1 sha /etc/sysctl.d/10-ipv6-privacy.conf e07c86211944a534
+L2 vm-k8s-cka-worker-1 sha /etc/sysctl.d/10-kernel-hardening.conf 2bbc2c5684414517
+L2 vm-k8s-cka-worker-1 sha /etc/sysctl.d/10-magic-sysrq.conf f9107778c619246f
+L2 vm-k8s-cka-worker-1 sha /etc/sysctl.d/10-map-count.conf 867f4371a9cc5a79
+L2 vm-k8s-cka-worker-1 sha /etc/sysctl.d/10-network-security.conf 258805ec72eada3c
+L2 vm-k8s-cka-worker-1 sha /etc/sysctl.d/10-ptrace.conf 4add0d9ecbcc91e4
+L2 vm-k8s-cka-worker-1 sha /etc/sysctl.d/10-zeropage.conf 5c745f62d086d9b9
+L2 vm-k8s-cka-worker-1 sha /etc/sysctl.d/99-cloudimg-ipv6.conf 17e0d61c3bef9f13
+L2 vm-k8s-cka-worker-1 sha /etc/sysctl.d/99-sysctl.conf 97c5b93ecd5329df
+L2 vm-k8s-cka-worker-1 sha /etc/sysctl.d/k8s.conf 20b3ff4e3ecaeec5
+L2 vm-k8s-cka-worker-1 sha /usr/lib/systemd/system/kubelet.service ccc966cee3d366b3
+L2 vm-k8s-cka-worker-1 sha /usr/lib/systemd/system/kubelet.service.d/10-kubeadm.conf 3b6e4cb3ac34a6df
+L2 vm-k8s-cka-worker-1 sha /var/lib/kubelet/config.yaml 51b81a9047b7df8c
+L2 vm-k8s-cka-worker-1 sha /var/lib/kubelet/kubeadm-flags.env 85acc6540970620a
+L2 vm-k8s-cka-worker-2 manifests 
+L2 vm-k8s-cka-worker-2 sha /etc/apt/sources.list.d/docker.list 0fe75a56291cfbed
+L2 vm-k8s-cka-worker-2 sha /etc/apt/sources.list.d/kubernetes.list 189402109f243648
+L2 vm-k8s-cka-worker-2 sha /etc/apt/sources.list.d/ubuntu.sources e93b42f6049cd241
+L2 vm-k8s-cka-worker-2 sha /etc/containerd/config.toml 4f37049fd2f5e651
+L2 vm-k8s-cka-worker-2 sha /etc/crictl.yaml ad526395cca4db1e
+L2 vm-k8s-cka-worker-2 sha /etc/default/kubelet 2737f011e1fc6995
+L2 vm-k8s-cka-worker-2 sha /etc/kubernetes/pki/ca.crt f953ed3f36817c04
+L2 vm-k8s-cka-worker-2 sha /etc/modules-load.d/k8s.conf fcaf07413a456d65
+L2 vm-k8s-cka-worker-2 sha /etc/modules-load.d/modules.conf c0d37c5c430cb5c9
+L2 vm-k8s-cka-worker-2 sha /etc/sysctl.d/10-bufferbloat.conf 763c2e237645fb7c
+L2 vm-k8s-cka-worker-2 sha /etc/sysctl.d/10-console-messages.conf 14524a83a266454d
+L2 vm-k8s-cka-worker-2 sha /etc/sysctl.d/10-ipv6-privacy.conf e07c86211944a534
+L2 vm-k8s-cka-worker-2 sha /etc/sysctl.d/10-kernel-hardening.conf 2bbc2c5684414517
+L2 vm-k8s-cka-worker-2 sha /etc/sysctl.d/10-magic-sysrq.conf f9107778c619246f
+L2 vm-k8s-cka-worker-2 sha /etc/sysctl.d/10-map-count.conf 867f4371a9cc5a79
+L2 vm-k8s-cka-worker-2 sha /etc/sysctl.d/10-network-security.conf 258805ec72eada3c
+L2 vm-k8s-cka-worker-2 sha /etc/sysctl.d/10-ptrace.conf 4add0d9ecbcc91e4
+L2 vm-k8s-cka-worker-2 sha /etc/sysctl.d/10-zeropage.conf 5c745f62d086d9b9
+L2 vm-k8s-cka-worker-2 sha /etc/sysctl.d/99-cloudimg-ipv6.conf 17e0d61c3bef9f13
+L2 vm-k8s-cka-worker-2 sha /etc/sysctl.d/99-sysctl.conf 97c5b93ecd5329df
+L2 vm-k8s-cka-worker-2 sha /etc/sysctl.d/k8s.conf 20b3ff4e3ecaeec5
+L2 vm-k8s-cka-worker-2 sha /usr/lib/systemd/system/kubelet.service ccc966cee3d366b3
+L2 vm-k8s-cka-worker-2 sha /usr/lib/systemd/system/kubelet.service.d/10-kubeadm.conf 3b6e4cb3ac34a6df
+L2 vm-k8s-cka-worker-2 sha /var/lib/kubelet/config.yaml 51b81a9047b7df8c
+L2 vm-k8s-cka-worker-2 sha /var/lib/kubelet/kubeadm-flags.env 85acc6540970620a
+L3 apiservices-not-available 0
+L3 etcd-healthy-members 3
+L3 etcd-members 3
+L3 tigerastatus apiserver available=True degraded=False
+L3 tigerastatus calico available=True degraded=False
+L3 tigerastatus ippools available=True degraded=False
+L3 tigerastatus tiers available=True degraded=False
+L4 certificatesigningrequests 
+L4 clusterrolebindings count=72 names-sha=24bd2ce9f2e0
+L4 clusterroles count=85 names-sha=4825d3bccd8d
+L4 configmaps calico-system/active-operator
+L4 configmaps calico-system/cni-config
+L4 configmaps calico-system/kube-root-ca.crt
+L4 configmaps calico-system/tigera-ca-bundle
+L4 configmaps default/kube-root-ca.crt
+L4 configmaps kube-node-lease/kube-root-ca.crt
+L4 configmaps kube-public/cluster-info
+L4 configmaps kube-public/kube-root-ca.crt
+L4 configmaps kube-system/coredns
+L4 configmaps kube-system/extension-apiserver-authentication
+L4 configmaps kube-system/kube-apiserver-legacy-service-account-token-tracking
+L4 configmaps kube-system/kube-proxy
+L4 configmaps kube-system/kube-root-ca.crt
+L4 configmaps kube-system/kubeadm-config
+L4 configmaps kube-system/kubelet-config
+L4 configmaps local-path-storage/kube-root-ca.crt
+L4 configmaps local-path-storage/local-path-config
+L4 configmaps tigera-operator/kube-root-ca.crt
+L4 configmaps traefik/kube-root-ca.crt
+L4 customresourcedefinitions count=67 names-sha=b215b704559c
+L4 default-storageclass local-path
+L4 gatewayclasses traefik
+L4 gateways.gateway.networking.k8s.io traefik/traefik-gateway
+L4 helm traefik traefik rev=3 deployed traefik-42.3.0
+L4 ingressclasses traefik
+L4 kube-system-configmap coredns 559f8e19af6f5f8a
+L4 kube-system-configmap kube-proxy da6dfeb5782f7674
+L4 kube-system-configmap kubeadm-config 43f4cc6bd6d83917
+L4 kube-system-configmap kubelet-config 9175a323bdd8ddf5
+L4 mutatingwebhookconfigurations 
+L4 namespaces calico-system,default,kube-node-lease,kube-public,kube-system,local-path-storage,tigera-operator,traefik
+L4 node vm-k8s-cka-control-1 v1.35.8 unschedulable=<none> taints=NoSchedule
+L4 node vm-k8s-cka-control-2 v1.35.8 unschedulable=<none> taints=NoSchedule
+L4 node vm-k8s-cka-control-3 v1.35.8 unschedulable=<none> taints=NoSchedule
+L4 node vm-k8s-cka-worker-1 v1.35.8 unschedulable=<none> taints=<none>
+L4 node vm-k8s-cka-worker-2 v1.35.8 unschedulable=<none> taints=<none>
+L4 node-status vm-k8s-cka-control-1 Ready
+L4 node-status vm-k8s-cka-control-2 Ready
+L4 node-status vm-k8s-cka-control-3 Ready
+L4 node-status vm-k8s-cka-worker-1 Ready
+L4 node-status vm-k8s-cka-worker-2 Ready
+L4 persistentvolumes 
+L4 poddisruptionbudgets calico-system/calico-apiserver
+L4 poddisruptionbudgets calico-system/calico-typha
+L4 pods calico-system 16
+L4 pods kube-system 23
+L4 pods local-path-storage 1
+L4 pods tigera-operator 1
+L4 pods traefik 1
+L4 pods-not-ready 0
+L4 priorityclasses system-cluster-critical,system-node-critical
+L4 rolebindings calico-system/tigera-operator-secrets
+L4 rolebindings kube-public/kubeadm:bootstrap-signer-clusterinfo
+L4 rolebindings kube-public/system:controller:bootstrap-signer
+L4 rolebindings kube-system/calico-apiserver-auth-reader
+L4 rolebindings kube-system/kube-proxy
+L4 rolebindings kube-system/kubeadm:kubeadm-certs
+L4 rolebindings kube-system/kubeadm:kubelet-config
+L4 rolebindings kube-system/kubeadm:nodes-kubeadm-config
+L4 rolebindings kube-system/metrics-server-auth-reader
+L4 rolebindings kube-system/system::extension-apiserver-authentication-reader
+L4 rolebindings kube-system/system::leader-locking-kube-controller-manager
+L4 rolebindings kube-system/system::leader-locking-kube-scheduler
+L4 rolebindings kube-system/system:controller:bootstrap-signer
+L4 rolebindings kube-system/system:controller:cloud-provider
+L4 rolebindings kube-system/system:controller:token-cleaner
+L4 rolebindings local-path-storage/local-path-provisioner-bind
+L4 rolebindings tigera-operator/tigera-operator-secrets
+L4 roles kube-public/kubeadm:bootstrap-signer-clusterinfo
+L4 roles kube-public/system:controller:bootstrap-signer
+L4 roles kube-system/extension-apiserver-authentication-reader
+L4 roles kube-system/kube-proxy
+L4 roles kube-system/kubeadm:kubeadm-certs
+L4 roles kube-system/kubeadm:kubelet-config
+L4 roles kube-system/kubeadm:nodes-kubeadm-config
+L4 roles kube-system/system::leader-locking-kube-controller-manager
+L4 roles kube-system/system::leader-locking-kube-scheduler
+L4 roles kube-system/system:controller:bootstrap-signer
+L4 roles kube-system/system:controller:cloud-provider
+L4 roles kube-system/system:controller:token-cleaner
+L4 roles local-path-storage/local-path-provisioner-role
+L4 secrets calico-system/calico-apiserver-certs
+L4 secrets calico-system/node-certs
+L4 secrets calico-system/typha-certs
+L4 secrets calico-system/typha-certs-noncluster-host
+L4 secrets tigera-operator/calico-apiserver-certs
+L4 secrets tigera-operator/node-certs
+L4 secrets tigera-operator/tigera-ca-private
+L4 secrets tigera-operator/typha-certs
+L4 secrets tigera-operator/typha-certs-noncluster-host
+L4 secrets traefik/sh.helm.release.v1.traefik.v1
+L4 secrets traefik/sh.helm.release.v1.traefik.v2
+L4 secrets traefik/sh.helm.release.v1.traefik.v3
+L4 service calico-system   calico-api                        ClusterIP   443
+L4 service calico-system   calico-kube-controllers-metrics   ClusterIP   9094
+L4 service calico-system   calico-typha                      ClusterIP   5473
+L4 service default         kubernetes                        ClusterIP   443
+L4 service kube-system     kube-dns                          ClusterIP   53,53,9153
+L4 service kube-system     metrics-server                    ClusterIP   443
+L4 service traefik         traefik                           NodePort    80,443
+L4 serviceaccounts calico-system/calico-apiserver
+L4 serviceaccounts calico-system/calico-cni-plugin
+L4 serviceaccounts calico-system/calico-kube-controllers
+L4 serviceaccounts calico-system/calico-node
+L4 serviceaccounts calico-system/calico-typha
+L4 serviceaccounts calico-system/csi-node-driver
+L4 serviceaccounts calico-system/default
+L4 serviceaccounts default/default
+L4 serviceaccounts kube-node-lease/default
+L4 serviceaccounts kube-public/default
+L4 serviceaccounts kube-system/attachdetach-controller
+L4 serviceaccounts kube-system/bootstrap-signer
+L4 serviceaccounts kube-system/certificate-controller
+L4 serviceaccounts kube-system/clusterrole-aggregation-controller
+L4 serviceaccounts kube-system/coredns
+L4 serviceaccounts kube-system/cronjob-controller
+L4 serviceaccounts kube-system/daemon-set-controller
+L4 serviceaccounts kube-system/default
+L4 serviceaccounts kube-system/deployment-controller
+L4 serviceaccounts kube-system/disruption-controller
+L4 serviceaccounts kube-system/endpoint-controller
+L4 serviceaccounts kube-system/endpointslice-controller
+L4 serviceaccounts kube-system/endpointslicemirroring-controller
+L4 serviceaccounts kube-system/ephemeral-volume-controller
+L4 serviceaccounts kube-system/expand-controller
+L4 serviceaccounts kube-system/generic-garbage-collector
+L4 serviceaccounts kube-system/horizontal-pod-autoscaler
+L4 serviceaccounts kube-system/job-controller
+L4 serviceaccounts kube-system/kube-proxy
+L4 serviceaccounts kube-system/legacy-service-account-token-cleaner
+L4 serviceaccounts kube-system/metrics-server
+L4 serviceaccounts kube-system/namespace-controller
+L4 serviceaccounts kube-system/node-controller
+L4 serviceaccounts kube-system/persistent-volume-binder
+L4 serviceaccounts kube-system/pod-garbage-collector
+L4 serviceaccounts kube-system/pv-protection-controller
+L4 serviceaccounts kube-system/pvc-protection-controller
+L4 serviceaccounts kube-system/replicaset-controller
+L4 serviceaccounts kube-system/replication-controller
+L4 serviceaccounts kube-system/resource-claim-controller
+L4 serviceaccounts kube-system/resourcequota-controller
+L4 serviceaccounts kube-system/root-ca-cert-publisher
+L4 serviceaccounts kube-system/service-account-controller
+L4 serviceaccounts kube-system/service-cidrs-controller
+L4 serviceaccounts kube-system/statefulset-controller
+L4 serviceaccounts kube-system/token-cleaner
+L4 serviceaccounts kube-system/ttl-after-finished-controller
+L4 serviceaccounts kube-system/ttl-controller
+L4 serviceaccounts kube-system/validatingadmissionpolicy-status-controller
+L4 serviceaccounts kube-system/volumeattributesclass-protection-controller
+L4 serviceaccounts local-path-storage/default
+L4 serviceaccounts local-path-storage/local-path-provisioner-service-account
+L4 serviceaccounts tigera-operator/default
+L4 serviceaccounts tigera-operator/tigera-operator
+L4 serviceaccounts traefik/default
+L4 serviceaccounts traefik/traefik
+L4 storageclasses local-path
+L4 validatingadmissionpolicies safe-upgrades.gateway.networking.k8s.io
+L4 validatingwebhookconfigurations 
+L4 workload calico-system        DaemonSet    calico-node               <none>   quay.io/calico/node:v3.32.2
+L4 workload calico-system        DaemonSet    csi-node-driver           <none>   quay.io/calico/csi:v3.32.2,quay.io/calico/node-driver-registrar:v3.32.2
+L4 workload calico-system        Deployment   calico-apiserver          2        quay.io/calico/apiserver:v3.32.2
+L4 workload calico-system        Deployment   calico-kube-controllers   1        quay.io/calico/kube-controllers:v3.32.2
+L4 workload calico-system        Deployment   calico-typha              3        quay.io/calico/typha:v3.32.2
+L4 workload kube-system          DaemonSet    kube-proxy                <none>   registry.k8s.io/kube-proxy:v1.35.8
+L4 workload kube-system          Deployment   coredns                   2        registry.k8s.io/coredns/coredns:v1.13.1
+L4 workload kube-system          Deployment   metrics-server            1        registry.k8s.io/metrics-server/metrics-server:v0.9.0
+L4 workload local-path-storage   Deployment   local-path-provisioner    1        docker.io/rancher/local-path-provisioner:v0.0.37
+L4 workload tigera-operator      Deployment   tigera-operator           1        quay.io/tigera/operator:v1.42.6
+L4 workload traefik              Deployment   traefik                   1        docker.io/traefik:v3.7.17
