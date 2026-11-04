@@ -679,6 +679,10 @@ It had been accumulating since Aug 13. **When you write a new handoff, move the 
   📌 **GITHUB PUSH IS HELD (Andrew's call, Aug 18):** the drill commit describes Capricorn source and an
   unauthenticated destructive endpoint; it lives on the **private GitLab mirror only**. Do not push
   `main` to `origin` without asking.
+  🚨 **Nov 4, 2026 audit (`MAKE_MEMORIES` pass 14b): this hold was OVERTAKEN, with no record of it being
+  lifted** — `phase16` with ledger rows **L19–L22** (the attack-path prose) is on public `origin/main`, and
+  Aug 19's *"deal with it at GitHub-push time, in one review pass"* lived only in a `current_phase.md`
+  block. 🔲 **Whether that prose stays public is OPEN for Andrew.**
   ⭐ **Andrew's paste-runner (Aug 18):** paste command blocks into
   `education/*/scripts/run_commands.sh` (git-ignored) and execute the file rather than pasting into an
   interactive shell — **this eliminates the mispaste class outright**, since both prior incidents were
@@ -2626,6 +2630,16 @@ There is NO git-crypt and NO encryption — safety on GitHub comes purely from .
   Andrew's call at the time, and the offer remains open.** ⚠️ **GitHub can retain orphaned commits
   reachable by SHA until it garbage-collects**, so the only true fix is rotation.
   ⭐ **Recorded because `git filter-repo` reads as "handled" and a purge is not a rotation.**
+  🚨🚨 **AND A SECOND ONE IS LIVE NOW — found Nov 4, 2026 (`MAKE_MEMORIES` pass 14c audit).** The **NAS/SMB
+  password** — the same string as the **GitLab root password** (Phase 20 E7) — sits in plain prose **7 times
+  in 4 tracked files** (`MEMORY.md` ×2, `phases/current_phase.md` ×2, `phases/phase16_docker_swarm.md` ×1,
+  `proxmox/Home_Lab_Proxmox_Storage.md` ×2), **all 7 on public `origin/main`, first in commit `46a01db`
+  (Aug 13, 2026)**. Every instance is a teaching note about the `.pw` file format (`password=<value>`).
+  `push_github.sh` cannot see it: its gates look for key blocks, credential-named files and
+  passwords-in-URLs, not a password in a sentence. 🔲 **Andrew's decision (raised Nov 4): rotate it (the
+  only real fix — public 12 weeks), redact the 7 instances to `password=<value>`, and whether to purge
+  history.** ⛔ **Until he decides: do NOT push to GitHub, do NOT demote a block that contains it (it moves
+  the secret), and never type the value into a new file.** Count it without printing it.
   ✅ Also proven rather than assumed, same era: staging a fake `_gatetest.key` made `push_github.sh`
   block, name the file, and exit 1 without pushing — **the gate was demonstrated, not trusted.**
 - **Branch:** `main` only (docs/scripts repo — no CI/CD or registry like Capricorn).

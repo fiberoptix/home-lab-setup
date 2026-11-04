@@ -2,7 +2,7 @@
 
 **Status: 🔵 BUILT Oct 27, 2026 (AI-built at Andrew's instruction, 22:10–23:00) — Parts 0–6 done, drills
 D1–D5 done (D5 measured Oct 28 20:50: 1 GB/day, 7-day window governs), D6 waits for a newer Rancher release.**
-📚 **Study track `education/rancher-k3s/` WRITTEN Oct 27, 23:25–23:50** (5 chapters + `COMMANDS.md` + README, all 🤖 AI-executed) — see the EDUCATION TRACK section. **Not yet committed.**
+📚 **Study track `education/rancher-k3s/` WRITTEN Oct 27, 23:25–23:50** (5 chapters + `COMMANDS.md` + README, all 🤖 AI-executed) — see the EDUCATION TRACK section. ✅ **Committed `427f22c` (Oct 28); D5 edits `0af942d` (Nov 4).**
 🙋 *"Write a plan to build rancher into a new VM vm-k3s-rancher-1 with all the things you said and ideally
 I'd like you to build it for me completely."* · *"Try to build the whole thing and note errors."*
 
@@ -32,8 +32,9 @@ no GitHub mirror). Only `education/fin_tech_stack.txt` is left uncommitted, on p
 | **`MAKE_MEMORIES` pass** | ✅ **Done Oct 27 (pass 13)** — `current_phase.md` 13 → 9 blocks: the Sep 28 and Oct 27 PVE-update handoffs, the stale "ACTIVE: Phase 16" block and Phase 15 demoted (commits 13a–d); the Phase 20 block kept as the newest handoff. Backlog left: five Aug 19–21 blocks |
 | **D5** | ✅ **Measured Oct 28, 20:50 (21 h 51 m of data)** — 1.0 GB, cap not reached (`size_retentions_total 0`), projected ~7–8 GB at 7 d, so time retention binds first and `retentionSize` is the backstop. Result in the Drills table. 🔲 *Optional:* prove the cap itself with a temporarily tiny `retentionSize` (would change the VM — ask first) |
 | **D6** | When a community Rancher newer than 2.15.2 exists: upgrade drill with the SAME `rancher-values.yaml` (and the matching rancher-monitoring chart — 110.x is tied to 2.15) |
-| **Root PAT `phase20-ai-build`** | 7-day GitLab root token (scope `api`), expires **2026-11-03** — revoke when Phase 20 is closed. Value in `PASSWORDS.md` |
-| **E7 — shared password** | Printed once in this session's tool output (local only). The same string is already in tracked `MEMORY.md` / `current_phase.md` as the SMB password, so rotating it is a lab-wide decision for Andrew |
+| **E7 — shared password** | Printed once in this session's tool output (local only). The same string is already in tracked `MEMORY.md` / `current_phase.md` as the SMB password, so rotating it is a lab-wide decision for Andrew. 🚨 **Nov 4: worse than "tracked" — it is on PUBLIC GitHub, 7× in 4 files since Aug 13.** See `MEMORY.md` → Secret hygiene |
+| **Andrew: log in and look around** | `admin`, password in `PASSWORDS.md`. The CA is Rancher's own, so the browser warns. (Promoted from the demoted Oct 27 handoff, Nov 4) |
+| **Root PAT `phase20-ai-build`** | ⚠️ **Expired 2026-11-03** — it can no longer be used; delete it from GitLab (Admin → root → Access tokens) when convenient, and its entry in `PASSWORDS.md` |
 | **Token renewals** | Deploy tokens + `BUMP_TOKEN` expire **2027-10-27**; push-model SA token **2027-10-28** |
 
 ### 🚀 Next: deploying a real app (Andrew: "Later we can deploy an actual app to it")
