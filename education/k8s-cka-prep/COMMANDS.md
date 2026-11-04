@@ -84,7 +84,8 @@ kubectl -n kube-system exec etcd-vm-k8s-cka-control-1 -- etcdctl \
 | Why can't ordinary pods land on a control plane? | `kubectl get nodes -o custom-columns=NAME:.metadata.name,TAINTS:.spec.taints[*].key` | ✅ | `node-role.kubernetes.io/control-plane` = `NoSchedule` |
 | Same, the longer way | `kubectl describe node <n> \| grep Taints` | ⚠️ | Standard; this lab used the custom-columns form above |
 | When do the certificates expire? | `sudo kubeadm certs check-expiration` | ✅ | Control-plane certs only. **Kubelet client certs are not listed** and rotate sooner |
-| What does the API server's certificate actually cover? | `sudo openssl x509 -in /etc/kubernetes/pki/apiserver.crt -noout -text \| grep -A1 "Subject Alternative Name"` | ⚠️ | This lab read the SANs from the `init --dry-run` output instead (§8) |
+| What does the API server's certificate actually cover? | `sudo openssl x509 -in /etc/kubernetes/pki/apiserver.crt -noout -ext subjectAltName` (or `-text \| grep -A1 "Subject Alternative Name"`) | ✅ | Nov 4 on control-1: `10.96.0.1`, `.201`, VIP `.206`. **Each control plane has its own cert** with its own node IP |
+| Which control plane is the ACTIVE scheduler / controller-manager? | `kubectl -n kube-system get lease kube-scheduler kube-controller-manager` | ✅ | `HOLDER` = `<node>_<uuid>`. Only the holder works; the other two wait. Nov 4: control-2 held both — and its pods topped `kubectl top` |
 | What did `init` record about the cluster? | `kubectl -n kube-system get cm kubeadm-config -o yaml` | ⚠️ | Standard; not run here |
 
 ---
@@ -94,6 +95,7 @@ kubectl -n kube-system exec etcd-vm-k8s-cka-control-1 -- etcdctl \
 | Question | Command | ✓ | What it tells you — and the trap |
 |---|---|---|---|
 | What containers does Kubernetes see? | `sudo crictl ps -a` | ✅ | Needs `/etc/crictl.yaml` pointing at the socket — current `crictl` has no fallback |
+| What did a container print, with the API out of the picture? | `sudo crictl logs --tail 10 <id> > file 2>&1` | ✅ | 🚨 **Each stream is replayed on its own stream.** kube-proxy logs to stderr: Nov 4, `--tail 2` gave **0 lines on stdout, 2 with `2>&1`** — a plain `> file` writes an empty file |
 | Did `crictl` reach containerd? | `sudo crictl version` | ✅ | A `RuntimeVersion` line = connected. `crictl --version` only proves the binary exists |
 | Which images can the kubelet use? | `sudo crictl images` | ✅ | Reads containerd's **`k8s.io`** namespace |
 | Pull an image the kubelet will see | `sudo ctr -n k8s.io image pull <image>` | ✅ | Without `-n k8s.io`, `ctr` pulls into `default` and **`crictl` never sees it** |
@@ -226,5 +228,21 @@ result. ⭐ **Each check needs a case where it is known to fail.**
 
 ## 13. Chapter 05 onward — added as run
 
-🔲 *Empty until Part 1 runs.* metrics-server, the storage provisioner, the Gateway API CRDs and Traefik
-each add their missing-component signature and their proof here, the moment they are run.
+The storage provisioner, the Gateway API CRDs and Traefik each add their missing-component signature and
+their proof here, the moment they are run. Each also adds an exam-shaped task to [`exercises.md`](exercises.md).
+
+**Part 1 — metrics-server v0.9.0 (Nov 4, 2026, Andrew on control-1):**
+
+| Question | Command | ✓ | What it tells you — and the trap |
+|---|---|---|---|
+| Is there a metrics API at all? | `kubectl top nodes` | ✅ | `error: Metrics API not available` — **the same words before the install and after a broken one.** The message never tells you which |
+| Is any add-on API registered, and is it serving? | `kubectl get apiservices \| grep metrics` · `kubectl get apiservice v1beta1.metrics.k8s.io` | ✅ | Nothing = not installed. `False (MissingEndpoints)` = installed, but its pod is not Ready, so the Service has no endpoints |
+| Why is the pod not Ready? | `kubectl -n kube-system logs deploy/metrics-server \| tail -5` | ✅ | `x509: … doesn't contain any IP SANs` — kubelet serving certs are self-signed and name only the host; metrics-server dials the IP |
+| What would Kustomize apply? | `kubectl kustomize . \| grep '^kind:'` · `\| grep -A8 ' args:'` | ✅ | Preview before `apply -k`. 9 objects; the patched flag shows as the last arg |
+| Apply a kustomization | `kubectl apply -k .` | ✅ | Re-apply with the patch: **only the Deployment `configured`, 8 `unchanged`** — the patch did one thing |
+| Did the fix roll out? | `kubectl -n kube-system rollout status deploy/metrics-server` | ✅ | "1 old replicas are pending termination" — the broken pod stays until the new one is Ready |
+| Proof | `kubectl top nodes` · `kubectl top pods -A --sort-by=memory \| head` | ✅ | Numbers for all five; APIService `True` |
+
+| The check | Why it lied | The fix |
+|---|---|---|
+| `kubectl …` on the workstation → `localhost:8080 … refused` | Reads like "API server down". It means **no kubeconfig**: with no cluster configured, kubectl falls back to `localhost:8080` (Nov 4: the workstation's `~/.kube/config` is a 100-byte stub) | A real outage names the server: `https://192.168.1.206:6443`. Check *where* you are first — on the exam, the task's `ssh` / context line |

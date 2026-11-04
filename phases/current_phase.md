@@ -1,6 +1,6 @@
 # Current Phase
 
-**Updated:** October 27, 2026 - 11:10 PM EDT
+**Updated:** November 4, 2026 - 11:40 AM EST
 
 📐 **Shape, and how to keep it:** `▶️ RESUME HERE` is the **first block** as of Aug 24 — it had been
 at line 389 under six stale session blocks, so the one thing you must read first was the one you had
@@ -30,8 +30,13 @@ Stage 3 can break this cluster freely.
 ✅ **STAGE 1 IS DOCUMENTED (Sep 23, 2026) — chapters 02, 03 and 04 all written, so the gate into Stage 3
 is OPEN.** ✅ **Chapter 05 plan APPROVED Sep 23** — the simplest CKA-congruent shape: metrics-server (Kustomize),
 local-path-provisioner, the Gateway API CRDs, and Traefik (Helm) for both Ingress and Gateway API, NodePort
-only, then an offline `c03-equipped-cluster`. 🔲 **NEXT: build Part 1, metrics-server v0.9.0 — Andrew drives. Step 1 is handed over and NOT yet run**
-(`kubectl top nodes`; `kubectl get apiservices | grep metrics`).
+only, then an offline `c03-equipped-cluster`. ✅ **Nov 4: Part 1 BUILT — metrics-server v0.9.0 via
+Kustomize, x509 failure seen first, then fixed by a patch; `kubectl top` works** (`phase18` Chapter 05 plan,
+item 1). 🔲 **NEXT: Part 2, local-path-provisioner — Andrew drives** (signature first: a PVC `Pending` with no
+StorageClass). ⚠️ **Run every step on control-1** (`ssh agamache@192.168.1.201`) — the workstation has no kubeconfig.
+🎯 **NEW Nov 4 — THE EXERCISE BANK: `education/k8s-cka-prep/exercises.md`.** Exam-shaped tasks (X01–X11 +
+backlog) for a timed mock exam later. 🚨 **Every Stage 3 part adds at least one task before it is called
+done** — rule and shape in `phase18` → § *EXERCISE BANK*. Part 2 must add the PVC-`Pending` task.
 ⭐ **Stage 3 rule: does the exam test it, and is this the simplest way to practise it?** Production
 choices for the work rebuild are parked beside the plan in `phase18`. ⏸️ **The Swarm chapter-8 `recited` rows are
 DEFERRED, not dropped** (Andrew, Sep 23): they resume, together with Phase 17, once he knows the firm's

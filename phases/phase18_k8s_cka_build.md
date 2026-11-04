@@ -893,6 +893,16 @@ the cluster looks like without it first** — recognising absence is Troubleshoo
    at build:* it then fails **x509** against the kubelets, whose serving certificates are self-signed.
    *Lab fix:* `--kubelet-insecure-tls`, added **by the Kustomize patch** → ⚠️ a Lab-vs-PROD callout in the
    chapter. *Proof:* `kubectl top nodes` and `kubectl top pods -A` return numbers.
+   ✅ **BUILT Nov 4, 2026 — Andrew on control-1, v0.9.0, every prediction confirmed.** Unpatched: pod
+   `Running 0/1`, APIService `False (MissingEndpoints)`, log `x509: cannot validate certificate for
+   192.168.1.20x because it doesn't contain any IP SANs`, readiness `no metrics to serve`, and `kubectl top`
+   printing **the same** *Metrics API not available* as before the install. Patched (JSON 6902 `add` to
+   `/spec/template/spec/containers/0/args/-`): only the Deployment `configured`, 8 objects `unchanged`;
+   APIService `True`; numbers for all five nodes. Files committed under
+   `education/k8s-cka-prep/manifests/ch05/metrics-server/` (`components.yaml` sha256 `1cec29a5…f72c79b` =
+   the unedited release). ⭐ Side finding: **control-2 held both the scheduler and controller-manager
+   leases**, and its pods topped the memory list — only the lease holder works. ⚠️ Andrew first ran the
+   step on the workstation: `localhost:8080 … refused` = **no kubeconfig**, not an outage (`COMMANDS.md` §13).
 2. **Storage.** *Signature:* a PVC stays `Pending` with no StorageClass. 🔲 *Recited, verify at build:*
    with `WaitForFirstConsumer` it **stays `Pending` until a pod mounts it — correct, and it looks exactly
    like the broken case.** *Proof:* the claim binds when a pod uses it; data survives deleting and
@@ -924,6 +934,53 @@ where the newest is only days old (the kube-vip rule). **Hard rule B9 stands:** 
 `tigerastatus` still healthy and memory headroom re-measured (Sep 23 before: ≈ 2.4 GB free on control-1,
 ≈ 3.3 GB per worker). **Deliverable:** chapter 05 + `c03-equipped-cluster`; the exercises (HPA scaling,
 PVC scenarios, routing tasks) are chapters 06 onward, one task type each.
+
+### 🎯 EXERCISE BANK — `education/k8s-cka-prep/exercises.md` (started Nov 4, 2026) — READ IT, ADD TO IT
+
+🙋 **Andrew, Nov 4:** *"let's start collecting possible exercises now. Make sure we detail this in our
+phase file so each new session that reads phase18 will know about them. We will continue adding to it.
+Make sure they are shaped like questions that would be on the exam."*
+
+**What it is:** a pool of **exam-shaped tasks** the AI draws from to **run a timed mock exam on this
+cluster** — the AI sets up the faults while Andrew is not watching, starts a 120-minute clock, stays
+silent (§12, Stage 3 posture), then grades each task by a **Verify** command and resets it. The chapters
+(06+) *teach* a task type; the bank holds the *test* for it. ⭐ **The best moment to write a break-fix task
+is right after the real failure was seen** — the symptoms, the setup and the proof are all known exactly.
+
+**Started with 11 tasks (X01–X11), all 🧪 Earned and none yet ✅ Drilled**, plus a 🔲 backlog of ~21 ideas
+mapped to the parts that will make them real (HPA is the next candidate — metrics-server is in).
+X01 metrics-server x509 · X02 kubelet disabled · X03 containerd CRI plugin disabled · X04 `crictl logs`
+to a file · X05 cert expiry + SANs · X06 join token · X07 etcd leader · X08 Calico pod CIDR · X09 active
+scheduler/controller-manager lease · X10 PDB + drain · X11 Service with no endpoints.
+
+🔲 **THE STANDING RULE FOR EVERY SESSION FROM NOW ON:**
+1. **Every Stage 3 part that is built adds at least one task** (or promotes a backlog row) **before the
+   part is called done** — written in the bank's fixed shape: **Host** line · outcome-only task with exact
+   names and answer-file paths · domain + competency (the 🟢 `curriculum.md` wording) · weight (our
+   estimate) · target minutes · **Setup** · **Verify** · **Reset** · folded **answer key** · **Drilled log**.
+2. **Mark honestly:** 🧪 Earned (skill done here, setup not yet run as an exercise) → ✅ Drilled only once a
+   setup, verify and reset have all run for real. ⚠️ A setup written but never run says so (X03, X10, X11).
+3. **Every answer key cites a command this lab has actually run** (`COMMANDS.md` ✅), or says ⚠️ it has not.
+4. ⛔ **Original task TEXT only**, per the Sep 16 *EXERCISE SOURCING* decision above: community reports of
+   task **types** are welcome and are how coverage gets checked, but **no verbatim recalled exam task and no
+   Killer.sh/course mock text is ever committed** (public repo; confidentiality agreement; copyright).
+   Extract the type, write our own task from the 🟢 curriculum, cite the type not the text.
+   ⛔ **Public-safe** — nothing about Andrew's employer.
+5. **After any mock or single drill, write the result into that task's Drilled log** (date, minutes,
+   pass/fail, what slowed him down). That log is the evidence of readiness — not the count of tasks.
+6. 🔲 **Still owed from Sep 16 — the coverage matrix** (*reported task type* against *our exercise*,
+   weighted by domain). The bank's backlog table is its first half; the research into reported types
+   (README **Q3**) is the second. Do it before the first full mock.
+7. **Reset cheaply** (Sep 16 rollback policy, below): workload tasks reset with `kubectl delete`; a full
+   five-node rollback only for tasks that break etcd, control-plane components, certificates or a node.
+
+⚠️ **Exam task phrasing is still only 🟡** (README **Q3** open): the shape is built on the 🟢 facts (an
+infobox naming the host, `ssh` there, no nested SSH, Quick Reference links) plus community reports
+(imperative, exact names and paths, multi-part, a weight each). **The first Killer.sh session should be
+used to check the shape** — compare, then adjust the bank, not the other way round.
+🔻 **Correction, same day:** in chat the AI offered to mimic the exam's multiple clusters with several
+kubeconfig contexts — `lab-parity.md` §6 already **rejects** that (*"do not build synthetic
+multi-context kubeconfigs to fake it"*; the simulator does it accurately). The bank does not fake contexts.
 
 ### 🏢 FOR THE WORK REBUILD — the production choices, kept beside the simple ones (Sep 23, 2026)
 

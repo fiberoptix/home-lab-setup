@@ -60,6 +60,7 @@ the whole design of the phase — see the plan's §6.
 | [`lab-parity.md`](lab-parity.md) | ⭐ **Where our home lab differs from the exam environment, and what to do about each difference.** This is what turns a cluster into practice |
 | [`sources.md`](sources.md) | Every source, marked by authority — and the **contradictions found between them**, which matter more than the agreements |
 | [`COMMANDS.md`](COMMANDS.md) | ⭐ **Every command this track has used, indexed by the QUESTION it answers**, in the order you would ask during an incident — each marked ✅ ran here or ⚠️ not run. Ends with the checks that **could not report their own failure**. Started Sep 23, 2026; added to as each part runs |
+| [`exercises.md`](exercises.md) | 🎯 **The exercise bank — exam-shaped tasks for a timed mock exam on this cluster.** Each has a Host line, an outcome-only task, Setup / Verify / Reset, a folded answer key and a Drilled log. Original tasks only — never exam or simulator content. Started Nov 4, 2026; **every Stage 3 part adds at least one** |
 
 ---
 
