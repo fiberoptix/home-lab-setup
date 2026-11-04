@@ -1,0 +1,42 @@
+// Chapter 5, figure 2 — one claim's life under a WaitForFirstConsumer default class.
+// Every state and time is measured (Nov 4, 2026, Andrew on control-1, local-path v0.0.37):
+// FailedBinding with no class; the default filled in ~20 s after the patch (a 5 s check showed
+// nothing); Bound 2 s after a pod mounted it; PV + folder gone within 15 s of deleting the claim.
+// Two "Pending" boxes on purpose: the status is identical, only the event differs.
+digraph claim_lifecycle {
+    rankdir=TB;
+    nodesep=0.3;
+    ranksep=0.32;
+    bgcolor="white";
+    node [shape=plaintext, fontname="Helvetica", fontsize=15];
+    edge [color="#555555", penwidth=1.6, arrowsize=0.8, fontname="Helvetica", fontsize=13];
+
+    p1 [label=<
+      <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" BGCOLOR="#f9e0dc">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>Pending</B> — broken</TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT">event: FailedBinding<BR/>"no storage class is set"</TD></TR>
+      </TABLE>>];
+
+    p2 [label=<
+      <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" BGCOLOR="#eaf6ee">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>Pending</B> — correct</TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT">event: WaitForFirstConsumer<BR/>"waiting for first consumer"</TD></TR>
+      </TABLE>>];
+
+    b [label=<
+      <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" BGCOLOR="#eef4fb">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>Bound</B></TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT">PV created on the pod's node<BR/>pinned there by hostname affinity</TD></TR>
+      </TABLE>>];
+
+    r [label=<
+      <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" BGCOLOR="#f4f4f4">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>Released → deleted</B></TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT">reclaim Delete: a helper pod<BR/>removes the folder on the node</TD></TR>
+      </TABLE>>];
+
+    p1 -> p2 [label="  class made default\l  filled in ~20 s later\l"];
+    p2 -> b  [label="  a pod mounts it\l  Bound 2 s later\l"];
+    b -> b   [label="  pod deleted:\l  claim stays Bound\l"];
+    b -> r   [label="  claim deleted\l  gone within 15 s\l"];
+}

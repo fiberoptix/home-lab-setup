@@ -83,10 +83,10 @@ kubectl -n kube-system exec etcd-vm-k8s-cka-control-1 -- etcdctl \
 | Was this static pod replaced, or restarted? | `kubectl get pod -n kube-system -o custom-columns=NAME:.metadata.name,CREATED:.metadata.creationTimestamp,RESTARTS:.status.containerStatuses[0].restartCount,UID:.metadata.uid` | ✅ | A manifest edit **recreates** the pod — new UID, fresh counter. `RESTARTS 0` does not mean untouched |
 | Why can't ordinary pods land on a control plane? | `kubectl get nodes -o custom-columns=NAME:.metadata.name,TAINTS:.spec.taints[*].key` | ✅ | `node-role.kubernetes.io/control-plane` = `NoSchedule` |
 | Same, the longer way | `kubectl describe node <n> \| grep Taints` | ⚠️ | Standard; this lab used the custom-columns form above |
-| When do the certificates expire? | `sudo kubeadm certs check-expiration` | ✅ | Control-plane certs only. **Kubelet client certs are not listed** and rotate sooner |
+| When do the certificates expire? | `sudo kubeadm certs check-expiration` | ✅ | Control-plane certs only. **Neither kubelet certificate is listed** — read them with `openssl` (§13 Part 5) |
 | What does the API server's certificate actually cover? | `sudo openssl x509 -in /etc/kubernetes/pki/apiserver.crt -noout -ext subjectAltName` (or `-text \| grep -A1 "Subject Alternative Name"`) | ✅ | Nov 4 on control-1: `10.96.0.1`, `.201`, VIP `.206`. **Each control plane has its own cert** with its own node IP |
 | Which control plane is the ACTIVE scheduler / controller-manager? | `kubectl -n kube-system get lease kube-scheduler kube-controller-manager` | ✅ | `HOLDER` = `<node>_<uuid>`. Only the holder works; the other two wait. Nov 4: control-2 held both — and its pods topped `kubectl top` |
-| What did `init` record about the cluster? | `kubectl -n kube-system get cm kubeadm-config -o yaml` | ⚠️ | Standard; not run here |
+| What did `init` record about the cluster? | `kubectl -n kube-system get cm kubeadm-config -o yaml` | ✅ | Nov 4 (AI, read-only): endpoint `.206:6443`, `podSubnet` `10.244.0.0/16`, `serviceSubnet` `10.96.0.0/12`. `kubeadm upgrade` reads it |
 
 ---
 
@@ -286,6 +286,21 @@ their proof here, the moment they are run. Each also adds an exam-shaped task to
 | Why is an HTTPRoute not working? | `kubectl get httproute hello -o jsonpath='{range .status.parents[*]}{.parentRef.name}: {range .conditions[*]}{.type}={.status} {.reason}  {end}{"\n"}{end}'` | ✅ | `kubectl get httproute` has no status column. `Accepted=False NotAllowedByListeners` with `ResolvedRefs=True` = valid route, refused by the listener |
 | Which namespaces may attach routes? | `kubectl -n traefik get gtw traefik-gateway -o jsonpath='{.spec.listeners[0].allowedRoutes}{"\n"}{.status.listeners[0].attachedRoutes}{"\n"}'` | ✅ | `from: Same` → only the Gateway's own namespace. The Gateway itself reports no error, just 0 attached |
 | Does routing really work? | `curl -s -H 'Host: hello.lab' http://192.168.1.204:30080/ \| grep -c 'Welcome to nginx'` | ✅ | 2 = served (title + h1). Unknown host → `404` from Traefik. Any node's IP works for a NodePort |
+
+**Part 5 — the etcd baseline and the anatomy inventory (Nov 4, 2026, 🤖 AI, read-only; chapters 6–8):**
+
+| Question | Command | ✓ | What it tells you — and the trap |
+|---|---|---|---|
+| Is etcd's disk keeping up? | on a control plane: `curl -s http://127.0.0.1:2381/metrics \| grep etcd_disk_wal_fsync_duration_seconds` | ✅ | A **cumulative** histogram since the member started — take two samples minutes apart and subtract. Buckets are upper bounds: "p99 ≤ 128 ms" is the most it can say |
+| Any elections or failed writes in that window? | same endpoint: `grep -E 'etcd_server_leader_changes_seen_total\|etcd_server_proposals_failed_total'` | ✅ | Both unchanged over 15 min idle. Counters reset when a member restarts — for history, compare `RAFT TERM` (§3): 6 → 54 between Sep 28 and Nov 4 was the nightly elections |
+| What are etcd's timing defaults? | `kubectl -n kube-system exec etcd-vm-k8s-cka-control-1 -- etcd --help \| grep -E 'heartbeat-interval\|election-timeout\|quota-backend'` | ✅ | `100` ms heartbeat, `1000` ms election timeout, quota `0` = the built-in 2 GiB. kubeadm's manifest sets only `--snapshot-count=10000`, the default anyway |
+| When does the kubelet's client cert expire? | `sudo openssl x509 -in /var/lib/kubelet/pki/kubelet-client-current.pem -noout -enddate -issuer` | ✅ | One year, signed by the cluster CA; a symlink that rotation repoints. **Not in `check-expiration`** |
+| Who signed the kubelet's serving cert? | `sudo openssl x509 -in /var/lib/kubelet/pki/kubelet.crt -noout -issuer -subject -ext subjectAltName` | ✅ | A node-local CA, hostname-only SAN — the reason metrics-server needs `--kubelet-insecure-tls` |
+| Which address does each component use? | `sudo grep server: /etc/kubernetes/*.conf` | ✅ | admin + worker kubelets → VIP; control-plane kubelet, controller-manager, scheduler → the node's own IP |
+| Which API servers do pods reach? | `kubectl get endpointslices -n default -l kubernetes.io/service-name=kubernetes` | ✅ | All three (`.201–.203:6443`) — in-cluster traffic **is** spread; through-the-VIP traffic is not |
+| Is Calico's BGP mesh up? | `kubectl -n calico-system exec <calico-node-pod> -c calico-node -- birdcl -s /var/run/calico/bird.ctl show protocols` | ✅ | Four `Mesh_<peer>` sessions `Established` per node |
+| Which routes carry pod traffic? | `ip route show proto 80` | ✅ | The other nodes' `/26` blocks `via <node IP> onlink` + a `blackhole` for its own. Marked `proto 80`, **not** `proto bird` |
+| Is API auditing or Secret encryption on? | `sudo grep -cE 'audit-\|encryption-provider' /etc/kubernetes/manifests/kube-apiserver.yaml` | ✅ | `0` here — no audit log, Secrets stored unencrypted in etcd. Neither is a kubeadm default |
 
 **Checks that lied in Chapter 05 (Parts 1–4):**
 

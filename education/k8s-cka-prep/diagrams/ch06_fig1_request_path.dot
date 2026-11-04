@@ -1,0 +1,52 @@
+// Chapter 6, figure 1 — one request, every port it crosses, and why the Gateway listener is 8000.
+// Measured Nov 4, 2026: Service traefik NodePort 80:30080; EndpointSlice traefik ports 8000/8443;
+// Traefik args --entryPoints.web.address=:8000/tcp; own Gateway default/web listener port 8000
+// -> HTTPRoute Accepted=True, attachedRoutes 1; curl -H 'Host: hello-gw.lab' .204:30080 -> nginx.
+digraph request_path {
+    rankdir=TB;
+    nodesep=0.3;
+    ranksep=0.3;
+    bgcolor="white";
+    node [shape=plaintext, fontname="Helvetica", fontsize=15];
+    edge [color="#555555", penwidth=1.6, arrowsize=0.8, fontname="Helvetica", fontsize=13];
+
+    c [label=<
+      <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" BGCOLOR="#f4f4f4">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>curl -H 'Host: hello-gw.lab'</B><BR/>http://192.168.1.204:30080/</TD></TR>
+      </TABLE>>];
+
+    np [label=<
+      <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" BGCOLOR="#eef4fb">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>Service traefik</B> (NodePort)</TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT">node port 30080 → port 80 → targetPort 8000<BR/>any node's IP works</TD></TR>
+      </TABLE>>];
+
+    tr [label=<
+      <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" BGCOLOR="#eaf6ee">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>Traefik pod — entrypoint "web" :8000</B></TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT">attaches a Gateway listener only if<BR/>the listener's port = an entrypoint's port</TD></TR>
+      </TABLE>>];
+
+    gw [label=<
+      <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" BGCOLOR="#fdf6e3">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>Gateway default/web</B> — listener port <B>8000</B></TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT">allowedRoutes: Same (the default)<BR/>so routes in "default" may attach</TD></TR>
+      </TABLE>>];
+
+    rt [label=<
+      <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" BGCOLOR="#fdf6e3">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>HTTPRoute hello</B> — hostnames hello-gw.lab</TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT">backendRef: Service hello :80</TD></TR>
+      </TABLE>>];
+
+    app [label=<
+      <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" BGCOLOR="#f4f4f4">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>nginx pods</B> (2 replicas)</TD></TR>
+      </TABLE>>];
+
+    c -> np;
+    np -> tr;
+    tr -> gw [label="  matched by port\l"];
+    gw -> rt [label="  parentRef: web\l"];
+    rt -> app;
+}

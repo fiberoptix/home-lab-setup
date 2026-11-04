@@ -363,8 +363,9 @@ works.**
 > availability is the only property we need. *In production:* a real load balancer distributes across
 > all API servers, or kube-vip runs in BGP mode where every node advertises the address. *If you carry
 > the habit:* you will [size a control plane believing three API servers share the
-> load]{custom-style="Key"} when one of them is taking all of it — and the capacity model is wrong in
-> the direction that only shows up under stress.
+> load]{custom-style="Key"} when one of them is taking all of the external traffic — and the capacity
+> model is wrong in the direction that only shows up under stress. (Pods are different: they use the
+> `kubernetes` Service, which does spread across all three — chapter 7.)
 
 > **Lab vs PROD — a cluster-admin credential printed to a terminal.** *In the lab:* the certificate key
 > from `--upload-certs` is echoed to stdout, captured with `tee`, and pasted between SSH sessions.

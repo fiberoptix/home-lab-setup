@@ -1,0 +1,40 @@
+// Chapter 5, figure 1 — the path a `kubectl top` request takes, and where it broke.
+// Measured Nov 4, 2026: the APIService read False (MissingEndpoints) while the pod was not Ready;
+// the pod's log read "x509: cannot validate certificate for 192.168.1.20x because it doesn't
+// contain any IP SANs". The kubelet serving cert is self-signed by a node-local CA and names
+// only the hostname (openssl on /var/lib/kubelet/pki/kubelet.crt).
+digraph metrics_path {
+    rankdir=TB;
+    nodesep=0.35;
+    ranksep=0.45;
+    bgcolor="white";
+    node [shape=plaintext, fontname="Helvetica", fontsize=15];
+    edge [color="#555555", penwidth=1.6, arrowsize=0.8, fontname="Helvetica", fontsize=13];
+
+    top [label=<
+      <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" BGCOLOR="#f4f4f4">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>kubectl top nodes</B></TD></TR>
+      </TABLE>>];
+
+    api [label=<
+      <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" BGCOLOR="#eef4fb">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>API server — aggregation layer</B></TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT">APIService v1beta1.metrics.k8s.io<BR/>"send metrics.k8s.io to this Service"</TD></TR>
+      </TABLE>>];
+
+    ms [label=<
+      <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" BGCOLOR="#eaf6ee">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>metrics-server pod</B> (kube-system)</TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT">Ready only once it has scraped<BR/>numbers to serve</TD></TR>
+      </TABLE>>];
+
+    kl [label=<
+      <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" BGCOLOR="#fdf6e3">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>kubelet :10250 on every node</B></TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT">serving cert self-signed by a CA<BR/>that exists only on that node<BR/>SAN = hostname, <B>no IP</B></TD></TR>
+      </TABLE>>];
+
+    top -> api;
+    api -> ms [label="  Service has no endpoints\l  until the pod is Ready\l"];
+    ms -> kl [label="  dials the node's IP\l  x509: no IP SANs\l", color="#b03a2e", fontcolor="#b03a2e"];
+}

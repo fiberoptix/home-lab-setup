@@ -1,0 +1,40 @@
+// Chapter 8, figure 1 — build decisions grouped by when they stop being cheap to change.
+// Top box from chapter 2 (the three init values, measured on this cluster) plus etcd topology;
+// middle and bottom boxes are reasoning (recited), as the chapter marks them.
+digraph when_decisions_close {
+    rankdir=TB;
+    nodesep=0.3;
+    ranksep=0.35;
+    bgcolor="white";
+    node [shape=plaintext, fontname="Helvetica", fontsize=15];
+    edge [color="#555555", penwidth=1.6, arrowsize=0.8];
+
+    init [label=<
+      <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="6" BGCOLOR="#fbeaea">
+        <TR><TD ALIGN="LEFT"><B>Fixed at kubeadm init</B></TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT">API endpoint (in every SAN<BR/>and every kubeconfig)</TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT">pod CIDR</TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT">service CIDR</TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT">etcd stacked or external</TD></TR>
+      </TABLE>>];
+
+    costly [label=<
+      <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="6" BGCOLOR="#fdf6e3">
+        <TR><TD ALIGN="LEFT"><B>Costly once workloads run</B></TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT">CNI and its encapsulation / MTU</TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT">storage driver for data<BR/>already written</TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT">how traffic enters</TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT">failure domains of the hosts</TD></TR>
+      </TABLE>>];
+
+    day2 [label=<
+      <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="6" BGCOLOR="#eaf6ee">
+        <TR><TD ALIGN="LEFT"><B>Changeable any day</B></TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT">network policy</TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT">audit logging, encryption at rest</TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT">backups, patching calendar</TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT">who holds cluster-admin</TD></TR>
+      </TABLE>>];
+
+    init -> costly -> day2;
+}

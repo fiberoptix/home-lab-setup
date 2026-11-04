@@ -326,8 +326,8 @@ did not get it"*, and host CPU% cannot answer that question at all. ✅ **Andrew
 Docker Swarm down would help performance: measured answer is NO.** It would return 6 vCPU / 12 GB to
 relieve contention that is not occurring. ⛔ **Leave the Swarm running**; revisit only if steal goes
 non-zero, and then it is the first lever because Jenkins is on hold anyway.
-🔲 **Still owed: the etcd `wal_fsync_duration_seconds` baseline** — impossible until etcd exists, so it
-belongs to Stage 2.
+✅ **The etcd `wal_fsync_duration_seconds` baseline — TAKEN Nov 4, 2026** (§11): p99 ≤ 128 ms idle,
+an order of magnitude over etcd's 10 ms guidance, with steal still 0.
 
 ### Stage 1 — install and configure Kubernetes, piece by piece → **chapters 02–04**
 
@@ -741,7 +741,7 @@ snapshots `s01`–`s07` (⚠️ they sit on the no-redundancy `vm-ephemeral` str
 | `kubectl get ippool default-ipv4-ippool` | `cidr: 10.244.0.0/16`, `blockSize: 26`, `ipipMode: Never`, `vxlanMode: CrossSubnet` |
 | Calico blocks | **one `/26` per node**, scattered not sequential |
 | Pods | **43** system pods, none outside `Running`/`Completed` |
-| `kubeadm certs check-expiration` | all ten control-plane certs **Sep 17, 2027** (⚠️ kubelet client certs are NOT in that list and rotate far sooner) |
+| `kubeadm certs check-expiration` | all ten control-plane certs **Sep 17, 2027** (⚠️ kubelet certs are NOT in that list — 🔻 corrected Nov 4: the client cert also lasts **one year** and rotates only while the kubelet runs; it does not "rotate far sooner") |
 | Pod-to-pod across nodes | ping succeeds, **`ttl=62`** — ⭐ two decrements means **routed, not encapsulated** |
 | DNS from a pod | `10.96.0.10` resolves `kubernetes.default.svc.cluster.local` → `10.96.0.1`, and forwards external names |
 
@@ -1023,6 +1023,26 @@ where the newest is only days old (the kube-vip rule). **Hard rule B9 stands:** 
 `tigerastatus` still healthy and memory headroom re-measured (Sep 23 before: ≈ 2.4 GB free on control-1,
 ≈ 3.3 GB per worker). **Deliverable:** chapter 05 + `c03-equipped-cluster`; the exercises (HPA scaling,
 PVC scenarios, routing tasks) are chapters 06 onward, one task type each.
+🔻 **RE-SHAPED Nov 4, 2026 (🙋 Andrew, AskQuestion, after the build):** the write-up is **two** chapters —
+**05** metrics-server + storage, **06** Gateway API CRDs + Helm + Traefik + the `c03` baseline — plus two
+new ones for his two stated goals (*"build k8s at work"* and *"reference knowledge … for working and
+exercising CKA"*): **07 a cluster-anatomy reference** (every file, certificate, port, namespace and
+identity, with the command that reads it — 🤖 **collected by the AI, read-only**, and the chapter declares
+it; raw output in gitignored `working/anatomy/`) and **08 building it at work** (each claim marked
+measured or recited). **The exercise chapters shift to 09 onward.** Chapters 01–04 were corrected
+**quietly** (current truth, no "updated" notes — his choice).
+✅ **WRITTEN Nov 4, 2026 — chapters 05–08**, each with a figure, docx built, highlight density 21.0 /
+21.2 / 20.4 / 20.6%; all 9 figures ≥ 10 pt. ⭐ **Findings the writing produced, each now in a chapter:**
+(1) 🔻 **ch04 had said kubelet client certs rotate "on a much shorter cycle" — WRONG**: they last one
+year, like the leaves, and rotate only while the kubelet runs; the serving cert is self-signed by a
+node-local CA; `check-expiration` lists neither. (2) **The `kubernetes` Service's EndpointSlice is all
+three API servers** — in-cluster traffic *is* spread, only through-the-VIP traffic hits one (quiet
+fixes in ch02 + ch04). (3) **Calico runs a BGP full mesh** (4 `Mesh_…` sessions `Established` per
+node), but the kernel pod routes are **`proto 80`, not `proto bird`** — which component writes them
+in `VXLANCrossSubnet` mode was **not traced**; ch07 says so. (4) **No audit log and no encryption at
+rest** — none of the API server's 27 flags is `--audit-*` or `--encryption-provider-config`; ch08's
+ledger records both as measured absences. (5) `pause:3.10.1` pulled by kubeadm on the control planes,
+`3.10.2` used by containerd everywhere.
 
 ### 🎯 EXERCISE BANK — `education/k8s-cka-prep/exercises.md` (started Nov 4, 2026) — READ IT, ADD TO IT
 
@@ -1252,6 +1272,34 @@ higher · every CKA domain marked hands-on or explicitly not.
 disk latency or exonerated — see §4) and **`%st` steal time inside two guests** (so the CPU
 over-allocation decision can be revisited with evidence rather than re-argued). ⭐ **A baseline taken
 after the incident is not a baseline.**
+
+✅ **BOTH TAKEN Nov 4, 2026 (AI, read-only, at Andrew's "do the baseline"), on the `c03` cluster, idle,
+after the 201–205 nightly backup was removed.** Method: the etcd metrics endpoint
+`http://127.0.0.1:2381/metrics` on each control plane, sampled at 18:28:22Z and 18:43:44Z, and the
+**difference** of the two histograms (so boot-time writes are excluded). Raw files in gitignored
+`working/wal-baseline/` (`s1`–`s3`, `calc.py`). Buckets double (1, 2, 4 … ms), so every figure is
+"≤ bucket".
+
+| Per member (identical within noise on all three) | `wal_fsync` | `backend_commit` |
+|---|---|---|
+| Operations in 15 min 21 s | ~3,640 (~4/s) | ~2,045 |
+| Mean | 6.7–7.0 ms | 3.8–4.0 ms |
+| p50 / p90 | ≤ 4 / ≤ 8 ms | ≤ 4 / ≤ 8 ms |
+| **p99** | **≤ 128 ms** (in the 64–128 bucket) | ≤ 64 ms |
+| Worst | ≤ 512 ms | ≤ 128 ms |
+| Over 8 ms | 8.8–9.1 % | 3.7–4.2 % |
+
+Leader changes in the window **0**; `proposals_failed_total` **0**. Steal **0** (`vmstat 5 3`, all
+three control planes; id 92–94, wa 1). etcd's own timing, **read from the v3.6.6 binary's `--help`, not
+recited**: `--heartbeat-interval 100` ms, `--election-timeout 1000` ms (kubeadm sets neither).
+🚨 **The reading: the healthy p99 (≤ 128 ms) is already ABOVE one heartbeat interval, and the worst
+write (≤ 512 ms) is half the election timeout** — on an idle cluster. 🟡 etcd's guidance (p99 under
+10 ms, §4) is **missed by an order of magnitude**, and nothing visible is wrong. ⭐ **That is the
+mechanism behind the nightly elections (Chapter 05 plan item 5):** a ~50 s backup read of the zvol only
+has to stretch the tail past ~1 s once. All three members share one pool, so their numbers move
+together — no member is "the slow one". Not acted on: a lab that tolerates an occasional election
+is fine, and the fix (a SLOG, a dedicated disk, or `--heartbeat-interval`/`--election-timeout` tuning)
+would be the subject of its own decision. Written into chapter 06 and chapter 08.
 
 ## 12. Who drives what (`METHOD.md`)
 

@@ -4,7 +4,7 @@
 > **Built and verified:** September 16, 2026 on VMs 201–205 (`192.168.1.201–205`); re-verified
 > September 17 after a deliberate reboot
 > **Versions at time of writing:** Kubernetes v1.35.8 · containerd 2.3.5 · crictl 1.35.0
-> · Ubuntu 24.04.4 LTS · kernel 6.8.0-139 · yq v4.53.6
+> · Ubuntu 24.04.4 LTS · kernel 6.8.0-139 at build, 6.8.0-142 from September 28 · yq v4.53.6
 > **Read this before:** Chapter 2 (`kubeadm init` and what it creates), Chapter 3 (joining an HA
 > control plane)
 
@@ -261,6 +261,44 @@ The config file you fixed in step 4 is the one a package upgrade can
 replace, which would restore `disabled_plugins = ["cri"]` and [reproduce the
 exact failure step 4 exists to prevent]{custom-style="Key"} — on a cluster that worked yesterday.
 
+### 7. Switch off automatic updates — stop, then mask
+
+Holds protect five packages. Everything else on the node — the kernel, libc, `sudo`, systemd — is
+still upgraded by `unattended-upgrades` on its own schedule, which means [a node's state changes
+while nobody is looking]{custom-style="Key"}. On a cluster node, patching belongs inside a
+maintenance window, behind a drain.
+
+```bash
+for u in unattended-upgrades.service apt-daily.timer apt-daily-upgrade.timer; do
+  sudo systemctl stop "$u"
+  sudo systemctl mask "$u"
+done
+```
+
+**Confirm — ask systemd, not the config file:**
+
+```bash
+systemctl is-enabled unattended-upgrades apt-daily.timer apt-daily-upgrade.timer  # masked x3
+systemctl is-active  unattended-upgrades apt-daily.timer apt-daily-upgrade.timer  # inactive x3
+systemctl --failed --no-pager                                                     # 0 units
+```
+
+🚨 **Stop first, then mask — not `mask --now`.** `mask --now` masks *first*, so a running timer
+[loses its unit file and lands in `failed`]{custom-style="Key"} instead of stopped. Measured on a
+throwaway timer: `mask --now` → `failed`; `stop` then `mask` → `inactive`.
+
+⚠️ **`systemctl is-enabled` exits 1 for a masked unit.** A script that writes
+`$(systemctl is-enabled u || echo absent)` gets [`masked` *and* `absent`]{custom-style="Key"}, so an
+"already done" branch can never match. Capture the output and ignore the exit code instead.
+
+⚠️ **`/etc/apt/apt.conf.d/20auto-upgrades` still reads `Unattended-Upgrade "1"` on a masked
+host.** [The timers decide; the file only describes]{custom-style="Key"} — another config that
+reports intent rather than outcome.
+
+⭐ **The consequence to carry into the patching drill:** with `apt-daily.timer` masked, package lists
+never refresh on their own, so `apt list --upgradable` on a stale list [prints nothing and reads as
+"nothing to patch"]{custom-style="Key"}. Step 0 of any patch window is `sudo apt update`.
+
 ---
 
 ## What you deliberately have NOT done
@@ -302,16 +340,18 @@ controller manager, the scheduler — read [straight off local disk, not schedul
 > between a stolen session and root]{custom-style="Key"} on every node in the cluster — and the audit trail that would
 > have told you it happened.
 
-> **Lab vs PROD — automatic updates left running, and what they can actually reach.** *In the lab:*
-> `apt-daily-upgrade.timer` is enabled and it does real work — it installed a new kernel here
-> overnight without being asked. *Why it's acceptable here:* measured, not assumed —
-> `Unattended-Upgrade::Allowed-Origins` lists only the Ubuntu archive, security and ESM pockets, so
-> [neither the Kubernetes repo nor Docker's is eligible]{custom-style="Key"}, and `Automatic-Reboot`
-> is unset, so [nothing reboots itself]{custom-style="Key"}. *In production:* patching is scheduled
-> per node behind a `kubectl drain`, and the kernel a node boots is a decision someone made. *If you
-> carry the habit:* [a node accumulates a kernel it has never booted]{custom-style="Key"}, then boots
-> it at 03:00 for an unrelated reason — so the change and the symptom are [weeks apart and nobody
-> connects them]{custom-style="Key"}.
+> **Lab vs PROD — updates frozen, and patching only when it is drilled.** *In the lab:* step 7 masks
+> the update timers on all five nodes, and the nodes are patched only when a patching drill runs.
+> *Why it's acceptable here:* measured, not assumed — before the freeze, `unattended-upgrades` changed
+> packages on six separate days in eleven (a kernel among them), so [every rollback to the baseline
+> silently removed two weeks of patches]{custom-style="Key"} and all five reinstalled them unwatched
+> the next morning. Frozen, a rollback returns exactly the state that was snapshotted, and the
+> cluster holds nothing worth attacking. *In production:* updates are equally off the node's own
+> schedule, but patching runs **on a calendar** — drain, `apt update && apt full-upgrade`, reboot,
+> verify, uncordon, [one node at a time with a quorum check between control
+> planes]{custom-style="Key"}. *If you carry the habit:* "frozen" without a calendar is
+> [a fleet that falls months behind on security fixes]{custom-style="Key"} while every dashboard
+> stays green — and the stale package lists make it look as though nothing is waiting.
 
 > **Lab vs PROD — a pending reboot left outstanding.** *In the lab:* we spotted `6.8.0-139` installed
 > against `6.8.0-134` running, rebooted all five, and only then took the baseline snapshot. *Why it's
@@ -355,6 +395,7 @@ than a production standard. And the nodes do not restart after a host reboot —
 | Which images does the runtime hold? | `sudo crictl images` |
 | Why will the kubelet not start? | `sudo journalctl -u kubelet -n 3 --no-pager` |
 | Is the running kernel the installed one? | `uname -r` against `ls /boot/vmlinuz-*` |
+| Are automatic updates really off? | `systemctl is-enabled apt-daily.timer apt-daily-upgrade.timer unattended-upgrades` — `masked` x3 (exit 1 is normal) |
 
 ---
 
@@ -408,3 +449,5 @@ Answer these out loud. Section references, not answers.
    list even though automatic updates cannot reach it? (§5, §6, *Lab vs PROD*)
 9. `systemctl is-active kubelet` prints `inactive` on one prepared node and `activating` on another,
    and both are correct. What is different about the two hosts? (§5)
+10. A node's update timers are masked and `apt list --upgradable` prints nothing. Is the node up to
+    date? What do you run first? (§7)

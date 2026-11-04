@@ -22,7 +22,9 @@ containerd **2.3.5** with the CRI plugin enabled, **`crictl` 1.35.0**, kernel **
 holds, snapshot **`c01-nodes-ready`** on all five. ✅ **STAGE 1 COMPLETE (all six steps) and STAGE 2 COMPLETE** — a real 5-node HA cluster runs at
 `.201`–`.205`, and `c02-virgin-cluster` is an **offline** baseline whose rollback has been **proven**,
 not assumed. ✅ **Chapters 01–04 written — Stage 1 is documented, and Stage 3 (exam drilling) is
-open.** Working record:
+open.** ✅ **Nov 4, 2026: Chapters 05–08 written** — Stage 2 documented (05, 06), plus a cluster-anatomy
+reference (07) and a building-it-at-work chapter (08); the exercise chapters now start at 09. The
+equipped baseline is **`c03-equipped-cluster`**. Working record:
 [`../../phases/phase18_k8s_cka_build.md`](../../phases/phase18_k8s_cka_build.md).
 
 ⚠️ **Two things a Sep 16 reader of this folder would have been told wrongly, both fixed Sep 17 and
@@ -43,7 +45,11 @@ consolidated them on Sep 16, 2026 rather than keeping `k8s-cka-prep/` apart from
 | [**02**](chapter02_giving_a_node_a_role.md) | **Giving a Node a Role** — the kube-vip ordering problem (a static pod must exist before the kubelet that runs it), the **three** values fixed irreversibly at `kubeadm init`, the v1.29+ `super-admin.conf` bootstrap workaround and its asymmetry, verifying the certificate SANs from a dry run **before** committing, and reading what `init` put on disk | 1 (work) | ✅ **Written Sep 17** · 1 figure · docx built · 20.0% marked |
 | [**03**](chapter03_a_network_and_three_control_planes.md) | **A Network, and a Control Plane of Three** — why a new cluster is `NotReady`, Calico via the Tigera operator and the pod CIDR its install file **hard-codes** (while the docs, on another tab, say no change is needed), the two IP allocators and why `node.spec.podCIDR` misleads, joining control planes 2 and 3 through the VIP, the two-member etcd window, and a worker join that runs **4** kubeadm phases to a control plane's **12** | 1 (work) | ✅ **Written Sep 23** · 1 figure · docx built · 19.5% marked |
 | [**04**](chapter04_proving_it.md) | **Proving It: Failover, a Baseline, and a Rollback You Can Trust** — cross-node pod traffic (`ttl=62`: routed, not tunnelled) and DNS, the offline baseline snapshot taken **before** anything is broken, an abrupt power cut to the VIP holder (**17 s** to recover, no etcd election), a prediction that passed without being tested, and a rollback **proven with planted markers** | 1–2 (work) | ✅ **Written Sep 23** · 1 figure · docx built · 19.5% marked |
-| 05+ | One CKA administrative task type per chapter, weighted by the exam's own domain weights | 3 (exam) | 🔲 Planned |
+| [**05**](chapter05_metrics_and_storage.md) | **Metrics and Storage** — metrics-server failing on the kubelet's self-signed serving certificate (`x509`) and the Kustomize patch that admits it, then local-path: a claim that waits for its first consumer, a volume pinned to one node by affinity, and reclaim `Delete` removing the data in under 15 s | 2 (work) | ✅ **Written Nov 4** · 2 figures · docx built · 21.0% marked |
+| [**06**](chapter06_traffic_in_and_the_ready_baseline.md) | **Traffic In, and the Ready Baseline** — Gateway API CRDs (version read from Traefik's `go.mod`), a Gateway with no controller, Helm pinned and checksummed, Traefik serving both `Ingress` and Gateway API, a route refused by `NotAllowedByListeners`, upgrade and rollback; then the etcd latency baseline, the nightly elections the hypervisor backup caused, and `c03-equipped-cluster` | 2 (work) | ✅ **Written Nov 4** · 1 figure · docx built · 21.2% marked |
+| [**07**](chapter07_cluster_anatomy.md) | **Cluster Anatomy (reference)** — every file, kubeconfig, certificate, static-pod flag, port, namespace, extension and identity on the running cluster, bottom layer up, each with the command that reads it, ending in a 3am map. 🤖 **Inventoried by the AI, read-only — declared in its opening** | reference | ✅ **Written Nov 4** · 1 figure · docx built · 20.4% marked |
+| [**08**](chapter08_building_it_at_work.md) | **Building It at Work** — the questions to ask the existing lab first, what carries over, the Lab-vs-PROD ledger in one table (plus two measured absences: no audit log, no encryption at rest), etcd's disk as the constraint, decisions that close at `init`, certificates, patching. 🤖 **Reasoning chapter — every claim marked measured or recited** | work | ✅ **Written Nov 4** · 1 figure · docx built · 20.6% marked |
+| 09+ | One CKA administrative task type per chapter, weighted by the exam's own domain weights | 3 (exam) | 🔲 Planned |
 
 ⭐ **Stages 0 and 1 are written as procedures to repeat at work. Stage 3 is exam drilling.** The split is
 the whole design of the phase — see the plan's §6.

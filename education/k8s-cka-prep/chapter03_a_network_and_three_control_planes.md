@@ -397,8 +397,9 @@ resolve names looks healthy and is not]{custom-style="Key"}.
 **Honest limitations of this build.** The encapsulation path is configured and **untested**, because
 nothing here crosses a subnet. [Control-3 and worker-2 were joined by script]{custom-style="Key"} after the first of each was
 done by hand, so their output was read rather than typed. We passed through the two-member etcd window
-quickly and deliberately did not test a failure inside it. And the Gateway API resource the operator
-installed is noted, not exercised.
+quickly and deliberately did not test a failure inside it. And the operator's `gatewayapis` resource
+is left unused: it installs **no** Gateway API CRDs of its own (the cluster had none until chapter 6
+applied the upstream ones), so it plays no part in this build's routing.
 
 ---
 

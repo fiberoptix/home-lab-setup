@@ -11,8 +11,10 @@
 ## What this chapter covers
 
 Chapter 3 ended with five nodes `Ready`. [That is a claim about the cluster]{custom-style="Key"}, and this chapter
-[tests it by trying to break it]{custom-style="Key"} — then takes the snapshot that every later exercise
-rolls back to, and proves the rollback works.
+[tests it by trying to break it]{custom-style="Key"} — then takes the cluster's first baseline snapshot
+and proves the rollback works. (Chapter 6 takes the second, `c03-equipped-cluster`, once the add-ons
+are in; that one is the "ready" point the exercises roll back to. The mechanism proven here is the
+same.)
 
 The order matters, and it is the first thing in this chapter that is easy to get wrong. The failover test
 cuts the power to a control plane, which is an unclean shutdown of an etcd member. So
@@ -26,7 +28,8 @@ failover works, nothing is lost; if it doesn't, you roll back two minutes instea
 Three control planes do **not** share the load. kube-vip in ARP mode gives the VIP to
 [exactly one control plane at a time]{custom-style="Key"}, so every request through `192.168.1.206`
 reaches one API server. [When that node dies, another claims the address]{custom-style="Key"}. **This is failover, not load
-balancing.**
+balancing** — for traffic through the VIP. Pods reach the API through the `kubernetes` Service instead,
+whose endpoints are all three API servers, so in-cluster traffic *is* spread (chapter 7, §8).
 
 And "the leader" is not one thing. [A cluster like this runs several independent elections]{custom-style="Key"}:
 
@@ -185,12 +188,25 @@ sudo kubeadm certs check-expiration
 
 Ours: all ten control-plane certificates expire **Sep 17, 2027**.
 
-🚨 **The kubelet's client certificates are not in that list.** They live in `/var/lib/kubelet/pki`,
-[rotate automatically, and on a much shorter cycle]{custom-style="Key"}. That matters for a lab you roll back for months:
-restore a snapshot long after it was taken and the control-plane certificates may still be valid while
-[the kubelet's have expired inside the frozen image]{custom-style="Key"}. It presents as TLS or
-authentication errors, not as "this snapshot is old". Recording the dates on day one is what makes it
-recognisable later.
+🚨 **The kubelet's certificates are not in that list.** They live in `/var/lib/kubelet/pki`, and
+`kubeadm certs check-expiration` [never reports them]{custom-style="Key"}. Read them directly:
+
+```bash
+sudo openssl x509 -in /var/lib/kubelet/pki/kubelet-client-current.pem -noout -subject -enddate
+sudo openssl x509 -in /var/lib/kubelet/pki/kubelet.crt -noout -subject -issuer -enddate
+```
+
+Ours: the **client** certificate (`O = system:nodes, CN = system:node:<name>`) is signed by the cluster
+CA and also expires Sep 2027 — one year, the same as the rest. The kubelet
+[renews it itself before it lapses]{custom-style="Key"} (`rotateCertificates: true` in its config),
+**but only while it is running**. The **serving** certificate, `kubelet.crt`, is different again:
+[self-signed by a CA that exists only on that node]{custom-style="Key"}, and naming only the hostname.
+Chapter 5 meets the consequence.
+
+⭐ **That matters for a lab you roll back for months.** Restore a snapshot long after it was taken and
+[every certificate inside it is as old as the snapshot]{custom-style="Key"}: a kubelet that was frozen
+cannot have rotated. It presents as TLS or authentication errors, not as "this snapshot is old".
+Recording the dates on day one is what makes it recognisable later.
 
 ---
 
@@ -359,7 +375,7 @@ A later "something is wrong" is only meaningful against a recorded normal:
 | VIP | `192.168.1.206/32` on exactly one control plane |
 | `kubectl get tigerastatus` | `apiserver`, `calico`, `ippools`, `tiers` all `True`; no `goldmane`/`whisker` |
 | IPPool | `10.244.0.0/16`, `blockSize: 26`, `ipipMode: Never`, `vxlanMode: CrossSubnet` |
-| Pods | 43 system pods, none outside `Running`/`Completed` |
+| Pods | none outside `Running`/`Completed` — 39 on the bare cluster; 42 once chapters 5–6 add metrics-server, local-path and Traefik |
 | Cross-node ping | succeeds, `ttl=62` |
 | Control-plane certs | expire Sep 17, 2027 |
 
@@ -379,7 +395,8 @@ apart means a member is falling behind.
 > rolling back whole machines *(standard practice; that drill comes in the exam chapters)*. *If you
 > carry the habit:* [backups that need the control plane switched off stop getting
 > taken]{custom-style="Key"}, and a whole-VM rollback also rewinds every certificate, log and OS change on
-> the machine.
+> the machine. Chapter 6 adds a measured reason from the other direction: a hypervisor backup of a
+> *running* etcd member [caused a leader election most nights]{custom-style="Key"} without anyone noticing.
 
 **Honest limitations of this build.** All three etcd members are virtual machines on one physical host,
 so this chapter demonstrates the loss of a *member*, [never the loss of a host]{custom-style="Key"}. We

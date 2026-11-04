@@ -1,0 +1,51 @@
+// Chapter 7, figure 1 — who talks to which address. All read Nov 4, 2026 (AI, read-only):
+// admin.conf + worker kubelet.conf -> https://192.168.1.206:6443 (VIP);
+// control-plane kubelet.conf, controller-manager.conf, scheduler.conf -> that node's own IP:6443;
+// kube-apiserver --etcd-servers=https://127.0.0.1:2379 (its own member only);
+// EndpointSlice default/kubernetes -> 192.168.1.201,.202,.203:6443 (all three, via kube-proxy).
+digraph who_talks {
+    rankdir=TB;
+    nodesep=0.3;
+    ranksep=0.42;
+    bgcolor="white";
+    node [shape=plaintext, fontname="Helvetica", fontsize=15];
+    edge [color="#555555", penwidth=1.6, arrowsize=0.8, fontname="Helvetica", fontsize=13];
+
+    outside [label=<
+      <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" BGCOLOR="#f4f4f4">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>kubectl (admin.conf)</B><BR/>workers' kubelets</TD></TR>
+      </TABLE>>];
+
+    pods [label=<
+      <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" BGCOLOR="#f4f4f4">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>pods</B> (Calico, Traefik,<BR/>metrics-server …)</TD></TR>
+      </TABLE>>];
+
+    vip [label=<
+      <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" BGCOLOR="#eef4fb">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>VIP 192.168.1.206</B><BR/>ONE holder at a time</TD></TR>
+      </TABLE>>];
+
+    svc [label=<
+      <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" BGCOLOR="#eef4fb">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>Service 10.96.0.1</B><BR/>spread across ALL three</TD></TR>
+      </TABLE>>];
+
+    cp [label=<
+      <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" BGCOLOR="#eaf6ee">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>each control plane</B></TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT">kube-apiserver :6443<BR/>← its own kubelet, controller-manager<BR/>   and scheduler, by the node's own IP</TD></TR>
+      </TABLE>>];
+
+    etcd [label=<
+      <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" BGCOLOR="#fdf6e3">
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT"><B>its own etcd member</B> 127.0.0.1:2379</TD></TR>
+        <TR><TD ALIGN="LEFT" BALIGN="LEFT">peers with the other two on :2380</TD></TR>
+      </TABLE>>];
+
+    outside -> vip;
+    pods -> svc;
+    vip -> cp [label="  one API server\l"];
+    svc -> cp [label="  any API server\l"];
+    cp -> etcd [label="  local member only\l"];
+}

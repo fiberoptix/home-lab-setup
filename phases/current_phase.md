@@ -12,7 +12,9 @@ growing — see that file for why the previous append-only version went undetect
 
 🎯 **Cold-start summary (Nov 4, 2026):** the cluster carries metrics-server, local-path (default SC),
 Gateway API v1.6.3 standard CRDs and Traefik (Helm, NodePort 30080/30443). **Reset = roll back all five
-to `c03`**, offline, both layers. 🔲 **NEXT: the etcd `wal_fsync` p99 baseline, then write Chapter 05.**
+to `c03`**, offline, both layers. ✅ **Nov 4: `wal_fsync` baseline taken (p99 ≤ 128 ms idle — `phase18` §11) and
+Chapters 05–08 WRITTEN** (05 metrics+storage, 06 Gateway/Helm/Traefik+`c03`, 07 anatomy reference, 08 building it
+at work); ch01–04 corrected quietly. 🔲 **NEXT: Stage 3 drills — exercise chapters from 09, from `c03`.**
 Commands are handed to Andrew as a separate `ssh` block first; on "check", read his terminal file
 (`phase18` §12). The detail for everything below is in `phase18` → Chapter 05 plan items 1–5.
 
@@ -55,8 +57,8 @@ all five, 5/5/5 at PVE + ZFS, cold start proven. 🎯 `c03` IS THE "READY" RESET
 "ready" for work and exercises). 🚨 `c02` is now reachable only by deleting `c03`. 🚨 **Found: the 02:30
 `critical-nightly` backup triggers an etcd election most nights** (term 6 → 54 since Sep 28; Nov 4 at 02:34:26,
 during VM 201's backup) → ✅ **201–205 REMOVED from the job (Andrew, Nov 4)**; one protected stop-mode set
-taken with all five off (= `c03` state), the 35 old nightly archives deleted (`phase18` item 5). 🔲 **NEXT: the etcd `wal_fsync` p99 baseline** (before the first breaking drill — it
-now has a known nightly disturbance to measure against), **then write Chapter 05.** ⚠️ **Run every step on control-1** (`ssh agamache@192.168.1.201`) — the workstation has no kubeconfig.
+taken with all five off (= `c03` state), the 35 old nightly archives deleted (`phase18` item 5). ✅ **The `wal_fsync` baseline is taken and Chapters 05–08 are written (Nov 4).** 🔲 **NEXT: the exercise
+chapters, 09 onward.** ⚠️ **Run every step on control-1** (`ssh agamache@192.168.1.201`) — the workstation has no kubeconfig.
 🎯 **NEW Nov 4 — THE EXERCISE BANK: `education/k8s-cka-prep/exercises.md`.** Exam-shaped tasks (X01–X15 +
 backlog) for a timed mock exam later. 🚨 **Every Stage 3 part adds at least one task before it is called
 done** — rule and shape in `phase18` → § *EXERCISE BANK*.
@@ -145,7 +147,8 @@ commands; "check" = read his terminal file; **CKA work pushes to BOTH remotes, G
   pass). Andrew: no rotation, no purge. ✅ Swarm GitHub hold lifted — L19–L22 stay public.
 - ✅ GitLab pushed (`dde819b`); GitHub after the redaction, with Andrew's go-ahead. Parts 2–4 pushed to both.
 - ✅ **Nightly backup of 201–205: removed** (it caused etcd elections); protected offline set + `c03` instead.
-- 🔲 **Phase 18 next: the `wal_fsync` p99 baseline, then write Chapter 05.**
+- ✅ `wal_fsync` baseline taken; Chapters 05–08 written + docx (Nov 4). 🔲 **Phase 18 next: exercise chapters 09+;
+  coverage matrix before the first mock exam.**
 - 🔲 Carried: kernel drill (by ~end Dec); delete `rpool/ROOT/pve-1@pre-pve-9.2.20-2026-09-28` (host trial
   passed Oct 27) — ask first; Swarm chapter 8 — ask which Swarm features the new job actually uses;
   Sep 28 logs in `education/k8s-cka-prep/scratch/` (agreed: delete "next session" — ask).
