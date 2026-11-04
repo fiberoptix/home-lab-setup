@@ -4197,3 +4197,207 @@ design. **Nothing blocks Part 2.**
 `Leader` + two `Reachable`, then `s02-swarm-up` on all three together (B3). After that, chapter 1
 can be drafted, since it covers Parts 1–2 and half of it has now actually been run.
 
+---
+
+## DEMOTED VERBATIM FROM `phases/current_phase.md` — Nov 4, 2026 (`MAKE_MEMORIES` pass 14b)
+
+Demoted verbatim from phases/current_phase.md by MAKE_MEMORIES pass 14b (Nov 4, 2026). ⚠️ Its 'redis divergent volumes' open item is SPENT (measured and closed in item 2 of the same block); its leader/placement/temp-file lab state is Aug 19 and stale. 🚨 Its 'Decision deferred' item (L19-L22 attack-path prose in GitHub-bound files) was overtaken: these rows are on public origin/main — raised with Andrew Nov 4, see MEMORY.md beside 'GITHUB PUSH IS HELD'.
+
+## 🟢 PREVIOUS — PHASE 16 CLOSED (Aug 19, 2026). Nothing outstanding.
+
+**Phase 16 (Docker Swarm) is DONE: all 7 parts, all 7 planted traps, 8 chapters.** Part 7 closed on
+Aug 19 as `education/docker-swarm/chapter08_swarm_vs_kubernetes.md` — the Swarm↔Kubernetes crib sheet
+the whole two-track comparison was for.
+
+**What chapter 8 is, in one line:** every claim carries a provenance mark — **S** (measured on the
+three-node Swarm), **K** (measured on single-node k3s), 🤖 (measured only in AI-executed chapter 7), or
+⚠️ **recited** (neither lab ran it, so it must never be quoted as experience). ⭐ **Reuse that device
+for any future cross-track writing;** without it a synthesis chapter launders textbook claims into
+apparent experience. Its two non-obvious conclusions: **the PVC abstraction is not what protects your
+data** (the k3s lab's `local-path` strands it on the same nail as a Swarm named volume — the value is
+the driver ecosystem, not the object), and **Swarm's digest-pinning default is the safer of the two
+image models**, which is the opposite of the usual narrative. It also caught one flattering falsehood
+in its own first draft (see the phase file, Part 7 → C1): "encrypted Raft log by default" is **wrong**,
+and chapter 1's own Lab-vs-PROD callout says so.
+
+⚠️ **What is actually left — and the claim that was wrong here for a day:**
+
+1. 🚨 **Drill D is NOT outstanding. It ran Aug 18** (P30 ✅ smoke gate is the only thing that catches a
+   rotated secret, P31 ✅ Postgres keeps the old password, plus the `pg_hba.conf` `trust` discovery and
+   chapter 5's row D). **This block said "outlined but never run" until Aug 19 and the `MAKE_MEMORIES`
+   pass that evening repeated it into `MEMORY.md` as the phase's only open item.** The cause: the
+   drill's planning entry in the phase file still had an unticked `🔲` box, and the summaries were
+   edited without being diffed against the results 1,900 lines below. ⭐ **Re-read what you summarise.**
+2. ✅ **MEASURED AND CLOSED Aug 19, 7:55 PM — the `redis` divergent-volume question. 🤖 AI-executed,
+   read-only, at Andrew's instruction.** The hypothesis was **refuted**: `.191` has never held a redis
+   volume, and the two volumes that do exist (`.192` Aug 13, `.193` Aug 18 19:06:56) are **trap C3's
+   deliberate residue** — the numbers match C3's own write-up. `.192` holds `c3:canary` + `c3:counter`
+   (155 b, AOF generation 2); `.193` is **88 b with zero keys** (AOF generation 1, a fresh start). The
+   live task has run since Aug 18 with `RestartCount 0`. Nothing was lost.
+   🚨 **The real finding is why the question existed: `docker service ps`'s `CURRENT STATE` age is the
+   last time the MANAGER STAMPED the task's status, not the task's age.** Task `CreatedAt` Aug 18
+   23:14:24 UTC vs `Status.Timestamp` Aug 19 16:11:15 UTC — 20 hours apart, and it is the *stamp* that
+   renders as "Running 8 hours ago". The stamp moves on control-plane churn, so **a day-old task can
+   look freshly rescheduled.** Clock skew was excluded by measurement (all three nodes NTP-synced, agreed
+   within 1 s). Now in `COMMANDS.md` as its own section, with the commands that answer each question.
+   ⚠️ **Standing hazard left in place, not fixed:** the empty 88-byte volume still sits on `.193`, so
+   `redis` scheduling there would silently attach an empty cache. Removing it is destructive and it is
+   C3's evidence — Andrew's call, not a cleanup step.
+3. **Deferred to Phase 17 on purpose:** the rigorous convergence check that compares each service's
+   `.Version.Index` across a deploy instead of trusting the settle delay. Recorded as a mitigation, not
+   a proof.
+
+✅ **DONE the same evening — the highlight programme, both tracks (Aug 19, ~5:30–6:30 PM).** Andrew
+raised the target to **20 %** after a trial he judged from the printed page, not the number. **All 15
+chapters now sit at 19.5–21.2 %** (Swarm ch1/2/4/5/6 were at 2.3–3.6 %, i.e. 5–6 marks each; the k3s
+track was at 12.6–14.9 %). Full before/after table and method: **`phases/phase15_education_program.md`
+§8** — that section is the one to read before any future highlight work, for two reasons:
+
+- ⭐ **Measure density PER SECTION, not per chapter.** k3s ch3 read 14 % overall while §5/§7/§8 sat at
+  7.2/6.2/4.9 % — drafting-time marks cluster where the argument is and skip walkthroughs. A list aimed
+  at the chapter average would have pushed the dense sections past 30 % and left the thin ones alone.
+- 🚨 **A mark that swallows one half of a `**bold**` pair renders the asterisks LITERALLY in the
+  `.docx`.** 15 marks were doing this across both tracks. `education/tools/highlight.py` now **refuses**
+  that, and also refuses a mark opening inside an already-open mark (which had nested one in k3s ch4).
+  ⭐ The Markdown passed every check that existed; the defect existed **only in the built artefact** —
+  so verify the artefact (`unzip -p x.docx word/document.xml`, grep for literal `**`), not the source.
+  ⚠️ The old blanket rule "never re-run `highlight.py` on a highlighted file" applies only to re-running
+  the **same** list; a **top-up with a list of only-unmarked phrases is now the normal workflow.**
+
+✅ **Cluster state at handoff: HEALTHY, and re-verified AFTER C7's cleanup** — not assumed. All three
+`Leader/Reachable/Reachable`, raft churn `0`, services `2/2 3/3 1/1 1/1`, all three smoke gates green at
+`total=682` (**identical to the pre-C7 baseline**), `docker stack ls` shows `capricorn` only.
+
+⚠️ **OBSERVED, not caused by C7, and NOT "fixed": `docker-swarm-3` hosts ZERO Capricorn tasks.**
+Placement is `swarm-1: 4, swarm-2: 3, swarm-3: 0`, with task ages of 2–5 hours — so this predates the
+C7 session and dates from `qm stop 193` during the P48/P50 tests. ⭐ **Swarm does not rebalance when a
+node comes back.** Every service still reads its desired count, so **`2/2 3/3 1/1 1/1` is true while a
+third of the cluster sits idle** — the same family as chapter 5's "reboot that silently cost three
+replicas". 🙋 **Left alone deliberately:** the only remedy is `docker service update --force`, which
+restarts tasks (and, per C7 P55, restarts them on the *pinned* image) — that is Andrew's call, not a
+cleanup step. **Chapter 5 / Part 7 material: capacity is not replica count.**
+
+⭐ **`s07-c4-fixed-verified` taken on all three nodes** (rule B3) before C7 started. **It is the first
+snapshot in the chain that contains the C4 fix** — `s06` predates it, which was a standing rollback hazard.
+
+✅ **CORRECTED — the previous handoff claimed "`.191` still holds the PRE-FIX `deploy_swarm.sh`". That is
+FALSE as of Aug 19 4:15 PM:** the node's copy and the repo copy are **md5-identical** (`0bf970b7`), and the
+P4-F8 advisory string is present on the node. ⚠️ **A recorded claim about live state went stale within
+hours, and the fix was to go and look** (`md5sum` on both sides) rather than to trust the handoff. Same
+failure family as the P48 row that stayed "NOT TESTED" for hours after passing.
+
+### ✅ CLOSED — trap C7, and the trap could not fire (🤖 AI-EXECUTED, 4:10–4:50 PM)
+
+🤖 **Andrew's written instruction, 4:07 PM: run it and document it without him.** So C7 is the ONE part of
+this track the AI drove. **Declared in chapter 7's opening, in the track README, and in `MEMORY.md`** —
+`CURSOR_RULES` rule 3 and `METHOD.md` → "Who does the work" both apply, and the material is deliberately
+marked **weaker** than the six chapters Andrew drove.
+
+**The planted trap was unfireable** (P60 ✅): `docker stack deploy` re-resolves by default, so the spec
+followed the moved tag every time. **But "I pushed a fix and prod is still running the old code" happened
+twice anyway**, by mechanisms the plan never considered:
+
+- 🚨 **The deadlock (unplanned, the session's best finding).** `order: start-first` + `max_replicas_per_node: 1`
+  + `replicas == node count` **cannot make progress** — the replacement task has nowhere to go. Sat
+  `updating` / `update in progress` for **4.5+ minutes** at a healthy-looking `3/3` while serving the old
+  build. ⭐ **Exact mirror of C6a**, which read `4/3` because the cap was unset. ⚠️ Capricorn is NOT exposed
+  (all four services measured at `maxPerNode=0`).
+- **`docker service update --force` restarts the OLD build and prints `converged`** (P55 ✅). This also
+  **corrected a FALSE claim in `COMMANDS.md`**, which said `--force` would ship whatever `:latest` points at.
+- 🚨 **Two builds served from one URL** (P58 ✅): a registry blip during a deploy **strips the digest**
+  (P57 ✅), after which each node resolves alone. Measured `3/3`, `UpdateStatus: completed`, and **10 of 30
+  requests served v3 while 20 served v4**.
+- **P56 ❌ REFUTED:** `--resolve-image never` **preserves** the pin. ⭐ A pin is stripped by a resolution
+  that is **attempted and fails**, never by one that is skipped.
+- **P59 ✅** the protective face: with the pin intact, a killed task's replacement came up **v4, not the v5
+  in the registry**. Same mechanism as P55, opposite consequence.
+
+**Scored P54–P61 (2 wrong, and the wrong ones taught more), 10 findings C7-F1–F10, ledger L23.** Cleanup
+done and verified: stack/images/rig/`/etc/hosts` removed, `.191`'s registry credential **restored and
+confirmed to belong to `swarm-lab-pull`** (root login had overwritten it — one credential per registry host
+per node), and the throwaway GitLab container repository **destroyed** (0 remaining).
+Raw evidence: `education/docker-swarm/scratch/c7_evidence.txt`; rig in `scratch/c7/`.
+
+### ✅ CLOSED — the C4 fix is verified, not recited (P48 + P50, 2:40–2:48 PM)
+
+Both previously-unexecuted paths have now run against a genuinely degraded cluster (`qm stop 193`, chosen
+because it hosts no pinned service, so the app stayed healthy and the variable stayed isolated):
+
+- **P48 ✅ precondition.** Pipeline failed in **3 s** naming `docker-swarm-3(Down/Active)`, vs **5 min 10 s**
+  and a *wrong* answer pre-fix. `docker login` never ran — a refused deploy touches no credential.
+- **P50 ✅ counting**, through `ALLOW_DEGRADED=1` by hand on `.191`, phantoms confirmed present **first**
+  (`backend 3/2`, `frontend 5/3` — one ghost and two, reconciling exactly against task placement):
+  `all services converged`, all three smoke gates, `total=682`.
+
+🚨 **Two findings worth carrying, both bigger than the bug.** (1) **The precondition made the counting fix
+unreachable** — it halts upstream of the poll in exactly the scenario the poll was written for; ⭐ *an early
+guard can render a downstream path untestable*, which is the better reason the escape hatch exists.
+(2) **The old logic would have spent 300 s reporting a FAILED DEPLOY on a demonstrably healthy application**
+— the smoke gates in the same run are the ground truth. A false red, in our own tooling, for a day.
+⭐ **Our poll now disagrees with `docker service ls` on purpose and is right to** (`3/2`/`5/3` vs `2/2`/`3/3`):
+`Replicas` counts tasks Swarm cannot confirm dead; we count tasks Swarm still wants alive.
+
+Raw logs: `scratch/c4_job_log_p48_degraded.txt`, `scratch/p50_allow_degraded_converged.txt`.
+
+### ✅ CHAPTER 3 IS COMPLETE (3:2x PM) — incident written up, figure 2, highlight pass, docx
+
+- **§7 retitled** "One node, three lies: a false count, a broken checker, and a deposed leader" — the old
+  title stopped describing the section once the restart incident went in. Four new subsections cover the
+  blind spot, the term/index mechanism, why doing nothing was right, and the advisory fix.
+- **Figure 2** `ch03_fig2_term_inflation` — the disruption loop. ⚠️ **Sizing is not free-form:** `figcheck.py`
+  enforces ≥10pt rasterised, and the build scales every figure to the 7in box, so **raw aspect ratio sets
+  the font size**. One column = 8.7in tall (overflows); one row = 18in wide (4.2pt); two pairs on shared
+  ranks = 9.0pt (rejected). One shared rank landed it at **12.5pt**. All 8 track figures now pass.
+- **Highlight pass DONE** — 113 marks, **16.7%** of prose. Anchors: `scratch/ch03_anchors.py`.
+  ⚠️ **Never re-run `highlight.py` on this file.** A first pass hit 22.9% because anchors were whole
+  sentences; ⭐ *marking a whole sentence defeats the purpose — if everything is marked, nothing is*, so
+  they were cut to the operative clause. Multi-line anchors work (the markdown is hard-wrapped).
+- **docx rebuilt** and verified inside the zip: 249 `Key` runs, both figures embedded, footer present,
+  **zero literal `custom-style` leakage** into body text.
+- **Corrections made in the same pass:** a stale `(§6)` cross-reference that should have been `(§7)`, and
+  `COMMANDS.md`'s claim that the "swarm does not have a leader" message can be trusted — today it appeared
+  with **quorum fully intact**, so §9 now has a subsection on diagnosing it from a *different* node.
+
+### 🔲 Found while doing this: the Swarm track never got a real highlight pass
+
+| Track | Marks per chapter |
+|---|---|
+| `k8s-k3s-redpanda` | 33, 38, 39, 42, 45, 45, 103 — a real ~15% pass |
+| `docker-swarm` | **5, 5, 6, 6, 5** (ch1, 2, 4, 5, 6) — incidental marks only, not a pass |
+| `docker-swarm` ch3 | **113** ✅ (done today) |
+
+⭐ Chapter 3 is now the only Swarm chapter that can be revised from its marks. The other five need anchor
+lists (~40 each). Not urgent, but it is an inconsistency inside one printed track, and the anchor lists live
+in gitignored `scratch/`, so they are not recoverable from a clone — see the accepted debt note in
+`CONVENTIONS.md`.
+
+### 🔲 Also open, smaller
+
+- **Unmeasured: did unpinned `redis` silently lose its volume during the C4 outage?** In the 2:07 PM dump
+  `capricorn_redis.1` was `Running` on `docker-swarm-2`, started ~2h earlier, i.e. right at the outage. If
+  it was on `.191` before, it rescheduled onto `.192` against a **fresh empty local volume** — trap C3's
+  mechanism, occurring for real, unnoticed, inside a different drill — and **two divergent volumes now
+  exist**. Check: `docker volume ls` on both nodes, `redis-cli DBSIZE`. **Do not write it up until
+  measured.**
+- **Untested by design:** the rigorous settle-delay variant (compare each service's `.Version.Index`
+  across the deploy, trust `UpdateStatus` only for services whose index moved). → Phase 17.
+- **No snapshot was taken today.** Andrew declined `s07-c4-fixed`; the chain is still `s01→s06`. `s06`
+  predates the C4 fix, so rolling back loses it.
+- 🔲 **Unchanged from before:** **GitHub push held** (chapters unreviewed + the redaction question below);
+  the two app-repo findings (bootstrap committed-delete; unauthenticated destructive endpoint —
+  `working/`); **Part 7 Swarm↔K8s crib sheet** (now the last substantive Phase 16 item);
+  `docker-admin.sh` design session (COMMANDS.md §11 is its spec).
+
+⚠️ **Decision deferred, do not lose it:** L19/L20/D6 (and now L21/L22) in
+`phases/phase16_docker_swarm.md` describe a working attack path on the lab in tracked, GitHub-bound files.
+Andrew's call (Aug 19) was **"deal with it at GitHub-push time, in one review pass with the chapters."**
+`push_github.sh` cannot catch this — its gates look for key blocks and passwords-in-URLs, not prose.
+**No secret VALUES are in tracked files.**
+
+**Lab state (verified by the 2:14 PM pipeline, from the cluster):** all three nodes up, stack
+`2/2 3/3 1/1 1/1`, **682 rows**, all three smoke gates green. `.191` was stopped and restarted today, so
+**the leader has moved — do not assume `docker-swarm-1`** (it went to `.193` during the outage; leadership
+is not sticky, now observed four times). `/home/agamache/swarm-ci/{scripts,manifests}` exists on `.191`
+**and `.192`** (both have been deploy targets). Old temp files `/tmp/capricorn.c6*.yml`,
+`/tmp/c6b_probe.log` on swarm-1 are harmless, but `STACK_FILE` must be unset for a normal deploy.
+
