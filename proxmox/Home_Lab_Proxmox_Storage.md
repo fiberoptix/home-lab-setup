@@ -295,7 +295,7 @@ signals agreeing, and both wrong for the same reason.
 
 🚨 **The actual cause: the `.pw` file is `password=<value>` + newline, not a bare password.** For a
 9-character password that is exactly 19 bytes. The test authfile was built as
-`password=$(cat nas-gitlab.pw)`, which produced **`password=password=Powerme!1`** — a malformed
+`password=$(cat nas-gitlab.pw)`, which produced **`password=password=<value>`** — a malformed
 credential that of course fails to authenticate. **The stored password was correct the whole time**,
 and the identical mistake explains the `pvesm add` failure that started the whole detour.
 
@@ -305,7 +305,7 @@ later test inherited the same wrong parse of the file. **When a value's length i
 the format before trusting the comparison** — one `od -c` at the start would have ended it.
 
 **Net effect on the lab:** none, and the storage is verifiably healthier for the round trip.
-`nas-gitlab.pw` now holds `password=Powerme!1` (written by `pvesm set --username --password`), and this
+`nas-gitlab.pw` now holds `password=<value>` (written by `pvesm set --username --password`), and this
 is now **proven** rather than assumed: unmounted and remounted **twice**, PVE re-established the mount
 both times, all 7 VM 181 archives list, and a write test to `dump/` succeeded. The reboot path that was
 never actually broken has now at least been *tested*, which it had not been since June.

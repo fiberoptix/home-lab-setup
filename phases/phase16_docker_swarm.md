@@ -3826,7 +3826,7 @@ snapshot. Reaching `s02` from here means **destroying `s03`**. Decide what you s
 4. ❌ **One finding RETRACTED the same evening.** The AI claimed a stale `nas-gitlab` credential meant
    GitLab's offsite backup would die at the next reboot. **False.** The `.pw` file is
    `password=<value>`+newline, so 19 bytes *is* the 9-char password; reading the byte count as an
-   18-char password produced a test authfile of `password=password=Powerme!1`. ⭐ *A byte count is not
+   18-char password produced a test authfile of `password=password=<value>`. ⭐ *A byte count is not
    a value, and two tests sharing an assumption are one test.* **Net gain anyway:** `nas-gitlab` has now
    been unmounted/remounted twice with a write test — its reboot path is proven for the first time
    since June.

@@ -10,10 +10,11 @@ growing — see that file for why the previous append-only version went undetect
 
 ## ▶️ RESUME HERE — 🔵 **PHASE 18: THE CLUSTER EXISTS. STAGES 1 AND 2 ARE COMPLETE.**
 
-🚨🚨 **OPEN SECURITY DECISION (found Nov 4, 2026) — A REAL PASSWORD IS ON PUBLIC GITHUB.** The NAS/SMB
-password (= GitLab root password, Phase 20 E7) is in plain prose 7× in 4 tracked files, public since
-`46a01db` (Aug 13). ⛔ **Do NOT push to GitHub and do NOT demote a block containing it until Andrew decides**
-(rotate / redact / purge). Detail, without the value: `MEMORY.md` → GIT → *Secret hygiene*.
+🔐 **Nov 4, 2026 — A REAL PASSWORD WAS FOUND ON PUBLIC GITHUB, AND IS NOW REDACTED + GATED.** The NAS/SMB
+password (= GitLab root, Phase 20 E7) sat in plain prose 7× in 4 tracked files, public since `46a01db`
+(Aug 13). Redacted to `<value>`; **Andrew chose NOT to rotate** (lab-only, LAN-only) and not to purge;
+`push_github.sh` **step 5** now blocks any known secret value. Detail: `MEMORY.md` → GIT → *Secret hygiene*.
+🔲 Still open for Andrew: whether ledger L19–L22 (attack-path prose, `phase16`) should stay public.
 
 🆕 **Oct 27 (late): PHASE 20 BUILT — Rancher on single-node K3s, VM 187 `.187`** — a separate track; it
 does **not** touch the CKA cluster and does not change the Phase 18 next step below. Open items for Andrew
@@ -102,8 +103,9 @@ untouched).
   used pipes only.
 
 ### 🔲 Open — for Andrew
-- 🔲 **Security decision: rotate / redact / purge** for the public password; and whether L19–L22 stay public.
-- 🔲 **Push:** GitLab is safe to push; GitHub waits on the decision above.
+- ✅ **Password: REDACTED + `push_github.sh` step 5 gate, proven on the real leak** (blocked → redact →
+  pass). Andrew: no rotation, no purge. 🔲 Whether L19–L22 stay public.
+- ✅ GitLab pushed (`dde819b`); GitHub after the redaction, with Andrew's go-ahead.
 - 🔲 **Phase 18 next: Ch 05 Part 2, local-path-provisioner**, + its PVC-`Pending` exercise.
 - 🔲 Carried: kernel drill (by ~end Dec); delete `rpool/ROOT/pve-1@pre-pve-9.2.20-2026-09-28` (host trial
   passed Oct 27) — ask first; Swarm chapter 8 — ask which Swarm features the new job actually uses;
@@ -411,8 +413,8 @@ that justifies skipping 180 does **not** cover it. **Andrew's call, not raised a
 Four manual `mount -t cifs` attempts from `.150` all returned **error(13) Permission denied**, *including
 the exact path `nas-gitlab` already mounts successfully*. The AI first concluded the credential in
 `PASSWORDS.md` was stale. **It is not.** 🚨 **`/etc/pve/priv/storage/<id>.pw` contains `password=<value>`
-plus a newline, NOT a bare password** — so its 19 bytes are `password=Powerme!1`, and passing
-`$(cat …pw)` as the password sends the literal string `password=Powerme!1`. **`MEMORY.md` already
+plus a newline, NOT a bare password** — so its 19 bytes are `password=<value>`, and passing
+`$(cat …pw)` as the password sends the literal string `password=<value>`. **`MEMORY.md` already
 warned about this** (same sub-bullet, from a Jul 2026 session that made the identical error and had to
 retract a fake "credential outage"). ⭐ **The lesson that didn't stick the first time: a byte count is not
 a value.** Reading the existing note before probing would have saved all four attempts.

@@ -912,7 +912,7 @@ It had been accumulating since Aug 13. **When you write a new handoff, move the 
         `NT_STATUS_LOGON_FAILURE` — an auth-shaped error for a format problem. **Pass `--password`
         and let PVE write the file.**
       - **Reading it:** `mount -t cifs ... -o password=$(cat …pw)` sends the literal string
-        `password=Powerme!1` and returns **`mount error(13) Permission denied`**, which looks exactly
+        `password=<value>` and returns **`mount error(13) Permission denied`**, which looks exactly
         like a NAS ACL problem. **Type the real password from `PASSWORDS.md` instead.**
       ⭐ **The distilled lesson, which is why this keeps happening: A BYTE COUNT IS NOT A VALUE.**
       Both sessions inferred the password's length from `wc -c` and never opened the file.
@@ -926,7 +926,7 @@ It had been accumulating since Aug 13. **When you write a new handoff, move the 
     - ⚠️ **vzdump excludes snapshots** — the archive is current disk state only.
   - ❌ **RETRACTED same day — there was NO stale `nas-gitlab` credential and NO pending backup
     outage.** The AI read `wc -c` = 19 as "an 18-char password", then built a test authfile as
-    `password=$(cat …pw)` → `password=password=Powerme!1`, which fails to authenticate. Two tests
+    `password=$(cat …pw)` → `password=password=<value>`, which fails to authenticate. Two tests
     agreed because **both inherited the same wrong parse of the file.** ⭐ *A byte count is not a
     value, and two tests sharing an assumption are not two confirmations.* Full write-up in
     `proxmox/Home_Lab_Proxmox_Storage.md`. ✅ **Net gain anyway:** `nas-gitlab` has now been
@@ -2636,10 +2636,20 @@ There is NO git-crypt and NO encryption — safety on GitHub comes purely from .
   `proxmox/Home_Lab_Proxmox_Storage.md` ×2), **all 7 on public `origin/main`, first in commit `46a01db`
   (Aug 13, 2026)**. Every instance is a teaching note about the `.pw` file format (`password=<value>`).
   `push_github.sh` cannot see it: its gates look for key blocks, credential-named files and
-  passwords-in-URLs, not a password in a sentence. 🔲 **Andrew's decision (raised Nov 4): rotate it (the
-  only real fix — public 12 weeks), redact the 7 instances to `password=<value>`, and whether to purge
-  history.** ⛔ **Until he decides: do NOT push to GitHub, do NOT demote a block that contains it (it moves
-  the secret), and never type the value into a new file.** Count it without printing it.
+  passwords-in-URLs, not a password in a sentence.
+  ✅ **RESOLVED Nov 4 (Andrew's decisions):** the 7 copies **REDACTED** to `password=<value>`; **NOT rotated**
+  (🙋 lab-only — the NAS and GitLab resolve to `192.168.1.x` even in public DNS, the password is used
+  nowhere internet-facing, and a rotation that misses one of its ~10 homes trips the NAS auto-block on the
+  PVE host's IP); **no history purge** (pointless without a rotation). ⚠️ So the old value **stays valid
+  AND stays readable in public GitHub history** — accepted, not overlooked.
+  ✅ **AND THE GATE NOW EXISTS: `push_github.sh` step 5** reads every real value from `PASSWORDS.md`
+  (rows labelled …password/token/value/secret/passphrase), `proxmox/credentials`, `proxmox/nas_credentials`
+  and every `*smb_credentials*`, and **blocks if any appears in a tracked file or an outgoing commit**,
+  printing only file names and the value's SHAPE. **Proven Nov 4 on the real leak:** blocked naming exactly
+  these 4 files / 7 lines, then passed after the redaction. ⚠️ Its first version matched every table cell
+  and blocked on 10 public values (usernames, an email, URLs) for 1 real one — **a gate that always blocks
+  gets bypassed**, so it reads labels. ⛔ **Never type a credential value into a tracked file — write
+  `<value>`.**
   ✅ Also proven rather than assumed, same era: staging a fake `_gatetest.key` made `push_github.sh`
   block, name the file, and exit 1 without pushing — **the gate was demonstrated, not trusted.**
 - **Branch:** `main` only (docs/scripts repo — no CI/CD or registry like Capricorn).

@@ -19,6 +19,8 @@
 #   4. The outgoing diff contains no private-key blocks and no URLs with an
 #      embedded password (the GitLab wallet lives in .git/config and must never
 #      be committed).
+#   5. No KNOWN secret value - read from the ignored credential stores on this
+#      machine - appears in any tracked file or in any outgoing commit.
 #
 # Usage:
 #   ./push_github.sh              # run checks, show what goes public, confirm, push
@@ -158,6 +160,54 @@ if [ -n "${CONTENT_HITS//[$'\n\t ']/}" ]; then
   fail "the outgoing changes contain key material or a URL with an embedded password."
 fi
 ok "outgoing diff has no private keys, credentialed URLs, or AWS keys"
+
+# --- 5. no KNOWN secret value anywhere in the tree or the outgoing commits ----
+# Steps 2-4 look for things SHAPED like secrets. On Nov 4, 2026 a real password
+# was found in plain prose in 4 tracked files, public since Aug 13 - pasted into a
+# note explaining the .pw file format. No shape check can see a password in a
+# sentence. This reads the actual values from the ignored credential stores on
+# THIS machine and looks for each one, literally. Reports file names and value
+# SHAPES only - it must never print a value.
+known_secrets() {
+  {
+    # Table rows `| **Label** | value |` - only labels that NAME a secret. The same
+    # tables hold usernames, URLs, dates and emails; matching those made the first
+    # version of this check block on 10 public values for every 1 real secret.
+    [ -f PASSWORDS.md ] && awk -F'|' '/^\| *\*\*[^|]*\*\* *\|/ {
+        l = $2; gsub(/^[ *]+|[ *]+$/, "", l)
+        if (tolower(l) ~ /(password|token|value|secret|passphrase)$/) print $3 }' PASSWORDS.md \
+      | sed -E 's/^[[:space:]]*//; s/`//g' | awk '{print $1}'
+    for f in PASSWORDS.md proxmox/credentials proxmox/nas_credentials; do
+      [ -f "$f" ] && sed -nE 's/^[[:space:]]*(password|pass|token|secret)[[:space:]]*=[[:space:]]*//Ip' "$f"
+    done
+    find . -type f -name '*smb_credentials*' -not -path './.git/*' \
+      -exec sed -nE 's/^[[:space:]]*password[[:space:]]*=[[:space:]]*//Ip' {} + 2>/dev/null
+  } | tr -d '\r' \
+    | awk 'length($0) >= 8 && $0 ~ /[^A-Za-z]/ && $0 !~ /:\/\// && $0 !~ /^\// && $0 !~ /^[0-9.:]+$/' \
+    | sort -u
+}
+shape() { printf '%s' "$1" | sed -E 's/[A-Za-z]/a/g; s/[0-9]/9/g'; }
+
+SECRETS="$(known_secrets || true)"
+NSECRETS="$(printf '%s\n' "$SECRETS" | grep -c . || true)"
+if [ "$NSECRETS" = "0" ]; then
+  warn "no credential stores on this machine - known-secret scan SKIPPED (steps 2-4 still ran)"
+else
+  OUTGOING="$(git log -p --format= "$RANGE" -- . 2>/dev/null | grep '^+' | grep -v '^+++' || true)"
+  TREE_HITS="$(git grep -c -F -f <(printf '%s\n' "$SECRETS") HEAD -- . 2>/dev/null | sed 's/^HEAD://' || true)"
+  HIST_HITS="$(printf '%s\n' "$OUTGOING" | grep -c -F -f <(printf '%s\n' "$SECRETS") || true)"
+  if [ -n "$TREE_HITS" ] || [ "${HIST_HITS:-0}" != "0" ]; then
+    [ -n "$TREE_HITS" ] && printf '%s\n' "$TREE_HITS" | sed 's/:\([0-9]*\)$/  (\1 line(s))/; s/^/       /'
+    [ "${HIST_HITS:-0}" != "0" ] && echo "       outgoing commits: ${HIST_HITS} added line(s)"
+    while IFS= read -r s; do
+      if git grep -q -F -e "$s" HEAD -- . 2>/dev/null || printf '%s\n' "$OUTGOING" | grep -qF -- "$s"; then
+        echo "       matched a value shaped '$(shape "$s")' (${#s} chars)"
+      fi
+    done <<< "$SECRETS"
+    fail "a REAL secret value from this machine's credential stores is in the files above. Redact it (and rotate if it was ever public)."
+  fi
+  ok "no known secret value ($NSECRETS checked) in the tracked tree or the outgoing commits"
+fi
 
 # --- what would actually go public ------------------------------------------
 AHEAD="$(git rev-list --count "$RANGE" 2>/dev/null || echo 0)"
