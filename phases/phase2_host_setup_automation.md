@@ -956,3 +956,71 @@ the script fixes every future one.
 **Not yet proven:** no VM has been built end-to-end with the new `host_setup.sh`. 👉 **Phase 17 Part 0
 (the Jenkins VM) is the first real test**, and Part 0 now says so explicitly.
 
+---
+
+## DEMOTED VERBATIM FROM `phases/current_phase.md` — Nov 4, 2026 (`MAKE_MEMORIES` pass 15)
+
+⚠️ **Demoted verbatim from `current_phase.md` Nov 4, 2026 (MAKE_MEMORIES pass 15c).** ✅ **Its last open item is CLOSED:** template 9000 was read on Nov 4 with `virt-cat`/`virt-ls` (read-only, no boot) — fstab holds only `cloudimg-rootfs`, `BOOT`, `UEFI`; no `.smbcredentials` in `/root`; `/mnt` empty. No NAS entry. `working/fix_nofail.sh` is gitignored scratch.
+
+## 🩹 LAB-WIDE `nofail` SWEEP + a security find on .184 (Aug 20, 2026, ~12:38–12:50 PM EDT) ✅ DONE
+
+🙋 **Andrew: "let's fix the nas issue on all current VMs."** Then, mid-sweep:
+**"184 should NOT mount the NAS! It's prod-local."**
+
+**Done: all 9 VMs + this dev workstation now show `RequiredBy=` empty.**
+
+| Host | Before | After |
+|---|---|---|
+| .180 qa, .181 gitlab, .182 runner, .183 sonar, .186 redpanda, .191–.193 swarm, .195 dev | `RequiredBy=[remote-fs.target]` (.180 already fixed) | `RequiredBy=[]`, `WantedBy=[remote-fs.target]`, mounts untouched |
+| **.184 www** | had the mount **and** it had been **failing every boot since July 9** | 🚫 **entry removed entirely** — see below |
+
+**Method** (`working/fix_nofail.sh`, re-runnable): back up fstab → edit only the one CIFS line →
+restore automatically if the edit doesn't verify → `daemon-reload` → assert `RequiredBy=` empty →
+assert the live mount survived. Canaried on **.193** (least critical) and the swarm was re-checked
+before touching anything else; **.181 GitLab went last-but-one and the dev box last.**
+⭐ **The raw `sed` is NOT idempotent** — run twice it appends `nofail,nofail`. The script's
+"already has nofail?" pre-check is what makes it safe, and a throwaway test caught that before it
+ever touched a host.
+
+### 🚫 The .184 find — a build standard leaking credentials into the DMZ
+
+`.184` is the internet-facing PROD box. Phase 12 gave it `OUT DROP -dest 192.168.1.0/24`, so the NAS
+is unreachable **by design** — confirmed: ping 100% loss, 445 blocked. Yet the standard build had
+given it the NAS fstab entry, which had been failing at **every boot since July 9**, and — the part
+that actually matters — had left **`/root/.smbcredentials` on the internet-facing host** for a share
+it is forbidden to touch.
+
+Removed: fstab line, mount unit, `/mnt/DevShare`, credentials file. Verified nothing referenced the
+path (no container bind-mounts; only stale Cursor logs from January). **PROD re-checked after:
+all 6 containers up, :80 → 301, :443 answering. Zero failed units.**
+
+⭐ **The lesson: a uniform build standard will plant credentials on exactly the hosts your network
+design isolates.** The firewall did its job perfectly; the **builder** was the leak.
+
+**Two guards added so a rebuild cannot recreate it:**
+- `bash host_setup.sh --no-nas` — deliberate skip for a prod-local host.
+- **`setup_smb_mount.sh` now pre-checks `<nas>:445` and refuses** to write fstab or credentials if it
+  cannot connect. ⭐ The better of the two, because it needs nobody to remember anything.
+  **Proven by running it on .184 itself:** refused, wrote nothing, host stayed clean.
+
+⚠️ **Gotcha found by testing:** `SKIP_NAS=1 sudo -E …` **does not work** — sudo has `env_reset`, warns
+*"preserving the entire environment is not supported"*, and silently drops the variable, so the script
+ran in full on the dev box. Harmless there (everything already existed), but the documented invocation
+was wrong and is now `sudo SKIP_NAS=1 bash ./setup_smb_mount.sh`. 🧠 **Testing the happy path is not
+testing the guard.**
+
+### ⚠️ CORRECTION — we overstated what missing `nofail` costs
+
+Earlier today this was written up as *"drops to an emergency console, no network, no SSH."* **That is
+wrong**, and `.184` disproves it from inside our own lab: it failed this mount at every boot for six
+weeks and came up fine each time. `_netdev` already keeps these entries out of `local-fs.target`; the
+emergency-console behaviour belongs to network mounts written **without** `_netdev`. Real cost of
+`_netdev` without `nofail`: a **bounded boot delay** (11 s measured, ~90 s worst case) and a
+permanently failed unit. Worth fixing — not a catastrophe. 🧠 **A plausible mechanism was asserted
+instead of checked, while the host running the experiment sat one `systemctl status` away.**
+Corrected in `MEMORY.md`, the phase-2 doc, and the script comments.
+
+⚠️ **Still unverified:** template **9000** has not been checked for a NAS fstab entry (it is stopped,
+and checking means booting a clone). Any VM cloned from it runs the fixed `host_setup.sh` anyway.
+👉 Check it during Phase 17 Part 0, when a clone is being made regardless.
+
