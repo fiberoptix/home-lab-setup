@@ -945,6 +945,31 @@ the cluster looks like without it first** — recognising absence is Troubleshoo
    routes nothing. *Proof:* one `Ingress` routing to a test Service over **NodePort**, then **the same
    route rebuilt by hand as `Gateway` + `HTTPRoute`**. 🔲 *Verify at build:* whether the chart ships
    Gateway API CRDs of its own — we apply the upstream ones first, so the chart must not overwrite them.
+   ✅ **BUILT Nov 4, 2026 — Andrew on control-1: Helm v4.3.1 (sha256 checked), chart `traefik/traefik`
+   42.3.0 = Traefik v3.7.17, release `traefik` in ns `traefik`.** ✅ *Verify item answered:* the chart's
+   `crds/` holds only `traefik.io` + `hub.traefik.io` CRDs — **no Gateway API CRDs**. 🔻 **Its install NOTES are
+   stale and dangerous:** they say the CRDs "will no longer be shipped" and tell you to apply **v1.5.1** — a
+   downgrade our `safe-upgrades` policy is written to refuse. Values (`manifests/ch05/traefik/values-traefik.yaml`):
+   🔻 **the Service type is `service.spec.type`, not `service.type`** (read from `values.yaml` before install; a
+   wrong key is silently ignored → `LoadBalancer <pending>`), NodePorts **30080/30443** (none were in use),
+   `providers.kubernetesGateway.enabled=true`. Signature first: Ingress `hello` (no class) with **no IngressClass
+   in the cluster** → accepted, CLASS `<none>`, ADDRESS blank, ⭐ **`Events: <none>` — nothing reports anything,
+   because only a controller writes an Ingress's events**; the Service answered from a pod. After install:
+   IngressClass `traefik` (`(default)`), GatewayClass `traefik` (`traefik.io/gateway-controller`) `Accepted True`,
+   chart Gateway `traefik/traefik-gateway` `Programmed True`; `hello.lab` via `.204:30080` → nginx (pod on
+   worker-2 — NodePort works from any node), unknown host → **404**. 🔻 **`hello` still shows CLASS `<none>`** — a
+   default IngressClass is stamped at creation only; Traefik routes it because, with no `ingressClass` filter in
+   its args, it serves **every class-less Ingress**. 🔻 **ADDRESS stays blank while everything works**
+   (`publishedservice=traefik/traefik` is a NodePort — no LB address to publish): the same blank as "no
+   controller", meaning something else. Gateway half: an HTTPRoute in `default` → `traefik-gateway` was
+   `Accepted=False NotAllowedByListeners` (listener `allowedRoutes: from: Same`), `ResolvedRefs=True`, the
+   Gateway silent at `attachedRoutes: 0`, 404 — and `kubectl get httproute` has **no status column**. Fixed the
+   plan's way: own Gateway `default/web`, class `traefik`, listener **port 8000** (Traefik matches listeners to
+   entrypoints by port; 80 is the Service's) → route `Accepted=True`, the stale refusal **removed** by the
+   controller, `attachedRoutes 1`, and **`hello-gw.lab` (Gateway) and `hello.lab` (Ingress) both served on 30080
+   at once.** Helm lifecycle: `helm upgrade … -f values-traefik.yaml --set deployment.replicas=2` (rev 2, one pod
+   **added**, same ReplicaSet hash) → `helm rollback traefik 1` wrote **rev 3 "Rollback to 1"** (history only
+   grows; 3 `sh.helm.release.v1.traefik.vN` Secrets) → 1 replica, route still serving. Exercises **X14, X15**.
 5. **Snapshot** `c03-equipped-cluster`, offline, all five, PVE **and** ZFS layers. ⚠️ **The marker drill
    is not rerun** — the rollback mechanism is unchanged since `c02`, where it was proven Sep 17.
 
@@ -985,6 +1010,7 @@ to a file · X05 cert expiry + SANs · X06 join token · X07 etcd leader · X08 
 scheduler/controller-manager lease · X10 PDB + drain · X11 Service with no endpoints.
 Added Nov 4 with Part 2: X12 two `Pending` claims, only one broken (`WaitForFirstConsumer` vs a missing class).
 With Part 3: X13 a Gateway accepted with no controller; CRD served/storage versions.
+With Part 4: X14 HTTPRoute refused by `allowedRoutes` (own Gateway, port 8000) · X15 Helm upgrade keeping values + rollback.
 
 🔲 **THE STANDING RULE FOR EVERY SESSION FROM NOW ON:**
 1. **Every Stage 3 part that is built adds at least one task** (or promotes a backlog row) **before the

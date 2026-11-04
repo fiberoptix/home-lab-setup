@@ -42,11 +42,14 @@ Kustomize, x509 failure seen first, then fixed by a patch; `kubectl top` works**
 item 1). ✅ **Nov 4: Part 2 BUILT — local-path-provisioner v0.0.37, now the DEFAULT StorageClass;
 bind, survive-a-pod-delete and reclaim-`Delete` all proven** (item 2). ✅ **Nov 4: Part 3 BUILT — Gateway
 API standard CRDs v1.6.3** (10 CRDs + a `safe-upgrades` admission policy; v1.6.3 because stable Traefik
-v3.7.17 is built on it) (item 3). 🔲 **NEXT: Part 4, Helm on control-1 + Traefik — Andrew drives**
-(signature first: an `Ingress` with no controller is accepted and routes nothing). ⚠️ **Run every step on control-1** (`ssh agamache@192.168.1.201`) — the workstation has no kubeconfig.
-🎯 **NEW Nov 4 — THE EXERCISE BANK: `education/k8s-cka-prep/exercises.md`.** Exam-shaped tasks (X01–X13 +
+v3.7.17 is built on it) (item 3). ✅ **Nov 4: Part 4 BUILT — Helm v4.3.1 on control-1 only, Traefik
+chart 42.3.0 (v3.7.17) on NodePort 30080/30443; one Ingress and the same route as Gateway + HTTPRoute both
+serving; upgrade + rollback drilled** (item 4). 🔲 **NEXT: Part 5, offline snapshot `c03-equipped-cluster`
+on all five** (decide first whether the `hello` test objects stay in it), then the etcd `wal_fsync` p99
+baseline before the first breaking drill. ⚠️ **Run every step on control-1** (`ssh agamache@192.168.1.201`) — the workstation has no kubeconfig.
+🎯 **NEW Nov 4 — THE EXERCISE BANK: `education/k8s-cka-prep/exercises.md`.** Exam-shaped tasks (X01–X15 +
 backlog) for a timed mock exam later. 🚨 **Every Stage 3 part adds at least one task before it is called
-done** — rule and shape in `phase18` → § *EXERCISE BANK*. Part 4 must add one too.
+done** — rule and shape in `phase18` → § *EXERCISE BANK*.
 ⭐ **Stage 3 rule: does the exam test it, and is this the simplest way to practise it?** Production
 choices for the work rebuild are parked beside the plan in `phase18`. ⏸️ **The Swarm chapter-8 `recited` rows are
 DEFERRED, not dropped** (Andrew, Sep 23): they resume, together with Phase 17, once he knows the firm's
@@ -101,6 +104,10 @@ untouched).
    `COMMANDS.md` §13; `manifests/ch05/local-path/`; exercise X12. Committed `473d231`.
 7. **Ch 05 Part 3 — Gateway API standard CRDs v1.6.3 BUILT by Andrew**; a Gateway with no controller shown
    sitting at `Unknown / Pending`. Record: `phase18` item 3; `COMMANDS.md` §13; `manifests/ch05/gateway-api/`; X13.
+   Committed `1c1610e`; pushed GitLab then GitHub.
+8. **Ch 05 Part 4 — Helm v4.3.1 + Traefik 42.3.0 BUILT by Andrew** (Ingress, then Gateway + HTTPRoute by hand;
+   `allowedRoutes: Same` refusal seen; upgrade + rollback). Record: `phase18` item 4; `COMMANDS.md` §13;
+   `manifests/ch05/traefik/`; X14, X15. Also fixed X11's verify (`grep -c` = 2, not 1).
 
 ### 🚨 Found
 - **The password on public GitHub** (see RESUME HERE). Found while reading the next block to demote —
@@ -115,7 +122,8 @@ untouched).
 - ✅ **Password: REDACTED + `push_github.sh` step 5 gate, proven on the real leak** (blocked → redact →
   pass). Andrew: no rotation, no purge. ✅ Swarm GitHub hold lifted — L19–L22 stay public.
 - ✅ GitLab pushed (`dde819b`); GitHub after the redaction, with Andrew's go-ahead.
-- 🔲 **Phase 18 next: Ch 05 Part 4, Helm + Traefik** (Ingress, then the same route as Gateway + HTTPRoute), + its exercise.
+- 🔲 **Phase 18 next: Ch 05 Part 5, snapshot `c03-equipped-cluster`** (offline, all five, both layers), then the
+  `wal_fsync` baseline, then write Chapter 05.
 - 🔲 Carried: kernel drill (by ~end Dec); delete `rpool/ROOT/pve-1@pre-pve-9.2.20-2026-09-28` (host trial
   passed Oct 27) — ask first; Swarm chapter 8 — ask which Swarm features the new job actually uses;
   Sep 28 logs in `education/k8s-cka-prep/scratch/` (agreed: delete "next session" — ask).

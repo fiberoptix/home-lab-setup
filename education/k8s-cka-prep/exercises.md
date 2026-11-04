@@ -449,7 +449,7 @@ kubectl -n x11 patch service api -p '{"spec":{"selector":{"app":"apy"}}}'
 **Verify (AI):**
 ```bash
 kubectl -n x11 get endpointslices -l kubernetes.io/service-name=api -o jsonpath='{.items[*].endpoints[*].addresses[0]}'   # two pod IPs
-kubectl -n x11 run t --rm -i --restart=Never --image=busybox:1.38.0 -- wget -qO- -T3 http://api | grep -c 'Welcome to nginx'  # 1
+kubectl -n x11 run t --rm -i --restart=Never --image=busybox:1.38.0 -- wget -qO- -T3 http://api | grep -c 'Welcome to nginx'  # 2 (title + h1; seen Nov 4)
 kubectl -n x11 get deploy api -o jsonpath='{.metadata.generation}'                                                        # 1 — untouched
 ```
 **Reset:** `kubectl delete ns x11`.
@@ -620,6 +620,132 @@ type "gatewayclass"` means the CRDs themselves are missing.
 
 ---
 
+### X14 · The HTTPRoute is valid, and the Gateway will not take it
+
+**Domain:** Services & Networking (20%) — *use the Gateway API to manage Ingress traffic* · also
+Troubleshooting · **Weight:** 7% · **Target:** 8 min ·
+**Status:** 🧪 Earned — Ch 05 Part 4 steps 4–5, Nov 4, 2026 (run as `hello` in `default`; not yet as `x14`)
+
+> **Host:** `vm-k8s-cka-control-1` — `ssh agamache@192.168.1.201`
+>
+> In namespace `x14`, Deployment `shop` and Service `shop` (port 80) are running, and HTTPRoute `shop` sends
+> host `shop.lab` to that Service. Yet `curl -H 'Host: shop.lab' http://192.168.1.204:30080/` returns `404`.
+> Make that request return the application's page.
+> **Do not modify anything in namespace `traefik`, and do not upgrade the Helm release `traefik`.**
+> Keep the route's name, hostname and backend.
+
+**Setup (AI):**
+```bash
+kubectl create ns x14
+kubectl -n x14 create deployment shop --image=nginx:1.27
+kubectl -n x14 expose deployment shop --port=80
+kubectl -n x14 rollout status deployment shop
+kubectl apply -f - <<'EOF'
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: shop
+  namespace: x14
+spec:
+  parentRefs:
+  - name: traefik-gateway
+    namespace: traefik
+  hostnames: ["shop.lab"]
+  rules:
+  - backendRefs:
+    - name: shop
+      port: 80
+EOF
+helm history traefik -n traefik --max 1 -o yaml | grep revision   # note it — Verify checks it is unchanged
+```
+
+**Verify (AI):**
+```bash
+curl -s -H 'Host: shop.lab' http://192.168.1.204:30080/ | grep -c 'Welcome to nginx'      # 2
+kubectl -n x14 get httproute shop -o jsonpath='{range .status.parents[*]}{.parentRef.name} {.conditions[?(@.type=="Accepted")].status}{"\n"}{end}'  # <gateway in x14> True
+kubectl -n traefik get gtw traefik-gateway -o jsonpath='{.spec.listeners[0].allowedRoutes}'; echo   # {"namespaces":{"from":"Same"}} — untouched
+helm history traefik -n traefik --max 1 -o yaml | grep revision   # same as at setup
+```
+**Reset:** `kubectl delete ns x14` (takes the candidate's Gateway with it — Gateways are namespaced).
+
+<details><summary>Answer key</summary>
+
+`kubectl -n x14 get httproute shop` has **no status column** — read the parents:
+`kubectl -n x14 get httproute shop -o jsonpath='{range .status.parents[*].conditions[*]}{.type}={.status} {.reason}{"\n"}{end}'`
+→ `Accepted=False NotAllowedByListeners`, `ResolvedRefs=True` (the backend is fine — that condition is a false
+comfort). Why: `kubectl -n traefik get gtw traefik-gateway -o jsonpath='{.spec.listeners[0].allowedRoutes}'`
+→ `from: Same` — only routes in `traefik` may attach, and the task forbids changing that. So give `x14` its
+own Gateway and move the route onto it:
+```yaml
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: web
+  namespace: x14
+spec:
+  gatewayClassName: traefik
+  listeners:
+  - name: http
+    protocol: HTTP
+    port: 8000          # Traefik's web ENTRYPOINT port, not the Service's 80
+```
+then set the route's `parentRefs` to `- name: web` (no namespace) and re-apply. ⚠️ **Port 8000:** Traefik
+matches a listener to an entrypoint by port (`--entryPoints.web.address=:8000/tcp` in its args); 80 is the
+Service port. 🔲 *Recited, not run:* a `ReferenceGrant` does **not** help — it governs `backendRefs` across
+namespaces, not which routes a listener admits.
+</details>
+
+**Drilled log:** —
+
+---
+
+### X15 · Change a Helm release, then undo it
+
+**Domain:** Cluster Architecture (25%) — *use Helm to install cluster components* · **Weight:** 5% ·
+**Target:** 6 min · **Status:** 🧪 Earned — Ch 05 Part 4 step 6, Nov 4, 2026
+
+> **Host:** `vm-k8s-cka-control-1` — `ssh agamache@192.168.1.201`
+>
+> The Helm release `traefik` in namespace `traefik` serves this cluster's Ingress and Gateway traffic on
+> NodePort `30080`. The values it was installed with are in `~/ch05/traefik/values-traefik.yaml`.
+> 1. Using Helm only (not `kubectl scale` or `kubectl edit`), run Traefik with **2** replicas. Keep every
+>    other customised value; NodePort `30080` must keep serving.
+> 2. Roll the release back to the revision that was deployed **before** your change.
+> 3. Write the revision number that is deployed **after** the rollback to `/home/agamache/x15/revision.txt`.
+
+**Setup (AI):** `mkdir -p ~/x15`; note `helm history traefik -n traefik --max 1` (call it N).
+
+**Verify (AI):**
+```bash
+helm history traefik -n traefik --max 3                               # N+1 superseded "Upgrade complete", N+2 deployed "Rollback to N"
+cat ~/x15/revision.txt                                                 # N+2 — a rollback adds a revision
+kubectl -n traefik get deploy traefik -o jsonpath='{.spec.replicas}'; echo                     # 1
+kubectl -n traefik get svc traefik -o jsonpath='{.spec.type} {.spec.ports[0].nodePort}'; echo  # NodePort 30080
+curl -s -o /dev/null -w '%{http_code}\n' -H 'Host: nothing.lab' http://192.168.1.204:30080/    # 404 = Traefik answering
+```
+**Reset:** `rm -rf ~/x15`. The extra revisions are harmless history.
+
+<details><summary>Answer key</summary>
+
+```bash
+helm get values traefik -n traefik            # USER-SUPPLIED VALUES only — what must be kept
+helm upgrade traefik traefik/traefik --version 42.3.0 -n traefik -f ~/ch05/traefik/values-traefik.yaml --set deployment.replicas=2
+kubectl -n traefik rollout status deploy/traefik
+helm history traefik -n traefik               # note the revision before the upgrade
+helm rollback traefik <that revision> -n traefik
+helm history traefik -n traefik --max 1       # the new, higher number → revision.txt
+```
+⚠️ **Without `-f` (or `--reuse-values`) the upgrade starts from chart defaults + `--set` only** and silently drops
+the overrides: the Service goes back to `LoadBalancer` (`<pending>` here), the fixed NodePorts become random, and
+the Gateway provider switches off. ⭐ Seen Nov 4: `helm rollback` wrote **revision 3, "Rollback to 1"** — history
+only grows; each revision is a Secret `sh.helm.release.v1.traefik.vN` in the release namespace. Pin `--version`
+on every upgrade, or `helm repo update` can move the chart under you.
+</details>
+
+**Drilled log:** —
+
+---
+
 ## 🔲 Backlog — write each out in full when its part is built
 
 | Idea | Domain | Becomes real when |
@@ -627,9 +753,9 @@ type "gatewayclass"` means the CRDs themselves are missing.
 | HPA on a Deployment; then the same HPA with metrics-server gone (`<unknown>`) | Workloads 15 · Troubleshooting | Ch 05 done (metrics-server is in) — **next candidate** |
 | Make a StorageClass the default; static PV + PVC with a `Retain` reclaim policy and an access mode that does not match | Storage 10 | **Ready now** — the default-class half was done in Ch 05 Part 2 |
 | A pod on a local-path claim stays `Pending` after its node is drained — the PV is pinned to that node (`nodeAffinity` `kubernetes.io/hostname`) | Storage 10 · Troubleshooting | **Ready now** — the pin was seen in Ch 05 Part 2; the drained-node half was not run |
-| A GatewayClass that names the wrong `controllerName` while Traefik runs — fix it so the Gateway is `Programmed` (the no-controller half is X13) | Networking 20 · Troubleshooting | Ch 05 Part 4 |
+| A GatewayClass that names the wrong `controllerName` while Traefik runs — fix it so the Gateway is `Programmed` (the no-controller half is X13) | Networking 20 · Troubleshooting | **Ready now** — Traefik's controller is `traefik.io/gateway-controller` |
+| An Ingress with no `ingressClassName` and no controller: accepted, `Events: <none>`, blank ADDRESS — find why nothing routes | Networking 20 · Troubleshooting | **Ready now** — seen Ch 05 Part 4 step 1 (setup: scale Traefik to 0, or a class no controller owns) |
 | Migrate a path-routed, TLS Ingress to `Gateway` + `HTTPRoute` by hand | Networking 20 | Ch 05 Part 4 |
-| Install a chart with Helm at a pinned version and a values override; list and roll back a release | Cluster Arch 25 | Ch 05 Part 4 (Traefik) |
 | Default-deny NetworkPolicy that silently kills DNS (old T6); then allow only DNS + one app port | Networking 20 · Troubleshooting | NetworkPolicy chapter |
 | etcd snapshot, then restore that brings back a deliberately deleted object | Cluster Arch 25 | etcd backup chapter |
 | Two of three control planes down: reads fail, what still works (old T7) | Troubleshooting | HA drills chapter |

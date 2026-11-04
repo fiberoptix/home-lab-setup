@@ -269,10 +269,31 @@ their proof here, the moment they are run. Each also adds an exam-shaped task to
 | A CRD's fields, offline | `kubectl explain httproute.spec.rules.backendRefs` | ✅ | Works on CRDs as on built-ins — the exam's docs-free reference |
 | Did a controller pick this up? | `kubectl get gtw demo -o jsonpath='{range .status.conditions[*]}{.type}={.status} {.reason}: {.message}{"\n"}{end}'` | ✅ | `Unknown` · `Pending: Waiting for controller` = **no controller has ever touched it** |
 
-**Checks that lied in Chapter 05 (Parts 1–3):**
+**Part 4 — Helm v4.3.1 + Traefik 42.3.0 (Nov 4, 2026, Andrew on control-1):**
+
+| Question | Command | ✓ | What it tells you — and the trap |
+|---|---|---|---|
+| Is any Ingress controller installed? | `kubectl get ingressclass` · `kubectl describe ingress hello \| tail -8` | ✅ | `No resources found`; the Ingress shows `Events: <none>` — **with no controller, nothing writes events at all** |
+| Install a pinned binary safely | `curl -fsSL <url>.sha256sum \| sha256sum -c -` | ✅ | `…tar.gz: OK` — the checksum file names the tarball, so run it in the tarball's directory |
+| Which chart versions exist? | `helm repo add traefik https://traefik.github.io/charts` · `helm repo update` · `helm search repo traefik/traefik --versions \| head -4` | ✅ | CHART VERSION ≠ APP VERSION (42.3.0 ships v3.7.17). `repo add` touches only `~` — nothing in the cluster |
+| What would this chart create? | `helm template traefik traefik/traefik --version 42.3.0 -n traefik -f values.yaml \| grep '^kind:' \| sort \| uniq -c` | ✅ | Renders locally, installs nothing. 8 kinds, incl. its own GatewayClass + Gateway |
+| Install at a pinned version with overrides | `helm install traefik traefik/traefik --version 42.3.0 -n traefik --create-namespace -f values-traefik.yaml` | ✅ | Read the chart's `values.yaml` for the real keys first — `service.spec.type`, not `service.type`; a wrong key is ignored silently |
+| What releases exist? | `helm list -A` | ✅ | Only what **Helm** installed — kubectl-applied add-ons are invisible to it |
+| What was customised? | `helm get values traefik -n traefik` | ✅ | USER-SUPPLIED VALUES only |
+| Change one value, keep the rest | `helm upgrade traefik traefik/traefik --version 42.3.0 -n traefik -f values-traefik.yaml --set deployment.replicas=2` | ✅ | Without `-f`/`--reuse-values` the overrides are dropped |
+| History and undo | `helm history traefik -n traefik` · `helm rollback traefik 1 -n traefik` | ✅ | Rollback **adds** rev 3 "Rollback to 1" |
+| Where Helm keeps history | `kubectl -n traefik get secrets -l owner=helm` | ✅ | One `sh.helm.release.v1.<name>.vN` Secret per revision |
+| Why is an HTTPRoute not working? | `kubectl get httproute hello -o jsonpath='{range .status.parents[*]}{.parentRef.name}: {range .conditions[*]}{.type}={.status} {.reason}  {end}{"\n"}{end}'` | ✅ | `kubectl get httproute` has no status column. `Accepted=False NotAllowedByListeners` with `ResolvedRefs=True` = valid route, refused by the listener |
+| Which namespaces may attach routes? | `kubectl -n traefik get gtw traefik-gateway -o jsonpath='{.spec.listeners[0].allowedRoutes}{"\n"}{.status.listeners[0].attachedRoutes}{"\n"}'` | ✅ | `from: Same` → only the Gateway's own namespace. The Gateway itself reports no error, just 0 attached |
+| Does routing really work? | `curl -s -H 'Host: hello.lab' http://192.168.1.204:30080/ \| grep -c 'Welcome to nginx'` | ✅ | 2 = served (title + h1). Unknown host → `404` from Traefik. Any node's IP works for a NodePort |
+
+**Checks that lied in Chapter 05 (Parts 1–4):**
 
 | The check | Why it lied | The fix |
 |---|---|---|
 | `kubectl get pvc data` 5 s after making the class default → STORAGECLASS blank | Reads like "retroactive assignment didn't happen". The volume controller applies it on its next pass (~15 s cycle); it appeared ~20 s after the patch | Wait one pass, then read the event list with timestamps |
 | `kubectl apply` of a GatewayClass + Gateway → `created`, no error | Reads like "it works". The API server validates schema only; it never checks that the named `controllerName` exists. The `Waiting for controller` status is a CRD default, not a controller's report | Read the conditions: only a controller sets `True`/`False` |
+| Ingress / Gateway ADDRESS blank after Traefik is running | Reads like "no controller" (which is what it meant in step 1). Here Traefik publishes its own Service's LB address, and a NodePort Service has none | Test the route with `curl`; don't read ADDRESS on a cluster without a LoadBalancer |
+| Ingress `hello` CLASS `<none>` after a default IngressClass exists | Reads like "won't route". The default is stamped at **creation** only; Traefik serves class-less Ingresses anyway | `curl` it; set `ingressClassName` explicitly rather than rely on a controller's leniency |
+| The chart's install NOTES: "apply … gateway-api v1.5.1 standard-install.yaml" | Reads like an instruction. It is stale text, and against our v1.6.3 it is a downgrade | Read a tool's suggested command before pasting it |
 | `kubectl …` on the workstation → `localhost:8080 … refused` | Reads like "API server down". It means **no kubeconfig**: with no cluster configured, kubectl falls back to `localhost:8080` (Nov 4: the workstation's `~/.kube/config` is a 100-byte stub) | A real outage names the server: `https://192.168.1.206:6443`. Check *where* you are first — on the exam, the task's `ssh` / context line |
