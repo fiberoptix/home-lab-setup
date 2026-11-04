@@ -1602,3 +1602,49 @@ restriction, so it grants a full interactive shell on all three managers.
 GitLab pipeline stays alive and untouched as the comparison — that is why Andrew chose a separate name.
 
 ---
+
+---
+
+## DEMOTED VERBATIM FROM `phases/current_phase.md` — Nov 4, 2026 (`MAKE_MEMORIES` pass 15)
+
+⚠️ **Demoted verbatim from `current_phase.md` Nov 4, 2026 (MAKE_MEMORIES pass 15d).** Session handoff for Parts 0–1; Phase 17 is ON HOLD since Sep 16 (resume at Part 4) — read this file's own status block, not this summary, for where it stands.
+
+## 🔵 PHASE 17 PARTS 0 + 1 — Jenkins is up (Aug 20, 2026, ~1:00–2:30 PM EDT) ✅ DONE
+
+🙋 **Andrew: "I'd like to go step-by-step with you building it so I understand all the pieces. I'd
+like to run all the commands myself."** He did — every command, including the VM build. The AI's
+contribution was instruction, live diagnosis, and **read-only verification** (Jenkins' REST API for
+plugin/node state, `ps` and file modes over SSH). That division is stated in the track README too,
+because a claim checked against `/api/json` outranks the same claim read off a web page.
+
+**Working protocol agreed at the start and honoured throughout** (recorded as P1 in the phase file):
+Part 0 is hands-on but earns **no chapter**; when a trap is near the AI says *"there's a trap coming
+— what do you think it is?"* without revealing it; **build-process improvements get fixed live**
+rather than logged for later; session scope was Part 0 + Part 1.
+
+**What was built.** VM 185 `vm-jenkins-1` from template 9000 (4 vCPU, 8 GB, 60 GB on `vm-critical`),
+then Jenkins **2.568.2 LTS** on **OpenJDK 21**, controller at **0 executors**, one SSH agent as OS
+user `jenkins-agent`, label `swarm-deploy`, host key pinned, private key deleted from the host so it
+exists only in Jenkins' credential store. Snapshot **`j02-jenkins-up`** taken (VM shut down for it)
+and `.185` restarted clean.
+
+**Findings — full detail in `phase17_jenkins.md`, do not duplicate it here:**
+
+| # | What |
+|---|---|
+| **J-P2** | Part 0. Template clone ≠ live-VM clone: fresh `smbios1` UUID means cloud-init personalises it, and new host keys on a **reused address** caused a `known_hosts` mismatch. Also the first end-to-end test of the Cockpit + `nofail` build-script changes — **both passed** |
+| **J-P3** | The apt install misleads twice: the **unversioned key filename is the OLDEST key** (dead since 2023), and the `jenkins` package **declares no Java dependency**, so it installs cleanly and cannot start |
+| **J-P4** | Six deliberate plugin choices → **73 installed plugins**; and `ssh-agent` ≠ `ssh-slaves`, so the build standard's own list omitted the plugin its own topology needs |
+| **J-P5** | The split, **proved with a queued build before the agent existed**. Plus: the agent can read `credentials.xml`, and `Running as SYSTEM` is a second privilege plane |
+
+**Two decisions closed on the record.** Agent transport = **SSH**, argued from lifecycle ownership
+(with SSH the controller can restart a dead agent; with JNLP it can only wait) rather than from
+convenience — ledger row **J2** covers the cost of co-locating it. And patching policy: every VM's
+`unattended-upgrades` and `apt-daily*` timers are **masked**, with `refresh.sh` the only path,
+`.185` added to it.
+
+📖 **Education track 3 opened** — `education/jenkins/README.md` + chapter 1, figure `figcheck`-clean
+at 10.2 pt, highlighted to 20.1 % at drafting time, DOCX built, and the track indexed in
+`education/README.md`. ⚠️ **There is deliberately no chapter 0** — Part 0 is the "assume it" plumbing
+`CONVENTIONS.md` tells you to cut.
+
