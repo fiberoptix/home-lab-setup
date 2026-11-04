@@ -286,51 +286,6 @@ and checking means booting a clone). Any VM cloned from it runs the fixed `host_
 
 ---
 
-## 🔧 BUILD STANDARD CHANGED — Cockpit is now on every Ubuntu server (Aug 20, 2026, ~12:25–12:40 PM EDT) ✅ DONE
-
-🙋 **Andrew's call:** *"I think we should make this part of every new ubuntu server we build… make sure
-we do it the safe way like you said."* Triggered by installing Cockpit by hand on `.186` earlier today.
-
-**What changed — three files, all in the build path:**
-
-| File | Change |
-|---|---|
-| `www/scripts/setup_cockpit.sh` | 🆕 **NEW.** Installs Cockpit; detects the network stack; **simulates the install and exits 1 if `network-manager` would appear** |
-| `www/scripts/host_setup.sh` | Downloads and runs it in **Phase 1**, next to SSH and sudo |
-| `www/scripts/setup_smb_mount.sh` | 🩹 **Unrelated bug found and fixed:** fstab got `_netdev` but **not `nofail`** |
-
-⭐ **The design decision worth remembering: the script enforces the rule instead of documenting it.**
-The obvious implementation was "write down the safe package list and trust future-us to use it." That
-fails the first time someone in a hurry types `apt install cockpit`. Instead `setup_cockpit.sh` runs
-`apt-get install -s`, greps the result, and **refuses to continue** if NetworkManager shows up on a
-host that does not already use it. It also *adds* `cockpit-networkmanager` on hosts where
-NetworkManager **is** active (desktop builds), so the rule is "match the host", not "never install it".
-
-**Measured, not assumed** (dry run on swarm node .191, which has no Cockpit):
-
-| Install | Packages added | Pulls network-manager? |
-|---|---|---|
-| `apt install cockpit` | **35** | **YES** + `dnsmasq-base`, `ppp`, `pptp-linux`, `wpasupplicant`, `wireless-regdb` |
-| Our explicit list | **19** | No |
-
-🩹 **The `nofail` find.** Chasing "where do we document server builds" led into `setup_smb_mount.sh`,
-which wrote `_netdev` **without `nofail`** — so every VM ever built by the standard script carried it.
-Fixed at the source, then **swept the whole lab (see the next block).** 🧠 **The lesson: when a per-VM
-fix works, immediately ask whether the builder has the same bug.** Fixing the VM fixes one VM; fixing
-the script fixes every future one.
-
-**Verified:**
-- `bash -n` clean on both scripts.
-- Re-ran `setup_cockpit.sh` **on .186 where Cockpit already exists** — correctly reported "already
-  installed, nothing to add", left the network stack alone, confirmed :9090 listening. **Idempotent.**
-- Both scripts serve HTTP 200 from `http://192.168.1.195/scripts/`, and the served copies contain the
-  guard and the `nofail` option — so a build started right now would pick them up.
-
-**Not yet proven:** no VM has been built end-to-end with the new `host_setup.sh`. 👉 **Phase 17 Part 0
-(the Jenkins VM) is the first real test**, and Part 0 now says so explicitly.
-
----
-
 ## 📦 DEMOTION LOG — Aug 24 + Sep 16, 2026 (ONE block, on purpose — append a ROW, never a block)
 
 ⚠️ **This block exists because the first four demotions each left a marker block behind, so the block
@@ -382,6 +337,7 @@ artefact per unit of work, the artefacts become the backlog.** One log, appended
 | `📘 SESSION Oct 27, 2026 (22:00–23:10) — Phase 20` (handoff) | 30 | `phase20` (verbatim) | Previous session handoff. Open items all COVERED in `phase20` → 🔲 Open items (D6, root PAT, E7, token renewals) **except "Andrew: log in and look around" — added there**. Its "Not yet committed" study-track status was false since `427f22c` (Oct 28) — corrected in `phase20` line 5 |
 | `🟢 PREVIOUS — PHASE 16 CLOSED (Aug 19)` | 197 | `phase16` (verbatim) + 1 flag PROMOTED to `MEMORY.md` | Oldest block. COVERED: provenance marks (`METHOD`/`CONVENTIONS`), empty 88 b redis volume on `.193`, `STACK_FILE`, swarm-does-not-rebalance, highlight per-section + bold-pair (`CONVENTIONS`/`highlight.py`), figure aspect ratio. Spent: the redis open item. 🚨 **The Aug 19 "deferred — review L19–L22 attack-path prose at GitHub-push time" lived ONLY here, and the trigger had already passed: those rows are on public `origin/main`, and no record lifts the Aug 18 hold.** Flag promoted to MEMORY; decision is Andrew's |
 | `🔧 UNPLANNED INTERRUPT — QA server re-numbered 200 → 180` (Aug 20) | 116 | `phase5` (verbatim) | Oldest block; **safe to move only since the Nov 4 redaction** (it had held a real password). COVERED: 180-no-backup ruling, AUTOSTART POLICY, `.pw` format, `jobs.cfg` rule, Synology auto-block (MEMORY); `noserverino` (Storage doc). Its "exactly one scheduled job" paragraph is SUPERSEDED (Phase 19) — flagged in the copy |
+| `🔧 BUILD STANDARD CHANGED — Cockpit is now on every Ubuntu server` (Aug 20) | 42 | `phase2` (verbatim) | COVERED: `setup_cockpit.sh` design + "fix the builder" lesson (MEMORY l.~1200, `phase2` §3). 🚨 Its "not yet proven" was SPENT (proven Phase 17 Part 0) and its `www/scripts/` paths stale since Aug 21 — both flagged in the copy |
 
 ⭐ **A THIRD FINDING, and it is a repeat this log had already warned about.** Pass 9 rebuilt an
 automated coverage checker, validated it with a positive control (100% on a file searched against

@@ -906,3 +906,53 @@ This is the counter-example: a fix applied by hand to six hosts, documented only
 and now unrecoverable as code. **A tool that is not in the tree is a tool you own once.**
 ⚠️ Two of those six hosts no longer exist (`vm-openclaw-1` destroyed Aug 19, 2026;
 `vm-kubernetes-1`/VMID 200 destroyed Sep 16, 2026), so the copies on them are gone too.
+
+---
+
+## DEMOTED VERBATIM FROM `phases/current_phase.md` — Nov 4, 2026 (`MAKE_MEMORIES` pass 15)
+
+⚠️ **Demoted verbatim from `current_phase.md` Nov 4, 2026 (MAKE_MEMORIES pass 15b).** Paths `www/scripts/` are now `www/ubuntu/` (renamed Aug 21). Its *"Not yet proven"* is SPENT — Phase 17 Part 0 built the Jenkins VM with it (`phase17`: Cockpit on 9090, `network-manager` count 0).
+
+## 🔧 BUILD STANDARD CHANGED — Cockpit is now on every Ubuntu server (Aug 20, 2026, ~12:25–12:40 PM EDT) ✅ DONE
+
+🙋 **Andrew's call:** *"I think we should make this part of every new ubuntu server we build… make sure
+we do it the safe way like you said."* Triggered by installing Cockpit by hand on `.186` earlier today.
+
+**What changed — three files, all in the build path:**
+
+| File | Change |
+|---|---|
+| `www/scripts/setup_cockpit.sh` | 🆕 **NEW.** Installs Cockpit; detects the network stack; **simulates the install and exits 1 if `network-manager` would appear** |
+| `www/scripts/host_setup.sh` | Downloads and runs it in **Phase 1**, next to SSH and sudo |
+| `www/scripts/setup_smb_mount.sh` | 🩹 **Unrelated bug found and fixed:** fstab got `_netdev` but **not `nofail`** |
+
+⭐ **The design decision worth remembering: the script enforces the rule instead of documenting it.**
+The obvious implementation was "write down the safe package list and trust future-us to use it." That
+fails the first time someone in a hurry types `apt install cockpit`. Instead `setup_cockpit.sh` runs
+`apt-get install -s`, greps the result, and **refuses to continue** if NetworkManager shows up on a
+host that does not already use it. It also *adds* `cockpit-networkmanager` on hosts where
+NetworkManager **is** active (desktop builds), so the rule is "match the host", not "never install it".
+
+**Measured, not assumed** (dry run on swarm node .191, which has no Cockpit):
+
+| Install | Packages added | Pulls network-manager? |
+|---|---|---|
+| `apt install cockpit` | **35** | **YES** + `dnsmasq-base`, `ppp`, `pptp-linux`, `wpasupplicant`, `wireless-regdb` |
+| Our explicit list | **19** | No |
+
+🩹 **The `nofail` find.** Chasing "where do we document server builds" led into `setup_smb_mount.sh`,
+which wrote `_netdev` **without `nofail`** — so every VM ever built by the standard script carried it.
+Fixed at the source, then **swept the whole lab (see the next block).** 🧠 **The lesson: when a per-VM
+fix works, immediately ask whether the builder has the same bug.** Fixing the VM fixes one VM; fixing
+the script fixes every future one.
+
+**Verified:**
+- `bash -n` clean on both scripts.
+- Re-ran `setup_cockpit.sh` **on .186 where Cockpit already exists** — correctly reported "already
+  installed, nothing to add", left the network stack alone, confirmed :9090 listening. **Idempotent.**
+- Both scripts serve HTTP 200 from `http://192.168.1.195/scripts/`, and the served copies contain the
+  guard and the `nofail` option — so a build started right now would pick them up.
+
+**Not yet proven:** no VM has been built end-to-end with the new `host_setup.sh`. 👉 **Phase 17 Part 0
+(the Jenkins VM) is the first real test**, and Part 0 now says so explicitly.
+
