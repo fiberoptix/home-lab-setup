@@ -550,6 +550,76 @@ calling it broken.
 
 ---
 
+### X13 · The Gateway was accepted, and nothing routes
+
+**Domain:** Services & Networking (20%) — *use the Gateway API to manage Ingress traffic* · Cluster
+Architecture — *understand CRDs* · also Troubleshooting · **Weight:** 4% · **Target:** 5 min ·
+**Status:** 🧪 Earned — Ch 05 Part 3, Nov 4, 2026 (run as `demo` in `default`; not yet as `x13`)
+
+> **Host:** `vm-k8s-cka-control-1` — `ssh agamache@192.168.1.201`
+>
+> In namespace `x13`, Gateway `shop` was created without errors, but it has no address and serves no traffic.
+> Do not change or delete it. Write:
+> 1. the controller name its GatewayClass asks for to `/home/agamache/x13/controller.txt`;
+> 2. the `reason` of the Gateway's `Programmed` condition to `/home/agamache/x13/reason.txt`;
+> 3. every **served** version of CRD `httproutes.gateway.networking.k8s.io`, one per line, the **storage**
+>    version first, to `/home/agamache/x13/versions.txt`.
+
+**Setup (AI):**
+```bash
+mkdir -p ~/x13 && kubectl create ns x13
+kubectl apply -f - <<'EOF'
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: edge
+spec:
+  controllerName: example.com/edge-controller
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: shop
+  namespace: x13
+spec:
+  gatewayClassName: edge
+  listeners:
+  - name: http
+    protocol: HTTP
+    port: 80
+EOF
+```
+
+**Verify (AI):**
+```bash
+cat ~/x13/controller.txt   # example.com/edge-controller
+cat ~/x13/reason.txt       # Pending
+cat ~/x13/versions.txt     # v1, then v1beta1 (Gateway API v1.6.3)
+kubectl -n x13 get gtw shop -o jsonpath='{.metadata.generation}'; echo   # 1 — untouched
+```
+**Reset:** `kubectl delete ns x13 && kubectl delete gc edge && rm -rf ~/x13`. ⚠️ The GatewayClass is
+cluster-scoped, so deleting the namespace does **not** delete it.
+
+<details><summary>Answer key</summary>
+
+```bash
+kubectl -n x13 get gtw shop -o jsonpath='{.spec.gatewayClassName}'                  # edge
+kubectl get gc edge -o jsonpath='{.spec.controllerName}' > ~/x13/controller.txt
+kubectl -n x13 get gtw shop -o jsonpath='{.status.conditions[?(@.type=="Programmed")].reason}' > ~/x13/reason.txt
+kubectl get crd httproutes.gateway.networking.k8s.io \
+  -o jsonpath='{range .spec.versions[*]}{.name} served={.served} storage={.storage}{"\n"}{end}'
+```
+Write the versions by hand from the last command (`v1` storage, `v1beta1` served). ⭐ `Unknown` / `Pending:
+Waiting for controller` is **a default in the CRD schema, filled in by the API server** — no controller wrote
+it. It means nothing that claims `example.com/edge-controller` has ever seen the object. The fix in real life
+is a running controller, or a class that names one that runs. Compare: `the server doesn't have a resource
+type "gatewayclass"` means the CRDs themselves are missing.
+</details>
+
+**Drilled log:** —
+
+---
+
 ## 🔲 Backlog — write each out in full when its part is built
 
 | Idea | Domain | Becomes real when |
@@ -557,10 +627,9 @@ calling it broken.
 | HPA on a Deployment; then the same HPA with metrics-server gone (`<unknown>`) | Workloads 15 · Troubleshooting | Ch 05 done (metrics-server is in) — **next candidate** |
 | Make a StorageClass the default; static PV + PVC with a `Retain` reclaim policy and an access mode that does not match | Storage 10 | **Ready now** — the default-class half was done in Ch 05 Part 2 |
 | A pod on a local-path claim stays `Pending` after its node is drained — the PV is pinned to that node (`nodeAffinity` `kubernetes.io/hostname`) | Storage 10 · Troubleshooting | **Ready now** — the pin was seen in Ch 05 Part 2; the drained-node half was not run |
-| Gateway API objects applied with no controller (no address) | Networking 20 · Troubleshooting | Ch 05 Parts 3–4 |
+| A GatewayClass that names the wrong `controllerName` while Traefik runs — fix it so the Gateway is `Programmed` (the no-controller half is X13) | Networking 20 · Troubleshooting | Ch 05 Part 4 |
 | Migrate a path-routed, TLS Ingress to `Gateway` + `HTTPRoute` by hand | Networking 20 | Ch 05 Part 4 |
 | Install a chart with Helm at a pinned version and a values override; list and roll back a release | Cluster Arch 25 | Ch 05 Part 4 (Traefik) |
-| List a CRD's versions and fields (`kubectl explain`) | Cluster Arch 25 | Ch 05 Part 3 |
 | Default-deny NetworkPolicy that silently kills DNS (old T6); then allow only DNS + one app port | Networking 20 · Troubleshooting | NetworkPolicy chapter |
 | etcd snapshot, then restore that brings back a deliberately deleted object | Cluster Arch 25 | etcd backup chapter |
 | Two of three control planes down: reads fail, what still works (old T7) | Troubleshooting | HA drills chapter |

@@ -925,6 +925,22 @@ the cluster looks like without it first** — recognising absence is Troubleshoo
    **untagged** `docker.io/library/busybox` — an unpinned image from Docker Hub on every volume delete.
 3. **Gateway API CRDs.** *Signature:* `kubectl api-resources | grep gateway.networking.k8s.io` is empty.
    *Proof:* `GatewayClass`, `Gateway`, `HTTPRoute` are listed.
+   ✅ **BUILT Nov 4, 2026 — Andrew on control-1, standard channel v1.6.3.** 🔻 **Version chosen: v1.6.3, not
+   the newest v1.7.0** (Oct 29, six days old): Traefik's stable **v3.7.17 is built against gateway-api
+   v1.6.3** (its `go.mod`); v1.7 is only in the v3.8 RC. Before: grep empty, 0 CRDs — **the Tigera operator
+   ships none** — and `kubectl get gatewayclass` → `the server doesn't have a resource type` (no such
+   type; compare metrics-server's *API not available*: type registered, nothing serving). Installed with
+   `kubectl apply --server-side` (too large for client-side apply's annotation): 🔻 **10 CRDs, not the plan's
+   3** — also GRPCRoute, ReferenceGrant, BackendTLSPolicy, ListenerSet, TCP/TLS/UDPRoute, all served `v1`
+   — plus a **ValidatingAdmissionPolicy `safe-upgrades`** that refuses v0.x, v1.0–1.5 and RC bundles over
+   them. After: `No resources found`, **no new pod anywhere** — a CRD is API, not code. GatewayClass is
+   cluster-scoped. HTTPRoute serves `v1` (storage) and `v1beta1`. Proof of the missing controller: a
+   GatewayClass naming `example.com/nobody` + a Gateway were **accepted by `apply`**, then sat at
+   `Accepted=Unknown` / `Programmed=Unknown`, reason `Pending: Waiting for controller`, no ADDRESS —
+   ⭐ **those conditions are CRD schema defaults written by the API server; no controller wrote them.**
+   Files under `manifests/ch05/gateway-api/` (`standard-install.yaml` sha256 `356c2b8e…eff977fe5`, the
+   release asset). Exercise **X13**. ⚠️ For Part 4: the Traefik chart must **not** install its own Gateway
+   CRDs over these (the `safe-upgrades` policy would also refuse an older bundle).
 4. **Traefik.** `helm` on **control-1 only**. *Signature:* an `Ingress` with no controller is accepted and
    routes nothing. *Proof:* one `Ingress` routing to a test Service over **NodePort**, then **the same
    route rebuilt by hand as `Gateway` + `HTTPRoute`**. 🔲 *Verify at build:* whether the chart ships
@@ -968,6 +984,7 @@ X01 metrics-server x509 · X02 kubelet disabled · X03 containerd CRI plugin dis
 to a file · X05 cert expiry + SANs · X06 join token · X07 etcd leader · X08 Calico pod CIDR · X09 active
 scheduler/controller-manager lease · X10 PDB + drain · X11 Service with no endpoints.
 Added Nov 4 with Part 2: X12 two `Pending` claims, only one broken (`WaitForFirstConsumer` vs a missing class).
+With Part 3: X13 a Gateway accepted with no controller; CRD served/storage versions.
 
 🔲 **THE STANDING RULE FOR EVERY SESSION FROM NOW ON:**
 1. **Every Stage 3 part that is built adds at least one task** (or promotes a backlog row) **before the
@@ -1191,6 +1208,9 @@ its own `ssh agamache@<ip>` block, then the commands for that host.** Andrew wor
 check the terminal history to see what ran."* → on **"check"**, read Andrew's terminal file (the
 Cursor terminals folder, newest output at the bottom) for the commands **and** their output — do not
 ask him to paste. Verify the output there before reasoning from it.
+🙋 **Where CKA work is pushed (Andrew, Nov 4, 2026):** *"all our cka stuff like this shold be in GitLab and
+GitHub."* → the answer to "GitHub, GitLab, or both?" for Phase 18 / `education/k8s-cka-prep/` is **both**,
+GitLab first. Still ask before each push (CURSOR_RULES), and `push_github.sh` step 5 still gates it.
 🔻 **TROUBLESHOOTING POSTURE — settled by Andrew, Sep 16, 2026, and it DIFFERS BY STAGE:**
 
 | Stage | When something breaks |

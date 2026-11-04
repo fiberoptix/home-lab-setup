@@ -257,9 +257,22 @@ their proof here, the moment they are run. Each also adds an exam-shaped task to
 | What does reclaim `Delete` do? | `kubectl delete pvc data` · `kubectl get pv` · `kubectl -n local-path-storage get pods` | ✅ | PV `Released` → a `helper-pod-delete-pvc-…` runs → PV and folder gone within 15 s |
 | Is the folder really gone? | on the node: `sudo ls -la /opt/local-path-provisioner/` | ✅ | Empty. kubectl cannot see a node's disk — check from the node |
 
-**Checks that lied in Chapter 05 (Parts 1 and 2):**
+**Part 3 — Gateway API standard CRDs v1.6.3 (Nov 4, 2026, Andrew on control-1):**
+
+| Question | Command | ✓ | What it tells you — and the trap |
+|---|---|---|---|
+| Is the API type known at all? | `kubectl api-resources \| grep gateway.networking.k8s.io; echo $?` · `kubectl get gatewayclass` | ✅ | `the server doesn't have a resource type "gatewayclass"` = **no CRD**. After install: `No resources found` = type exists, no objects |
+| Which CRDs are installed? | `kubectl get crd \| grep gateway.networking.k8s.io` | ✅ | 10 in v1.6.3 standard, not 3 |
+| Install a large CRD bundle | `kubectl apply --server-side -f standard-install.yaml` | ✅ | `serverside-applied`. Client-side apply can fail on the size of its `last-applied` annotation |
+| Every type in one API group, with short names | `kubectl api-resources --api-group=gateway.networking.k8s.io` | ✅ | `gc`, `gtw`, `refgrant`… and NAMESPACED — GatewayClass is `false` |
+| Which versions does a CRD serve and store? | `kubectl get crd httproutes.gateway.networking.k8s.io -o jsonpath='{range .spec.versions[*]}{.name} served={.served} storage={.storage}{"\n"}{end}'` | ✅ | `v1` storage, `v1beta1` served |
+| A CRD's fields, offline | `kubectl explain httproute.spec.rules.backendRefs` | ✅ | Works on CRDs as on built-ins — the exam's docs-free reference |
+| Did a controller pick this up? | `kubectl get gtw demo -o jsonpath='{range .status.conditions[*]}{.type}={.status} {.reason}: {.message}{"\n"}{end}'` | ✅ | `Unknown` · `Pending: Waiting for controller` = **no controller has ever touched it** |
+
+**Checks that lied in Chapter 05 (Parts 1–3):**
 
 | The check | Why it lied | The fix |
 |---|---|---|
 | `kubectl get pvc data` 5 s after making the class default → STORAGECLASS blank | Reads like "retroactive assignment didn't happen". The volume controller applies it on its next pass (~15 s cycle); it appeared ~20 s after the patch | Wait one pass, then read the event list with timestamps |
+| `kubectl apply` of a GatewayClass + Gateway → `created`, no error | Reads like "it works". The API server validates schema only; it never checks that the named `controllerName` exists. The `Waiting for controller` status is a CRD default, not a controller's report | Read the conditions: only a controller sets `True`/`False` |
 | `kubectl …` on the workstation → `localhost:8080 … refused` | Reads like "API server down". It means **no kubeconfig**: with no cluster configured, kubectl falls back to `localhost:8080` (Nov 4: the workstation's `~/.kube/config` is a 100-byte stub) | A real outage names the server: `https://192.168.1.206:6443`. Check *where* you are first — on the exam, the task's `ssh` / context line |
