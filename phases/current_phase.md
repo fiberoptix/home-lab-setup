@@ -39,11 +39,13 @@ is OPEN.** ✅ **Chapter 05 plan APPROVED Sep 23** — the simplest CKA-congruen
 local-path-provisioner, the Gateway API CRDs, and Traefik (Helm) for both Ingress and Gateway API, NodePort
 only, then an offline `c03-equipped-cluster`. ✅ **Nov 4: Part 1 BUILT — metrics-server v0.9.0 via
 Kustomize, x509 failure seen first, then fixed by a patch; `kubectl top` works** (`phase18` Chapter 05 plan,
-item 1). 🔲 **NEXT: Part 2, local-path-provisioner — Andrew drives** (signature first: a PVC `Pending` with no
-StorageClass). ⚠️ **Run every step on control-1** (`ssh agamache@192.168.1.201`) — the workstation has no kubeconfig.
-🎯 **NEW Nov 4 — THE EXERCISE BANK: `education/k8s-cka-prep/exercises.md`.** Exam-shaped tasks (X01–X11 +
+item 1). ✅ **Nov 4: Part 2 BUILT — local-path-provisioner v0.0.37, now the DEFAULT StorageClass;
+bind, survive-a-pod-delete and reclaim-`Delete` all proven** (item 2). 🔲 **NEXT: Part 3, the Gateway API
+standard CRDs — Andrew drives** (signature first: `kubectl api-resources | grep gateway.networking.k8s.io`
+is empty). ⚠️ **Run every step on control-1** (`ssh agamache@192.168.1.201`) — the workstation has no kubeconfig.
+🎯 **NEW Nov 4 — THE EXERCISE BANK: `education/k8s-cka-prep/exercises.md`.** Exam-shaped tasks (X01–X12 +
 backlog) for a timed mock exam later. 🚨 **Every Stage 3 part adds at least one task before it is called
-done** — rule and shape in `phase18` → § *EXERCISE BANK*. Part 2 must add the PVC-`Pending` task.
+done** — rule and shape in `phase18` → § *EXERCISE BANK*. Part 3 must add one too.
 ⭐ **Stage 3 rule: does the exam test it, and is this the simplest way to practise it?** Production
 choices for the work rebuild are parked beside the plan in `phase18`. ⏸️ **The Swarm chapter-8 `recited` rows are
 DEFERRED, not dropped** (Andrew, Sep 23): they resume, together with Phase 17, once he knows the firm's
@@ -93,6 +95,9 @@ untouched).
 4. 🎯 **EXERCISE BANK started** (`education/k8s-cka-prep/exercises.md`, X01–X11 + 21 backlog) and its rule
    written into `phase18` § EXERCISE BANK: every Stage 3 part adds at least one exam-shaped task.
 5. `MAKE_MEMORIES` pass 14: 9 → 7 blocks (14a Oct 27 handoff → `phase20`; 14b Phase 16 closed → `phase16`).
+6. **Ch 05 Part 2 — local-path-provisioner v0.0.37 BUILT by Andrew** (made default; claim bound, data
+   survived a pod delete, reclaim `Delete` removed the folder). Record: `phase18` Chapter 05 plan item 2;
+   `COMMANDS.md` §13; `manifests/ch05/local-path/`; exercise X12.
 
 ### 🚨 Found
 - **The password on public GitHub** (see RESUME HERE). Found while reading the next block to demote —
@@ -107,7 +112,7 @@ untouched).
 - ✅ **Password: REDACTED + `push_github.sh` step 5 gate, proven on the real leak** (blocked → redact →
   pass). Andrew: no rotation, no purge. ✅ Swarm GitHub hold lifted — L19–L22 stay public.
 - ✅ GitLab pushed (`dde819b`); GitHub after the redaction, with Andrew's go-ahead.
-- 🔲 **Phase 18 next: Ch 05 Part 2, local-path-provisioner**, + its PVC-`Pending` exercise.
+- 🔲 **Phase 18 next: Ch 05 Part 3, Gateway API CRDs**, + its exercise.
 - 🔲 Carried: kernel drill (by ~end Dec); delete `rpool/ROOT/pve-1@pre-pve-9.2.20-2026-09-28` (host trial
   passed Oct 27) — ask first; Swarm chapter 8 — ask which Swarm features the new job actually uses;
   Sep 28 logs in `education/k8s-cka-prep/scratch/` (agreed: delete "next session" — ask).

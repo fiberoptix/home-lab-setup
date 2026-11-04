@@ -908,6 +908,21 @@ the cluster looks like without it first** — recognising absence is Troubleshoo
    like the broken case.** *Proof:* the claim binds when a pod uses it; data survives deleting and
    recreating the pod. ⭐ **Static PVs and PVCs need no provisioner at all** — they go in the exercise
    chapters, as does "understand CSI", met by inspecting Calico's existing `csi.tigera.io`.
+   ✅ **BUILT Nov 4, 2026 — Andrew on control-1, local-path-provisioner v0.0.37, the recited half
+   confirmed.** Before: PVC `data` (no class) `Pending`, event `FailedBinding … no storage class is set`.
+   Installed: class `local-path`, `WaitForFirstConsumer`, `Delete`, **not** default; the claim unchanged.
+   Made default (`kubectl patch` of the `is-default-class` annotation): 🔻 **5 s later the claim still had no
+   class** — the default was filled in **~20 s** later (retroactive assignment, GA 1.28), on the volume
+   controller's next pass, and the event became `WaitForFirstConsumer … waiting for first consumer`: still
+   `Pending`, now correctly. A pod mounting it → `Bound` **2 s** later, PV created **on the pod's node**
+   (worker-2), pinned by `nodeAffinity kubernetes.io/hostname In [vm-k8s-cka-worker-2]`, a `hostPath` under
+   `/opt/local-path-provisioner/pvc-<uid>_default_data` (`drwxrwxrwx root`). Pod deleted → claim stayed
+   `Bound`; recreated pod landed on worker-2 again and read **both** lines. Claim deleted → PV `Released`,
+   a `helper-pod-delete-pvc-…` ran in `local-path-storage`, and within 15 s the PV and the folder were both
+   gone. ✅ **`local-path` stays the DEFAULT class** — the workload tasks assume one. Files under
+   `education/k8s-cka-prep/manifests/ch05/local-path/` (`local-path-storage.yaml` sha256 `9781b39c…a702dcd65`
+   = the unedited release, checked against upstream). Exercise **X12**. ⚠️ The delete helper pulls
+   **untagged** `docker.io/library/busybox` — an unpinned image from Docker Hub on every volume delete.
 3. **Gateway API CRDs.** *Signature:* `kubectl api-resources | grep gateway.networking.k8s.io` is empty.
    *Proof:* `GatewayClass`, `Gateway`, `HTTPRoute` are listed.
 4. **Traefik.** `helm` on **control-1 only**. *Signature:* an `Ingress` with no controller is accepted and
@@ -952,6 +967,7 @@ mapped to the parts that will make them real (HPA is the next candidate — metr
 X01 metrics-server x509 · X02 kubelet disabled · X03 containerd CRI plugin disabled · X04 `crictl logs`
 to a file · X05 cert expiry + SANs · X06 join token · X07 etcd leader · X08 Calico pod CIDR · X09 active
 scheduler/controller-manager lease · X10 PDB + drain · X11 Service with no endpoints.
+Added Nov 4 with Part 2: X12 two `Pending` claims, only one broken (`WaitForFirstConsumer` vs a missing class).
 
 🔲 **THE STANDING RULE FOR EVERY SESSION FROM NOW ON:**
 1. **Every Stage 3 part that is built adds at least one task** (or promotes a backlog row) **before the
@@ -1167,6 +1183,14 @@ after the incident is not a baseline.**
 diagnosis when something breaks. First control-plane join by hand.
 🤖 **AI:** VM cloning and `host_setup.sh`, the third control-plane join and the second worker
 (repetition rule), all writing, all scripts as committed artefacts.
+🙋 **HANDING OVER COMMANDS (Andrew, Nov 4, 2026):** *"If I need to ssh to a host in the cluster please
+provide that as a separate command before the commands I need to run."* → **Every hand-over starts with
+its own `ssh agamache@<ip>` block, then the commands for that host.** Andrew works from the workstation
+`.195`, which has no kubeconfig — running a block in the wrong place gives `localhost:8080 … refused`.
+🙋 **And the loop (same day):** *"after you feed me commands I will run them and say 'check' and you can
+check the terminal history to see what ran."* → on **"check"**, read Andrew's terminal file (the
+Cursor terminals folder, newest output at the bottom) for the commands **and** their output — do not
+ask him to paste. Verify the output there before reasoning from it.
 🔻 **TROUBLESHOOTING POSTURE — settled by Andrew, Sep 16, 2026, and it DIFFERS BY STAGE:**
 
 | Stage | When something breaks |

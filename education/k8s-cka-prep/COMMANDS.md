@@ -243,6 +243,23 @@ their proof here, the moment they are run. Each also adds an exam-shaped task to
 | Did the fix roll out? | `kubectl -n kube-system rollout status deploy/metrics-server` | ✅ | "1 old replicas are pending termination" — the broken pod stays until the new one is Ready |
 | Proof | `kubectl top nodes` · `kubectl top pods -A --sort-by=memory \| head` | ✅ | Numbers for all five; APIService `True` |
 
+**Part 2 — local-path-provisioner v0.0.37 (Nov 4, 2026, Andrew on control-1):**
+
+| Question | Command | ✓ | What it tells you — and the trap |
+|---|---|---|---|
+| Is there a StorageClass, and which is default? | `kubectl get storageclass` | ✅ | `(default)` after the name marks it. Nothing listed = a claim with no class can never bind |
+| Why is this claim `Pending`? | `kubectl describe pvc data \| tail -3` | ✅ | **Read the event, not the status.** `no storage class is set` = broken; `WaitForFirstConsumer … waiting for first consumer` = correct, nothing mounts it yet |
+| Make a class the default | `kubectl patch storageclass local-path -p '{"metadata":{"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'` | ✅ | Existing class-less claims get it **retroactively — after ~20 s, not at once.** A 5 s check showed nothing |
+| What class does the claim have now? | `kubectl get pvc data -o custom-columns=NAME:.metadata.name,STATUS:.status.phase,SC:.spec.storageClassName` | ✅ | `SC` filled = the default was applied |
+| Events for one object, in order | `kubectl get events --field-selector involvedObject.name=data --sort-by=.lastTimestamp` | ✅ | Showed the switch from `FailedBinding` to `WaitForFirstConsumer` with times |
+| Where does the volume live? | `kubectl get pv <name> -o jsonpath='{.spec.hostPath.path} {.spec.nodeAffinity.required.nodeSelectorTerms[0].matchExpressions[0]}'` | ✅ | A folder on **one** node, and a hostname affinity that pins every future pod using it to that node |
+| Did the data survive the pod? | `kubectl delete pod writer --now` · re-apply · `kubectl exec writer -- cat /data/log` | ✅ | Two lines. Claim stays `Bound` when the pod goes — it belongs to the namespace, not the pod |
+| What does reclaim `Delete` do? | `kubectl delete pvc data` · `kubectl get pv` · `kubectl -n local-path-storage get pods` | ✅ | PV `Released` → a `helper-pod-delete-pvc-…` runs → PV and folder gone within 15 s |
+| Is the folder really gone? | on the node: `sudo ls -la /opt/local-path-provisioner/` | ✅ | Empty. kubectl cannot see a node's disk — check from the node |
+
+**Checks that lied in Chapter 05 (Parts 1 and 2):**
+
 | The check | Why it lied | The fix |
 |---|---|---|
+| `kubectl get pvc data` 5 s after making the class default → STORAGECLASS blank | Reads like "retroactive assignment didn't happen". The volume controller applies it on its next pass (~15 s cycle); it appeared ~20 s after the patch | Wait one pass, then read the event list with timestamps |
 | `kubectl …` on the workstation → `localhost:8080 … refused` | Reads like "API server down". It means **no kubeconfig**: with no cluster configured, kubectl falls back to `localhost:8080` (Nov 4: the workstation's `~/.kube/config` is a 100-byte stub) | A real outage names the server: `https://192.168.1.206:6443`. Check *where* you are first — on the exam, the task's `ssh` / context line |

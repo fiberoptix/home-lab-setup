@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: writer
+spec:
+  containers:
+  - name: c
+    image: busybox:1.38.0
+    command: ["sh", "-c", "date >> /data/log; sleep 3600"]
+    volumeMounts:
+    - name: d
+      mountPath: /data
+  volumes:
+  - name: d
+    persistentVolumeClaim:
+      claimName: data

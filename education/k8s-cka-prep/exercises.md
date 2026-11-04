@@ -468,13 +468,95 @@ is there for exactly this.
 
 ---
 
+### X12 · Two claims are Pending — only one is broken
+
+**Domain:** Storage (10%) — *storage classes, dynamic provisioning, volume modes and access modes, PVs and
+PVCs* · also Troubleshooting · **Weight:** 6% · **Target:** 7 min ·
+**Status:** 🧪 Earned — Ch 05 Part 2, Nov 4, 2026 (the `WaitForFirstConsumer` half) · ⚠️ setup untested
+
+> **Host:** `vm-k8s-cka-control-1` — `ssh agamache@192.168.1.201`
+>
+> In namespace `x12`, PersistentVolumeClaims `logs` and `cache` are both `Pending`. One of them is
+> behaving exactly as its StorageClass intends; the other will never bind.
+> 1. **Do not modify, delete or recreate the claim that is working as intended.**
+> 2. Make the broken claim usable with the cluster's **default** StorageClass. Keep its name, size `1Gi`
+>    and access mode `ReadWriteOnce`.
+> 3. Create a Pod `cache-user` in `x12` (image `busybox:1.38.0`, command `sleep 3600`) that mounts
+>    `cache` at `/cache`, and confirm the claim is `Bound`.
+
+**Setup (AI):**
+```bash
+kubectl create ns x12
+kubectl -n x12 apply -f - <<'EOF'
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: logs
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: cache
+spec:
+  storageClassName: fast
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 1Gi
+EOF
+kubectl -n x12 get pvc logs -o jsonpath='{.metadata.uid}'; echo   # note it — Verify checks it is unchanged
+```
+
+**Verify (AI):**
+```bash
+kubectl -n x12 get pvc logs -o jsonpath='{.metadata.uid} {.status.phase} {.spec.storageClassName}'; echo  # same uid · Pending · local-path
+kubectl -n x12 get pvc cache -o jsonpath='{.status.phase} {.spec.storageClassName} {.spec.resources.requests.storage}'; echo  # Bound local-path 1Gi
+kubectl -n x12 get pod cache-user -o jsonpath='{.status.phase} {.spec.volumes[0].persistentVolumeClaim.claimName}'; echo     # Running cache
+kubectl get sc fast   # NotFound — the fix was the claim, not a new class
+```
+**Reset:** `kubectl delete ns x12`. The PV goes with it (reclaim policy `Delete`), and the provisioner's
+`helper-pod-delete-…` removes the folder on the node.
+
+<details><summary>Answer key</summary>
+
+`kubectl get sc` first: `local-path (default)`, binding mode `WaitForFirstConsumer`. Then
+`kubectl -n x12 describe pvc logs` and `… cache`, and read **the events, not the status** — both say `Pending`.
+- `logs`: no class written, so the default was filled in (retroactive assignment); its event is
+  `WaitForFirstConsumer … waiting for first consumer to be created before binding`. **This is the one
+  working as intended** — nothing mounts it, so nothing is provisioned. Leave it.
+- `cache`: asks for class `fast`, which does not exist. 🔲 *Recited, confirm at the first drill:* the event
+  names the missing class.
+
+A claim's `storageClassName` cannot be changed once set, so **`cache` must be deleted and recreated** without
+the `storageClassName` line (or with `local-path`). Then the Pod:
+```bash
+kubectl -n x12 get pvc cache -o yaml > cache.yaml   # edit: drop storageClassName, status, uid, resourceVersion
+kubectl -n x12 delete pvc cache && kubectl -n x12 apply -f cache.yaml
+kubectl -n x12 run cache-user --image=busybox:1.38.0 --dry-run=client -o yaml -- sleep 3600 > pod.yaml
+# add volumes[].persistentVolumeClaim.claimName: cache and volumeMounts[].mountPath: /cache, then apply
+kubectl -n x12 get pvc cache   # Bound once the pod is scheduled
+```
+⭐ Seen Nov 4: retroactive assignment is **not instant** — a check 5 s after making the class default still
+showed no class; it appeared about 20 s later, on the volume controller's next pass. Wait one pass before
+calling it broken.
+</details>
+
+**Drilled log:** —
+
+---
+
 ## 🔲 Backlog — write each out in full when its part is built
 
 | Idea | Domain | Becomes real when |
 |---|---|---|
 | HPA on a Deployment; then the same HPA with metrics-server gone (`<unknown>`) | Workloads 15 · Troubleshooting | Ch 05 done (metrics-server is in) — **next candidate** |
-| PVC stuck `Pending`: no StorageClass vs `WaitForFirstConsumer` (looks identical) | Storage 10 · Troubleshooting | Ch 05 Part 2 (local-path) |
-| Make a StorageClass the default; static PV + PVC with a `Retain` reclaim policy and an access mode that does not match | Storage 10 | Ch 05 Part 2 |
+| Make a StorageClass the default; static PV + PVC with a `Retain` reclaim policy and an access mode that does not match | Storage 10 | **Ready now** — the default-class half was done in Ch 05 Part 2 |
+| A pod on a local-path claim stays `Pending` after its node is drained — the PV is pinned to that node (`nodeAffinity` `kubernetes.io/hostname`) | Storage 10 · Troubleshooting | **Ready now** — the pin was seen in Ch 05 Part 2; the drained-node half was not run |
 | Gateway API objects applied with no controller (no address) | Networking 20 · Troubleshooting | Ch 05 Parts 3–4 |
 | Migrate a path-routed, TLS Ingress to `Gateway` + `HTTPRoute` by hand | Networking 20 | Ch 05 Part 4 |
 | Install a chart with Helm at a pinned version and a values override; list and roll back a release | Cluster Arch 25 | Ch 05 Part 4 (Traefik) |
