@@ -26,6 +26,19 @@ services:
       # index.html and it would drag www/smb_credentials into the container with
       # it -- undoing the whole reason the credential file was moved up here.
       - ./index.html:/usr/share/nginx/html/index.html:ro
+      # Added Nov 22, 2026 (Andrew): a general file drop served at /files/. It is a
+      # SIBLING of the project, NOT inside it: cursor-projects/www-files, i.e.
+      # ../../www-files relative to this file. Mounted READ-ONLY, so nothing here can
+      # write to it, and ONLY that folder -- never its parent. Open guest access on
+      # the LAN (no auth, no TLS): do not put anything in it you would not hand to
+      # every device on the network. Not part of this repo, so not tracked.
+      - ../../www-files:/usr/share/nginx/html/files:ro
       - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
-    restart: unless-stopped
+    # Was `unless-stopped` until Nov 22, 2026. Docker starts such a container the instant
+    # the daemon is up, which can beat the /mnt/DevShare CIFS mount that every bind
+    # mount below lives on (nothing orders docker.service after that mount). The
+    # container is now started at boot by /etc/systemd/system/script-server.service,
+    # which waits for the mount plus 10 s. If that unit is ever removed, this
+    # container will NOT come back after a reboot.
+    restart: "no"
 
