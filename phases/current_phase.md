@@ -100,74 +100,6 @@ holds the corrections (kube-vip did NOT crash-loop; the Calico operator HARD-COD
 `192.168.0.0/16`; `node.spec.podCIDR` is inert; `RESTARTS 0` does not mean a static pod was
 untouched).
 
-## 📘 SESSION Nov 4, 2026 (10:57–14:20 EST) — back after 5 weeks: Ch 05 Parts 1–5 built, Chapters 05–08 written, reset tooling, exercise bank X01–X15, CKA nightly backup removed
-
-🙋 *"I'm back after a long time. where are we on phase18?"* → nothing had moved since Sep 23.
-
-### ✅ Done
-1. **Health on return (read-only):** pools rpool 3 % · vm-critical 9 % · vm-ephemeral 4 %, all ONLINE;
-   cluster 5/5 `Ready` on kernel 142, 0 pods not Running; backups ran every night unattended — GitLab 7,
-   critical 49 (7 VMs × 7), host-config 30 archives, newest Nov 4, **0 failed vzdump tasks since Sep 28**.
-2. **Committed the Oct 28 session's leftovers** (`0af942d`, Phase 20 drill D5). `fin_tech_stack.txt` held
-   back until Andrew de-identified it himself (Nov 4).
-3. **Ch 05 Part 1 — metrics-server v0.9.0 BUILT by Andrew** (Kustomize; x509 seen first, then patched).
-   Record: `phase18` Chapter 05 plan item 1; commands `COMMANDS.md` §13; files `manifests/ch05/metrics-server/`.
-4. 🎯 **EXERCISE BANK started** (`education/k8s-cka-prep/exercises.md`, X01–X11 + 21 backlog) and its rule
-   written into `phase18` § EXERCISE BANK: every Stage 3 part adds at least one exam-shaped task.
-5. `MAKE_MEMORIES` pass 14: 9 → 7 blocks (14a Oct 27 handoff → `phase20`; 14b Phase 16 closed → `phase16`).
-6. **Ch 05 Part 2 — local-path-provisioner v0.0.37 BUILT by Andrew** (made default; claim bound, data
-   survived a pod delete, reclaim `Delete` removed the folder). Record: `phase18` Chapter 05 plan item 2;
-   `COMMANDS.md` §13; `manifests/ch05/local-path/`; exercise X12. Committed `473d231`.
-7. **Ch 05 Part 3 — Gateway API standard CRDs v1.6.3 BUILT by Andrew**; a Gateway with no controller shown
-   sitting at `Unknown / Pending`. Record: `phase18` item 3; `COMMANDS.md` §13; `manifests/ch05/gateway-api/`; X13.
-   Committed `1c1610e`; pushed GitLab then GitHub.
-8. **Ch 05 Part 4 — Helm v4.3.1 + Traefik 42.3.0 BUILT by Andrew** (Ingress, then Gateway + HTTPRoute by hand;
-   `allowedRoutes: Same` refusal seen; upgrade + rollback). Record: `phase18` item 4; `COMMANDS.md` §13;
-   `manifests/ch05/traefik/`; X14, X15. Also fixed X11's verify (`grep -c` = 2, not 1). Committed `8fe2142`; pushed both.
-9. **Ch 05 Part 5 — `c03-equipped-cluster`** taken 12:42 (AI ran it, Andrew's go-ahead), test objects removed
-   first; cold start 5/5 Ready, 42/42 pods, every add-on re-proven. **Found the backup → etcd election link.**
-10. **Backups of 201–205 reworked (Andrew's call):** final stop-mode set with all five off, protected and
-    `zstd -t` checked → 35 old archives deleted → `critical-nightly` = 183,185 only. Cluster 5/5 after.
-11. `MAKE_MEMORIES` pass 15: **7 → 3 blocks — the file is at spec** (RESUME + this handoff + the log).
-    15a QA renumber → `phase5`; 15b Cockpit → `phase2`; 15c `nofail` sweep → `phase2` (**closed its 76-day-old
-    open item: template 9000 read with `virt-cat`, no NAS entry**); 15d Phase 17 Parts 0–1 → `phase17`;
-    15e build-standard overhaul → `phase2` (**promoted "`--server` success path still unproven" to MEMORY**).
-12. **etcd baseline + CHAPTERS 05–08 WRITTEN** (AI; Andrew's AskQuestion choices: quiet ch01–04 fixes, two
-    build chapters, a work chapter, an AI-collected anatomy reference, exercises shift to 09+). Findings in
-    `phase18` → ✅ WRITTEN Nov 4. Committed + pushed both: GitLab `84c96be`, GitHub `98052aa`.
-13. **Reset tooling** (`education/k8s-cka-prep/scripts/`, Andrew asked for it): `lab_check.sh` +
-    `c03-equipped-cluster.fingerprint` (recorded live, cross-checked against the c03 inventory; stable over
-    three runs; ✅ positive control: planted ns + `~/answers` + cordon all caught, `--clean` reverted them);
-    `reset_cluster.sh` (✅ `--check` passes; ✅ refuses `c02` and a missing name; ✅ `--yes` 14:22: 250 s to `CLEAN`).
-
-**Andrew's working rules set this session** (all in `phase18` §12): ssh as its own block before the
-commands; "check" = read his terminal file; **CKA work pushes to BOTH remotes, GitLab first** (still ask).
-
-### 🚨 Found
-- **The password on public GitHub** (see RESUME HERE). Found while reading the next block to demote —
-  🚨 **demotion stopped there on purpose**, because moving it verbatim moves the secret.
-- **The Aug 18 "GitHub push HELD" for Swarm material was overtaken unrecorded** — `phase16` ledger L19–L22
-  (attack-path prose) is public. 🔓 Andrew lifted the hold the same day (`MEMORY.md` beside the old note).
-- **A cordon alone scales `calico-typha` 3 → 2** (the Tigera operator sizes Typha by schedulable nodes);
-  uncordon restores 3. Found by `lab_check.sh`'s positive control; noted on X10 in `exercises.md`.
-- **Writing the chapters found ch04 wrong** (kubelet client cert lasts a year, not "much shorter"); fixed
-  quietly, and in `phase18` + `COMMANDS.md`. Also measured: **no API audit log, no encryption at rest**.
-- 🤖 **The AI broke a host rule once:** wrote two temp files to `/dev/shm` on the dev box while verifying 14a
-  ("NEVER write outside project directory on this host"). Deleted at once (verified 0 left); later checks
-  used pipes only.
-
-### 🔲 Open — for Andrew
-- ✅ **Password: REDACTED + `push_github.sh` step 5 gate, proven on the real leak** (blocked → redact →
-  pass). Andrew: no rotation, no purge. ✅ Swarm GitHub hold lifted — L19–L22 stay public.
-- ✅ GitLab pushed (`dde819b`); GitHub after the redaction, with Andrew's go-ahead. Parts 2–4 pushed to both.
-- ✅ **Nightly backup of 201–205: removed** (it caused etcd elections); protected offline set + `c03` instead.
-- ✅ `wal_fsync` baseline taken; Chapters 05–08 written + docx (Nov 4). 🔲 **Phase 18 next: exercise chapters 09+;
-  coverage matrix before the first mock exam.**
-- ✅ First real `reset_cluster.sh --yes` (Nov 4 14:22): 250 s, `CLEAN` first time, rollback proven by boot list.
-- 🔲 Carried: kernel drill (by ~end Dec); delete `rpool/ROOT/pve-1@pre-pve-9.2.20-2026-09-28` (host trial
-  passed Oct 27) — ask first; Swarm chapter 8 — ask which Swarm features the new job actually uses;
-  Sep 28 logs in `education/k8s-cka-prep/scratch/` (agreed: delete "next session" — ask).
-
 ## 📦 DEMOTION LOG — Aug 24 + Sep 16, 2026 (ONE block, on purpose — append a ROW, never a block)
 
 ⚠️ **This block exists because the first four demotions each left a marker block behind, so the block
@@ -223,6 +155,8 @@ artefact per unit of work, the artefacts become the backlog.** One log, appended
 | `🩹 LAB-WIDE nofail SWEEP + a security find on .184` (Aug 20) | 61 | `phase2` (verbatim) | COVERED: `--no-nas`, the `:445` pre-check, `sudo SKIP_NAS=1` (env_reset) gotcha, the bounded-delay correction, .184 no-NAS rule (MEMORY + `phase2`). 🚨 **Its open item "template 9000 not checked for a NAS fstab entry" had been open 76 days — CLOSED Nov 4 by reading the template disk read-only (`virt-cat`): clean.** |
 | `🔵 PHASE 17 PARTS 0 + 1 — Jenkins is up` (Aug 20) | 38 | `phase17` (verbatim) | COVERED: J-P2…J-P5, `j02-jenkins-up`, ledger J2, the trap protocol (all in `phase17`); no-chapter-0 rule and patching policy in MEMORY. Its "✅ DONE" heading is true for Parts 0–1 only — the phase is paused, flagged in the copy |
 | `🔧 BUILD STANDARD OVERHAUL — a second distro, and the script server nearly deleted itself` (Aug 21) | 50 | `phase2` (verbatim) + 1 caveat PROMOTED to `MEMORY.md` | COVERED: tree rename + 301s, landing page, `--hostname`, `www/smb_credentials`, the self-eating `wget -O` + atomic `.part`, "a 301 is a promise" (MEMORY l.~1698, `nginx.conf`), `.185` autoremove declined. 🚨 **"`--server` success path unproven on real hardware" lived ONLY here and is STILL TRUE** (no Ubuntu/Fedora host built with `host_setup.sh` since Aug 21) — promoted. **Last pre-Sep block: the file is now RESUME + one handoff + this log** |
+| **Nov 24, 2026 pass 16 ↓** | | | |
+| `📘 SESSION Nov 4, 2026` (handoff) | 67 | `phase18` (verbatim) | Replaced by the Nov 22-24 handoff. Nothing promoted - all facts already in `phase18`/`MEMORY.md`. 🚨 **Its 'delete the pve-1@pre-pve-9.2.20 snapshot - ask first' was SPENT: the snapshot is already gone** (host check Nov 24, positive control 34 snapshots / c03 x5); `MEMORY.md` and `phase18` still said 'kept' - corrected. Its other 🔲s carried into the new handoff |
 
 ⭐ **A THIRD FINDING, and it is a repeat this log had already warned about.** Pass 9 rebuilt an
 automated coverage checker, validated it with a positive control (100% on a file searched against
