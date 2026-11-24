@@ -21,6 +21,10 @@ at work); ch01–04 corrected quietly. 🔲 **NEXT: Stage 3 drills — exercise 
 Commands are handed to Andrew as a separate `ssh` block first; on "check", read his terminal file
 (`phase18` §12). The detail for everything below is in `phase18` → Chapter 05 plan items 1–5.
 
+🆕 **Nov 22, 2026 (not Phase 18): the www script server now also serves `/files/` (`www-files`, guest, read-only) and
+starts at boot via `/etc/systemd/system/script-server.service` — `restart: "no"` in compose is DELIBERATE.** Not yet proven
+across a reboot; detail in the Nov 22–24 handoff below and `MEMORY.md` → *www Restart*.
+
 🔐 **Nov 4, 2026 — A REAL PASSWORD WAS FOUND ON PUBLIC GITHUB, AND IS NOW REDACTED + GATED.** The NAS/SMB
 password (= GitLab root, Phase 20 E7) sat in plain prose 7× in 4 tracked files, public since `46a01db`
 (Aug 13). Redacted to `<value>`; **Andrew chose NOT to rotate** (lab-only, LAN-only) and not to purge;
@@ -99,6 +103,67 @@ target moved), PVE 9.2.24.** Record: `phase1b` → last section (that session's 
 holds the corrections (kube-vip did NOT crash-loop; the Calico operator HARD-CODES
 `192.168.0.0/16`; `node.spec.podCIDR` is inert; `RESTARTS 0` does not mean a static pod was
 untouched).
+
+## 📘 SESSION Nov 22–24, 2026 — `/files/` added to the www script server, and its boot order fixed
+
+🙋 *"Can you help me share a folder on my network"* → an install script to `curl` from another machine, no
+auth wanted. **Not a Phase 18 session** — the Phase 18 next step in RESUME HERE is unchanged (exercise
+chapters 09+, from `c03`; start with `lab_check.sh`).
+
+### ✅ Done
+1. **Startup (Nov 22):** clean tree, matched `origin/main`, GitLab snapshot stamped `main @ 653c51c`;
+   pools rpool 3 % · vm-critical 10 % · vm-ephemeral 4 %, all ONLINE.
+2. **Share decided with Andrew (AskQuestion):** a temporary `nginx:alpine` on 8088 first (read-only mount,
+   guest access) → then **folded into the project's script server instead**, at Andrew's request. The 8088
+   container was stopped and removed; `/tmp/temp-share.conf` deleted.
+3. **`/files/` BUILT** — `www/docker-compose.yml` mounts `../../www-files` → `/usr/share/nginx/html/files:ro`;
+   `www/nginx.conf` gains `location /files/ { alias …; autoindex on; no-store }`. Folder = `cursor-projects/
+   www-files` (a sibling of the repo, untracked; Andrew renamed it from `www`). Held `install.sh`,
+   `install-v2.sh`, `hello.txt`. 🔎 **Scanned for secrets BEFORE exposing it** (only a `1234` prompt default).
+   Tested from `.195`: `/` `/ubuntu/` `/fedora/` `/files` (301→`/files/`) `/files/install.sh` 200 and
+   byte-identical to disk; `/scripts/host_setup.sh` still 301s; `/files/smb_credentials` 403.
+   ⚠️ **Tested only from the dev box itself — not from a second machine.**
+4. **BOOT ORDER — the real finding.** Andrew asked whether it starts at boot. It would (`docker` enabled,
+   `unless-stopped`) — but **`docker.service` and `mnt-DevShare.mount` are both only `After=network-online`,
+   with no ordering between them**, and EVERY bind mount of this container lives on that CIFS share. Last boot:
+   docker 2.7 s vs mount 0.4 s — the mount probably wins, nothing guarantees it. Not reproduced. Andrew asked
+   for a ~10 s delay after the share → **authorised the one-time exception** (written approval via
+   AskQuestion) → `restart: "no"` in compose + **`/etc/systemd/system/script-server.service`**, enabled:
+   ```
+   [Unit] After=docker.service network-online.target; Requires=docker.service; RequiresMountsFor=/mnt/DevShare
+   [Service] Type=oneshot; RemainAfterExit=yes; WorkingDirectory=…/home-lab-setup/www
+             ExecStartPre=/bin/sleep 10; ExecStart=/usr/bin/docker compose up -d; ExecStop=/usr/bin/docker compose stop
+   [Install] WantedBy=multi-user.target
+   ```
+   ✅ `systemd-analyze verify` clean; ✅ `enable --now` took 11.3 s; ✅ `stop` → port 80 dead, `start` → 200.
+   🔲 **NOT PROVEN across a real reboot.** First check after the next one:
+   `journalctl -b -u script-server` and `curl -s http://192.168.1.195/files/`.
+5. **`MAKE_MEMORIES` pass 16:** demoted the Nov 4 handoff → `phase18` (commit `73939dd`); blocks 3 → **2 + log
+   (at spec)**. MEMORY.md: the `/files/` + boot-order block under *www Restart*; stale snapshot claim fixed.
+
+### 🚨 Found
+- **A spent to-do, again (the fifth pass running).** The Nov 4 handoff said *"delete
+  `rpool/ROOT/pve-1@pre-pve-9.2.20-2026-09-28` — ask first"*. **It is already gone** (only
+  `…pre-pve-9.2.21-2026-10-27` remains). Instrument shown to find something first: 34 snapshots listed, `c03`
+  on 5. `MEMORY.md` said "kept" → corrected; `phase18` line ~1844 is a dated historical record, left as written.
+- ⚠️ **`hostname` on this box is `VM-UBUNTU-01`.** `MEMORY.md` says `.195` is "Not a Proxmox VM", and it is
+  not in `qm list` — consistent with a VM on ANOTHER hypervisor, which the docs never say. Unresolved; asked
+  nowhere. Worth one question to Andrew before anyone reasons about `.195`'s hardware.
+- 🤖 **The AI wrote `/tmp/temp-share.conf` outside the project dir** (host rule), before the share moved into
+  the script server; deleted (`rm -f`, same session). The systemd unit is the *authorised* exception.
+- **Another project's containers share this Docker daemon** (`dionysus-*` on 5101–5103). Not ours; untouched.
+
+### 🔲 Open — for Andrew
+- 🔲 **Reboot test of `script-server.service`** (above). Until then "starts at boot, after the share" is
+  design, not measurement. If the dev box is rebuilt, the unit must be recreated by hand — it is NOT in git.
+- 🔲 **Test `/files/` from a SECOND machine** (everything so far was `.195` → `.195`). Host firewall unchecked
+  (`ufw` needs root; the `docker`/iptables path worked locally).
+- 🔲 **Carried from Nov 4:** Phase 18 next = exercise chapters 09+ and the coverage matrix before a mock exam;
+  **node patching drill due by ~Nov 27–Dec 27** (60–90 days from the Sep 28 update freeze; step 0 is
+  `sudo apt update`); `vm-ephemeral` boot-import check (`journalctl -b -u 'zfs-import@vm\x2dephemeral'`) — **the
+  host has not rebooted since**; Phase 20 open items (log in, E7, delete the expired root PAT, D6); Swarm chapter 8
+  — ask which Swarm features the new job uses; Sep 28 `move-20x.log` files still in
+  `education/k8s-cka-prep/scratch/` (agreed Nov 4: delete — **ask first**).
 
 ## 📦 DEMOTION LOG — Aug 24 + Sep 16, 2026 (ONE block, on purpose — append a ROW, never a block)
 

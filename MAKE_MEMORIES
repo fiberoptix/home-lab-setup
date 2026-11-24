@@ -204,6 +204,14 @@ phases/phaseX_*.md (the working record - where the volume belongs):
          breach; deleted. Verify removed lines with a pipe:
            while IFS= read -r l; do git show :<dest> | grep -qxF -- "$l" || echo "MISSING: $l"; done \
              < <(git diff --cached phases/current_phase.md | grep '^-' | grep -v '^---' | sed 's/^-//' | grep -v '^\s*$')
+       Nov 24, 2026 (START of pass 16): 3 blocks = AT SPEC, 0 dated Jan-July 2026, 242 lines
+       Nov 24, 2026 (after 16a + handoff): 3 blocks = AT SPEC, 0 dated Jan-July 2026, ~242 lines
+         Net-zero by design: 16a demoted the Nov 4 handoff (67 lines) -> phase18; the Nov 22-24 handoff took its place.
+         ⭐ FIFTH PASS RUNNING where reading the demoted block found a SPENT to-do presented as open: "delete
+         rpool/ROOT/pve-1@pre-pve-9.2.20-2026-09-28 - ask first" - the snapshot was already gone, and MEMORY.md
+         still said "kept". Checked on the host WITH a positive control (34 snapshots listed, c03 found x5) before
+         believing the 0. ⛔ A carried "ask first" item is a to-do with an expiry nobody tracks: re-check it exists.
+
          ⭐ Pass 9 salvaged a LIVE SECURITY CAVEAT that existed in one place only: the master
          password leaked to public GitHub in June 2026 was purged from history and NEVER ROTATED.
          MEMORY.md said "history was purged", which reads as remediated. A purge is not a rotation.
