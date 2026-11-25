@@ -906,3 +906,37 @@ should be re-asked once he is inside.
 8. Measure RAM/CPU headroom on the other VMs (GitLab 24 GB, SonarQube 12 GB) the way 186 was measured
    — 186 gave back 16 GB and 8 threads, and the Phase 15 study clusters will want more.
 
+---
+
+## COPIED VERBATIM FROM `MEMORY.md` @ `pre-memory-diet` (lines 198–228) — Nov 24, 2026 (memory-diet, copy-first) — CURRENT STATE item: Phase 15
+
+- **🔵 ACTIVE — Phase 15: the education program** (`phases/phase15_education_program.md`).
+  Restructured `education/` from one flat series into a multi-track shelf (see the education section
+  below). Framework work only; the first new track gets its own phase file per the agreed model.
+  ⚠️ **`CURSOR_RULES` HAS NOW BEEN EDITED TWICE — Aug 12 and Aug 13, 2026.** That file says the AI
+  must never edit it; **on each occasion Andrew gave explicit authorisation in writing, for that
+  change only**, and the note recording the standing condition sits under the never-edit line.
+  **Neither is precedent** — get the same explicit approval or do not touch it. **Both edits were
+  done as a single atomic Python pass that asserted every anchor matched exactly once and that
+  Andrew's own lines survived, then verified from the shell** (`wc -l`, `md5sum`, and a
+  `git diff | rg '^-'` deletion audit). Do it that way again; see the CIFS gotcha at the top of this
+  file for what happens otherwise.
+  **The Aug 13 edit (second): wiring in `education/METHOD.md`** — 225 → 239 lines, exactly one line
+  removed (old rule 2, deliberately rewritten). Four changes: **new startup checklist item 2g**
+  making `METHOD.md` a mandatory read before starting or running a track; **`METHOD.md` added to the
+  education file list**; **new rule 1b** (read METHOD before running a track — CONVENTIONS governs the
+  artefact, METHOD the work); **rule 2 widened** to route convention changes to `CONVENTIONS.md` and
+  working-practice changes to `METHOD.md`, neither ever forked into a track; and **new rule 8** — the
+  method is a **floor, not a ceiling**, deviate per topic but fold what works back in the same
+  session. **The `RULES:` list is now numbered 1, 1b, 2–8** (`1b` avoids renumbering rules that other
+  documents reference).
+  **The Aug 12 edit (first) — three changes went in:**
+  - **`PROJECT SCOPE` rewritten (Andrew's own definition):** this repo owns **TWO** things — the
+    Proxmox/infrastructure layer **and educational R&D done inside the lab** (the `/education` tracks
+    plus the POC builds they are written from). "Application layer" = **Capricorn and other real apps
+    running on the lab**, which belong to their own projects. So the OMS producer/consumer in
+    `education/k8s-k3s-redpanda/app/` **IS ours** (study material); Capricorn is not. The old wording
+    said "INFRASTRUCTURE layer ONLY", which would have made a literal reader disown `/education`.
+  - **Startup checklist item 2f** — `education/CONVENTIONS.md` is a mandatory read when the session
+    touches education content.
+  - **New `=== EDUCATION PROGRAM (/education) ===` section**, 7 rules (now 8 + `1b` after Aug 13).
