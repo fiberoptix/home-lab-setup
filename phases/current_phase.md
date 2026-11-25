@@ -146,9 +146,11 @@ chapters 09+, from `c03`; start with `lab_check.sh`).
   `rpool/ROOT/pve-1@pre-pve-9.2.20-2026-09-28` — ask first"*. **It is already gone** (only
   `…pre-pve-9.2.21-2026-10-27` remains). Instrument shown to find something first: 34 snapshots listed, `c03`
   on 5. `MEMORY.md` said "kept" → corrected; `phase18` line ~1844 is a dated historical record, left as written.
-- ⚠️ **`hostname` on this box is `VM-UBUNTU-01`.** `MEMORY.md` says `.195` is "Not a Proxmox VM", and it is
-  not in `qm list` — consistent with a VM on ANOTHER hypervisor, which the docs never say. Unresolved; asked
-  nowhere. Worth one question to Andrew before anyone reasons about `.195`'s hardware.
+- 🔻 **CORRECTED Nov 24 (the AI's own error, caught during the memory-diet audit).** This entry first read
+  *"`VM-UBUNTU-01` … possibly a VM on another hypervisor … unresolved"*. **It is answered in `MEMORY.md`
+  (CURRENT STATE, ll. ~1014/1029): `.195` = `VM-UBUNTU-01`, a VMware Workstation guest on the Z8 G4** (24 vCPU).
+  The AI read the one index row saying "Not a Proxmox VM" and not the rest of the file. ⭐ A fact in N places:
+  `rg` for it before calling it unresolved.
 - 🤖 **The AI wrote `/tmp/temp-share.conf` outside the project dir** (host rule), before the share moved into
   the script server; deleted (`rm -f`, same session). The systemd unit is the *authorised* exception.
 - **Another project's containers share this Docker daemon** (`dionysus-*` on 5101–5103). Not ours; untouched.
