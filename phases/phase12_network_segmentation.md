@@ -273,3 +273,29 @@ firewall change won't break deploys.
 - Order confirm: Capricorn deploy change first, then .184 firewall.
 
 ---
+
+---
+
+## COPIED VERBATIM FROM `MEMORY.md` @ `pre-memory-diet` (lines 983–1004) — Nov 24, 2026 (memory-diet, copy-first) — CURRENT STATE item: Phase 12 perimeter lockdown
+
+- **✅ Phase 12 network perimeter lockdown — IMPLEMENTED July 8, 2026.** Full detail in
+  `phases/phase12_network_segmentation.md`. What's live now:
+  - **Router (G3100):** deleted public VNC/ARD forwards (3283/5900/5988→.200); Mac-mini is
+    Tailscale-only. Kept: 80/443→.184, Plex .200:32400, Tailscale UPnP holes, .100 (Verizon
+    ARRIS equipment — ISP-managed, accepted). UPnP stays ENABLED (Andrew's call).
+  - **Capricorn deploy = PUSH model:** `deploy_prod_local` now pulls images on the runner (.182)
+    and streams them via `docker save | ssh .184 "docker load"`. .184 never contacts the
+    registry. On `production` (e0f3057) AND `develop` (9e5d2dc). Live-tested: pipeline #137
+    job #722 succeeded, cap.gothamtechnologies.com 200.
+  - **.184 is inbound-only (Proxmox fw):** `/etc/pve/firewall/184.fw` — IN policy DROP
+    (allow 80/443 anywhere; 22 from .182/.195/.150 only; LAN ICMP); OUT = ACCEPT to gateway .1
+    + internet, DROP to all RFC1918. Datacenter fw ENABLED via new `cluster.fw` (was disabled —
+    the old 184.fw had been inert). Other VMs have no .fw files → unaffected (185.fw existed until
+    Aug 19, 2026 — ✅ **verified that `qm destroy --purge` deletes a VM's `.fw` file along with it**;
+    it is gone now that the VM is). Rollback: `/root/184.fw.bak-20260708` on pve. (The VM snapshot
+    `pre_phase12_firewall` was deleted Sep 28, 2026 — the firewall has been trusted for 2½ months.)
+  - **Validated:** .184→.180/.181/.183/.150 all blocked; .184→internet/DNS works; public 200;
+    .195/.182 SSH in OK; .181→.184:22 blocked; :8080 dashboard blocked from LAN.
+  - **Still open (minor):** off-LAN scan of WAN IP (needs external vantage); .195 workstation
+    is STATIC IP (SSH allowlist rule safe). Related Capricorn work: `unified_ui_DEV_PROD_GCP`
+    `project/phases/phase22*` (app has NO auth + is the sole public door → app hardening matters).
