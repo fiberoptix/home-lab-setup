@@ -1880,3 +1880,9 @@ against secrets, not against private.**
   rebalance timings) live **only** in that demoted block, and re-deriving them is days of work.
   📖 It is also the source track for `education/k3s/` — **the `ch01_fig1_stack.dot` VMID/label error
   fixed on Aug 20 came from here**, so a future diagram edit needs it.
+
+---
+
+## COPIED VERBATIM FROM `MEMORY.md` @ `pre-memory-diet` (lines 81–81) — Nov 24, 2026 (memory-diet, copy-first) — PHASE INDEX row: k3s/Redpanda
+
+| **k3s / Redpanda / OpenSearch** (VM 186) | `phases/phase14_k8s_redpanda_poc.md` (1720 ln) | Phase CLOSED. 🚨 **`.186` is RUNNING and DELIBERATELY FROZEN** — `unattended-upgrades` masked, **not** in `refresh.sh`; do not patch it and **never** run `k3s-uninstall.sh` to "get a clean cluster". ⛔ **The Aug 20 verbatim demotion at the END of the file is the ONLY copy of ~40 findings** (local-path PV layout, `ALLOWVOLUMEEXPANSION=false`, the `Error:137` OOM signature, consumer-rebalance timings) — re-deriving them is days. ⚠️ **Paths moved to `education/k8s-k3s-redpanda/` Aug 12 — every `education/<x>` reference in the file's *CLOSING RECORD* section is PRE-MOVE and stale by design** (demoted verbatim from `current_phase.md` Aug 20, and editing it would have made the copy unverifiable). Holds the quorum/leaderless alerting findings |
