@@ -486,3 +486,9 @@ Pull the serial live, then match it to this table.
   ⚠️ Any future stick must be **Registered (RDIMM) ECC**; LRDIMM/unbuffered will not POST and the
   failure mimics a dead board. Detail + slot map: `phases/phase0_hardware.md`.
 - **NOTE:** The Proxmox server is a **Z6 G4** (single CPU, **192GB**, 6/6 channels). The **dev workstation** we work from is a **Z8 G4** (dual Platinum 8168, 256GB, still only 4 of 6 channels per socket). Don't confuse the two.
+
+---
+
+## COPIED VERBATIM FROM `MEMORY.md` @ `pre-memory-diet` (lines 86–86) — Nov 24, 2026 (memory-diet, copy-first) — PHASE INDEX row: Physical hardware
+
+| 🔧 **Physical hardware — RAM/DIMMs, drives, serials, part numbers, storage capacity, PCIe slots** (either workstation) | `phases/phase0_hardware.md` → **Memory Configuration** + **Storage Capacity Audit** | **RAM:** both boxes are at 4-of-6 channels (Z6 *and* Z8, verified Aug 19 2026) — ⛔ **the Z8 is NOT a DIMM donor.** `phase13` PERF-3's slot numbers were **wrong** (free = `CPU0-DIMM3/4`) and its price is **~10x stale** (32GB DDR4 ≈ **$300** → the "$50–80" fix is ~$600). **STORAGE: no purchase needed — only 137 GiB is written across 3.24 TiB (4%).** ⭐ `vm-critical`'s scary **70.9% is `refreservation`, not data — `zpool alloc` is 7.5%**; both VM pools are thick (`sparse` unset/0). ⚠️ **`nvmeXn1` names in the docs DRIFT — identify drives by serial.** Bigger risk than capacity: the **Swarm cluster + its `s01–s06` snapshots sit on a no-redundancy stripe**, and **only VM 181 has a scheduled backup** |
