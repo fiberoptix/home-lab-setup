@@ -957,3 +957,9 @@ All Proxmox-host alerts now reach Andrew's Gmail via app password (PASSWORDS.md 
 - Rotate credential at Google → Security → App passwords (named "pve").
 
 ---
+
+---
+
+## COPIED VERBATIM FROM `MEMORY.md` @ `pre-memory-diet` (lines 84–84) — Nov 24, 2026 (memory-diet, copy-first) — PHASE INDEX row: Proxmox host/ZFS/backups
+
+| **Proxmox host config, kernels, ZFS pools, backups** | `phases/phase13_fable_proxmox_audit.md` (551 ln) + `phases/phase1b_*` | Kernel pinning is deliberate. ~~A 50G thick zvol sits on `vm-critical`~~ — **all VM pools are THIN since Sep 28, 2026 (Phase 19, next row).** See also the BACKUP DIRECTIVE in `CURSOR_RULES` — **backups go to NAS, never NVMe** |
