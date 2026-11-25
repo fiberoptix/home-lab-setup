@@ -669,3 +669,31 @@ code-quality comparison:
 while the scanner reported **639 issues**, because a default gate scores *new* code, not the existing
 body of it. **A green gate is a statement about the delta, not about the codebase.** Same family as
 the false-greens work in Phase 16 — the signal was accurate and the intuitive reading of it was wrong.
+
+---
+
+## COPIED VERBATIM FROM `MEMORY.md` @ `pre-memory-diet` (lines 2362–2385) — Nov 24, 2026 (memory-diet, copy-first) — SONARQUBE
+
+## SONARQUBE
+
+- **URL:** http://192.168.1.183:9000
+- **Version:** 26.1.0 (community, latest)
+- **Login:** admin / [See PASSWORDS.md]
+- **Container:** `sonarqube:community` (Docker)
+- **Data:** `/opt/sonarqube/data` (persisted)
+
+**Projects:**
+- test-app (token: [See PASSWORDS.md])
+  - Quality Gate: PASSED ✅
+  - 86 lines of code (HTML, Docker)
+  - 0 security issues, 0 bugs, 1 maintainability issue
+- capricorn (token: [See PASSWORDS.md])
+  - Quality Gate: PASSED ✅
+  - 28k lines of code (TypeScript, Python)
+  - 5 security issues, 144 reliability issues, 490 maintainability issues
+
+**Note:** Upgraded from 9.9.8 → 26.1.0 (required fresh database)
+
+**Pipeline Integration:** Scan stage runs after build/push, before deploy (allow_failure: true)
+
+---
