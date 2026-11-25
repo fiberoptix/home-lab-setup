@@ -473,3 +473,16 @@ Pull the serial live, then match it to this table.
 - `/proxmox/Home_Lab_Proxmox_Storage.md` - Detailed ZFS configuration & commands
 - `/vmware/` - Abandoned ESXi documentation (reference only)
 
+---
+
+## COPIED VERBATIM FROM `MEMORY.md` @ `pre-memory-diet` (lines 1005–1013) — Nov 24, 2026 (memory-diet, copy-first) — CURRENT STATE: hardware / RAM 192 GB
+
+- Proxmox running at 192.168.1.150 (HP Z6 G4: single Xeon Platinum 8168 24c/48t, **192GB RAM**, ZFS) — **PVE 9.2.24**, kernel **7.0.14-26-pve** (pinned + tested Oct 27, 2026; was 9.2.4 / 7.0.14-4 from Jul 9; SNC disabled → single NUMA node)
+- **RAM upgraded 128GB → 192GB on Aug 26, 2026** (6x 32GB Hynix `HMA84GR7AFR4N-VK`, all six identical).
+  Filled the two free slots `CPU0-DIMM3`/`DIMM4`, so **all 6 memory channels are now populated** at
+  1 DIMM per channel and the clock **stayed at 2666 MT/s** (verified via `Configured Memory Speed`).
+  ⛔ **This is the hard ceiling for the box** — 6 slots, 1 CPU, all full. More RAM on `.150` means
+  64GB modules (replace all six) or a second CPU. Plan VM sizing against a fixed 192GB.
+  ⚠️ Any future stick must be **Registered (RDIMM) ECC**; LRDIMM/unbuffered will not POST and the
+  failure mimics a dead board. Detail + slot map: `phases/phase0_hardware.md`.
+- **NOTE:** The Proxmox server is a **Z6 G4** (single CPU, **192GB**, 6/6 channels). The **dev workstation** we work from is a **Z8 G4** (dual Platinum 8168, 256GB, still only 4 of 6 channels per socket). Don't confuse the two.
