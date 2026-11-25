@@ -185,3 +185,9 @@ All pools feature-flag current (zpool upgrade Jul 9).
 **Drive Serial Numbers:** See `/SYSTEM_VERIFICATION.md` for complete inventory.
 
 ---
+
+---
+
+## COPIED VERBATIM FROM `MEMORY.md` @ `pre-memory-diet` (lines 85–85) — Nov 24, 2026 (memory-diet, copy-first) — PHASE INDEX row: Storage tiers
+
+| 🗄️ **Storage tiers, VM placement, thin pools, backup coverage — Phase 19** | `phases/phase19_storage_tiers.md` | ⛔ **Place a new VM by ONE question: can this project rebuild it? Yes → `vm-ephemeral` (stripe, no redundancy); no → `vm-critical` (mirror) AND add its VMID to the `critical-nightly` job.** Critical = **181, 183, 185, 201–205** (+184 on the mirror, deliberately unbacked). 🆕 **Exception since Nov 4, 2026: 201–205 are NOT in the nightly job** (it caused etcd elections) — a protected offline vzdump set + snapshot `c03` instead; new baseline = new set by hand. 🚨 **Pools are THIN: one that fills stalls EVERY VM on it at once — read `zpool list` CAP, NEVER the PVE GUI** (hourly email at 70/80%). 🚨 **PVE `move-disk` silently DROPS snapshots** — use `zfs send -R` + GUID check (`proxmox/build-scripts/move_k8s_node_pool.sh`, test it with `--dry-run` ONLY). 🚨 **ZFS rolls back only to the MOST RECENT snapshot: `c01` is unreachable while `c02` exists** — and since Nov 4, `c02` while `c03-equipped-cluster` exists. 🚨 **Nov 4: `critical-nightly` (02:30) was triggering an etcd election on the k8s nodes most nights → 201–205 REMOVED from it the same day** (record: `phase18` Ch 05 plan item 5) 🔲 **NEXT HOST BOOT — prove it:** `vm-ephemeral` was lazily imported by PVE (not at boot) on Sep 28 and Oct 27; `zfs-import@vm\x2dephemeral.service` (the ESCAPED name — the unescaped one imports `vm/ephemeral`) was enabled Oct 27 and is UNPROVEN — check per `phase19` (`journalctl -b -u 'zfs-import@vm\x2dephemeral'`) |
