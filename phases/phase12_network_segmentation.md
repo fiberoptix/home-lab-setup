@@ -299,3 +299,9 @@ firewall change won't break deploys.
   - **Still open (minor):** off-LAN scan of WAN IP (needs external vantage); .195 workstation
     is STATIC IP (SSH allowlist rule safe). Related Capricorn work: `unified_ui_DEV_PROD_GCP`
     `project/phases/phase22*` (app has NO auth + is the sole public door → app hardening matters).
+
+---
+
+## COPIED VERBATIM FROM `MEMORY.md` @ `pre-memory-diet` (lines 88–88) — Nov 24, 2026 (memory-diet, copy-first) — PHASE INDEX row: Firewall
+
+| **Firewall, port-forwards, public exposure** | `phases/phase12_network_segmentation.md` (200 ln) | Perimeter is deliberately closed to everything but the WWW box; open ports listed there include ones flagged for removal |
