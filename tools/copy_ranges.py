@@ -21,6 +21,8 @@ REF_HEADERS = {
     "reference/vm_build.md": "Cloud-init template (VM 9000), cloning, nofail/_netdev, prod-local NAS rule",
     "reference/patching.md": "refresh.sh (Proxmox host) and the parallel VM refresh",
     "reference/git_and_secrets.md": "This repo's dual-remote model, secret hygiene, GitHub/GitLab details",
+    "reference/hosts_and_addressing.md": "IP/host inventory prose: ARP check, node addressing, household devices",
+    "reference/memory_archive.md": "Archive of MEMORY.md material that is history, not rule (index intro, status bullets, phase table, maintenance notes)",
     "reference/dev_workstation.md": "The dev workstation (.195, a VMware guest on the Z8), OS upgrade, tooling",
 }
 
