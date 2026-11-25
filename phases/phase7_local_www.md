@@ -1699,3 +1699,9 @@ services:
 - **Savings:** ~$400/year 💰
 
 ---
+
+---
+
+## COPIED VERBATIM FROM `MEMORY.md` @ `pre-memory-diet` (lines 83–83) — Nov 24, 2026 (memory-diet, copy-first) — PHASE INDEX row: vm-www-1 / Traefik
+
+| **vm-www-1 (.184), Traefik, PROD Capricorn hosting** | `phases/phase7_local_www.md` (1508 ln) | Network architecture is load-bearing and marked CRITICAL in that file; `.184` deliberately **never contacts the registry** (images arrive via `docker load`) |
