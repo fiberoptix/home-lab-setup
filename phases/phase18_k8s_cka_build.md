@@ -1945,3 +1945,26 @@ commands; "check" = read his terminal file; **CKA work pushes to BOTH remotes, G
   passed Oct 27) — ask first; Swarm chapter 8 — ask which Swarm features the new job actually uses;
   Sep 28 logs in `education/k8s-cka-prep/scratch/` (agreed: delete "next session" — ask).
 
+---
+
+## COPIED VERBATIM FROM `MEMORY.md` @ `pre-memory-diet` (lines 234–253) — Nov 24, 2026 (memory-diet, copy-first) — CURRENT STATE item: Phase 18
+
+- **🔵 ACTIVE — Phase 18: Kubernetes HA + CKA prep** (`phases/phase18_k8s_cka_build.md`, opened Sep 16, 2026).
+  ✅ **BUILT Sep 17, 2026 — Stages 0, 1 and 2 complete; Stage 1 documented Sep 23 (chapters 02–04);
+  Stage 3 open; Nov 4: chapter 05 Parts 1–5 BUILT (metrics-server, local-path, Gateway API CRDs, Helm +
+  Traefik) and `c03-equipped-cluster` taken = the "ready" reset point; chapter 05 text not yet written.**
+  Sep 28: auto-updates frozen on all five, nodes on kernel `6.8.0-142`, `c02-virgin-cluster` retaken. Current state lives in
+  the PHASE INDEX row and `current_phase.md` → RESUME HERE. 🔻 *Until Sep 28 this line still read "plan
+  written, NOTHING BUILT, not yet approved" — stale for eleven days in the section read at boot.*
+  **Two goals with separate finish lines, and they must not be re-merged:** (1) learn to deploy/install/
+  configure Kubernetes **for work**, written up as a repeatable procedure; (2) pass the **CKA**. ⭐ Blending
+  them in the first draft produced a strong HA build that covered barely half the exam.
+  **Four stages, Andrew's numbering:** **0** prepare five VMs · **1** install and configure Kubernetes step
+  by step · **2** sign off + snapshot the baseline · **3** CKA drilling (~10 exercises).
+  **Spec:** VMIDs **201–205 → `.201–.205`**, kube-vip VIP **`.206` (no VM behind it)**, 2 vCPU / 4 GB / 40 GB
+  each on **`vm-critical`** (built on `vm-ephemeral`; moved Sep 28 with their snapshots, Phase 19), **`kubeadm` v1.35 → v1.36**, **Calico**, 3 control planes w/ stacked etcd + 2 workers.
+  ⛔ **No planted traps** (deliberate `METHOD.md` deviation) and ⛔ **no leaked/recalled exam content** — the
+  latter breaches the Linux Foundation confidentiality agreement and can invalidate a certification; exercises
+  come from the published CNCF curriculum, ⭐ which is what exam questions are generated from anyway.
+  📖 Research + the education track share one folder: **`education/k8s-cka-prep/`**. **Everything hazardous is
+  in the PHASE INDEX row above — read it before touching this.**
