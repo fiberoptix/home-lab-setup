@@ -135,3 +135,53 @@ uncordoned, cluster 5/5 Ready. ⛔ **A known-fail case must be KNOWN, not assume
 2. Critical → **add its VMID to `critical-nightly`** (`/etc/pve/jobs.cfg`), then run the job once by hand
    and check the NAS listing. A new or changed job triggers a restore drill (MEMORY.md rule).
 3. Disks are thin automatically now (`sparse 1`). Watch `zpool list` CAP, never the GUI.
+
+---
+
+## COPIED VERBATIM FROM `MEMORY.md` @ `pre-memory-diet` (lines 229–233) — Nov 24, 2026 (memory-diet, copy-first) — CURRENT STATE item: Phase 19
+
+- **✅ CLOSED — Phase 19: Storage tiers** (`phases/phase19_storage_tiers.md`, opened and closed Sep 28, 2026).
+  A one-session infrastructure phase inside Phase 18's run, at 🙋 Andrew's request (a year of R&D ahead,
+  footprint may double). Pools thin, k8s cluster on the mirror, critical tier backed up nightly, capacity
+  email hourly. **Every new VM gets placed by the tier rule in the PHASE INDEX row.** Phase 18 stays current.
+
+---
+
+## COPIED VERBATIM FROM `MEMORY.md` @ `pre-memory-diet` (lines 2296–2332) — Nov 24, 2026 (memory-diet, copy-first) — STORAGE
+
+## STORAGE
+
+**Last Verified:** January 14, 2026 (4:35 PM EST)
+
+| Pool | Drives | Type | Size | Usage | Compression | Ratio | Use |
+|------|--------|------|------|-------|-------------|-------|-----|
+| rpool | 2x WD Blue SN5100 500GB | mirror | 460GB | 11GB (2%) | lz4 ✅ | 1.17x | Proxmox, ISOs |
+| vm-critical | 2x Lexar NM620 1TB | mirror | 952GB | 66GB (6%) | lz4 ✅ | 1.40x | GitLab, Sonar, WWW, ~~(OpenClaw)~~ → **Jenkins** (185's 50 GB freed Aug 19, 2026); **+ k8s 201–205 since Sep 28** |
+| vm-ephemeral | 2x Lexar NM620 1TB | stripe | 1.86TB | 46GB (2%) | lz4 ✅ | ~1.5x | Runner, QA, 186, Swarm 191–193, template 9000 (the REBUILDABLE tier) |
+
+🆕 **Sep 28, 2026 — PHASE 19: BOTH VM POOLS ARE NOW THIN** (`sparse 1`, `refreservation=none` on all 27
+zvols). The PVE GUI dropped **70.92% → 6.87%** and now agrees with `zpool list`. Measured after the moves:
+**`vm-critical` 81.3 G allocated (8%), `vm-ephemeral` ~59 G (3%)**. ⛔ **The thick-provisioning notes below
+are HISTORY** — a thin pool can overcommit, so the number to watch is `zpool list` CAP (hourly email at
+70/80%, `zfs-capacity-alert.timer`). Placement rule + recipes: `phases/phase19_storage_tiers.md`.
+
+📊 **`vm-ephemeral` re-measured Sep 16, 2026 after VM 200 was destroyed: `zfs` USED 778G → 662G,
+AVAIL 1.04T → 1.16T; `zpool` ALLOC 76.7G → 62.1G.** ⭐ **Those are two different questions and you
+need both.** The zvol read `USED 116G` / `REFER 14.6G` on a `size=100G` disk, because **VM zvols here
+are THICK** (`refreservation`, `sparse` unset) — so a destroy returns **116 GB of reservation** to the
+pool but only **14.6 GB of real blocks**. ⚠️ **And the first ALLOC reading taken immediately after the
+destroy still said 76.7G**: the reservation is released synchronously, the blocks are freed
+asynchronously a few seconds later. **A capacity check run the instant after a delete reports the old
+number and looks like the delete failed.** Same family as the `phase0` finding that `vm-critical`'s
+alarming 70.9% is refreservation rather than data.
+
+**ashift (verified/fixed Jul 9, 2026):** ALL pools now ashift=12 (vm-ephemeral was 9 —
+rebuilt Jul 9; NM620s only expose 512B LBA so ashift must be set at pool creation).
+ARC cap = **16 GiB** (`/etc/modprobe.d/zfs.conf`, raised from 8 Jul 9).
+All pools feature-flag current (zpool upgrade Jul 9).
+
+**Note:** All pools now have lz4 compression enabled. rpool shows 1.00x ratio because existing data is uncompressed (new data will be compressed).
+
+**Drive Serial Numbers:** See `/SYSTEM_VERIFICATION.md` for complete inventory.
+
+---
