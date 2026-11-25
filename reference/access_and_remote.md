@@ -172,3 +172,54 @@ cheapest first — pick by how much capability you need:
   for why that matters to `.184`'s firewall and to any log-based auditing.
 
 ---
+
+---
+
+## COPIED VERBATIM FROM `MEMORY.md` @ `pre-memory-diet` (lines 188–197) — Nov 24, 2026 (memory-diet, copy-first) — CURRENT STATE: lab access sorted
+
+- **🔑 LAB ACCESS IS NOW FULLY SORTED (Aug 12, 2026) — read the two sections below before debugging
+  any connection problem:** `CREDENTIALS → SSH ACCESS MATRIX` and `REMOTE LAB MANAGEMENT`.
+  Headlines: **every VM logs in as `agamache`, never `andrew`** (a wrong username returns
+  `Permission denied (publickey,password)`, which looks exactly like a missing key and wasted real
+  time today); **the Proxmox host now accepts the workstation key** via `/root/.ssh/authorized_keys2`
+  (*not* `authorized_keys`, which is a PVE-managed symlink into `/etc/pve/priv/`); and **remote
+  access works two ways** — a laptop on the tailnet via the host's approved `192.168.1.0/24` subnet
+  route, or RDP into the Windows Z8 (`agamache-z8g4`) and drive the pve GUI from there, which keeps
+  all plaintext credentials on the LAN and survives `.150`'s `tailscaled` failing.
+
+---
+
+## COPIED VERBATIM FROM `MEMORY.md` @ `pre-memory-diet` (lines 1242–1274) — Nov 24, 2026 (memory-diet, copy-first) — CREDENTIALS + key-auth traps
+
+## CREDENTIALS
+
+**File:** `/proxmox/credentials`
+
+- Proxmox: root / [See PASSWORDS.md]
+- All VMs: agamache / [See PASSWORDS.md]
+- **SSH key auth:** ✅ ed25519 key deployed to ALL VMs (.180–.186) from dev workstation
+  (Feb 27, 2026; **.186 inherited it from the cloud-init template**, verified working Aug 12, 2026).
+  - ⚠️ **The login user on every VM is `agamache`, never `andrew`.** `ssh andrew@192.168.1.186`
+    fails with `Permission denied (publickey,password)`, which reads exactly like a missing key and
+    sends you off fixing a problem that does not exist. Verified working:
+    `ssh agamache@192.168.1.186` → `kubectl` and `rpk` are on `PATH` with `~/.kube/config` already
+    in place, and `sudo -n` needs no password.
+  - ✅ **Proxmox HOST key auth added Aug 12, 2026 — `ssh root@192.168.1.150` now works with the
+    workstation key**, so `qm` work no longer needs the password from PASSWORDS.md.
+    - **The key went in `/root/.ssh/authorized_keys2`, deliberately NOT `authorized_keys`.** The
+      latter is a **symlink to `/etc/pve/priv/authorized_keys`** — a PVE-managed file on the cluster
+      filesystem that holds only the cluster's own `root@pve` RSA key, and that PVE rewrites on
+      cluster operations. `sshd -T` on the host reports
+      `authorizedkeysfile .ssh/authorized_keys .ssh/authorized_keys2`, so the second file is read
+      natively: **no sshd config change and no service restart were needed.**
+    - Verified with password auth explicitly disabled
+      (`ssh -o PreferredAuthentications=publickey -o PasswordAuthentication=no root@192.168.1.150`),
+      which is the only way to prove the key is doing the work rather than a silent password
+      fallback. `sshd` was left untouched: `permitrootlogin yes`, `passwordauthentication yes`.
+    - ⚠️ Until Aug 12 this was the trap that made host work painful, and it is the *same* trap
+      documented in the cloud-init section: the workstation key lives in
+      `/root/cloudinit-keys-all.pub`, which **sshd never reads**. If host key auth ever stops
+      working, check `authorized_keys2` still exists before assuming anything else.
+- **GitLab Web: root / [See PASSWORDS.md]**
+- **SonarQube Web: admin / [See PASSWORDS.md]**
+- NAS (SMB): fiberoptix / [See PASSWORDS.md] @ 192.168.1.120
