@@ -372,3 +372,22 @@ never authors a commit, so real commit messages are untouched.
 file wiring). GitLab snapshots: `f65cf2a` (initial full mirror), `087fc5b` (+ smb_credentials).
 
 ---
+
+---
+
+## COPIED VERBATIM FROM `MEMORY.md` @ `pre-memory-diet` (lines 1438–1452) — Nov 24, 2026 (memory-diet, copy-first) — GITLAB
+
+## GITLAB
+
+- **URL:** http://192.168.1.181 (or gitlab.gothamtechnologies.com)
+- **Registry:** http://gitlab.gothamtechnologies.com:5050
+- **Sign-up:** Disabled
+- **Email:** Not configured yet (Gmail SMTP pending)
+
+**Registry Note:** Uses HTTP. Docker needs `insecure-registries` config:
+```json
+{"insecure-registries": ["gitlab.gothamtechnologies.com:5050"]}
+```
+`setup_docker.sh` now auto-configures this for new VMs.
+
+---
