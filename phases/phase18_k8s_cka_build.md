@@ -1974,3 +1974,106 @@ commands; "check" = read his terminal file; **CKA work pushes to BOTH remotes, G
 ## COPIED VERBATIM FROM `MEMORY.md` @ `pre-memory-diet` (lines 77–77) — Nov 24, 2026 (memory-diet, copy-first) — PHASE INDEX row: Kubernetes/CKA (9.3 KB)
 
 | 🔵 **Kubernetes / CKA — Phase 18. VMs 201–205, VIP `.206`, `education/k8s-cka-prep/`** | `phases/phase18_k8s_cka_build.md` **+ `education/k8s-cka-prep/lab-parity.md`** **+ `education/k8s-cka-prep/exercises.md`** | 🆕 **Nov 4, 2026 (later): etcd baseline TAKEN — idle `wal_fsync` p99 ≤ 128 ms (etcd's guidance: < 10 ms), 0 leader changes in 15 min; it explains the nightly elections. CHAPTERS 05–08 WRITTEN** (05 metrics+storage, 06 Gateway API/Helm/Traefik + `c03`, 07 anatomy reference — AI-collected, read-only, declared; 08 building it at work — every claim marked measured/recited); exercise chapters are now **09+**. ⚠️ Measured absences worth knowing: **no API audit log and no encryption at rest** on this cluster. 🔄 **RESET TOOLING (Nov 4): `education/k8s-cka-prep/scripts/lab_check.sh` (drift vs `c03-equipped-cluster.fingerprint`, lowest layer named) + `reset_cluster.sh` (`--check` / `--yes`).** ⛔ Reset with the script, not by hand — it refuses unless `c03` is the NEWEST snapshot on every VM (ZFS). ⛔ **Any new baseline snapshot → `lab_check.sh --record` straight after**, or every later check reports drift. ✅ `--yes` proven Nov 4: **250 s launch → `CLEAN`**. 🆕 **Nov 4, 2026: Ch 05 Parts 1–4 (metrics-server; local-path, now the default StorageClass; Gateway API standard CRDs v1.6.3; Helm v4.3.1 on control-1 only + Traefik v3.7.17 on NodePort 30080/30443) BUILT; 🎯 offline snapshot `c03-equipped-cluster` = THE "READY" RESET POINT (`c02` now reachable only by deleting `c03`); 🚨 the 02:30 `critical-nightly` backup was causing an etcd election most nights (term 6 → 54 since Sep 28) → ✅ 201–205 REMOVED from the job Nov 4; one protected offline vzdump set (= `c03` state) replaces the 35 nightly archives; EXERCISE BANK started — exam-shaped mock-exam tasks, and every Stage 3 part must add at least one (rule in `phase18` § EXERCISE BANK). ⛔ Original tasks only, never exam/Killer.sh content.** 🆕 **Sep 28, 2026: AUTO-UPDATES FROZEN on all five (masked AND stopped — the Sep 17 "do not mask" call is reversed); nodes on kernel `6.8.0-142`; `c02-virgin-cluster` RETAKEN after the mask. ⛔ Never add `.201`–`.205` to `refresh.sh` (parallel reboot → etcd quorum lost); they are patched by the drain drill, due within 60–90 days, and its step 0 is `sudo apt update` (lists no longer refresh themselves). 🚨 `c01-nodes-ready` still has updates ENABLED — re-run `2-personalize.sh --freeze-updates` after rolling back to it.** ✅ **THE CLUSTER EXISTS — Sep 17, 2026. Stage 1 is 5 of 6 steps done:** five nodes `Ready` at `.201`–`.205`, **3 stacked etcd members with a leader**, **kube-vip VIP `.206` up and held by exactly one node**, **Calico v3.32.2 via the Tigera operator on `10.244.0.0/16`**. 🚨 **Four corrections live in the plan's Stage 1 results block and each would mislead you: kube-vip did NOT crash-loop (the fix was applied before init, so the symptom never appeared); the Calico OPERATOR hard-codes `cidr: 192.168.0.0/16` and the docs' "auto-detects with kubeadm" note is on a DIFFERENT TAB; `node.spec.podCIDR` is INERT because Calico IPAM allocates the real addresses; and editing a static pod manifest RECREATES the pod so `RESTARTS 0` does not mean it was untouched.** ✅ **STAGE 2 ALSO COMPLETE: `c02-virgin-cluster` is an OFFLINE baseline on all five and its ROLLBACK IS PROVEN** — markers were planted in etcd and on disk first, because a restore and a plain reboot print the same thing. **Restore costs ~2 min; VIP failover measured at 17 s.** ✅ **STAGE 1 DOCUMENTED Sep 23 — chapters 02–04 written, so Stage 3 is OPEN.** ✅ **Chapter 05 plan APPROVED Sep 23 — simplest CKA-congruent shape** (metrics-server via Kustomize, local-path, Gateway API CRDs, Traefik via Helm, NodePort only); **Stage 3 rule: exam-tested, and the simplest way to practise it.** Production choices for the work rebuild are parked beside the plan. ⛔ **B9: never install ingress-nginx — retired upstream March 2026, no security fixes; expect it on inherited clusters as a migration item.** ⏸️ **The Swarm chapter-8 conversion is DEFERRED until the firm's real Swarm setup is known — keep the Swarm and its snapshots.** 🔻 **The HA test's `NotReady` prediction was unfalsified: the node-monitor grace period is 50 s in v1.35 (read from the binary), not the 40 s recited, and the check ran after both had passed.** ✅ **PLAN APPROVED Sep 16, 2026 and STAGE 0 IS COMPLETE** — five nodes live at `.201`–`.205`, identical and **role-less**, kernel **6.8.0-139**, snapshot **`c01-nodes-ready` — verified present at BOTH the PVE and ZFS layers Sep 17; 🔻 the record claimed it from Sep 16 and it did NOT exist, so check the zvol, not the note.** 🔻 **The kubelet is `activating (auto-restart)`, NOT `inactive`** — it dies on a missing `/var/lib/kubelet/config.yaml` until `init`/`join` writes it, and the old `inactive` reading was an artefact of never having rebooted. **Held: `containerd.io cri-tools kubeadm kubectl kubelet`; `crictl` 1.35.0 IS installed (`jq` still deliberately is not).** 🔲 **Stage 1 is next and its first step is NOT `kubeadm init`** — the kube-vip **manifest** goes in place first. ⛔ **There are NO planted traps and none may be added** — withdrawn deliberately at Andrew's instruction, recorded as a `METHOD.md` deviation in §8. 🚨 **`kubeadm init` MUST carry `--control-plane-endpoint` pointing at `.206`:** it fixes the apiserver certificate's SANs at init, so initialising without it means control-2 and control-3 **can never join** without regenerating certs — one of **three** values fixed at `init`. 🚨 **THE OTHER TWO WERE SPECIFIED NOWHERE UNTIL Sep 17, 2026: `--pod-network-cidr=10.244.0.0/16` and `--service-cidr=10.96.0.0/12`.** ⛔ **Calico's DEFAULT pool `192.168.0.0/16` CONTAINS this lab's `192.168.1.0/24`** — left alone it hands pods real LAN addresses and presents as an intermittent CNI or switch fault. ⛔ **Calico must be told the CIDR explicitly: `CALICO_IPV4POOL_CIDR` ships COMMENTED OUT and defaults to `192.168.0.0/16` regardless of what kubeadm was told, so the two can disagree while the cluster looks healthy.** ⭐ **Second appearance of one pattern (see Phase 16's Docker `10.0.0.0/8` finding): a default CIDR is a guess about someone else's network — and at a firm on `10.x` the one to check is Kubernetes' own `10.96.0.0/12`.** 🔻 **CORRECTED Sep 16, 2026 — this row twice said "kube-vip must be ANSWERING before `kubeadm init`". IT CANNOT BE.** kube-vip is a **static pod**, static pods are started by the **kubelet**, and the kubelet **cannot start at all** until `kubeadm init` writes `/var/lib/kubelet/config.yaml` (🔻 sharpened Sep 17 — measured after a reboot it is `activating (auto-restart)`, not `inactive`, and it dies before ever reading the manifests directory, which makes this conclusion stronger). ⭐ **Ordering is manifest-then-init; the VIP comes up DURING init.** ⛔ **Do not wait for `.206` to ping — it never will, and the build will look stuck when nothing is wrong.** ⚠️ Expect kube-vip to crash-loop briefly (its kubeconfig does not exist until init creates it), and note **v1.35 splits `admin.conf` from `super-admin.conf`**. ✅ **VERIFIED Sep 17, 2026 — the correction was RIGHT** (kube-vip's *Static Pods* page documents manifest-then-init). 🚨 **The kubeconfig note beside it was the wrong one: point kube-vip at `admin.conf` on the first control plane and `kubeadm init` TIMES OUT after ~4 min with an unusable cluster.** ⭐ **On control-1 ONLY, set the manifest's `hostPath` to `super-admin.conf` (leave `mountPath` at `admin.conf`) and revert after init; `super-admin.conf` exists only on the FIRST control plane, so cp-2/cp-3 use it as generated.** ⚠️ **Interface is `eth0`, not the docs' `ens160`.** ✅ **kube-vip `v1.2.3`, `--controlplane --arp --leaderElection` only.** 🔻 **Build v1.35, NOT the newest** — 🟢 the exam runs v1.35, about two minors behind upstream, and the upgrade to v1.36 is a deliberate drill. ⛔ **Do NOT patch `setup_docker.sh` to enable containerd's CRI plugin** (hard rule B3) — fix containerd **on the five nodes**; the other eleven lab hosts are Docker hosts that want it disabled, and ⭐ **one build standard cannot serve both a Docker host and a kubeadm node**. ⛔ **`jq` is deliberately NOT installed** — 🟢 the exam ships `yq`; also no `krew`/`k9s`/`kubectx`. ✅ **DHCP pool CONFIRMED `.221–.250`** (Denon landed on `.231` when set back to DHCP; `.230` agrees), so **`.201–.206` will never be offered to a DHCP client.** 🔻 The earlier "pool is unverified" warning was wrong: `.199` had been assigned **by hand** by mistake, not by the router. ⭐ **The real risk in this lab is a human typing a static address into lab range — which is why the reservation is recorded here.** ⚠️ Three household devices do sit at `.215`/`.217`/`.220` on pre-change leases, so **sweep before allocating anything in `.207–.220`.** ⛔ **`.186` (k3s) is FROZEN and out of scope** — never fold the two clusters together. ⚠️ **The moment this cluster exists, this file's statement that "the only Kubernetes in this lab is k3s on VM 186" STOPS BEING TRUE** — rewrite it then, not before, because it is still a correct guard today |
+
+---
+
+## DEMOTED VERBATIM FROM `phases/current_phase.md` — Nov 24, 2026 (memory diet: the old RESUME HERE block, 9.5 KB, replaced by a <= 6 KB one)
+
+Preserved before the swap so nothing of the Nov 4 state record is lost. The live RESUME HERE now carries state, next step and blockers only.
+
+## ▶️ RESUME HERE — 🔵 **PHASE 18, STAGE 3: CHAPTERS 05–08 WRITTEN, RESET TOOLING BUILT — `c03-equipped-cluster` IS THE "READY" RESET POINT.**
+
+🎯 **Cold-start summary (Nov 4, 2026):** the cluster carries metrics-server, local-path (default SC),
+Gateway API v1.6.3 standard CRDs and Traefik (Helm, NodePort 30080/30443). 🔄 **Every session starts with
+`bash education/k8s-cka-prep/scripts/lab_check.sh`** (workstation; 422 checks against `c03`, names the lowest
+drifted layer). L4 drift → the exercise's Reset or `--clean`; L1–L3 → `scripts/reset_cluster.sh --check`, then
+`--yes` (hard stop, roll all five back to `c03`, boot, fresh leases, `lab_check`). ✅ **Proven Nov 4: 250 s
+launch → `CLEAN`** (182 s from start); a real rollback (the post-snapshot boot is gone from `journalctl --list-boots`). ✅ **Nov 4: `wal_fsync` baseline taken (p99 ≤ 128 ms idle — `phase18` §11) and
+Chapters 05–08 WRITTEN** (05 metrics+storage, 06 Gateway/Helm/Traefik+`c03`, 07 anatomy reference, 08 building it
+at work); ch01–04 corrected quietly. 🔲 **NEXT: Stage 3 drills — exercise chapters from 09, from `c03`.**
+Commands are handed to Andrew as a separate `ssh` block first; on "check", read his terminal file
+(`phase18` §12). The detail for everything below is in `phase18` → Chapter 05 plan items 1–5.
+
+🆕 **Nov 22, 2026 (not Phase 18): the www script server now also serves `/files/` (`www-files`, guest, read-only) and
+starts at boot via `/etc/systemd/system/script-server.service` — `restart: "no"` in compose is DELIBERATE.** Not yet proven
+across a reboot; detail in the Nov 22–24 handoff below and `MEMORY.md` → *www Restart*.
+
+🔐 **Nov 4, 2026 — A REAL PASSWORD WAS FOUND ON PUBLIC GITHUB, AND IS NOW REDACTED + GATED.** The NAS/SMB
+password (= GitLab root, Phase 20 E7) sat in plain prose 7× in 4 tracked files, public since `46a01db`
+(Aug 13). Redacted to `<value>`; **Andrew chose NOT to rotate** (lab-only, LAN-only) and not to purge;
+`push_github.sh` **step 5** now blocks any known secret value. Detail: `MEMORY.md` → GIT → *Secret hygiene*.
+🔓 The Aug 18 Swarm GitHub hold is **LIFTED** (Andrew, Nov 4) — L19–L22 stay public by decision; the
+Capricorn endpoint specifics stay in gitignored `working/`.
+
+🆕 **Oct 27 (late): PHASE 20 BUILT — Rancher on single-node K3s, VM 187 `.187`** — a separate track; it
+does **not** touch the CKA cluster and does not change the Phase 18 next step below. Open items for Andrew
+(log in, E7, delete the expired root PAT, D6) are in `phases/phase20_k3s_rancher.md` → 🔲 Open items.
+
+✅ **A REAL 5-NODE HA KUBERNETES CLUSTER IS RUNNING as of Sep 17, 2026** — `vm-k8s-cka-control-1/2/3`
+at `.201`–`.203` and `vm-k8s-cka-worker-1/2` at `.204`/`.205`, all **v1.35.8 `Ready`**, three stacked
+etcd members with control-1 as leader, **kube-vip VIP `192.168.1.206` up and held by one node**, and
+**Calico v3.32.2** (Tigera operator) on pod network **`10.244.0.0/16`**.
+✅ **STAGE 1 COMPLETE (all six steps) AND STAGE 2 COMPLETE.** HA proven by an abrupt `qm stop` of the
+VIP holder: **17 s** to recover, VIP moved, etcd held quorum 2/3 and **did not re-elect** (killing a
+follower, not the leader). Cross-node pod-to-pod and CoreDNS both verified — ⭐ **`ttl=62` on the ping
+proves the traffic is ROUTED, not encapsulated.**
+✅ **`c02-virgin-cluster` is an OFFLINE baseline on all five, and its rollback is PROVEN — not assumed.**
+⭐ **The method is the transferable part: a restore and a plain power cycle print the SAME thing, so
+markers were planted first** (a ConfigMap in etcd *and* a file on every node). Both came back gone.
+📊 **Restore costs `qm rollback` 6 s, ~49 s to reachable, full cycle under ~2 min** — cheap enough that
+Stage 3 can break this cluster freely.
+✅ **STAGE 1 IS DOCUMENTED (Sep 23, 2026) — chapters 02, 03 and 04 all written, so the gate into Stage 3
+is OPEN.** ✅ **Chapter 05 plan APPROVED Sep 23** — the simplest CKA-congruent shape: metrics-server (Kustomize),
+local-path-provisioner, the Gateway API CRDs, and Traefik (Helm) for both Ingress and Gateway API, NodePort
+only, then an offline `c03-equipped-cluster`. ✅ **Nov 4: Part 1 BUILT — metrics-server v0.9.0 via
+Kustomize, x509 failure seen first, then fixed by a patch; `kubectl top` works** (`phase18` Chapter 05 plan,
+item 1). ✅ **Nov 4: Part 2 BUILT — local-path-provisioner v0.0.37, now the DEFAULT StorageClass;
+bind, survive-a-pod-delete and reclaim-`Delete` all proven** (item 2). ✅ **Nov 4: Part 3 BUILT — Gateway
+API standard CRDs v1.6.3** (10 CRDs + a `safe-upgrades` admission policy; v1.6.3 because stable Traefik
+v3.7.17 is built on it) (item 3). ✅ **Nov 4: Part 4 BUILT — Helm v4.3.1 on control-1 only, Traefik
+chart 42.3.0 (v3.7.17) on NodePort 30080/30443; one Ingress and the same route as Gateway + HTTPRoute both
+serving; upgrade + rollback drilled** (item 4). ✅ **Nov 4: Part 5 — `c03-equipped-cluster` TAKEN, offline,
+all five, 5/5/5 at PVE + ZFS, cold start proven. 🎯 `c03` IS THE "READY" RESET POINT** (Andrew: roll back to
+"ready" for work and exercises). 🚨 `c02` is now reachable only by deleting `c03`. 🚨 **Found: the 02:30
+`critical-nightly` backup triggers an etcd election most nights** (term 6 → 54 since Sep 28; Nov 4 at 02:34:26,
+during VM 201's backup) → ✅ **201–205 REMOVED from the job (Andrew, Nov 4)**; one protected stop-mode set
+taken with all five off (= `c03` state), the 35 old nightly archives deleted (`phase18` item 5). ✅ **The `wal_fsync` baseline is taken and Chapters 05–08 are written (Nov 4).** 🔲 **NEXT: the exercise
+chapters, 09 onward.** ⚠️ **Run every step on control-1** (`ssh agamache@192.168.1.201`) — the workstation has no kubeconfig.
+🎯 **NEW Nov 4 — THE EXERCISE BANK: `education/k8s-cka-prep/exercises.md`.** Exam-shaped tasks (X01–X15 +
+backlog) for a timed mock exam later. 🚨 **Every Stage 3 part adds at least one task before it is called
+done** — rule and shape in `phase18` → § *EXERCISE BANK*.
+⭐ **Stage 3 rule: does the exam test it, and is this the simplest way to practise it?** Production
+choices for the work rebuild are parked beside the plan in `phase18`. ⏸️ **The Swarm chapter-8 `recited` rows are
+DEFERRED, not dropped** (Andrew, Sep 23): they resume, together with Phase 17, once he knows the firm's
+actual Swarm setup — a migration test is only worth its resemblance to the real platform. ⛔ Keep the
+Swarm in place meanwhile. 🔄 *Its snapshots `s01`–`s07` were purged Sep 28 by Andrew's decision (Phase 19);
+the only Swarm snapshot now is `baseline-2026-09-28`.* 🆕 **Hard rule B9: never install ingress-nginx — retired
+upstream March 2026.**
+⚠️ **The cluster ran six days unattended and was healthy on return** — raft term still 5, so no etcd
+election at all in that time. 🔻 *(Sep 23 reading — before the nightly backup job existed. From Sep 28 to
+Nov 4 that job caused ~48 elections; 201–205 were taken out of it Nov 4.)*
+🆕 **Sep 28, 2026 — AUTOMATIC UPDATES FROZEN ON ALL FIVE NODES; the Sep 17 "do not mask" call is
+REVERSED.** They were the only VMs in the lab still patching themselves: `unattended-upgrades` had
+installed kernel **`6.8.0-142`** (Sep 25) and ~20 packages **after** `c02` was taken. ✅ Now masked
+**and** stopped on all five (`2-personalize.sh --freeze-updates`, fixed today), verified independently:
+0 scheduled apt timers, 0 failed units, cluster untouched. Full record: `phase18` Stage 3 drill block +
+`MEMORY.md` → PATCHING POLICY. ✅ **`c02-virgin-cluster` was RETAKEN Sep 28** (old one deleted; new one
+offline on all five, verified 1 → 0 → 1 at both the `qm` and ZFS layers): kernel 142, auto-updates
+frozen, PVE 9.2.20 / QEMU 11.0.3. 🚨 **`c01-nodes-ready` still PREDATES THE MASK** (kernel 139, updates
+enabled) — after a rollback to `c01`, re-run `sudo bash 2-personalize.sh --freeze-updates` on all five.
+🔲 **NEXT, in order (Andrew approved Sep 28):** (1) ✅ freeze nodes — done. (2) ✅ **PVE host
+upgraded to 9.2.20 and rebooted on the SAME pinned `7.0.14-4`** (Sep 28, 17:13 → 17:15:56). Cluster shut
+down workers-first, started control-planes-first: 5/5 `Ready` on kernel **142**, 39/39 pods Running, DNS
+verified, auto-updates still frozen. etcd leader is **control-2** (term 6; it was already control-2 at
+term 5 before the reboot — "control-1 as leader" above is the Sep 16 build state). ⚠️ After the cold
+start 15 pods sat in `Unknown` and one `calico-apiserver` flapped not-ready for ~2 min — both cleared
+on their own; **check again a few minutes later before calling a cold start broken.** Host detail:
+`MEMORY.md` → PATCHING POLICY (🚨 the upgrade silently dropped the proven fallback kernel off the ESPs).
+(3) ✅ five-node baseline `c02-virgin-cluster` retaken — cluster back 5/5 Ready, all pods Running. (4) 🔲 **kernel drill on the NEXT kernel, within 60–90
+days** — see `phase18`. (5) ✅ **host kernel trial DONE Oct 27, 2026 — on `7.0.14-26` (not `-19`; the
+target moved), PVE 9.2.24.** Record: `phase1b` → last section (that session's handoff block was demoted there too). ✅ Cluster 5/5 `Ready`, 39/39 pods after it.
+⚠️ **Read the Stage 1 results block in `phases/phase18_k8s_cka_build.md` before touching this** — it
+holds the corrections (kube-vip did NOT crash-loop; the Calico operator HARD-CODES
+`192.168.0.0/16`; `node.spec.podCIDR` is inert; `RESTARTS 0` does not mean a static pod was
+untouched).
+
