@@ -1540,3 +1540,162 @@ almost entirely *prose describing facts this file states in different words* —
 five commit SHAs and one sentence. ⭐ **The line-level check is the right way to find CANDIDATES and
 the wrong way to decide; someone has to read them.** Deleting on the strength of that 86 would have
 been wrong, and *keeping* 233 lines on the strength of it would have been equally wrong.
+
+---
+
+## COPIED VERBATIM FROM `MEMORY.md` @ `pre-memory-diet` (lines 2386–2540) — Nov 24, 2026 (memory-diet, copy-first) — WWW SERVER (LOCAL PRODUCTION)
+
+## WWW SERVER (LOCAL PRODUCTION)
+
+- **VM:** vm-www-1 @ 192.168.1.184
+- **RAM:** 8 GB | **CPU:** 8 cores | **Disk:** 50 GB (vm-critical)
+- **OS:** Ubuntu 24.04 Desktop
+- **URLs:** 
+  - https://cap.gothamtechnologies.com (Capricorn PROD)
+  - https://www.gothamtechnologies.com (Splash page)
+  - https://192.168.1.184 (Direct IP access from internal network)
+- **Reverse Proxy:** Traefik v3 (ports 80/443/8080)
+- **SSL:** Let's Encrypt (HTTP-01 challenge, auto-renewal)
+- **DDNS:** bullpup.ddns.net (Verizon G3100 router-managed)
+- **DNS:** AWS Route53 CNAMEs → bullpup.ddns.net
+
+### Docker Network Architecture
+
+**Key Learning:** Traefik must be on BOTH networks to route traffic correctly!
+
+```
+web (172.18.0.0/16) - Public-facing network
+├── traefik (172.18.0.5)
+├── splash (172.18.0.2)
+├── capricorn-frontend (172.18.0.4)
+└── capricorn-backend (172.18.0.3)
+
+capricorn_capricorn-network (172.19.0.0/16) - Internal application network
+├── traefik (172.19.0.6) ← MUST be here to reach backend services!
+├── capricorn-frontend (172.19.0.5)
+├── capricorn-backend (172.19.0.4)
+├── postgres (172.19.0.3) ← NOT on web network (security)
+└── redis (172.19.0.2) ← NOT on web network (security)
+```
+
+**Why two networks:**
+- `web` network: Public-facing services (Traefik, frontend, splash)
+- `capricorn_capricorn-network`: Application services + database isolation
+- Traefik bridges both networks to route traffic
+- Databases stay isolated from public network (security best practice)
+
+### Traefik Configuration
+
+**Location:** `/opt/traefik/`
+
+**docker-compose.yml:**
+```yaml
+services:
+  traefik:
+    image: traefik:latest
+    networks:
+      - web
+      - capricorn_capricorn-network  # ← CRITICAL: Must join both networks!
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080"  # API/dashboard for debugging
+```
+
+**traefik.yml:**
+- DEBUG logging enabled (helpful for troubleshooting)
+- HTTP-01 challenge for Let's Encrypt
+- Auto HTTP→HTTPS redirect
+- Docker provider with `exposedByDefault: false`
+
+### Capricorn PROD Deployment
+
+**Location:** `/opt/capricorn/`
+
+**Key Features:**
+- Images pulled from GitLab Container Registry
+- Traefik labels for routing (both hostname and IP)
+- Database initialization via mounted SQL scripts
+- Persistent volumes for postgres + redis
+
+**Routing:**
+- `cap.gothamtechnologies.com` → frontend + backend (/api)
+- `192.168.1.184` → frontend + backend (/api) - for internal access
+
+### Security - Proxmox Firewall
+
+**vm-www-1 Firewall Rules:**
+- ✅ IN: SSH (22) from 192.168.1.0/24 ONLY
+- ✅ IN: HTTP (80) from anywhere
+- ✅ IN: HTTPS (443) from anywhere
+- ✅ OUT: Allow all (for apt, docker pulls, Let's Encrypt)
+- ❌ NO SSH from internet (blocked by source IP filter)
+
+**Router Port Forwarding (Verizon G3100):**
+- 80 → 192.168.1.184:80
+- 443 → 192.168.1.184:443
+- NO port 22 forwarding (SSH internal only)
+
+### Troubleshooting Notes (Jan 22, 2026)
+
+**Problem 1:** HTTPS timeout, but HTTP worked (redirected to HTTPS)
+
+**Root Cause:** Traefik and Capricorn containers on different networks
+- Traefik on `web` network (172.18.0.x)
+- Capricorn on `capricorn_capricorn-network` (172.19.0.x)
+- Traefik logs showed wrong IPs (172.19.0.5 instead of actual container IPs)
+
+**Solution:**
+1. Connected Traefik to capricorn network: `docker network connect capricorn_capricorn-network traefik`
+2. Updated `/opt/traefik/docker-compose.yml` to include both networks permanently
+3. Containers restarted successfully, traffic flowing
+
+**Lesson:** Multi-service applications with their own networks require reverse proxy to join ALL networks!
+
+---
+
+**Problem 2:** Localhost access not working on vm-www-1 itself (10:00 PM)
+
+**Root Cause:** 
+- Traefik routing rules only configured for `cap.gothamtechnologies.com` and `192.168.1.184`
+- No routing rule for `localhost` hostname
+- `/etc/hosts` didn't have domain name entries for local resolution
+
+**Solution:**
+1. Added `/etc/hosts` entries for local domain resolution:
+   ```
+   127.0.0.1 cap.gothamtechnologies.com
+   127.0.0.1 www.gothamtechnologies.com
+   ```
+2. Updated `/opt/capricorn/docker-compose.yml` with localhost routing:
+   - Frontend: Added `traefik.http.routers.capricorn-localhost.rule=Host(\`localhost\`)`
+   - Backend: Added `traefik.http.routers.capricorn-api-localhost.rule=Host(\`localhost\`) && PathPrefix(\`/api\`)`
+3. Restarted containers: `cd /opt/capricorn && sudo docker compose up -d`
+
+**Result:** Now accessible three ways from vm-www-1:
+- ✅ https://localhost (self-signed cert, works)
+- ✅ https://192.168.1.184 (self-signed cert, works)
+- ✅ https://cap.gothamtechnologies.com (Let's Encrypt cert, trusted)
+
+**Lesson:** Always configure localhost routing for services running on the same machine as the reverse proxy!
+
+### GitLab CI/CD Integration
+
+**Pipeline Stages:** build → push → scan → deploy_qa → deploy_prod
+
+**New Deployment Jobs (production branch):**
+- `deploy_prod_local` (manual) → vm-www-1 @ 192.168.1.184
+- `deploy_prod_gcp` (manual) → Google Cloud Platform (for interviews)
+
+**Deployment Method:**
+- SSH to vm-www-1
+- Pull latest images from GitLab registry
+- `docker compose up -d` in `/opt/capricorn/`
+
+### Cost Savings
+
+- **Before:** GCP hosting ~$30-45/month (~$400/year)
+- **After:** Local hosting ~$2-3/month electricity
+- **Savings:** ~$400/year 💰
+
+---
