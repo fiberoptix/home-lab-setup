@@ -1790,3 +1790,93 @@ already-public files; nothing carrying the employer name ever reached GitHub.
 🚨 **Never put an employer name, a start date or "my boss" into a tracked file. The push gates protect
 against secrets, not against private.**
 
+---
+
+## COPIED VERBATIM FROM `MEMORY.md` @ `pre-memory-diet` (lines 120–187) — Nov 24, 2026 (memory-diet, copy-first) — CURRENT STATE item: job/roadmap
+
+- **🎉 ANDREW GOT THE JOB (confirmed Aug 12, 2026).** The interviews happened **Aug 6 and Aug 7** and
+  the outcome was an offer — **SRE / DevOps on an ORDER MANAGEMENT SYSTEM at a financial institution.**
+  🔒 **The role's actual LEVEL, the employer, and the start date are in `MEMORY_SECRET.md`** (boot
+  read, gitignored). ⛔ **Do not restate them here** — this file is public, and the level plus the
+  sector together would narrow identification. ⚠️ **The level materially changes what work is
+  valuable**, so read that file before prioritising anything career-related.
+  Phase 14 existed to prepare for those interviews, so **its goal is met and it is CLOSED.** Do not
+  extend it. The education material is no longer interview prep; it is **onboarding prep for the job
+  he now holds**, which changes the priority from breadth-before-a-panel to depth-on-the-real-stack.
+  ✅ **The target stack is now CAPTURED IN FULL (Aug 13, 2026)** in **`education/fin_tech_stack.txt`**,
+  which Andrew wrote himself and which is **the tracked source of truth for the study backlog**.
+  🚨 **KEEP IT DE-IDENTIFIED — this is a standing rule, and it was learned the hard way on Aug 13.**
+  The first draft named the employer, the start date and who suggested the list, and the first fix was
+  to **gitignore** it. That fix was wrong twice over: the facts had already been copied into
+  `MEMORY.md` and `current_phase.md`, which are **tracked and public**, and an ignored file makes a
+  fresh clone miss the roadmap MEMORY points at. **Andrew's fix, applied the same day, was to
+  de-identify the content instead** — generic title ("Current and future tech stack for modern FinTech
+  DevOps/SRE"), generic framing ("Course selection and objectives for Q3-4 2026"), a neutral filename,
+  and then **tracked normally**. 🚨 **Never reintroduce an employer name, a start date, or
+  "my boss" into ANY tracked file** — `push_github.sh`'s gates look for *credentials* and would not
+  stop it. **The push gates protect against secrets, not against private.**
+  The list, so a cold reload needs no second file:
+  - **Focus:** DevOps as it applies to an **OMS / platform including portfolio and risk management
+    tools**.
+  - **Study list, in its stated priority order (Q3–4 2026):** Kubernetes · Redpanda + Redpanda
+    Connect · **Docker Swarm** · **Jenkins** · OpenSearch + OpenSearch Dashboards (logging and
+    alerting) · Prometheus + Grafana (metrics and alerting) · Redpanda Connect + **Debezium CDC** ·
+    **MongoDB + Postgres** · **SAML/OIDC** (Andrew already runs **authentik** as a self-hosted OIDC
+    provider in his homelab and finds it easy to work with) · **Ansible**.
+  - Also confirmed earlier: **GitHub** for source and **Jenkins** for CI. The lab stays on GitLab for
+    now; Jenkins gets built when its phase comes.
+  ⭐ **ROADMAP RULE (Andrew, Aug 13): new phases work through `education/fin_tech_stack.txt`
+  STEP-BY-STEP, in that list's order.** Do not invent a curriculum or re-derive priorities — the list
+  is the backlog. Track 1 (Kubernetes + Redpanda) and track 2 (Docker Swarm, Phase 16) are already on
+  it; **Jenkins is next after Swarm.**
+  🚨 **CROSS-PHASE PRINCIPLE (Sep 16, 2026) — CONFIDENT FORMATTING READS AS VERIFIED, SO EMPHASIS MUST
+  NOT OUTRANK PROVENANCE.** A false sequencing rule survived a full plan review in Phase 18 because it
+  was written as `🚨 Hard sequencing rule, and it is NOT optional` — the emphasis did the work that
+  evidence should have done, and nobody re-derived it. ⭐ **The defence is the one this project already
+  uses for chapter rows: mark the claim's ORIGIN (verified here / upstream docs / recited), and mark it
+  even when — especially when — the claim is being shouted.** ⛔ An unmarked `🚨` is an assertion wearing
+  the costume of a finding. ⚠️ It is the documentation twin of the "false green": both are a signal that
+  looks like confirmation and is not.
+  🚨 **CROSS-PHASE PRINCIPLE (Sep 23, 2026) — A MEASUREMENT TOO COARSE TO SEPARATE A PREDICTION FROM ITS
+  ALTERNATIVE CANNOT CONFIRM IT.** Phase 18's HA test predicted a node would read `NotReady` after ~40 s
+  and scored it as passed; the real default is 50 s, and the node was only checked after a minute, when
+  both had elapsed. ⭐ **Before scoring a prediction, ask what result would have FAILED it — and whether
+  the measurement could have produced that result.** If it could not, the prediction is untested, however
+  green it looks. ⚠️ **Same family as the false green and the unmarked `🚨`: a signal shaped like
+  confirmation that confirms nothing.**
+
+  🔻 **DOCUMENTED OVERRIDE — Andrew, Sep 16, 2026: Phase 18 is KUBERNETES (CKA), NOT the next list
+  item.** The list says **OpenSearch** comes after Jenkins. Andrew set that aside explicitly, on the
+  record, for two stated reasons: the **CKA is a dated external commitment** tied to onboarding at the
+  new job, and **Kubernetes is #1 on that very list** but was only ever built as *single-node k3s*
+  (Phase 14), so the item was never actually completed. ⛔ **Do NOT "correct" this back to OpenSearch** —
+  it is a decision, not drift. ⭐ **The override lives here, next to the rule, deliberately:** an
+  exception filed anywhere else loses to the rule, because the rule is what a cold session reads first.
+  **OpenSearch remains next after Phase 18**; nothing else about the ordering changed.
+  ✅ **Chapter 7 of track 1 was RIGHT and must be LEFT ALONE (Andrew, Aug 13).** Its six areas
+  (Cloudflare edge, IAM + Symantec PAM, Vault, PKI/cert-manager, MongoDB, OTEL→Prometheus/Grafana/
+  OpenSearch) came from the job description and **are genuinely in the target stack** — they are
+  simply **not in what was suggested as the first focus.** So the four that do not appear on the
+  study list (Cloudflare, Symantec PAM, Vault, PKI/cert-manager) are **real and correctly
+  documented, just lower priority**. ⚠️ **Do NOT rework, retract or "reconcile away" chapter 7**, and
+  do not treat `phases/phase15_education_program.md` §4 as wrong — it was a straw man, but it aimed at
+  the right target. Sequencing now comes from the study list, not from §4.
+
+---
+
+## COPIED VERBATIM FROM `MEMORY.md` @ `pre-memory-diet` (lines 799–813) — Nov 24, 2026 (memory-diet, copy-first) — CURRENT STATE item: Phase 14 closed
+
+- **✅ CLOSED — Phase 14: Kubernetes + Redpanda POC (was interview prep).** 📦 **The 332-line block that
+  was here was DEMOTED VERBATIM to `phases/phase14_k8s_redpanda_poc.md` on Aug 20, 2026** (see its
+  "DEMOTED VERBATIM" section at the end) — a closed interview-prep phase was holding **14 % of this
+  always-loaded file**, and **k3s/Kubernetes is explicitly OUT OF SCOPE for Phase 17.**
+  ⛔ **What it costs you to skip it — this is not "background reading":** the phase left **VM 186
+  `.186` (`vm-k8-redpanda-1`) RUNNING** with a live single-node k3s and a 3-broker Redpanda cluster,
+  and **VM 200 no longer exists** (it became `.180` `vm-docker-qa-1`). ⚠️ **`.186` is deliberately
+  frozen: `unattended-upgrades` is masked and it is NOT in `refresh.sh`, so DO NOT "bring it up to
+  date"** — the whole point is an unchanging cluster to learn on. 🚨 **And do not reach for
+  `k3s-uninstall.sh` to "get a clean cluster"**: several planted-state facts and ~40 hard-won details
+  (the local-path PV layout, `ALLOWVOLUMEEXPANSION=false`, the `Error:137` OOM signature, the consumer
+  rebalance timings) live **only** in that demoted block, and re-deriving them is days of work.
+  📖 It is also the source track for `education/k3s/` — **the `ch01_fig1_stack.dot` VMID/label error
+  fixed on Aug 20 came from here**, so a future diagram edit needs it.
