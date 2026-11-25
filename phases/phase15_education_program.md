@@ -940,3 +940,15 @@ should be re-asked once he is inside.
   - **Startup checklist item 2f** — `education/CONVENTIONS.md` is a mandatory read when the session
     touches education content.
   - **New `=== EDUCATION PROGRAM (/education) ===` section**, 7 rules (now 8 + `1b` after Aug 13).
+
+---
+
+## COPIED VERBATIM FROM `MEMORY.md` @ `pre-memory-diet` (lines 80–80) — Nov 24, 2026 (memory-diet, copy-first) — PHASE INDEX row: any education track
+
+| 🔵 **Any education track / chapter / diagram / docx** | `education/CONVENTIONS.md` + `education/METHOD.md` + that track's `README.md` | Figures must clear a **10pt** floor (`figcheck.py`) and raw aspect ratio sets rendered font size — ⛔ **except track 1's four accepted pre-existing figures (9.4–10.0 pt: `ch02_fig1`, `ch03_fig1`, `ch05_fig1`, `ch05_fig2`), so `figcheck.py k8s-k3s-redpanda` exits 1 BY DESIGN; Andrew printed them and they read fine. Do NOT "fix" that exit — investigate only if the list grows** (`phase15` §5c); the highlight pass targets **~20%** (raised from 15% Aug 19, 2026) measured **per section, not per chapter**, and a **top-up pass with a list of only-unmarked phrases is the normal workflow** — the old "never re-run `highlight.py`" rule applies solely to re-running the SAME list; chapter H1 format is fixed. Inventing a format per track is explicitly forbidden. 🚨 **Two traps you will otherwise walk into, both now IN `CONVENTIONS.md` (moved out of this file Aug 19, 2026): (a) a rebuild rewrites EVERY `.docx` via zip timestamps, so commit the one you changed and `git checkout` the rest or the track's history becomes unreviewable; (b) the highlight pass SKIPS tables and code blocks, so a load-bearing fact in a table cell is invisible to a highlights-only reader — restate it in prose.** ⚠️ **This row replaced ~200 lines that summarised `CONVENTIONS.md`/`METHOD.md` here.** Do not re-summarise them — read them; `CURSOR_RULES` already makes both mandatory before touching study material |
+
+---
+
+## COPIED VERBATIM FROM `MEMORY.md` @ `pre-memory-diet` (lines 82–82) — Nov 24, 2026 (memory-diet, copy-first) — PHASE INDEX row: /education tree
+
+| **The `/education` tree itself** (moving, renaming, restructuring) **or any highlight pass** | `phases/phase15_education_program.md` (480 ln) | ⚠️ That file is a **RECORD, not a plan** — §3 is already executed and §1 describes the *pre-move* tree. **Re-running it would undo the current layout.** ⛔ **§8 is the highlight-pass method** and is not optional reading before marking a chapter: it holds the per-section measurement rule and the `**`-straddle bug that prints literal asterisks in the `.docx`. Marking from instinct reproduces both |
