@@ -4783,3 +4783,9 @@ is not sticky, now observed four times). `/home/agamache/swarm-ci/{scripts,manif
       gate) **but would NOT catch a bare `POSTGRES_PASSWORD=` line** — the protection is partial and
       accidental, so do not lean on it. Phase 16 hard rule B7 forbids the copy outright and uses
       `docker secret` with invented lab-only credentials instead.
+
+---
+
+## COPIED VERBATIM FROM `MEMORY.md` @ `pre-memory-diet` (lines 76–76) — Nov 24, 2026 (memory-diet, copy-first) — PHASE INDEX row: Swarm
+
+| 🟢 **Docker Swarm** (VMs .191–.193), the swarm CI pipeline, `education/docker-swarm/` | `phases/phase16_docker_swarm.md` (**4137 ln — grep it, never read it whole**) | **Hard rule B1: NEVER retag/push production Capricorn images.** All 7 parts done and all 7 planted traps CLOSED (C7 last, Aug 19) — do NOT "re-fix" them; the drills are spent and their write-ups are the value. **8 chapters**, the last being the Swarm↔k8s crib sheet, whose per-row **provenance marks (S / K / 🤖 / recited)** are the device to reuse for any future cross-track writing. Also holds the P-numbered prediction log **P1–P61**, ledger **L1–L23** (lab-vs-PROD compromises), and the `s01→s07` snapshot chain (⭐ **s07 is the first with the C4 fix; s06 predates it**) |
