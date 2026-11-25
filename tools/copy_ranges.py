@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Copy-first step of the MEMORY diet (Nov 24, 2026): copy line ranges of MEMORY.md, as tagged at
-`pre-memory-diet`, VERBATIM into destination files. NEVER deletes anything from MEMORY.md - the cut is a
+"""Copy-first step of the MEMORY diet (Nov 24, 2026): copy line ranges of MEMORY.md, as of git ref $SRC_REF
+(default tag `pre-memory-diet`), VERBATIM into destination files. NEVER deletes anything from MEMORY.md - the cut is a
 separate, later, tested swap. Idempotent: a range already present in a destination is skipped.
 
 Usage (repo root):  python3 tools/copy_ranges.py <dest> <start>-<end>[:label] [<start>-<end>[:label] ...]
@@ -10,7 +10,8 @@ Exit 1 if any copied range does not read back identically from the destination.
 import subprocess
 import sys
 
-SRC_REF = "pre-memory-diet"
+import os
+SRC_REF = os.environ.get("SRC_REF", "pre-memory-diet")   # e.g. SRC_REF=HEAD for later passes
 SRC = subprocess.run(["git", "show", f"{SRC_REF}:MEMORY.md"], capture_output=True, text=True, check=True).stdout.splitlines(keepends=True)
 dest = sys.argv[1]
 specs = sys.argv[2:]
