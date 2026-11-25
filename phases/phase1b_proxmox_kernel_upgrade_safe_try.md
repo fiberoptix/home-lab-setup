@@ -356,3 +356,81 @@ cluster 5/5 `Ready`. Chapter 05 Part 1 is STILL the next build step — this ses
 - GitLab restore drill **not** triggered — point release, per the event-driven rule.
 - ⚠️ This file now holds **three** session blocks (spec: 2) — the Sep 28 block is owed a `MAKE_MEMORIES` demotion.
 
+---
+
+## COPIED VERBATIM FROM `MEMORY.md` @ `pre-memory-diet` (lines 1026–1026) — Nov 24, 2026 (memory-diet, copy-first) — CURRENT STATE: Jun 18 kernel un-stuck
+
+- **Jun 18, 2026: kernel fully un-stuck.** Went 6.17.2-1 → 6.17.13-13 → **7.0.6-2-pve** (all NVMe-clean), full host upgrade to PVE 9.2.3, all package holds removed. 7.0.6-2 tested via --next-boot, then made permanent and confirmed it boots autonomously (2 reboots clean). 6.17.13-13 kept as fallback. See current_phase.md + phase1b.
+
+---
+
+## COPIED VERBATIM FROM `MEMORY.md` @ `pre-memory-diet` (lines 2212–2280) — Nov 24, 2026 (memory-diet, copy-first) — PROXMOX KERNEL MANAGEMENT
+
+## PROXMOX KERNEL MANAGEMENT
+
+**Current Status:** Oct 27, 2026 — on `7.0.14-26-pve`, PVE 9.2.24, no holds. 🔻 *(This line said
+"June 18, 2026 — on 6.17.13-13-pve, PVE 9.2.3" through two later kernel adoptions.)*
+
+### Active Kernel
+- 🆕 **Running + permanently pinned since Oct 27, 2026: `7.0.14-26-pve`** ✅ (PVE 9.2.24; `--next-boot`
+  trial + two clean reboots, 0 NVMe timeouts). Fallbacks on both ESPs: **manual `7.0.14-4` + `7.0.6-2`**.
+  Detail: `MEMORY.md` → PATCHING POLICY and `phase1b` → last section. 🔻 *The bullets below are the
+  Jul 9 state, kept as history.*
+- **Running + permanently pinned:** **7.0.14-4-pve** ✅ (tested Jul 9, 2026 via --next-boot
+  during the SNC BIOS change window, then pinned permanent — 0 NVMe timeouts, all 6 NVMe
+  behind VMD, ZFS healthy). Prior good: 7.0.6-2-pve (Jun 18 → Jul 9).
+- **Fallbacks on ESPs (verified Jul 9, 2026):** 6.17.13-x and 7.0.x lines only — 6.17.2-1 is
+  NO LONGER boot-selectable. To revert, `proxmox-boot-tool kernel pin 6.17.13-13-pve` +
+  `proxmox-boot-tool refresh` (console access advised).
+- **History on this box:** 6.17.4-2 hung (Jan); ran 6.17.2-1 pinned; Jun 18 → 6.17.13-13
+  → 7.0.6-2; Jul 9 → 7.0.14-4 (current). All 6.17.9+ / 7.0 kernels are NVMe-clean here.
+- **Holds:** NONE ✅ — `proxmox-default-kernel` + `proxmox-kernel-6.17.2-1-pve-signed`
+  unheld Jun 18. `apt install` is normal again (dpkg-download workaround no longer needed).
+- **Root cause of the recurring solver error** (`proxmox-default-kernel : Depends:
+  proxmox-kernel-6.17`, which had blocked tmux + the first full-upgrade attempt): the
+  `proxmox-kernel-6.17` **metapackage was not installed**. Installing it (`apt-get
+  install proxmox-kernel-6.17`, deps already satisfied) fixed it permanently.
+- **History:** 6.17.4-2 hung the box (Jan 12); ran pinned on 6.17.2-1 until Jun 18.
+  See `phases/phase1a_*` (failure) and `phases/phase1b_*` (this upgrade + results).
+
+### Status
+- systemd 257.13 / libc / QEMU 11 now fully active (host rebooted Jun 18). VMs were
+  stopped+started during the kernel test, so they now run on the new QEMU 11 binary too.
+
+### ⚠️ KNOWN ISSUE: Kernel 6.17.4-2-pve
+**Problem:** NVMe timeout errors on all disks during boot (HP Z6 G4 + Intel VMD; 6.17 NVMe regression).
+**Full incident + rollback write-up:** `phases/phase1a_proxmox_upgrade_fail_rollback.md`
+**Safe retry plan (to 6.17.13-13):** `phases/phase1b_proxmox_kernel_upgrade_safe_try.md`
+
+Short version: Jan 12, 2026 the `update` script bumped `6.17.2-1 → 6.17.4-2`; reboot
+hung with NVMe timeouts on all drives. Recovered via GRUB → old kernel, then pinned
+`6.17.2-1-pve` and held `proxmox-kernel-6.17.2-1-pve-signed` + `proxmox-default-kernel`,
+purged the bad kernel.
+
+**Current Protection (as of Jun 18, 2026):**
+```bash
+# Pinned kernel (always boots this one):
+proxmox-boot-tool kernel list
+# Shows: Pinned kernel: 7.0.14-26-pve   (Oct 27, 2026)
+#   Manually selected: 7.0.14-4-pve, 7.0.6-2-pve  - the proven fallbacks, kept on the ESPs by hand
+
+# Holds: NONE — removed Jun 18, 2026. apt install works normally again.
+apt-mark showhold   # (empty)
+```
+
+**Update Script:**
+- `/usr/local/bin/proxmox-update.sh` created with alias `update`
+- Automatically disables subscription nag after each update
+- Checks for reboot required
+- The **pin** (not holds) is now what controls which kernel boots. A routine
+  `apt upgrade` may install newer kernels, but they will NOT boot until explicitly
+  `proxmox-boot-tool kernel pin`-ed and tested with console access.
+
+**KERNEL POLICY (post Jun 18, 2026):** Holds are removed; rely on the **boot pin**
+instead. The pin is on `7.0.14-26-pve` (since Oct 27, 2026; was `7.0.14-4-pve`). Before adopting any future newer kernel, use the
+reversible `--next-boot` procedure in
+`phases/phase1b_proxmox_kernel_upgrade_safe_try.md` **with physical/console access**,
+verify NVMe + ZFS, then make the pin permanent (this is exactly how 6.17.13-13, 7.0.6-2
+and 7.0.14-4 were validated).
+
+---
