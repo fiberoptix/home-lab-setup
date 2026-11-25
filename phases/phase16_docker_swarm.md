@@ -4401,3 +4401,385 @@ is not sticky, now observed four times). `/home/agamache/swarm-ci/{scripts,manif
 **and `.192`** (both have been deploy targets). Old temp files `/tmp/capricorn.c6*.yml`,
 `/tmp/c6b_probe.log` on swarm-1 are harmless, but `STACK_FILE` must be unset for a normal deploy.
 
+---
+
+## COPIED VERBATIM FROM `MEMORY.md` @ `pre-memory-diet` (lines 420–798) — Nov 24, 2026 (memory-diet, copy-first) — CURRENT STATE item: Phase 16 Docker Swarm (37 KB)
+
+- **🟢 COMPLETE — Phase 16: Docker Swarm** (`phases/phase16_docker_swarm.md`) — all 7 parts, all 7
+  traps, 8 chapters, closed Aug 19, 2026 with the Swarm↔Kubernetes crib sheet (chapter 8). Only two
+  **NOTHING PLANNED IS OUTSTANDING** — the highlight pass was done Aug 19, and **drill D was run Aug 18**
+  (P30/P31 ✅; it produced the `pg_hba.conf` `trust` finding). 🚨 **Both this line and `current_phase.md`
+  claimed drill D was "never run" for a full day, and the Aug 19 `MAKE_MEMORIES` pass repeated it as the
+  phase's only open item** — because it edited the summary without diffing it against the phase file,
+  where the scored results sat 1,900 lines down. The planning entry's `🔲` box had never been ticked.
+  ⭐ **A summary is a claim about another file. Re-read what you are summarising, or you will launder a
+  stale checkbox into a status.** ✅ **The last open measurement (the `redis` divergent-volume question)
+  was made Aug 19 and REFUTED the hypothesis** — the two volumes are trap C3's deliberate residue, not an
+  unnoticed incident. 🚨 **Its lesson is a general one and cost a fictional incident: `docker service ps`'s
+  `CURRENT STATE` age ("Running 8 hours ago") is the last time the MANAGER STAMPED the task's status, not
+  the task's age.** The stamp moves on control-plane churn, so a day-old task reads as freshly
+  rescheduled; the task in question was 20 hours old, not 2. Use `docker inspect <container>` →
+  `.State.StartedAt` + `.RestartCount` for uptime, task history for provenance, and rule out clock skew by
+  measuring it. ⭐ **When Swarm prunes old task rows, the only surviving evidence of a move is on the
+  filesystem** (volume `CreatedAt`, Redis' AOF generation number). The narrative below is the Part 4
+  detail, kept because the CI wiring is the part most likely to be needed again.
+  🎯 **PART 4 COMPLETE — CI DEPLOYS THE STACK, TRAP C4 FIRED AND FIXED, CHAPTER 3 WRITTEN (Aug 19, 2026,
+  ~10:00 AM – 2:26 PM). 🙋 Andrew drove it, one step at a time.** GitLab CI now deploys the swarm stack. **A2 RESOLVED: yes, this repo has a `.gitlab-ci.yml`**,
+  with **two independent gates** — `workflow: rules:` restricts pipeline *creation* to
+  `$CI_PIPELINE_SOURCE == "web" && $CI_COMMIT_BRANCH == "main"` (because `push_gitlab.sh` pushes
+  constantly), and the job stays `when: manual` so its safety does not depend on that guard surviving a
+  future edit. ⚠️ **The guard had to be in the FIRST version written to DISK, not the first commit** —
+  `push_gitlab.sh` stages the working tree with `git add -f -A`, so an untracked file is already live on
+  `gitlab/main`. **P38 confirmed first try: the wrapper added ZERO deploy logic** — `deploy_swarm.sh` ran
+  byte-identical, no `STACK_FILE` override, three gates green. Verified from the *cluster*, not from CI's
+  report: `/home/agamache/swarm-ci/{scripts,manifests}` shipped by CI, all four services
+  `UpdatedAt 15:34:18 UTC`, stack `2/2 3/3 1/1 1/1`. **The wrapper reproduces the DIRECTORY SHAPE the
+  script expects** (`scripts/` + `manifests/` siblings) because `deploy_swarm.sh` resolves the manifest
+  relative to itself — copying both files flat and passing `STACK_FILE=` would fire the NON-DEFAULT STACK
+  FILE banner on every routine deploy and turn a working alarm into wallpaper.
+  **Credentials:** dedicated `working/phase16/swarm_deploy_ed25519` (ed25519, no passphrase,
+  `SHA256:Z4ZrDsR10B6GHUlowCgb0Bb/xjuD7mPOaWVCpdlYXZ8`) authorized for `agamache` on **all three**
+  managers; CI variables `REG_TOKEN` (masked ✅) and `SWARM_SSH_KEY` (**unmaskable — GitLab can only mask
+  single-line values, and a PEM key never is**), both unprotected. ⭐ **Deliberately a NEW keypair, not
+  Capricorn's `SSH_PRIVATE_KEY`**, which serves `.180` AND `.184`: sharing it would have given the study
+  cluster's pipeline SSH into production and made the lab key unrevokable.
+  🚨 **Two ledger rows worth reloading cold. L19:** the shared runner is `privileged = true` **with
+  `/var/run/docker.sock` mounted into every job** — a root shell on `.182`, the host that deploys real
+  production, available to **every project on the GitLab instance**, and **a job cannot decline it**
+  (it is runner config, not job config). **L20:** `gitlab/main` is the full plaintext mirror, and CI
+  clones the branch it builds, so **the job's working directory contains `PASSWORDS.md` and every other
+  secret** — which makes the masked token a lock on a door in a building with no walls.
+  ⭐ **P4-F3, the best finding: `docker login` writes NOTHING when the credential is unchanged.** Measured
+  to the nanosecond (`config.json` unmoved at Aug 13 18:27:16.128571619, 134 bytes, across a
+  `Login Succeeded`). Consequences: (a) that mtime answers *"when did the credential last CHANGE"*, not
+  *"when did this node last authenticate"* — a forensic timeline built on it is wrong; (b) 🚨 **the
+  plaintext-storage WARNING behind row L9 is write-time-only**, so it fires once per credential change and
+  an audit of repeated CI deploys sees clean logs; (c) an idempotent action leaves no trace, so **"nothing
+  changed on disk" is not evidence that "nothing happened"** — the AI reasoned from the stale mtime to a
+  confident *wrong* conclusion (a phantom false-green), which is a **FALSE RED** and the mirror image of
+  chapter 6's taxonomy. **P4-F1:** the project's CIFS share (`file_mode=0775,nounix`) **cannot hold an SSH
+  private key** — `chmod 600` is a silent no-op — but it does not matter, because the `ssh-agent` +
+  `ssh-add -` pattern never writes the key to a file. **P4-F2:** `IdentitiesOnly=yes` restricts *keys*, not
+  *auth methods*; the test fell through to a password prompt and one keystroke would have produced a
+  convincing false pass. Use `-o PreferredAuthentications=publickey`.
+  ✅ **PART 4 IS COMPLETE (Aug 19, 2:26 PM): trap C4 fired, fixed, and chapter 3 written — the track is
+  6 of 6.** C4: with `SWARM_HOST` hardcoded to `.191` and that VM powered off, the job died on its first
+  command (`Host is unreachable`, **exit 255** — ssh reserves 255 for *its own* failures, so it means "I
+  never ran your command") while quorum held, `.193` took the lead, and the UI kept serving.
+  🚨 **The accident worth remembering: `SWARM_HOST=.191` and the `postgres` pin to `.191` put the DELIVERY
+  PATH and the SYSTEM OF RECORD on one host.** Nobody designed that overlap; neither decision was wrong,
+  their intersection was. Epilogue: the pin that caused the outage **saved the data** (a pinned service
+  cannot reschedule onto an empty local volume — 682 rows intact on recovery).
+  🚨 **P4-F4, the phantom task — the strongest false green in the phase.** `docker service ls` reported
+  `capricorn_postgres 1/1` **while its node was powered off**. `docker service ps` showed 5 tasks: one
+  replacement stuck `Pending` forever (`no suitable node`, the pin admits only `docker-swarm-1`) plus a
+  ghost on the dead node, `desired=Shutdown`/`current=Running`, **counted as Running because Swarm cannot
+  confirm a shutdown it cannot deliver.** ⭐ So an inflated count has **two** unrelated causes — the
+  `start-first` overshoot *and* a phantom — and reading `4/3` as "start-first" sends you to `update_config`
+  when the real story is a dead host.
+  🚨 **P4-F6: `deploy_swarm.sh`'s convergence poll was INVERTED, and its own failure dump contradicted its
+  headline.** Testing `current != desired` on the `Replicas` column, it spent 300s printing
+  `still pending: capricorn_backend(3/2) capricorn_frontend(4/3)` — both perfectly healthy — while
+  `postgres`, which did not exist, **passed**. The dump printed one line below showed exactly 2 and 3
+  tasks, because it filters `desired-state=running` and the `Replicas` column does not. ⭐ **The right
+  instrument was already in the file, used for the report and not for the decision.**
+  ✅ **FIXES SHIPPED.** `.gitlab-ci.yml`: `SWARM_HOST` → **`SWARM_HOSTS`** (all three managers) with a
+  selection loop whose probe is `ssh -o BatchMode=yes -o ConnectTimeout=5 host 'docker node ls'` — ⭐ **not
+  `ping` and not `ssh host true`: probe the CAPABILITY you are about to use, not a proxy that correlates
+  with it** (a node can accept SSH while being a worker, or a manager that lost quorum — drill C5's exact
+  state). `deploy_swarm.sh`: **counts TASKS** filtered to `desired-state=running` (excludes phantoms by
+  construction), `-lt` not `!=` so overshoot no longer blocks, a `sleep $INTERVAL` settle delay covering
+  the window the `!=` was incidentally protecting, and a **degraded-cluster precondition** that refuses to
+  deploy if any node is not `Ready`/`Active` (override `ALLOW_DEGRADED=1`, kept deliberately — a tool that
+  forbids the right incident action gets worked around in ways nobody records).
+  ✅ **BOTH VERIFIED against a genuinely degraded cluster (Aug 19, 2:48 PM), not recited.** Precondition: job
+  failed in **3 s** naming `docker-swarm-3(Down/Active)`, vs **5 min 10 s** and a wrong answer before the fix
+  — and `docker login` never ran, so a refused deploy touches no credential. 🚨 **That guard then made the
+  counting fix UNREACHABLE by normal means** (it stops execution upstream of the poll, in exactly the
+  scenario the poll fix was for) — ⭐ *an early guard can render a downstream path untestable*, which is the
+  better reason `ALLOW_DEGRADED=1` exists. Counting was therefore proved through the hatch, phantoms
+  confirmed present FIRST (`backend 3/2`, `frontend 5/3` — one ghost and two, reconciling exactly against
+  task placement): **`all services converged`** plus all three smoke gates and `total=682`. 🚨 **The old
+  logic would have burned 300 s reporting a FAILED DEPLOY on a demonstrably healthy application** — a false
+  red in our own tooling. ⭐ **Reload this framing: our poll now DISAGREES with `docker service ls` on
+  purpose and is right to** — post-deploy, Docker read `3/2`/`5/3` while we read `2/2`/`3/3`, because
+  `Replicas` counts tasks Swarm cannot confirm dead and we count tasks Swarm still wants alive. Being able to
+  say *which question each number answers* is what licenses contradicting a vendor's headline number.
+  ⚠️ Still untested: the
+  rigorous settle-delay variant (compare `.Version.Index` across the deploy). Also unmeasured: whether
+  unpinned `redis` silently lost its local volume when it rescheduled during the outage (trap C3's
+  mechanism, possibly having occurred for real inside a different drill).
+  🚨 **UNPLANNED INCIDENT, Aug 19 2:55–3:02 PM — `qm start 193` made the restarted manager DEPOSE the healthy
+  leader every ~20 s for 2.5 minutes, and DOING NOTHING WAS CORRECT.** Reload the whole mechanism, it is the
+  best material in the phase. While powered off, `.193` kept campaigning and inflated its raft **term** 12→31
+  **without appending a log entry**, so it rebooted holding *the highest term and the stalest log* — and those
+  have opposite consequences. **Term is authority:** any node seeing a higher term must stand down, so `.191`
+  (a healthy leader at term 12) logged `became follower` + `soft state changed … resetting and cancelling all
+  waits`, which **aborts in-flight control-plane work** — a deploy landing in that window fails inexplicably.
+  **Index gates election:** `.191` at `index 775` rejected `.193` at `743`, so `.193` **could never win the
+  election it forced.** ⭐ **THE SENTENCE TO REMEMBER: a stale manager can force elections but can never win
+  one, so each forced election raises the term until a current-log node wins high enough to silence it — the
+  failure mode contains its own termination condition.** `.191` took term 34 with `.192`'s vote; settled;
+  churn count `0`. 🚨 **`docker swarm leave --force` on `.193` — the standard internet remediation — would
+  have destroyed a cluster 90 s from self-healing.** After a manager reboot: **wait ~3 min, re-measure churn**
+  (`journalctl -u docker --since '2 min ago' | grep -cE 'became leader|became follower|lost leader'`, `0` =
+  settled) and only escalate to demote/rejoin if churn stays non-zero (that points at log compaction, not term
+  inflation). ⚠️ **Diagnose from a node that is NOT the suspect:** `docker info` on `.193` said `The swarm does
+  not have a leader … too few managers are online` — **true at that instant and its stated explanation false**,
+  because `.193` had just deposed the leader. `nc … 2377` succeeded both directions and clocks were NTP-synced,
+  so network and skew were ruled out by measurement.
+  ✅ **P4-F8 FIXED — `MANAGER STATUS` is a THIRD question the guard never asked.** Throughout the flap `.193`
+  read `Ready/Active`, so the precondition called the cluster healthy. ⭐ `STATUS` = can it run tasks (worker
+  plane) · `AVAILABILITY` = drained? · `MANAGER STATUS` = live raft quorum member (control plane); **they move
+  independently — "one instrument per question" applied to three columns of ONE command.** `deploy_swarm.sh`
+  now prints a **`CONTROL PLANE DEGRADED (advisory)`** block and **PROCEEDS**, deliberately: quorum-intact
+  churn creates no phantoms so downstream checks stay valid, the condition self-limits, and blocking would
+  forbid a safe deploy *and* invite the reflex that causes the outage. **Severity should match consequence,
+  not alarm level.** ⚠️ The awk filter needs **`NF > 1`** — a worker's `ManagerStatus` is EMPTY, so without it
+  every worker is flagged a broken manager forever.
+  ✅ **P4-F7 FIXED:** the degraded banner printed `Refusing to deploy` and then deployed under
+  `ALLOW_DEGRADED=1` — the log contradicted itself. Verdict is now computed *before* it is narrated.
+  ⭐ **Never let an override change behaviour without changing the wording** (same class as P4-F6).
+  ⚠️ **`.191` still holds the PRE-FIX copy of `deploy_swarm.sh`;** the next pipeline `scp`s F7+F8 over it.
+  ⭐ **Two CI-specific traps worth reloading cold. (1) A job RETRY replays the pipeline's ORIGINAL commit**
+  — we fixed a file, pushed, hit Retry, and the runner checked out the old commit and failed identically;
+  the manufactured conclusion "my fix did nothing" is wrong and extremely convincing. **After a fix, create
+  a NEW pipeline.** **(2) `Updating service X` is printed for every service on a byte-identical spec** — it
+  describes the API call, not a rollout; read literally it implies an unpinned service was recreated, which
+  would be silent data loss. Also: bracketed-paste artifacts manufactured `docker: command not found` on a
+  node where Docker was running, and a `404` where the real endpoint returns `500` (**P4-F5**).
+  ⚠️ **A process failure worth not repeating: survivor-side observations were written into the phase file
+  as though measured, sourced from a session SUMMARY that claimed they had been provided. They had not.**
+  Caught by grepping the transcript. ⭐ A conversation summary is the same class of object as a status page
+  or a replica count — a report from a layer that is not the layer that fails. **Cite the primary source.**
+  📄 **Chapter 3 `chapter03_a_pipeline_that_deploys.md`** (680 lines) + figure
+  `ch03_fig1_delivery_path.dot/.png` (11.9pt, figcheck clean) + docx. Ledger rows **L21** (passphrase-less
+  key in an unmasked CI variable — GitLab cannot mask multi-line values *at all*) and **L22**
+  (`StrictHostKeyChecking=no`; ✅ measured that `mkdir ~/.ssh` makes it TOFU *within* the job — `Permanently
+  added` appears once, later connections verify, so the window is the job's FIRST connection). Spine of the
+  chapter: **one instrument per question.**
+  ⭐ **PHASE 17 CHARTER agreed:** its success condition is *"every ⚠️ recited row in the Phase 16 ledger is
+  now ✅ verified"* — host keys pinned, a maskable/keystore credential, an unprivileged agent.
+  🎯 **FULL TRACK REVIEW DONE (Aug 18, evening): four review agents audited everything; all findings
+  fixed; C6b CLOSED BY RE-DRILL.** Frontend got a manifest `healthcheck` (`wget | grep -qi capricorn`
+  — pre-verified in both the real image and nginx:alpine), `deploy_swarm.sh` got **Gate 3** (assert
+  every published port), a NON-DEFAULT STACK FILE banner, a pre-deploy UpdateStatus snapshot, and a
+  row-gate that FAILS instead of skipping on parse errors. **P32–P34 all confirmed**: healthy deploy
+  63 s green with `(healthy)`; identical nginx re-drill **failed loudly in 47 s** (`rollback_started`,
+  EXIT=1) with **16/16 serving probes on the real app — zero user-visible seconds**; and the recovery
+  deploy showed **a stack deploy of an identical spec CLEARS a stale `rollback_completed` to
+  `<absent>`** (measured both sides) — the stale-latch worry is bounded to the window between deploys.
+  Chapter fixes worth remembering: reboot counts were misquoted in ch5/ch6 (**measured: backend 1/2,
+  frontend 1/3, postgres 1/1, redis 0/1**); ch6's Drill A table was rewritten back to the seven signals
+  actually checked; the "five void runs" are honestly **3 void runs + 2 invalid probes**; COMMANDS.md's
+  own post-reboot gate had `|| echo` printing success ON FAILURE (fixed to `&&`, kept as a lesson);
+  "three services use start-first" was always wrong — **two** (frontend, backend). Track README now
+  carries the L1–L18 index, a not-covered list, a reproduce quickstart, a grounded Swarm↔K8s table
+  (Part 7 still owed), and a capstone. Chapter 2's max_attempts staleness is repaired — the
+  "exactly three" story is labelled create-path history under the old policy, current create-path
+  behaviour recorded as OPEN.
+  **Earlier that evening (7:00–8:20 PM): ALL DRILLS DONE AND CHAPTERS 4, 5, 6 WRITTEN.** 🙋 Andrew asked
+  the **AI to drive** the last four drills so the chapters could be written before context was lost — a
+  deliberate exception to `METHOD.md`, recorded in both the phase file and `current_phase.md`.
+  **P20–P31: 10 confirmed, 2 refuted, and the refutations matter most.** (a) ❌ Removing `max_attempts`
+  causes **no** retry storm on an *update* — `failure_action: rollback` ends retries after one failure;
+  ⚠️ **still open on the CREATE path**, which is where chapter 2's "exactly three Rejected tasks" came
+  from — ✅ chapter 2 repaired during the evening review. (b) ❌ **With no quorum, READS fail too** —
+  `docker service ls` → `DeadlineExceeded`; Swarm serves no stale reads, so you lose all cluster
+  visibility while the app serves normally and **`docker ps` per node is the only inventory.**
+  🎯 **The worst result in the track is C6b: `nginx:alpine` on the frontend deployed GREEN.**
+  `UpdateStatus: completed`, `EXIT=0`, `3/3`, **and our own smoke gate passed** (`200, body matched`,
+  `682 rows`) while every user saw *Welcome to nginx!*. **Swarm's rollback reacts to task failure, not
+  correctness; our gate only defends the endpoint it calls.** ⭐ **Verification does not compose** — ✅ the open
+  work (frontend `healthcheck` + per-port smoke assertion) was done and re-drilled the same evening.
+  ⭐ **C3: state is STRANDED, not lost.** Moving Redis off its node made Docker **silently create a second
+  empty volume of the same name**; `DBSIZE 0`, everything green; moving it back returned both keys exactly.
+  🚨 **It was fsynced on `SIGTERM` at the instant it became unreachable — durability ≠ availability.**
+  ✅ **Correction to an AI claim made mid-drill:** postgres **IS** pinned (`node.hostname ==
+  docker-swarm-1`, manifest says *"trades availability for durability: postgres dies with
+  docker-swarm-1"*); **redis is unpinned deliberately** so C3 could run. **The pin is why C3 could not
+  touch the database** — the lab's config was right and the accusation was wrong.
+  🚨 **New security finding: `pg_hba.conf` ships `host all all 127.0.0.1/32 trust`** — a garbage
+  password returns `1` from inside the container, so with `docker exec` reading `/run/secrets`, **`docker`
+  group on a node = unauthenticated DB access, and rotation does not change it.** Never test a DB
+  credential from inside its own container.
+  ⭐ **Drill D: a WRONG secret passes every guard** (pre-flight ✅, converged ✅, digests ✅) and **only the
+  smoke gate catches it.** `POSTGRES_PASSWORD_FILE` is read **only at `initdb`**, so rotation touches the
+  client and never the server → correct order is `ALTER USER` **first**, then the secret.
+  ⭐ **The `restart_policy: any` fix was validated by accident** — the quorum drill stops daemons, whose
+  containers exit `0`, the identical mechanism that ate three replicas under `on-failure`; nothing was lost.
+  ✅ **Resting state HEALTHY**: 2/2, 3/3, 1/1, 1/1, smoke gate green, quorum restored, **leader moved to
+  `docker-swarm-1`** (leadership not sticky — observed twice), C3 constraints removed, `pg_password_v2`
+  deleted. ✅ **`s05-review-c6b-closed` taken Aug 18 ~8:15 PM (Andrew authorized)** — all three VMs, hot
+  fsfreeze, description warns that `s04` still contains the **broken `on-failure` policy**. ~~GitHub push held; GitLab only~~ 🔓 hold lifted Nov 4, 2026 (Andrew).
+  **Previously, Aug 18 (5:00–6:30 PM) — five drills whose findings were about the APPLICATION,
+  not Swarm.** Resting state: stack healthy, **1621 DB rows = 939 tax reference (from `initdb`) + 682
+  written by the app**, snapshot **`s04-drills-complete`** (all three VMs gracefully shut down first).
+  🚨 **`:latest` MOVED on Aug 17** (pipeline #160) — `backend@b449d6c4`, `frontend@5507b283`,
+  `postgres@5f76f30b`; **chapters 1–2 quote the OLD digests.** It also *confounded a drill*, so **print
+  digests before AND after every experiment.**
+  🚨 **The seeding collision is causally settled: concurrent startup writers.** Same image, `--workers 1`
+  seeds cleanly; `--workers 4` reproduces `UniqueViolationError` on `categories_pkey` — 3 losers among one
+  task's 4 workers, 0 in the other task (its guard saw data and skipped). **Mechanism:
+  the bootstrap routine guards on 5 tables, deletes ten, COMMITS, then imports** — the committed empty
+  state is what lets a second worker's guard pass. **A second routine in the same file carries a comment
+  stating the deletion must NEVER be committed alone, citing an earlier incident — and the bootstrap path
+  does it.** ⭐ **A fix in one path plus a prose warning did not protect the identical shape in the other;
+  a comment cannot fail a build.**
+  ⭐ **The app's signature, three instances: honest logs, dishonest outcomes.** (a) DB unreachable →
+  retries 15× → `Application startup complete`; (b) `/health` → static 200, touches nothing; (c) seed
+  collision → caught, **smaller dataset substituted**, `✅ Bootstrap complete`. **Status-code checks missed
+  all three; log greps found all three.** Fingerprint for other environments: `using minimal bootstrap`.
+  ✅ **`deploy_swarm.sh` now has a smoke gate** (dependency-exercising endpoint + body match + row floor).
+  **Two of its own defects were found and fixed:** `SMOKE_MIN_ROWS` defaulted to 1 (a floor below the
+  schema's own seed **cannot fail**) — now 100; and `|| echo 000` after `curl -w '%{http_code}'`
+  double-printed, logging `HTTP 000000`. 🚨 **The floor works only because `/api/v1/data/summary` counts
+  app-owned tables** — had it summed all 21, healthy would read 1621 and unseeded 939, and 100 would pass
+  an app that never bootstrapped. **Rule: gate on rows the application creates, never on reference data.**
+  ⚠️ **One experiment was VOID and had to be re-run:** `docker volume rm` failed, `2>/dev/null || echo
+  "already gone"` hid the reason, and the "control" ran on the prior run's data while reporting a clean
+  pass. **Never suppress stderr on a step the result depends on.** Also: **volumes are node-local**, so
+  `volume rm` on the wrong node says `no such volume` — indistinguishable from success if stderr is
+  discarded. And `docker stack rm` returns **before the containers are reaped**; wait for the containers,
+  not just the network.
+  📌 **APP-LAYER FINDINGS ARE HELD PRIVATELY in `working/capricorn-app-findings-2026-08-18.md`** —
+  `working/` is gitignored, so it reaches the private GitLab mirror and never public GitHub. It holds the
+  committed-delete regression with its patch, **an unauthenticated destructive HTTP route** whose guard
+  covers half the tables it deletes, and a third item on what is already public. 🚨 **Do not restate those
+  specifics in tracked files**, and remember `push_github.sh` cannot catch this class — it screens for
+  secrets, not for a precise description of where a secret lives.
+  🚨🚨 **THE BIGGEST FINDING CAME FROM TAKING A SNAPSHOT, NOT A DRILL — `restart_policy: on-failure`
+  loses replicas on every clean reboot.** All three VMs were gracefully shut down for
+  `s04-drills-complete` and restarted: Raft re-formed, all nodes `Ready`, **no error anywhere**, and the
+  stack sat at `backend 1/2`, `frontend 1/3`, `redis 0/1` indefinitely. **Discriminator: a container that
+  exits 0 (clean SIGTERM) becomes task state `Complete` — a SUCCESS — and `on-failure` never replaces it;
+  containers that VANISHED became `Failed` and were replaced.** Postgres survived **only by luck**, via
+  the `Failed` path. ⭐ **In production this is a rolling-patch bug** — reboot nodes one at a time for
+  kernel updates and every cleanly-exiting service comes back short, silently. ⭐ **It also INVERTS the
+  week's other lesson: replica count is the ONLY signal that catches this**, while `docker service ps`
+  reports `Complete` and health endpoints return 200 — so counts *and* `UpdateStatus` are both required
+  and **fail in opposite directions**. ✅ **Fixed: `condition: any` on all four services, `max_attempts`
+  removed** (same bug, other route), verified in the LIVE SPECS, stack recovered 2/2 3/3 1/1 1/1.
+  ⚠️ **`s04` captures the BROKEN policy** — a restore reintroduces it. Also verified: **the Raft leader
+  moved to `docker-swarm-2`** (leadership is not sticky across a simultaneous reboot), and
+  **`UpdateStatus` is ABSENT, not empty**, until a service is first updated (`map has no entry for key`)
+  — ⭐ the one place suppressing stderr is RIGHT, because the code handles the silence, unlike the
+  precondition case above.
+  📌 ~~**GITHUB PUSH IS HELD (Andrew's call, Aug 18)**~~ 🔓 **LIFTED by Andrew, Nov 4, 2026:** *"I don't
+  think there's a reason to hold the swarm material."* The Aug 18 commit (Capricorn source excerpts, the
+  existence of an unauthenticated destructive endpoint) and ledger L19–L22 had already gone public
+  unrecorded; they now stay public **by decision**. ⛔ **What is STILL private and must stay so:** the
+  endpoint's SPECIFICS (route, tables, guard) live only in gitignored `working/capricorn-app-findings-2026-08-18.md`
+  — do not restate them in tracked files. Never push `main` to `origin` without asking.
+  ⭐ **Andrew's paste-runner (Aug 18):** paste command blocks into
+  `education/*/scripts/run_commands.sh` (git-ignored) and execute the file rather than pasting into an
+  interactive shell — **this eliminates the mispaste class outright**, since both prior incidents were
+  lines stolen from the input buffer while `ssh` connected. Rules: never type a secret into it (it lives
+  on the CIFS share), always give it `set -euo pipefail`.
+  🎯 **PART 3 IS ALSO COMPLETE (Aug 13, 2026, 2:20–4:12 PM) — Capricorn runs on the swarm:** `backend`
+  2/2, `frontend` 3/3, `postgres` 1/1 (pinned `docker-swarm-1`), `redis` 1/1; UI on `:5001`, API on
+  `:5002` answering from **all three nodes**; Capricorn's repo untouched (rule B7 held).
+  **`education/docker-swarm/manifests/capricorn.stack.yml`** + **`scripts/deploy_swarm.sh`** are
+  committed, and **chapters 1 and 2 are WRITTEN** (3 figures, docx built, `figcheck` passes).
+  🚨 **The finding that matters, because our first explanation was WRONG: a node's daemon NEVER reads
+  the CLI's `~/.docker/config.json` when running a task** — only the client does; the agent
+  authenticates *solely* with the credential `--with-registry-auth` freezes into the service spec. So
+  **a manager has no more pull privilege than a worker**, and `docker pull` succeeding by hand on a host
+  proves nothing about whether a task can pull there. Trap C1's frontend was `Rejected` on **all three**
+  nodes including the manager. ⚠️ **And our own diagnostic `docker pull`s manufactured the confusing
+  symptom** — they warmed the local image cache so postgres/backend *looked* fine on `.191`, leaving the
+  never-pulled frontend as the only honest failure. **`METHOD.md` now carries this as a standing note.**
+  🚨 **Two false greens to design against forever:** (a) `docker stack deploy` **exits 0 when the
+  manager ACCEPTS desired state**, not when anything runs; (b) **replica count is not convergence** —
+  `order: start-first` holds `3/3` through a full replacement, and `failure_action: rollback` restores
+  the old version *at full replicas*, so a count-only check reports a **rejected deploy as a success**.
+  Check `UpdateStatus.State` and treat `rollback_*` as failure. ⚠️ **Two claims logged as UNVERIFIED
+  until trap C6 — do not teach as fact:** the registry credential is a *latch* (token expiry breaks
+  future task *reschedules* silently, not the deploy), and `UpdateStatus` may persist such that a stale
+  `rollback_completed` fails a healthy cluster. **Also: blast radius is selective** — adding
+  `--with-registry-auth` recreated the three private-registry services and left Docker Hub's
+  `redis:7.2.4-alpine` untouched, bouncing a working postgres purely for sharing a registry; a third
+  run with an unchanged file recreated **nothing**. ⚠️ **Debt: trap C2 is CONTAMINATED** (pre-warmed
+  postgres means the backend never met a cold DB) — **it needs a restore to `s02-swarm-up` to run
+  honestly.** 🚨 **`s01`–`s07` were DELETED Sep 28, 2026 (Andrew, Phase 19)** — the only Swarm snapshot
+  now is `baseline-2026-09-28`. Re-running C2 honestly now means rebuilding the Swarm to its Part 2 state. **Next: Part 4 — a CI runner that calls `deploy_swarm.sh` unchanged.**
+  🎯 **NEW DELIVERABLE, scoped Aug 13 and deferred to the END of the track:** a **read-only
+  `docker-admin.sh`** Andrew can take to work — *"takes inputs, helps me investigate outages, outputs
+  issues and suggestions about how to investigate further or fix them."* **He will ask for a dedicated
+  long design session; do NOT build it incrementally.** ⚠️ **This is an inference engine, not a command
+  wrapper, and that changes what we collect NOW:** every failure must be recorded as a decision rule
+  with five fields — **signal / interpretation / discriminator / next command / fix + blast radius** —
+  because the *discriminator* (what separates this cause from others producing the same signal) is only
+  knowable while the failure is in front of us. **Traps C2–C7 are six rule-generating opportunities;
+  capture them as they fire or reconstruct them later from guesses.** Spec + growing ledger live in
+  **`education/docker-swarm/COMMANDS.md`** (§11), which indexes every command by *the question it
+  answers* rather than by chapter. 🚨 **Design against confidently-wrong advice:** show the evidence that
+  matched, rank by confidence, and separate "I observed this" from "commonly caused by" — our own C1
+  experience is the case study, since the obvious explanation was wrong and a tool asserting it would
+  have been believed.
+  **PARTS 1 & 2 ARE COMPLETE (Aug 13, 2026): `docker-swarm-1/2/3` exist at `.191/.192/.193`**, cloned
+  from template 9000, 2 vCPU / 4 GB / 40 GB each — funded by the 16 GB VM 186 gave back on Aug 12 —
+  personalized, **Docker 29.7.2 / Compose v5.4.0**, snapshotted **`s01-base-clean`** (hot, ~1.6 s each).
+  **Part 2 formed a THREE-MANAGER cluster** — `.191` Leader, `.192`/`.193` Reachable,
+  `ClusterID n6waq5uhc7o6yxzt5tyzrbol9`, **quorum 2 of 3**, ingress overlay `10.0.0.0/24`, no services
+  yet, all three snapshotted **`s02-swarm-up`**. 🙋 **Andrew drove Part 2 by hand** (init + the `.192`
+  join); the AI joined `.193` under the repetition rule. 🚨 **Three Swarm facts that will cost time
+  later:**
+  (a) `swarm init` prints the **WORKER** token — pasting it yields a healthy-looking 1-manager cluster
+  with no quorum lesson left; use `docker swarm join-token manager`; (b) **`Autolock Managers: false`**,
+  so the Raft key is on disk in the clear and **the VM snapshots will contain `docker secret` values**
+  once Part 3 runs; (c) **swarm CA certs expire 3 months out** — restoring an older snapshot gives a
+  cluster whose certs expired while frozen, which presents as a network fault and is not one. The end
+  goal is
+  unchanged: **Capricorn from the existing registry images**, deployed by a **manual job in THIS
+  repo's** `.gitlab-ci.yml`, *not* Capricorn's.
+  👉 **Open the next session by re-walking the file's `📌 READ THIS FIRST` pre-flight list.** It sorts
+  every caveat into four kinds so they cannot be mistaken for one another: **🅐 open items**,
+  **🅑 seven hard rules**, **🅒 seven deliberately planted traps that must NOT be fixed in advance**
+  (pre-empting them turns the phase into a tutorial where nothing fails), and **🅓 inherited findings
+  that are out of scope**. **Pre-flight status after Aug 13: A1, A4 and A5 closed; A5 = the stack file
+  and scripts live in `education/docker-swarm/{manifests,scripts}/`; A2 (does this repo gain a
+  `.gitlab-ci.yml`) is DEFERRED to Part 4 because it is one decision with the `workflow: rules:`
+  guard; A3 stays deferred into Part 5 by design.** No open item blocks Part 2.
+  **Part 1 findings that save a later session time:**
+  - ✅ **`growpart` worked** — the plan's loudest warning was a non-event. But **`df -h /` reads 38G,
+    not 40G**, because `sda15` (106M EFI) + `sda16` (913M `/boot`) come out of the 40 GB virtual disk.
+    **38G is correct; do not hunt the missing 2 GB.**
+  - ⚠️ **`host_setup.sh` DOES install Chrome + Cursor on a headless cloud image.** The desktop branch
+    triggers on `gnome-shell` **or `gsettings`**, and the Ubuntu 24.04 cloud image ships `gsettings`.
+    Purging took each node 4.4 GB → **2.2 GB used**. Always apply this to a template-9000 clone.
+  - ✅ **`refresh.sh` needed no edit** — it targets an explicit allow-list (`.180`–`.184`), so new VMs
+    are excluded by construction. The guest half still mattered: `unattended-upgrades`, `apt-daily`
+    and `apt-daily-upgrade` are **masked** on all three.
+  - ✅ **No `191/192/193.fw` exists**, so the guest firewall is off despite `firewall=1` on the NIC and
+    Swarm's `2377`/`7946`/`4789` are unobstructed. ⚠️ Adding a `19x.fw` later **without those three
+    rules breaks the cluster silently.**
+  - ✅ Registry reachable from a node: `curl http://gitlab.gothamtechnologies.com:5050/v2/` → **401**.
+    `/etc/docker/daemon.json` carries the `insecure-registries` entry on all three, courtesy of
+    `setup_docker.sh` — which was the whole argument for using the standard script.
+  - Scripts are committed and idempotent: **`education/docker-swarm/scripts/provision_nodes.sh`**
+    (runs on the pve host) and **`post_setup.sh`** (runs on each node).
+  ⚠️ **Three facts established Aug 12 that a later session should not waste time re-deriving:**
+  - **The GitLab runner is not a blocker.** Runner `id=2` is **`instance_type`** (instance-wide shared,
+    not project-scoped to Capricorn), active, `run_untagged=true`, and already available to
+    `production/home-lab-setup` (project id 6), which has `builds_enabled=true` and
+    `shared_runners_enabled=true`. So Part 4 needs no runner work — **but it also means dropping in a
+    `.gitlab-ci.yml` starts producing a pipeline on every `push_gitlab.sh` backup**, which is why the
+    `workflow: rules:` guard is part of the decision rather than polish.
+  - **Capricorn is stateful** — postgres + redis with named volumes `postgres_data_prod` /
+    `redis_data_prod` and a bind mount for DB init scripts. This is why Part 5 is a real exercise, and
+    why the centrepiece drill is **"a Swarm named volume is node-local, so a rescheduled postgres comes
+    up healthy against a brand-new empty database"** — silent data loss that looks like a clean deploy.
+  - **Two problems with `/opt/capricorn/docker-compose.yml` on `.184`, both recorded and NEITHER ours
+    to fix** (application layer — raise with whoever owns Capricorn):
+    - **Config drift.** It declares `postgres:15.5-alpine` while the **running container is the custom
+      `production/capricorn/postgres:latest`**. "Just redeploy from the compose file" would quietly
+      change PROD's database image.
+    - 🚨 **Plaintext credentials, and they are a copy-paste hazard for us.** There is **no `.env`** —
+      `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` and a password-bearing `DATABASE_URL` are
+      written **inline in the compose file**. Any lab work that starts from that file as a template
+      puts a **production database password into this repo, which has a public GitHub remote.**
+      ⚠️ **`push_github.sh` would probably catch the `DATABASE_URL`** (its URL-with-embedded-password
+      gate) **but would NOT catch a bare `POSTGRES_PASSWORD=` line** — the protection is partial and
+      accidental, so do not lean on it. Phase 16 hard rule B7 forbids the copy outright and uses
+      `docker secret` with invented lab-only credentials instead.
