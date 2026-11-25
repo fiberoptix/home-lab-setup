@@ -1648,3 +1648,172 @@ at 10.2 pt, highlighted to 20.1 % at drafting time, DOCX built, and the track in
 `education/README.md`. ⚠️ **There is deliberately no chapter 0** — Part 0 is the "assume it" plumbing
 `CONVENTIONS.md` tells you to cut.
 
+---
+
+## COPIED VERBATIM FROM `MEMORY.md` @ `pre-memory-diet` (lines 254–419) — Nov 24, 2026 (memory-diet, copy-first) — CURRENT STATE item: Phase 17 Jenkins on hold (16 KB)
+
+- **⏸️ ON HOLD — Phase 17: Jenkins** (`phases/phase17_jenkins.md`, started Aug 19, 2026).
+  🙋 **Andrew paused it on Sep 16, 2026 to start a new project.** ⛔ **Paused, NOT closed and NOT
+  superseded** — every hard rule below still binds (above all **B10**), the traps stay unfixed, and
+  the resume point is **Part 4 (deploy to the Swarm)**. Do not "tidy up" or finish anything here on
+  your own initiative while it is on hold; the half-built state IS the recorded state.
+  ✅ **PARTS 0 AND 1 ARE DONE (Aug 20, 2026) — Jenkins is UP, do not rebuild it.** `http://192.168.1.185:8080/`,
+  **Jenkins 2.568.2 LTS on OpenJDK 21**, controller at **0 executors**, one SSH agent `jenkins-agent-1`
+  (OS user `jenkins-agent`, uid 1001, no sudo, no groups) with label `swarm-deploy`. 🙋 Andrew ran every
+  command. A1/A2 are closed (bare IP, no TLS = ledger J1). ✅ **Part 2 also done, RESHAPED — next is
+  Part 3 (webhook + `Jenkinsfile`).**
+  🚨🚨 **HIGHEST-BLAST-RADIUS RULE IN THIS PHASE (B10, set Aug 20 — J-P7). Jenkins-built images go to
+  the GitLab group `lab`, project `capricorn-swarm`, and NEVER to `production/*`.** Capricorn's own
+  pipeline publishes `production/capricorn/<svc>:latest` and **QA `.180` and PROD `.184` pull that exact
+  tag**, so a Jenkins push to the natural-looking path **overwrites what PROD runs** — this one escapes
+  the lab. Enforce with a **token scoped to `lab/` only**. ✅ **BUILT AND PROVEN Aug 20 (J-P8):** group
+  `lab` + project `lab/capricorn-swarm` exist; push to
+  `gitlab.gothamtechnologies.com:5050/lab/capricorn-swarm/<image>`; group deploy token
+  `jenkins-lab-push` (value in `PASSWORDS.md`, **expires 2026-12-31**) is granted `push,pull` on `lab/`
+  and **`pull` only** on `production/capricorn`. ⚠️ **The `pull` is NOT a scope leak — `production/
+  capricorn` is an INTERNAL project, so every authenticated identity can read it. A deploy-token scope
+  grants; it does not fence. The floor is set by project visibility.** All Jenkins images are **git-SHA tagged, never `:latest`** (B11). ⚠️ **THREE delivery paths
+  now coexist and none may touch another's artifacts:** Capricorn's CI → the real app on `.180`/`.184`;
+  this repo's `.gitlab-ci.yml` → stack `capricorn`; Jenkins → stack `capricorn-jenkins`.
+  ⛔ **Never `git rm` this repo's `.gitlab-ci.yml`** (B1, amended A11) — it is the *control* for the
+  whole Jenkins track. When Andrew wants it quiet, **neuter it with a `workflow:` rule**; a deleted
+  pipeline can be read but not **run**, which makes every later comparison unfalsifiable.
+  📌 **`Jenkinsfile` lives at `education/jenkins/Jenkinsfile`** — one pipeline per education track, in
+  its own track folder, **not** the repo root (A10). ⛔ **Do not "tidy" it into a cleaner repo: trap T5
+  requires the job to clone the plaintext `gitlab/main` mirror, so moving it silently DISARMS the trap
+  and leaves no error behind.**
+  🔻 **PARTS 4 AND 5 ARE SWAPPED (Aug 20): deploy is Part 4, build+push is Part 5.** Deploy goes first
+  so Jenkins ships the **same `:latest` images** as the Phase 16 pipeline and the CI system is the only
+  variable. ⭐ **Part 4 reuses `education/docker-swarm/scripts/deploy_swarm.sh` UNCHANGED** (it is
+  already parameterised — `STACK="${STACK:-capricorn}"`); expect its loud `NON-DEFAULT STACK FILE`
+  banner every run — **that is the script working, not a fault.** ⚠️ **A separate manifest IS required:
+  `capricorn.stack.yml` publishes 5001/5002 `mode: ingress` and two stacks cannot share ingress ports**
+  → `education/jenkins/manifests/capricorn-jenkins.stack.yml` at 5011/5012. Volumes and networks are
+  already per-stack namespaced.
+  🔻 **A8 CLOSED Aug 20 — NO OAuth in the lab, ever, and this is not a "we'll get to it".** Andrew's
+  firm uses **GitHub**, not GitLab, so GitLab OAuth would teach a provider he will never touch; and
+  coupling Jenkins login to GitLab during a phase that deliberately breaks the Jenkins↔GitLab path
+  violates *one instrument per question*. Auth stays **local accounts + matrix authorization**.
+  ⛔ **CORRECTION — an earlier revision of this entry was WRONG and would have misled you:** it said
+  the local admin is a "break-glass account" that keeps you in when the identity provider dies. **It
+  is not.** Jenkins has **exactly ONE security realm at a time**, so an OAuth realm would *replace*
+  the local user database and that account could not log in at all. **Real break-glass on any Jenkins
+  is root on the host** — stop the service, edit `JENKINS_HOME/config.xml`, restart. ⚠️ **Stop Jenkins
+  FIRST: it rewrites `config.xml` on shutdown and will erase your edit.** ⭐ Targeted vs blunt matters:
+  if only *authorization* broke, replace the `<authorizationStrategy>` block and **login still
+  works**; the universally-recited `useSecurity=false` + delete-the-realm recipe is only needed when
+  the **realm** is broken and leaves the box **fully unauthenticated on plain HTTP** meanwhile.
+  ⚠️ Also **do not "tidy" these**: the `zz-executor-proof` job is a deliberate liveness probe,
+  `credentials.xml` being world-readable and the agent having no `docker` access are **Part 5/7**
+  material (T2 and the hardening charter), not oversights.
+  ✅ **PART 3 IS DONE (Aug 20) — a `git push` builds Jenkins unattended.** Snapshot
+  **`j03-gitlab-wired`**. Multibranch job
+  **`home-lab-setup`**, Script Path `education/jenkins/Jenkinsfile`, SSH URL, credential
+  `gitlab-home-lab-setup-readonly` (username **`git`** — GitLab authenticates every SSH user as `git`).
+  GitLab deploy key id=3, **`CAN_PUSH=false` verified in the DB**. ✅ **Host keys PINNED via *Manually
+  provided keys*** (ed25519 + RSA, read off `.181`'s own `/etc/ssh/`, **not** trust-on-first-use) —
+  **charter item L22, paid early.** Trigger = GitLab project hook →
+  `http://192.168.1.185:8080/git/notifyCommit?url=…&token=…` (token in `PASSWORDS.md`, SHA-256 hashed
+  in Jenkins, **in a query string over plain HTTP — a secret in a URL is a secret in a log**).
+  🚨 **Three prohibitions here you CANNOT infer from the config, each of which looks like the fix:**
+  ⛔ **Never fill GitLab's webhook "Secret token" field** — GitLab sends it as an `X-Gitlab-Token`
+  **header** and `notifyCommit` only ever reads a `token` **query parameter**, so filling it secures
+  **nothing while appearing to.** It is blank on purpose. ⛔ **Never tick GitLab's global "allow
+  requests to the local network"** — the correct fix is the outbound allow-list, which holds exactly
+  `{192.168.1.185:8080}` with the global flag still `f`; ticking the box opens the whole LAN.
+  ⛔ **Never set `NOTIFY_COMMIT_ACCESS_CONTROL=disabled`** to clear a 401 — the token is required by
+  design in git plugin 5.10.1 and disabling it reopens the endpoint to anything that can reach the port.
+  ⚠️ **Two trap-plan changes: T4 CANNOT FIRE as planted** (the vendor now requires that token, the
+  second vendor-closed trap after the matrix lockout) and 🔻 **T1 was DEFERRED to Part 4/5 by Andrew —
+  moved, not dropped.** ⚠️ **The build cause reads `Branch indexing`, never "GitLab"** — Jenkins does
+  not record who triggered it, so **build history is not an audit trail.**
+  ⛔ **DO NOT DELETE the agent workspace `/home/jenkins-agent/agent/workspace/home-lab-setup_main/` or
+  the controller cache `/var/lib/jenkins/caches/git-*`.** 🅒 **Trap T5 fired there (J-P9) and they are
+  Chapter 3's evidence.** 🚨 **Both hold `PASSWORDS.md` and the plaintext Swarm key
+  `working/phase16/swarm_deploy_ed25519`** — the controller copy exists because **branch indexing is
+  not a build, so 0 executors does not stop it.** ⚠️ **This changes T3 and the Part 8 backup: the
+  `vzdump` of `JENKINS_HOME` will contain a private key IN THE CLEAR**, no `master.key` needed. ⭐ And
+  `cleanWs()` is **not** the fix — the next checkout recreates it and it never touches the cache.
+  📐 **Standing policy, Andrew, Aug 20: Jenkins runs the EDUCATION pipelines; GitLab CI runs the REAL
+  applications** — *"that way we do not pollute our real GitLab environment."* ⚠️ **This does NOT make
+  Jenkins GitLab-free**: it still clones from GitLab and is still webhook-triggered, so T1/T4/T5/T8 all
+  live on that surviving link. The boundary is at the **pipeline engine**, not at GitLab.
+  📐 **Registry = GitLab's own, standing in for the Artifactory his firm uses** (ledger J3 — same VM as
+  the git server, plain HTTP, no scanning, no signing). ⭐ **The swap to a real artifact store is a
+  hostname and a credential, not a redesign** — an OCI registry is an OCI registry.
+  📖 **Education track 3: `education/jenkins/` — README + chapters 1, 2 and 3 written Aug 20**, all
+  built to DOCX (there is deliberately **no chapter 0**; Part 0 is assumed plumbing, decision P1).
+  📐 **DECISION A12 (Andrew, Aug 20) — now a rule for ALL tracks in `education/CONVENTIONS.md`:
+  a chapter is the BUILD PROCEDURE — numbered steps, each with how to CONFIRM it took effect, and
+  tripping points marked AT the step. ⛔ Trap bookkeeping (`T4`, 🅒, "the trap that could not fire")
+  stays in the phase file.** Chapter 3 was rewritten end-to-end to that shape the same evening.
+  ⛔ **Part 0 step 1 is already DONE and is irreversible: VM 185 `vm-openclaw-1` was destroyed** on
+  Andrew's instruction with **no backup and no snapshot** — see `phase11_openclaw.md` → "CLOSED". VMID
+  185 and `.185` are reassigned to `vm-jenkins-1`. 📌 **Andrew's weighting and the firm-supplied-build-
+  standard framing are in the PHASE INDEX row above — not repeated here.** The one thing that row does
+  not say: the framing is a **deliberate deviation from `METHOD.md`** that gets folded back in **only if
+  it proves out.**
+  ⭐ **Nine cross-phase rules earned here, worth more than the phase that produced them:**
+  1. **Before destroying anything, read its config AND grep the docs for what depended on it.** The
+     pre-destroy read of VM 185 caught a **wrong core count** (12, recorded as 8) and two facts it
+     silently invalidated: it was the **only VM running Tailscale**, and one of only two with PVE
+     firewall rules. After the destroy, none of that is recoverable — including from a backup, since
+     there wasn't one. ✅ Also verified: **`qm destroy --purge` deletes the VM's `/etc/pve/firewall/<id>.fw`.**
+  2. 🚨 **A superseded DIRECTIVE left in a history log is more dangerous than a stale fact**, because a
+     future session can *act* on it. `current_phase.md` still held *"VM 185: leave dormant — don't
+     destroy"* after Andrew ordered it destroyed. Strike obsolete directives where they lie; do not
+     rely on the reader inferring the date.
+  3. **Do not generalise a product's policy from one subsystem's behaviour.** Measured on `.181`:
+     GitLab **blocks** project webhooks to private addresses while **allowing** system hooks to the
+     same target. "GitLab blocks LAN egress" is false as stated. ⭐ **Aug 20 found a SECOND, independent
+     asymmetry in the same setting:** with the flag off and the allow-list empty, GitLab **delivered a
+     project webhook to its own address** (`.181`) and **refused** `.185`. So the policy varies by
+     *subsystem* **and** by *which local address you name* — ⚠️ *the self-address exemption is inferred
+     from behaviour, not read from source.* **Two exceptions to one "rule" is the signal that you are
+     summarising, not describing.**
+  4. ⭐ **PROVE THE NEGATIVE BEFORE YOU BUILD THE POSITIVE** (Aug 20). To verify a boundary, first
+     demonstrate the failure it should cause, *while the thing that would mask it does not yet exist*.
+     Jenkins: controller set to 0 executors, then a job run **with no agent attached** — it sat in the
+     queue; the agent was added and **the same job, unchanged**, ran. Attaching the agent first can
+     never distinguish an enforced boundary from one that was never enforced, because a green build
+     only proves *something* ran it. **Reading a config field tells you what a system was told; a
+     failure tells you what it will do.**
+  5. ⭐ **A MANIFEST IS NOT A CAPABILITY** (Aug 20). Confirming the named things are installed proves
+     the list was followed, not that the system can do what the list was written for. Jenkins: the
+     build standard named **"SSH Agent"** (`ssh-agent` = a pipeline step that forwards a key *into* a
+     build) while the topology needed **"SSH Build Agents"** (`ssh-slaves` = the thing that launches
+     agents over SSH). Following the standard exactly produced a controller that could not attach the
+     agent the same standard demanded. Same shape as "reachable is not usable".
+  6. ⭐ **TWO PRIVILEGE PLANES — hardening one says nothing about the other** (Aug 20). A Jenkins build
+     ran as OS user `jenkins-agent` (unprivileged, kernel-enforced: `master.key` denied) **and** as
+     Jenkins' internal `SYSTEM` identity (full permissions through Jenkins' own APIs) *at the same
+     time*. **"The agent is unprivileged" is a true statement about one plane and a half-truth overall.**
+     Generalises to any runner: the OS account and the application-level identity are separate grants
+     with separate fixes. ⚠️ Related, same host: `JENKINS_HOME` is `755` and `credentials.xml` is `644`,
+     so **every local account can read the encrypted credentials** — the only thing between them and
+     plaintext is the `700` on `secrets/`. **One layer, nothing behind it.**
+  7. ⭐ **A BOUNDARY VERIFIED AGAINST ONE CLASS OF WORK SAYS NOTHING ABOUT ANOTHER** (Aug 20). Part 1
+     proved the controller runs no builds — 0 executors, a job that queued forever. Part 3 then found
+     the controller had cloned the whole repo into `/var/lib/jenkins/caches/` anyway, **because branch
+     indexing is not a build.** The proof was sound and the conclusion drawn from it was too wide.
+     ⭐ **"X cannot happen here" is only ever true for the specific mechanism you tested** — ask what
+     *other* kinds of work the component still does. Generalises past CI: a firewall rule proven
+     against TCP, a read-only mount proven against one writer.
+  8. ⭐ **ACCESS CONTROL ON THE PIPELINE IS IRRELEVANT WHEN THE ARTEFACT IT CLONES IS THE VAULT**
+     (Aug 20). A read-only deploy key, scoped to one project, host key pinned, private key deleted
+     from disk so it lived only in an encrypted store — and then the first checkout wrote
+     `PASSWORDS.md` and a **plaintext** Swarm private key into a directory every build can read.
+     **Effort spent on how the pipeline authenticates buys nothing if the repo contains credentials.**
+     ⚠️ The instinctive fix (`cleanWs()`) does not work either: the next checkout recreates them.
+     Real answers are narrow checkout, a repo with no secrets, or an ephemeral agent.
+     ⭐ **And it is LIVE, not a stale artefact:** the workspace copy of `PASSWORDS.md` grew
+     14,854 → 16,781 B between two builds, so **every credential committed later arrives automatically.**
+  9. 🚨 **A FRAMING THAT DECIDES WHAT IS INTERESTING WILL SILENTLY FILTER YOUR EVIDENCE** (Aug 20).
+     Jenkins chapter 3 was first drafted as a narrative built around the phase's planted traps, and
+     **three real setup failures were missing from it** — a malformed public-key paste, an unclicked
+     *Enter directly*, and shredding a private key before confirming the credential had saved. All
+     three had cost real time; none fitted the story's spine, so none were written down. ⭐ **This is
+     the gap "only document what you actually ran" cannot close on its own** — that rule governs
+     whether a fact is TRUE, not whether it gets RECORDED. ✅ **Countermeasure, now `CONVENTIONS.md`
+     policy (A12): write the artefact as the PROCEDURE, so the organising principle is "what does the
+     next person do", which has no opinion about which failures are interesting.**
