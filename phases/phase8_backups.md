@@ -149,3 +149,31 @@ the situation.
 - TODO: one proof-of-life test restore (VMID 999, isolated NIC).
 
 ---
+
+---
+
+## COPIED VERBATIM FROM `MEMORY.md` @ `pre-memory-diet` (lines 2679–2702) — Nov 24, 2026 (memory-diet, copy-first) — VM BACKUPS -> NAS
+
+## VM BACKUPS → NAS (Phase 8, June 18 2026) — see phases/phase8_backups.md
+
+- **Why:** GitLab (VM 181) holds private-only data (home-lab-setup full mirror, capricorn-docs,
+  registry). ZFS mirror ≠ backup. Whole-VM vzdump → NAS = bare-metal DR.
+- **Layout:** NAS NeoCortex (192.168.1.120, SMB only) → share `NeoCortex` →
+  `ProxmoxBackups/<hostname>/dump/...`. Per-host subfolder; `dump/` is Proxmox-fixed.
+  GitLab → `ProxmoxBackups/vm-gitlab-1/`.
+- **Storage:** one CIFS storage **per host** (a storage = one `dump/`). GitLab = **`nas-gitlab`**
+  (subdir `/ProxmoxBackups/vm-gitlab-1`, content=backup). Pw root-only at
+  `/etc/pve/priv/storage/nas-gitlab.pw`.
+- **Job:** `gitlab-nightly` in /etc/pve/jobs.cfg — VM **181**, storage **nas-gitlab**, **02:00 EDT**
+  daily, **snapshot** (no downtime), **zstd**, **keep-last=7**. Seed verified (15.3 GB, ~6 min).
+- **Add another server:** mkdir `ProxmoxBackups/<host>` → `pvesm add cifs nas-<host> ... --subdir
+  /ProxmoxBackups/<host> --content backup` → `pvesh create /cluster/backup --id <host>-nightly
+  --storage nas-<host> --vmid <id> ...` (stagger schedules). See phase8_backups.md.
+- **Consistency:** app-consistent since Jul 9, 2026 — qemu-guest-agent installed + enabled on
+  all live VMs, so vzdump snapshot mode uses fs-freeze/thaw. (Was crash-consistent before.)
+- **Restore:** GUI Storage→nas-gitlab→Backups→Restore, or
+  `qmrestore /mnt/pve/nas-gitlab/dump/<file>.vma.zst <vmid> --storage <tgt>`. Needs a `vmbr0`.
+- **TODO:** one-time proof-of-life test restore (VMID 999, isolated NIC); optionally add jobs for
+  VMs 182/183/184/200; offsite/second copy (NAS is a single point).
+
+---
