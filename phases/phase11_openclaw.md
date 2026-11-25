@@ -1140,3 +1140,9 @@ from the software.
 
 
 ---
+
+---
+
+## COPIED VERBATIM FROM `MEMORY.md` @ `pre-memory-diet` (lines 91–91) — Nov 24, 2026 (memory-diet, copy-first) — PHASE INDEX row: OpenClaw
+
+| **OpenClaw agent (.185)** | `phases/phase11_openclaw.md` (**1099 ln**) | ⛔ **VM DESTROYED Aug 19, 2026 — totally gone, no backup, no snapshot. Nothing in that file is actionable.** VMID 185 + `.185` now belong to **Jenkins** (Phase 17), so **any `.185` in it means OpenClaw, not Jenkins.** Its *OPERATIONAL LOG* section (demoted from `current_phase.md` Aug 20) is six months of run-and-repair history; the one transferable pattern is **upgrades that silently reset config files, so the service starts clean and the customisation is what breaks** |
