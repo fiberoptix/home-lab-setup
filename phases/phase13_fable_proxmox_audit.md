@@ -799,3 +799,161 @@ Follow-up to the restore-drill finding (181 had no agent). For **181, 182, 183, 
 - VM 185 (dormant OpenClaw) untouched — add the agent if it's ever revived. ⛔ **Never revived; destroyed
   Aug 19, 2026. The agent is now a Part 0 step for the Jenkins VM that replaces it.**
 
+---
+
+## COPIED VERBATIM FROM `MEMORY.md` @ `pre-memory-diet` (lines 847–982) — Nov 24, 2026 (memory-diet, copy-first) — CURRENT STATE item: Phase 13 audit + same-day fixes
+
+- **✅ Phase 13 Proxmox host audit + same-day fixes — July 9, 2026.** Full record in
+  `phases/phase13_fable_proxmox_audit.md` (findings, action plan, implementation log). Done:
+  - **Email alerting LIVE:** PVE notification endpoint `gmail-smtp` (smtp.gmail.com:587,
+    app password in PASSWORDS.md "Gmail SMTP Relay") + default matcher retargeted; postfix
+    relayhost + SASL + `root:` alias → ZED/smartd/vzdump/cron mail all reach Andrew's Gmail.
+    Both paths tested + confirmed received. Rollback notes in phase13.
+  - **Host upgraded to PVE 9.2.4**, 0 pending pkgs. Kernel 7.0.14-4 pin-tested + adopted
+    same day (see below). Stale bookworm apt entries removed (`/etc/apt/sources.list` emptied, backup
+    `/root/sources.list.bak-20260709`).
+  - **ARC cap 8G → 16G** (runtime + `/etc/modprobe.d/zfs.conf`, initramfs rebuilt).
+  - **rpcbind/nfs-client disabled** (port 111 closed; NAS backups are CIFS, unaffected).
+  - **`zpool upgrade` all 3 pools** (feature-current). **VM200 snapshot deleted** (+5.1G);
+    only remaining snapshot = 184's `pre_phase12_firewall` (keep until Phase 12 window closes).
+  - **Tools added:** nvme-cli, numactl, lm-sensors (+ coretemp persisted via
+    /etc/modules-load.d/coretemp.conf), libsasl2-modules. CPU pkg ~51°C healthy.
+  - **vm-ephemeral REBUILT with ashift=12** (afternoon session, ~10 min downtime): 182+200
+    shut down → disks qm-move-disk'd to vm-critical → pool destroyed/recreated (same 2 NM620s,
+    by-id, `-o ashift=12` + lz4) → disks back → VMs verified healthy. Old pool was ashift=9.
+  - **AMT verified DISABLED without BIOS visit:** HP exposes BIOS read-only from Linux via
+    `/sys/class/firmware-attributes/hp-bioscfg/attributes/` (280 attrs). "Intel AMT" = Disable,
+    "ME Firmware Mode" = "AMT Disabled"; all AMT ports (623/664/5900/16992-5) closed from LAN.
+    **This sysfs trick works for reading ANY BIOS setting on the HP hosts — remember it.**
+  - 🔄 **RE-DECIDED Sep 28, 2026: still DEFERRED** — with the new fact on the table that the host is a
+    **Tailscale subnet router** (a remote path into the LAN), which the July "LAN-only" reasoning lacked.
+    Andrew's call. ⚠️ Also: the host's UPS is **power-only (no data cable)** — no graceful shutdown on outage.
+  - **⏸️ DEFERRED by Andrew:** SSH key-only hardening (SEC-1) + web UI TOTP (SEC-2) + host.fw —
+    LAN-only home lab behind Phase 12 perimeter; revisit later.
+  - **❎ WON'T-FIX by Andrew:** vzdump backups for 183 (Sonar, barely used) + 184 (WWW =
+    vanity/demo box) — both easily rebuilt. Only GitLab (181) holds irreplaceable data.
+    ~~**VM 185 (OpenClaw) stays dormant as-is** (not destroyed).~~ ⛔ **SUPERSEDED Aug 19, 2026 —
+    Andrew ordered VM 185 killed and removed. It is totally gone: destroyed with `qm destroy 185
+    --purge`, no backup taken (declined on purpose), no snapshot existed. Verified: config file gone,
+    no ZFS volumes left on `vm-critical`, and `--purge` removed `/etc/pve/firewall/185.fw` too.
+    16 GB + 12 cores returned to the host. VMID 185 and `.185` are now Jenkins (Phase 17).**
+  - 📌 **STANDING RULE (Andrew, Aug 13, 2026) — ALL vzdump backups go to the NAS under
+    `/ProxmoxBackups/<vm-name>/`, NEVER to NVMe.** Per-VM folders require **one CIFS storage per VM**
+    (`--subdir /ProxmoxBackups/<vm-name>`) because PVE dumps everything into a single `dump/` per
+    storage. Defined: `nas-gitlab` (181), `nas-docker-swarm-1/2/3` (191/192/193, `keep-last=3`).
+    Full recipe + gotchas in `proxmox/Home_Lab_Proxmox_Storage.md` → *Backup Strategy*.
+    - 🆕 **Sep 28, 2026: the HOST config is backed up too** — `pve-host-config-backup.timer` (01:30,
+      keep 30) → `nas-critical/host-config/` (config.db + `/etc/pve` + network/postfix/kernel pin/our
+      scripts; ⚠️ **contains secrets**). Before this, losing rpool meant VM disks with NO configs. Restore
+      tested; failure path emails. `RESTORE.txt` is inside every archive.
+    - 🆕 **Sep 28, 2026 (Phase 19): there are now TWO jobs** — `gitlab-nightly` (181, 02:00) and
+      **`critical-nightly`** (183, 185 — 🆕 **201–205 REMOVED Nov 4, 2026**: the backup caused nightly etcd
+      elections; they keep one protected offline set from Nov 4 + `c03` — `phase19` Decisions; 02:30, keep 7, storage **`nas-critical`**). First run
+      7/7 OK, restore drill passed (205 booted isolated). The rebuildable tier (180, 182, 184, 186,
+      191–193, 9000) is deliberately unscheduled. The Aug 20 text below is the history.
+    - 🚨 **SCHEDULED jobs are much rarer than storages — as of Aug 20, 2026 there is exactly ONE:**
+      `gitlab-nightly` (181, 02:00, keep 7). **A defined storage is NOT a backup.** 191/192/193 each
+      hold **one hand-made dump from Aug 13 and have no schedule**, and **180, 184 (WWW/PROD), 186,
+      and 9000 have no backup at all.** Don't infer coverage from `pvesm status`; read
+      `/etc/pve/jobs.cfg`.
+    - 📌 **RULING (Andrew, Aug 20, 2026) — VM 180 (QA) is deliberately NOT backed up.** A
+      `nas-docker-qa` storage + nightly job were built and a 10.66 GB archive proven, then **removed
+      the same day on his instruction.** ⭐ **The reasoning generalises: QA is rebuildable from GitLab
+      CI, so it is a deploy target, not a data store — only irreplaceable state earns a backup.**
+      Do not "helpfully" re-add it.
+    - 📊 **Sizing datapoint kept from that one run** (VM 180, 100 GB disk, ~15 GB used): live
+      `snapshot` mode with the guest agent took **2m20s** for a **10.66 GB** archive — **80% of the
+      disk was zeros** and sparse-skipped. Archive size tracks *used* data, not provisioned size.
+    - 🚨🚨 **`/etc/pve/priv/storage/<id>.pw` is `password=<value>` + newline, NOT a bare password.
+      THIS HAS NOW BURNED TWO SEPARATE SESSIONS (Jul 2026 and Aug 20, 2026). Read it before you
+      touch NAS auth.** A 9-char password = 19 bytes on disk. Two distinct failures come from the
+      same misread:
+      - **Writing it:** pre-placing a bare password is malformed, and `pvesm add` fails
+        `NT_STATUS_LOGON_FAILURE` — an auth-shaped error for a format problem. **Pass `--password`
+        and let PVE write the file.**
+      - **Reading it:** `mount -t cifs ... -o password=$(cat …pw)` sends the literal string
+        `password=<value>` and returns **`mount error(13) Permission denied`**, which looks exactly
+        like a NAS ACL problem. **Type the real password from `PASSWORDS.md` instead.**
+      ⭐ **The distilled lesson, which is why this keeps happening: A BYTE COUNT IS NOT A VALUE.**
+      Both sessions inferred the password's length from `wc -c` and never opened the file.
+      ⚠️ **And stop after 3–4 failed SMB auth attempts** — Synology-style auto-block trips near five
+      and would blackhole the Proxmox host, killing the nightly GitLab backup and every guest's
+      `/mnt/DevShare`.
+    - ⚠️ **`pvesm set --password` needs `--username` in the same call** even when the config already
+      has one, or it warns `no user set` and writes an EMPTY password.
+    - ⚠️ **The `subdir` must exist on the NAS first**; PVE will not create it, and it cannot be
+      created *through* its own storage (the subdir is part of the mount source).
+    - ⚠️ **vzdump excludes snapshots** — the archive is current disk state only.
+  - ❌ **RETRACTED same day — there was NO stale `nas-gitlab` credential and NO pending backup
+    outage.** The AI read `wc -c` = 19 as "an 18-char password", then built a test authfile as
+    `password=$(cat …pw)` → `password=password=<value>`, which fails to authenticate. Two tests
+    agreed because **both inherited the same wrong parse of the file.** ⭐ *A byte count is not a
+    value, and two tests sharing an assumption are not two confirmations.* Full write-up in
+    `proxmox/Home_Lab_Proxmox_Storage.md`. ✅ **Net gain anyway:** `nas-gitlab` has now been
+    unmounted/remounted twice with a write test — its reboot path is *proven*, not assumed, for the
+    first time since Jun 18. The true part kept: **a live CIFS mount is not evidence of a working
+    credential**, since CIFS never re-authenticates an existing mount.
+  - **Audit discoveries:** host runs Tailscale (100.108.209.77, `pve` on tailnet); idle Quadro
+    P2000 GPU (nouveau, passthrough candidate); SNC enabled in BIOS → 2 NUMA nodes (64G each);
+    only 4/6 memory channels populated (⚠️ **slot numbers in that audit are wrong — corrected in
+    `phase0_hardware.md`; the free slots were `CPU0-DIMM3/4`** — ✅ **both filled Aug 26, 2026, so the
+    host is now 6/6 channels at 192GB**); fallback kernel 6.17.2-1 no longer
+    on ESPs.
+  - **✅ Console visit DONE (Jul 9, 12:53 PM):** SNC disabled in BIOS (host is now 1 flat
+    NUMA node / 128GB *as measured that day — 192GB since Aug 26, 2026; still 1 flat node*)
+    AND kernel **7.0.14-4-pve pin-tested + made PERMANENT pin** (booted
+    clean 1st try: 6/6 NVMe, 0 errors, pools ONLINE, VMs up, public site 200). Fallbacks on
+    ESPs: 7.0.6-2 + 6.17.13-x. Slot 5 Bifurcation x4x4x4x4 unaffected (it, not SNC, drives
+    the quad-NVMe card — Andrew's question, answered from hp-bioscfg).
+  - **Subscription nag:** widget-toolkit 5.2.6 (Jul 9 upgrade) broke the old sed patch in
+    `/usr/local/bin/proxmox-update.sh`. BOTH fixed: live proxmoxlib.js patched (check →
+    `false`) and update script line 28 now uses a perl pattern matching the new code
+    (idempotent). If nag reappears after a future update → pattern needs refreshing again.
+  - **✅ GitLab backup test-restore drill PASSED (Jul 9, 1:20 PM):** qmrestore of the
+    nightly vzdump → VMID 999 on vm-ephemeral (2m17s), clone kept its baked-in .181 IP but
+    was isolated on a **host-only bridge vmbr999 + /32 route** (no LAN exposure; live 181
+    unaffected). Verified 16/16 services, DB (4 users / 5 projects), and a real
+    `git clone` of capricorn (306 files). Torn down clean. Procedure in phase13 (bottom).
+    🔄 **Cadence is EVENT-DRIVEN, not quarterly** (🙋 Andrew questioned "quarterly" Sep 28, 2026; the AI
+    agreed). The backup is a whole-VM image, so GitLab upgrades do not threaten restorability, and the
+    nightly job's success + failure emails are ongoing evidence. ⭐ **Re-run the drill after: a MAJOR PVE
+    upgrade (9 → 10), any change to the NAS target or the `gitlab-nightly` job, or any backup failure.**
+    Point releases (e.g. 9.2.4 → 9.2.20) do not trigger it. (It had said "repeat ~quarterly" with no
+    date anywhere, so it would never have fired anyway.)
+  - **✅ qemu-guest-agent on ALL 5 live VMs (Jul 9, 1:28 PM):** installed in guests
+    181/182/183/184/200 + `agent enabled=1` + graceful stop/start each (runner idle-checked,
+    GitLab last). All answer `qm agent ping`. Restarts also put every VM on the **new QEMU
+    11.0.2** binary (upgrade loose end closed). All services verified healthy after.
+    185 skipped (was dormant, ⛔ destroyed Aug 19, 2026). ⭐ **Phase 17's Jenkins VM needs the agent
+    installed** so `vzdump` can fs-freeze it rather than taking a crash-consistent copy.
+  - **Still open/optional:** ~~2x32GB DIMMs for 6-channel bandwidth~~ ⏸️ **ON HOLD Aug 19, 2026 —
+    now ~$600 (32GB DDR4 ≈ $300 each, DDR4 is EOL), the gain is still UNMEASURED, and the free
+    levers come first: cap `zfs_arc_max` (unmeasured) + measure VM working sets. Slots are
+    `CPU0-DIMM3/4`. The Z8 is also 4-of-6 per socket, so it is NOT a donor — `phase0_hardware.md`**;
+    tailscaled NetInfo log
+    noise (G3100 UPnP flapping; fix = TS_DEBUG_DISABLE_PORTMAPPER override if it bothers);
+    ~~delete 184 snapshot `pre_phase12_firewall` ~mid-July~~ ✅ **DELETED Sep 28, 2026** (🙋 Andrew;
+    2½ months late — found by the MAKE_MEMORIES pass-11 audit). Verified gone at `qm` + ZFS layers;
+    `vm-critical` USED 668 G → 654 G.
+  - **Dev workstation (Z8) side quest:** Ubuntu VMware VM resized 32→24 vCPUs **as 2 sockets
+    x 12** — Andrew found 2x12 makes Windows place the VM on idle PROC1 (1x24 co-locates with
+    Windows on PROC0). +11%/thread, 93% scaling eff. Details in phase13 addendum.
+
+---
+
+## COPIED VERBATIM FROM `MEMORY.md` @ `pre-memory-diet` (lines 2281–2295) — Nov 24, 2026 (memory-diet, copy-first) — HOST EMAIL ALERTING
+
+## HOST EMAIL ALERTING (Phase 13, Jul 9 2026) — see phase13 for full detail
+
+All Proxmox-host alerts now reach Andrew's Gmail via app password (PASSWORDS.md "Gmail SMTP Relay"):
+- **PVE notifications** (vzdump results, PVE alerts): endpoint `gmail-smtp`
+  (smtp.gmail.com:587 STARTTLS) + builtin `default-matcher` retargeted to it.
+  Manage: `pvesh get/set /cluster/notifications/...`. Test:
+  `pvesh create /cluster/notifications/targets/gmail-smtp/test`
+- **Local root mail** (ZED pool events, smartd disk warnings, cron): postfix
+  `relayhost = [smtp.gmail.com]:587` + SASL (`/etc/postfix/sasl_passwd`, root-only) +
+  `/etc/aliases` root→gmail. `smtp_address_preference = ipv4` (host has no IPv6 route).
+  Test: `echo hi | mail -s test root` then check journal for `status=sent ... gsmtp`.
+- Rotate credential at Google → Security → App passwords (named "pve").
+
+---
