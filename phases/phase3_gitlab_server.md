@@ -391,3 +391,9 @@ file wiring). GitLab snapshots: `f65cf2a` (initial full mirror), `087fc5b` (+ sm
 `setup_docker.sh` now auto-configures this for new VMs.
 
 ---
+
+---
+
+## COPIED VERBATIM FROM `MEMORY.md` @ `pre-memory-diet` (lines 89–89) — Nov 24, 2026 (memory-diet, copy-first) — PHASE INDEX row: GitLab/runner/CI
+
+| **GitLab / runner / CI** | `phases/phase3_gitlab_server.md`, `phase4_gitlab_runner.md`, `phase5_ci_cd_pipelines.md` | The runner is **privileged with the host Docker socket mounted** — any job on it is effectively root on the runner host (ledger L19) |
