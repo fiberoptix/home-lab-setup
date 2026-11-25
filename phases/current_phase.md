@@ -8,101 +8,41 @@ to scroll to find. **Keep it first.** Below it, newest session first. `MAKE_MEMO
 counts blocks (spec: 2) and step 2 demotes at least one per pass, so this file drains instead of
 growing — see that file for why the previous append-only version went undetected for seven months.
 
-## ▶️ RESUME HERE — 🔵 **PHASE 18, STAGE 3: CHAPTERS 05–08 WRITTEN, RESET TOOLING BUILT — `c03-equipped-cluster` IS THE "READY" RESET POINT.**
+## ▶️ RESUME HERE — 🔵 **PHASE 18, STAGE 3: exercise chapters 09+ (from `c03-equipped-cluster`)**
 
-🎯 **Cold-start summary (Nov 4, 2026):** the cluster carries metrics-server, local-path (default SC),
-Gateway API v1.6.3 standard CRDs and Traefik (Helm, NodePort 30080/30443). 🔄 **Every session starts with
-`bash education/k8s-cka-prep/scripts/lab_check.sh`** (workstation; 422 checks against `c03`, names the lowest
-drifted layer). L4 drift → the exercise's Reset or `--clean`; L1–L3 → `scripts/reset_cluster.sh --check`, then
-`--yes` (hard stop, roll all five back to `c03`, boot, fresh leases, `lab_check`). ✅ **Proven Nov 4: 250 s
-launch → `CLEAN`** (182 s from start); a real rollback (the post-snapshot boot is gone from `journalctl --list-boots`). ✅ **Nov 4: `wal_fsync` baseline taken (p99 ≤ 128 ms idle — `phase18` §11) and
-Chapters 05–08 WRITTEN** (05 metrics+storage, 06 Gateway/Helm/Traefik+`c03`, 07 anatomy reference, 08 building it
-at work); ch01–04 corrected quietly. 🔲 **NEXT: Stage 3 drills — exercise chapters from 09, from `c03`.**
-Commands are handed to Andrew as a separate `ssh` block first; on "check", read his terminal file
-(`phase18` §12). The detail for everything below is in `phase18` → Chapter 05 plan items 1–5.
+⛔ **Budget ≤ 6 KB.** State + next step + blockers ONLY. History goes to the phase file (`phase18`), not here.
 
-🆕 **Nov 22, 2026 (not Phase 18): the www script server now also serves `/files/` (`www-files`, guest, read-only) and
-starts at boot via `/etc/systemd/system/script-server.service` — `restart: "no"` in compose is DELIBERATE.** Not yet proven
-across a reboot; detail in the Nov 22–24 handoff below and `MEMORY.md` → *www Restart*.
+🎯 **State (Nov 4, 2026; unchanged since):** 5-node kubeadm **v1.35.8** HA cluster, `.201`–`.205`, kube-vip VIP `.206`, Calico
+v3.32.2, all `Ready`. Add-ons: metrics-server, local-path (default SC), Gateway API v1.6.3 standard CRDs, Traefik (Helm,
+NodePort 30080/30443). **`c03-equipped-cluster` is the offline "READY" reset point** (all five nodes). Chapters 01–08 written;
+`wal_fsync` idle p99 ≤ 128 ms baseline taken; exercise bank `education/k8s-cka-prep/exercises.md` (X01–X15 + backlog).
 
-🔐 **Nov 4, 2026 — A REAL PASSWORD WAS FOUND ON PUBLIC GITHUB, AND IS NOW REDACTED + GATED.** The NAS/SMB
-password (= GitLab root, Phase 20 E7) sat in plain prose 7× in 4 tracked files, public since `46a01db`
-(Aug 13). Redacted to `<value>`; **Andrew chose NOT to rotate** (lab-only, LAN-only) and not to purge;
-`push_github.sh` **step 5** now blocks any known secret value. Detail: `MEMORY.md` → GIT → *Secret hygiene*.
-🔓 The Aug 18 Swarm GitHub hold is **LIFTED** (Andrew, Nov 4) — L19–L22 stay public by decision; the
-Capricorn endpoint specifics stay in gitignored `working/`.
+🔄 **Session start for Phase 18 work:** `bash education/k8s-cka-prep/scripts/lab_check.sh` (workstation; 422 checks vs `c03`,
+names the lowest drifted layer). L4 drift → the exercise's Reset or `--clean`; L1–L3 → `scripts/reset_cluster.sh --check` then
+`--yes` (≈ 250 s to `CLEAN`). ⛔ Never reset by hand; any new baseline snapshot ⇒ `lab_check.sh --record` straight after.
 
-🆕 **Oct 27 (late): PHASE 20 BUILT — Rancher on single-node K3s, VM 187 `.187`** — a separate track; it
-does **not** touch the CKA cluster and does not change the Phase 18 next step below. Open items for Andrew
-(log in, E7, delete the expired root PAT, D6) are in `phases/phase20_k3s_rancher.md` → 🔲 Open items.
+🔲 **NEXT:** exercise chapters **09 onward** (every Stage 3 part adds ≥ 1 exam-shaped task to the bank); coverage matrix before the
+first mock exam. Rule for Stage 3: *does the exam test it, and is this the simplest way to practise it?* Original tasks only —
+never exam / Killer.sh content.
 
-✅ **A REAL 5-NODE HA KUBERNETES CLUSTER IS RUNNING as of Sep 17, 2026** — `vm-k8s-cka-control-1/2/3`
-at `.201`–`.203` and `vm-k8s-cka-worker-1/2` at `.204`/`.205`, all **v1.35.8 `Ready`**, three stacked
-etcd members with control-1 as leader, **kube-vip VIP `192.168.1.206` up and held by one node**, and
-**Calico v3.32.2** (Tigera operator) on pod network **`10.244.0.0/16`**.
-✅ **STAGE 1 COMPLETE (all six steps) AND STAGE 2 COMPLETE.** HA proven by an abrupt `qm stop` of the
-VIP holder: **17 s** to recover, VIP moved, etcd held quorum 2/3 and **did not re-elect** (killing a
-follower, not the leader). Cross-node pod-to-pod and CoreDNS both verified — ⭐ **`ttl=62` on the ping
-proves the traffic is ROUTED, not encapsulated.**
-✅ **`c02-virgin-cluster` is an OFFLINE baseline on all five, and its rollback is PROVEN — not assumed.**
-⭐ **The method is the transferable part: a restore and a plain power cycle print the SAME thing, so
-markers were planted first** (a ConfigMap in etcd *and* a file on every node). Both came back gone.
-📊 **Restore costs `qm rollback` 6 s, ~49 s to reachable, full cycle under ~2 min** — cheap enough that
-Stage 3 can break this cluster freely.
-✅ **STAGE 1 IS DOCUMENTED (Sep 23, 2026) — chapters 02, 03 and 04 all written, so the gate into Stage 3
-is OPEN.** ✅ **Chapter 05 plan APPROVED Sep 23** — the simplest CKA-congruent shape: metrics-server (Kustomize),
-local-path-provisioner, the Gateway API CRDs, and Traefik (Helm) for both Ingress and Gateway API, NodePort
-only, then an offline `c03-equipped-cluster`. ✅ **Nov 4: Part 1 BUILT — metrics-server v0.9.0 via
-Kustomize, x509 failure seen first, then fixed by a patch; `kubectl top` works** (`phase18` Chapter 05 plan,
-item 1). ✅ **Nov 4: Part 2 BUILT — local-path-provisioner v0.0.37, now the DEFAULT StorageClass;
-bind, survive-a-pod-delete and reclaim-`Delete` all proven** (item 2). ✅ **Nov 4: Part 3 BUILT — Gateway
-API standard CRDs v1.6.3** (10 CRDs + a `safe-upgrades` admission policy; v1.6.3 because stable Traefik
-v3.7.17 is built on it) (item 3). ✅ **Nov 4: Part 4 BUILT — Helm v4.3.1 on control-1 only, Traefik
-chart 42.3.0 (v3.7.17) on NodePort 30080/30443; one Ingress and the same route as Gateway + HTTPRoute both
-serving; upgrade + rollback drilled** (item 4). ✅ **Nov 4: Part 5 — `c03-equipped-cluster` TAKEN, offline,
-all five, 5/5/5 at PVE + ZFS, cold start proven. 🎯 `c03` IS THE "READY" RESET POINT** (Andrew: roll back to
-"ready" for work and exercises). 🚨 `c02` is now reachable only by deleting `c03`. 🚨 **Found: the 02:30
-`critical-nightly` backup triggers an etcd election most nights** (term 6 → 54 since Sep 28; Nov 4 at 02:34:26,
-during VM 201's backup) → ✅ **201–205 REMOVED from the job (Andrew, Nov 4)**; one protected stop-mode set
-taken with all five off (= `c03` state), the 35 old nightly archives deleted (`phase18` item 5). ✅ **The `wal_fsync` baseline is taken and Chapters 05–08 are written (Nov 4).** 🔲 **NEXT: the exercise
-chapters, 09 onward.** ⚠️ **Run every step on control-1** (`ssh agamache@192.168.1.201`) — the workstation has no kubeconfig.
-🎯 **NEW Nov 4 — THE EXERCISE BANK: `education/k8s-cka-prep/exercises.md`.** Exam-shaped tasks (X01–X15 +
-backlog) for a timed mock exam later. 🚨 **Every Stage 3 part adds at least one task before it is called
-done** — rule and shape in `phase18` → § *EXERCISE BANK*.
-⭐ **Stage 3 rule: does the exam test it, and is this the simplest way to practise it?** Production
-choices for the work rebuild are parked beside the plan in `phase18`. ⏸️ **The Swarm chapter-8 `recited` rows are
-DEFERRED, not dropped** (Andrew, Sep 23): they resume, together with Phase 17, once he knows the firm's
-actual Swarm setup — a migration test is only worth its resemblance to the real platform. ⛔ Keep the
-Swarm in place meanwhile. 🔄 *Its snapshots `s01`–`s07` were purged Sep 28 by Andrew's decision (Phase 19);
-the only Swarm snapshot now is `baseline-2026-09-28`.* 🆕 **Hard rule B9: never install ingress-nginx — retired
-upstream March 2026.**
-⚠️ **The cluster ran six days unattended and was healthy on return** — raft term still 5, so no etcd
-election at all in that time. 🔻 *(Sep 23 reading — before the nightly backup job existed. From Sep 28 to
-Nov 4 that job caused ~48 elections; 201–205 were taken out of it Nov 4.)*
-🆕 **Sep 28, 2026 — AUTOMATIC UPDATES FROZEN ON ALL FIVE NODES; the Sep 17 "do not mask" call is
-REVERSED.** They were the only VMs in the lab still patching themselves: `unattended-upgrades` had
-installed kernel **`6.8.0-142`** (Sep 25) and ~20 packages **after** `c02` was taken. ✅ Now masked
-**and** stopped on all five (`2-personalize.sh --freeze-updates`, fixed today), verified independently:
-0 scheduled apt timers, 0 failed units, cluster untouched. Full record: `phase18` Stage 3 drill block +
-`MEMORY.md` → PATCHING POLICY. ✅ **`c02-virgin-cluster` was RETAKEN Sep 28** (old one deleted; new one
-offline on all five, verified 1 → 0 → 1 at both the `qm` and ZFS layers): kernel 142, auto-updates
-frozen, PVE 9.2.20 / QEMU 11.0.3. 🚨 **`c01-nodes-ready` still PREDATES THE MASK** (kernel 139, updates
-enabled) — after a rollback to `c01`, re-run `sudo bash 2-personalize.sh --freeze-updates` on all five.
-🔲 **NEXT, in order (Andrew approved Sep 28):** (1) ✅ freeze nodes — done. (2) ✅ **PVE host
-upgraded to 9.2.20 and rebooted on the SAME pinned `7.0.14-4`** (Sep 28, 17:13 → 17:15:56). Cluster shut
-down workers-first, started control-planes-first: 5/5 `Ready` on kernel **142**, 39/39 pods Running, DNS
-verified, auto-updates still frozen. etcd leader is **control-2** (term 6; it was already control-2 at
-term 5 before the reboot — "control-1 as leader" above is the Sep 16 build state). ⚠️ After the cold
-start 15 pods sat in `Unknown` and one `calico-apiserver` flapped not-ready for ~2 min — both cleared
-on their own; **check again a few minutes later before calling a cold start broken.** Host detail:
-`MEMORY.md` → PATCHING POLICY (🚨 the upgrade silently dropped the proven fallback kernel off the ESPs).
-(3) ✅ five-node baseline `c02-virgin-cluster` retaken — cluster back 5/5 Ready, all pods Running. (4) 🔲 **kernel drill on the NEXT kernel, within 60–90
-days** — see `phase18`. (5) ✅ **host kernel trial DONE Oct 27, 2026 — on `7.0.14-26` (not `-19`; the
-target moved), PVE 9.2.24.** Record: `phase1b` → last section (that session's handoff block was demoted there too). ✅ Cluster 5/5 `Ready`, 39/39 pods after it.
-⚠️ **Read the Stage 1 results block in `phases/phase18_k8s_cka_build.md` before touching this** — it
-holds the corrections (kube-vip did NOT crash-loop; the Calico operator HARD-CODES
-`192.168.0.0/16`; `node.spec.podCIDR` is inert; `RESTARTS 0` does not mean a static pod was
-untouched).
+🧭 **How Andrew and the AI work here (phase18 §12):** commands go to Andrew as a separate `ssh` block FIRST; on "check", read his
+terminal file. Run every step on **control-1** (`ssh agamache@192.168.1.201`) — the workstation has no kubeconfig.
+**CKA work pushes to BOTH remotes, GitLab first** (still ask).
+
+🔲 **Carried / due:**
+- **Node patching drill due ~Nov 27 – Dec 27** (60–90 days from the Sep 28 update freeze); step 0 is `sudo apt update`.
+- `vm-ephemeral` boot-import check at the next HOST reboot: `journalctl -b -u 'zfs-import@vm\x2dephemeral'` (unproven).
+- Swarm chapter-8 conversion is DEFERRED — ask which Swarm features the new job actually uses.
+- Phase 20 open items for Andrew: log in, E7, delete the expired root PAT, D6 (`phase20` → 🔲 Open items).
+- Sep 28 `move-20x.log` files in `education/k8s-cka-prep/scratch/` — agreed: delete, **ask first**.
+- `script-server.service` (Nov 22) is **not proven across a reboot** — `journalctl -b -u script-server` after the next one;
+  also test `http://192.168.1.195/files/` from a second machine.
+
+🔐 **Standing:** a real password sat on public GitHub until Nov 4 (redacted, **not rotated** — Andrew's call); `push_github.sh`
+step 5 now blocks known secret values. 🔓 The Aug 18 Swarm GitHub hold is lifted (L19–L22 are public by decision).
+
+📌 **Where the rest is:** `phases/INDEX.md` (area → file). Cluster build record, Stage 1–2 results, the four corrections that
+mislead, `c01`/`c02`/`c03` rules and the etcd/backup finding are all in `phase18`.
 
 ## 📘 SESSION Nov 22–24, 2026 — `/files/` added to the www script server, and its boot order fixed
 
@@ -139,7 +79,17 @@ chapters 09+, from `c03`; start with `lab_check.sh`).
    🔲 **NOT PROVEN across a real reboot.** First check after the next one:
    `journalctl -b -u script-server` and `curl -s http://192.168.1.195/files/`.
 5. **`MAKE_MEMORIES` pass 16:** demoted the Nov 4 handoff → `phase18` (commit `73939dd`); blocks 3 → **2 + log
-   (at spec)**. MEMORY.md: the `/files/` + boot-order block under *www Restart*; stale snapshot claim fixed.
+   (at spec)**. The `/files/` + boot-order rules are now in `MEMORY.md` §3 (hard rules) and `phase2` (SCRIPT SERVER); the stale snapshot claim was fixed.
+
+6. 🗜️ **MEMORY DIET (Nov 24, evening; Andrew's request, plan + swap approved in writing).** `MEMORY.md` 251,160 B / 2806 ln → **core
+   9,276 B**; boot context (`CURSOR_RULES` + MEMORY + RESUME + SECRET) **~303 KB → ~47 KB**. New boot order (CURSOR_RULES item 2):
+   MEMORY core → RESUME HERE → **`phases/INDEX.md`** (new pointer table, 24 rows ≤ 400 B) → `MEMORY_SECRET.md` (17.4 → 3.8 KB; employer
+   name/start date dropped). Method = COPY-FIRST: tag `pre-memory-diet` (`1a3f7a8`), every block copied verbatim into phase files /
+   new `reference/*.md` (8 files) in ~40 additive commits, independent line check **0 of 2,431 missing**, drafts tested (20/20 boot, 16/16
+   on-touch questions), then ONE swap. `CURSOR_RULES`: EDIT LOG entry 12 + HARD RULES (NEVER) section + four-file boot. `MAKE_MEMORIES`
+   retrofitted IN PLACE (12 edits; only 11 old lines changed; new: `tools/memory_budget.sh` step 0, `tools/copy_ranges.py`, INDEX upkeep,
+   bulk copy-first variant). Old RESUME block → `phase18` verbatim. **Old text of everything = tag `pre-memory-diet`**; old SECRET =
+   `working/memory-diet/MEMORY_SECRET.old` (+ the GitLab mirror). Staging drafts stay in `working/memory-diet/` (gitignored).
 
 ### 🚨 Found
 - **A spent to-do, again (the fifth pass running).** The Nov 4 handoff said *"delete

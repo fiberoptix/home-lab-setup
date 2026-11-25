@@ -24,6 +24,9 @@ EDIT LOG (every authorised change to this file, so the count is visible):
      by Andrew that day.
  11. Oct 27, 2026 - item 4's PVE version line: 9.2.20 -> 9.2.24. Authorised in writing by Andrew
      that day ("Yes: I approve this edit to CURSOR_RULES exactly as written").
+     12. Nov 24, 2026 - MEMORY DIET (written approval, Andrew, Nov 24: plan "I approve the rest"; swap + this edit "approve all. swap the files"): checklist item 2
+     rewritten to a FOUR-file boot (MEMORY core -> RESUME HERE -> phases/INDEX.md -> MEMORY_SECRET.md) with
+     byte budgets (tools/memory_budget.sh); item 4's host list replaced by a pointer; a HARD RULES section added.
 
 Project: home-lab-setup - Building Proxmox VE DevOps/QA Environment
 
@@ -59,26 +62,33 @@ Note the distinction: the OMS producer/consumer in education/k8s-k3s-redpanda/ap
 study material, not a production app. Capricorn is not.
 
 
+=== HARD RULES - NEVER (promoted from MEMORY.md, Nov 24, 2026 - state once, here) ===
+- NEVER retag/push production Capricorn images (B1). Jenkins pushes images ONLY to the `lab` group (B10), never
+  `production/capricorn/*` - QA .180 and PROD .184 pull `:latest` from there. Jenkins deploys stack `capricorn-jenkins`, NEVER `capricorn`.
+- `.186` (k3s/Redpanda) is FROZEN: never patch it, never run `k3s-uninstall.sh`, never fold it into the Phase 18 cluster.
+- `.201-.205` (CKA cluster) are NEVER in `refresh.sh` or `critical-nightly`, NEVER imported into Rancher, and are reset ONLY with
+  `education/k8s-cka-prep/scripts/reset_cluster.sh`. NEVER install ingress-nginx (B9).
+- `.184` (vm-www-1) is PROD-LOCAL: it mounts NO NAS (`host_setup.sh --no-nas`).
+- NEVER `curl | bash` a host_setup script (two-step bootstrap); NEVER run it from inside `www/ubuntu/` or `www/fedora/`;
+  NEVER mount `www/` itself into the script server (the NAS credential file lives there).
+- A purge is not a rotation. Credentials live ONLY in PASSWORDS.md (on demand) - never in a tracked file.
+
 === STARTUP CHECKLIST ===
 
 1. ✅ Check current date/time including TimeZone using terminal
-2. ✅ Load context. ALWAYS these THREE, and ONLY these three, at boot:
-   a. MEMORY.md - project-wide facts, prohibitions, and the PHASE INDEX
-   b. phases/current_phase.md - read the "▶️ RESUME HERE" block at the top. Do NOT read the whole
-      file at boot; it is a long history that the phase files also carry.
-   c. MEMORY_SECRET.md - confidential context Andrew has told the AI: employer, dates, personal
-      circumstances, and the priorities that follow from them. GITIGNORED and NEVER public.
-      ⛔ NEVER copy anything out of it into a tracked file - not MEMORY.md, not a phase file, not
-      a commit message. If a tracked file needs the CONSEQUENCE of something in there, write the
-      consequence and leave the fact where it is.
-      ⭐ Why this is a boot read while PASSWORDS.md deliberately is not: this file is CONTEXT, and
-      missing it makes the AI reason from a wrong picture of what matters. A credential is not
-      context - it is a key, and it does not belong in a session "just in case".
-      🙋 Andrew's protocol: he says when something is confidential, or THE AI ASKS when a discussion
-      looks like it contains personal, employer or job detail that must not go public.
+2. ✅ Load context. ALWAYS these FOUR, in THIS order, and ONLY these four, at boot (Nov 24, 2026 - memory diet):
+   a. MEMORY.md - the CORE: scope, the CIFS gotcha, hard-rule detail, hosts, distilled principles. BUDGET <= 30 KB, so it
+      fits ONE read call (the old 251 KB file could not be read whole). Read it ALL.
+   b. phases/current_phase.md - read ONLY the "▶️ RESUME HERE" block at the top (budget <= 6 KB). Never the whole file.
+   c. phases/INDEX.md - one row per phase/reference file: area -> file -> what you get WRONG without it. This is the
+      POINTER LAYER; it is how everything else loads ON TOUCH.
+   d. MEMORY_SECRET.md - confidential context (GITIGNORED, NEVER public, <= 8 KB). ⛔ NEVER copy anything out of it into a
+      tracked file - write the consequence, leave the fact. Andrew says when something is confidential, or THE AI ASKS.
+   ⭐ Run `bash tools/memory_budget.sh` at the end of every MAKE_MEMORIES pass: it prints the numbers this paragraph
+      constrains and exits 1 if one is over. A rule that states a number must have something that prints it.
 
    THEN LOAD-BEFORE-TOUCH. Everything else loads WHEN the work reaches it, not at boot:
-   * The PHASE INDEX in MEMORY.md maps area -> file -> what you get WRONG without it. The FIRST
+   * phases/INDEX.md maps area -> file -> what you get WRONG without it. The FIRST
      time in a session you touch an area, read its file and SAY IN YOUR MESSAGE which files you
      read. A claim written down is a claim Andrew can check.
    * This re-triggers. A session that starts as a 5-minute question and turns into a build must
@@ -123,18 +133,8 @@ study material, not a production app. Capricorn is not.
     SHORT and pointing elsewhere; do not grow it.)
    - Building Proxmox VE 9.x DevOps/QA lab on HP Z6 G4 (9.2.24 as of Oct 27, 2026 - `pveversion`
      is the source of truth, not this line)
-   - Proxmox host .150 + these VMs (⛔ read MEMORY.md -> IPs & HOSTS for the real state, incl. which
-     are `onboot 0` and which are awaiting destroy):
-       .180 QA (`vm-docker-qa-1`, plain docker compose - NOT swarm, NOT k8s)
-       .181 GitLab   .182 Runner   .183 SonarQube
-       .184 WWW (`vm-www-1`) - Traefik + Capricorn PROD + splash. Traefik RUNS HERE, it is not a VM
-       .185 Jenkins (`vm-jenkins-1`, Phase 17)
-       .186 k3s/Redpanda POC - FROZEN, out of scope; never fold it into the Phase 18 cluster
-       .201-.205 Phase 18 kubeadm cluster (3 control planes + 2 workers), kube-vip VIP .206
-         (Corrected Sep 28, 2026, authorised in writing by Andrew: .186 was listed as "the ONLY
-          Kubernetes in this lab", false since the Phase 18 cluster was built Sep 17.)
-       .191/.192/.193 `docker-swarm-1/2/3` (Phase 16)
-       .195 this dev box - also the script server (`www/run_www.sh`)
+   - Hosts and VMs: ⛔ MEMORY.md §4 is the only list (Nov 24, 2026: this item's own copy kept going stale; state a fact once).
+     (Corrected Sep 28, 2026, authorised in writing by Andrew: .186 was listed as "the ONLY Kubernetes in this lab".)
    - ZFS storage: local-zfs (rpool1), vm-critical (rpool2), vm-ephemeral (rpool3)
    - Access: LAN + Public HTTPS via Traefik on .184 + Tailscale on the PROXMOX HOST: it is on the
      tailnet as `pve` (100.108.209.77) and is its SUBNET ROUTER - a remote path into the LAN.
@@ -168,7 +168,7 @@ There is NO special syntax and none is wanted. Andrew's boot pattern is:
     "action CURSOR_RULES"  +  "pay special attention to <area>"
 
 That is sufficient and it is the intended design: the "pay special attention to" clause feeds the
-LOAD-BEFORE-TOUCH step above. The PHASE INDEX in MEMORY.md maps area -> file -> what you get WRONG
+LOAD-BEFORE-TOUCH step above. phases/INDEX.md maps area -> file -> what you get WRONG
 without it, so naming the AREA is BETTER than naming a file - the index may route to two files where
 Andrew would have named one.
 
@@ -373,6 +373,6 @@ Credentials in .env (not committed to git)
 Read MEMORY.md first, then /proxmox/Home_Lab_Proxmox_Build_Plan.md for current phase status.
 
 Ready? Ask Andrew: "What would you like to work on today?" - and if he names a topic or area,
-load that area's PHASE INDEX row BEFORE proposing anything. "Action CURSOR_RULES, pay special
+load that area's phases/INDEX.md row BEFORE proposing anything. "Action CURSOR_RULES, pay special
 attention to <topic>" is the supported form: treat <topic> as an instruction to grep phases/ for it
 and read the matching file up front.

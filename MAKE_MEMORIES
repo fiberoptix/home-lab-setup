@@ -7,12 +7,16 @@ Check current date/time including TimeZone using terminal
 
 Run this BEFORE writing anything, and PUT THE OUTPUT IN YOUR MESSAGE:
 
-  wc -l MEMORY.md phases/current_phase.md
+  wc -l MEMORY.md phases/current_phase.md phases/INDEX.md
   git show HEAD:MEMORY.md | wc -l
   git show HEAD:phases/current_phase.md | wc -l
-  grep -c '^## ' phases/current_phase.md          # ← BLOCK COUNT. Spec is 2.
+  grep -c '^## ' phases/current_phase.md          # ← BLOCK COUNT. Spec is 3 = RESUME + ONE handoff + the demotion log.
+  bash tools/memory_budget.sh                      # ← BYTE BUDGETS (Nov 24, 2026). Exit 1 = OVER BUDGET -> demote this pass.
 
-Report as: "MEMORY.md 2363 (+33) · current_phase.md 3505 (+43), 39 blocks (spec 2)".
+Report as: "MEMORY.md 9276 B/109 ln (+0) · INDEX 5263 B · RESUME 2965 B · current_phase.md 241 ln, 3 blocks (spec 3) · budget ✅".
+BUDGETS (the numbers the boot spec constrains - tools/memory_budget.sh prints and enforces them): MEMORY.md core <= 30 KB
+(it must fit ONE read call) · phases/INDEX.md <= 8 KB, each row <= 400 B · RESUME HERE <= 6 KB · MEMORY_SECRET.md <= 8 KB ·
+current_phase.md <= 3 `##` blocks. (The old "spec 2" counted without the log; measured at spec since pass 15 with 3.)
 
 🚨 THE BLOCK COUNT WAS ADDED Aug 24, 2026, AND IT IS THE POINT OF THIS STEP NOW.
   Measured that day: current_phase.md held 39 session blocks against a spec of 2, with 21 of them
@@ -36,6 +40,9 @@ WHY THIS EXISTS - the measurement that forced it:
   There is deliberately NO hard line cap (Andrew's call, Aug 19). The number is not a rule - it is a
   TRIGGER you cannot avoid seeing, so demotion becomes a decision Andrew makes with data instead of
   one that silently never happens.
+  🔻 SUPERSEDED Nov 24, 2026 (Andrew approved the memory-diet plan): there ARE byte budgets now (step 0). Reason: the boot read is a
+  hard limit, not a taste - the 251 KB MEMORY.md could not be read in one call, so every session read an arbitrary slice. The number
+  is still a TRIGGER first; the cap exists so the trigger has a threshold a script can print.
 
 
 === 1. WHAT GOES WHERE - two tests, applied to every fact ===
@@ -43,7 +50,7 @@ WHY THIS EXISTS - the measurement that forced it:
 TEST 1: "Would I be WRONG, or merely UNINFORMED, without this?"
   WRONG      -> stays inline in MEMORY.md. Prohibitions, scope, hard rules, credentials PATHS, IPs,
                 the CIFS gotcha, "do not clean this up" warnings. Missing it causes DAMAGE.
-  UNINFORMED -> phase file + a pointer row in MEMORY.md's PHASE INDEX. Missing it only means you
+  UNINFORMED -> phase file (or reference/<topic>.md if no phase owns it) + a pointer row in phases/INDEX.md. Missing it only means you
                 have to go read something.
 
 TEST 2: "Does this apply OUTSIDE the phase that produced it?"
@@ -57,14 +64,24 @@ MEMORY.md (static, project-wide reference):
 - IPs, credential file PATHS (never the credentials themselves), commands, architecture
 - Prohibitions and directives - anything whose absence causes damage
 - Key decisions and WHY
-- The PHASE INDEX (pointer table) - keep it current when a phase is added or closed
+- (the PHASE INDEX pointer table moved to phases/INDEX.md on Nov 24, 2026 - see its entry below)
 - Distilled cross-phase principles
-- Update only if infrastructure/config/policy changed
+- Update only if infrastructure/config/policy changed - and stay <= 30 KB: core only (scope, CIFS gotcha, hard-rule detail,
+  hosts table, distilled principles). The NEVER-list lives in CURSOR_RULES 'HARD RULES' - state a rule once, point at it.
 
 phases/current_phase.md (session progress):
 - ONE "▶️ RESUME HERE" block at the top: current phase, goal, state, next steps, blockers
+  (<= 6 KB: state, next step, blockers, carried items ONLY - history goes to the handoff/phase file; TRIM IT EVERY PASS)
 - ONE current session handoff
 - Include explanations if YOU need them to understand later
+
+phases/INDEX.md (the POINTER layer, loaded at boot right after RESUME HERE):
+- ONE row per phase file / reference file: trigger -> file -> COST OF SKIPPING it. <= 400 bytes a row, <= 8 KB total.
+- KEEP IT CURRENT when a phase or reference file is ADDED, CLOSED or RENAMED (this step is easy to forget now that the table is
+  no longer inside MEMORY.md). Findings live in the phase file, never in the row.
+
+reference/<topic>.md (topic material tied to no single phase - VM build/standard, patching, access, git, hosts):
+- Loaded ON TOUCH via an INDEX row. Demoted MEMORY material that no phase owns lands here, verbatim.
 
 phases/phaseX_*.md (the working record - where the volume belongs):
 - Drills, predictions and their scoring, raw evidence, per-session narrative, ledgers
@@ -87,7 +104,7 @@ phases/phaseX_*.md (the working record - where the volume belongs):
   batching that 2e forbids - batching is several deletions sharing one commit, where a mistake is
   unrecoverable because there is no intermediate state to go back to.
 
-  📌 BACKLOG. Steady state is 2. Update this line every time you demote, so the next session can see
+  📌 BACKLOG. Steady state is 3 (RESUME + ONE handoff + this log; the original '2' counted without the log). Update this line every time you demote, so the next session can see
      whether this is actually converging rather than having to re-derive it.
        Aug 24, 2026 (start of pass) : 39 blocks, 21 dated Jan-July 2026, 2447 lines
        Aug 24, 2026 (after pass 1)  : 35 blocks, 21 dated Jan-July 2026, 2409 lines
@@ -206,6 +223,8 @@ phases/phaseX_*.md (the working record - where the volume belongs):
              < <(git diff --cached phases/current_phase.md | grep '^-' | grep -v '^---' | sed 's/^-//' | grep -v '^\s*$')
        Nov 24, 2026 (START of pass 16): 3 blocks = AT SPEC, 0 dated Jan-July 2026, 242 lines
        Nov 24, 2026 (after 16a + handoff): 3 blocks = AT SPEC, 0 dated Jan-July 2026, ~242 lines
+       Nov 24, 2026 (MEMORY DIET, swap done + MEASURED LIVE with tools/memory_budget.sh): MEMORY.md 251,160 B / 2806 ln -> core 9,276 B /
+         104 ln; INDEX 5,263 B (largest row 377); RESUME 9,355 -> 2,860 B; SECRET 17,444 -> 3,762 B; current_phase 3 blocks; boot ~303 KB -> ~47 KB.
          Net-zero by design: 16a demoted the Nov 4 handoff (67 lines) -> phase18; the Nov 22-24 handoff took its place.
          ⭐ FIFTH PASS RUNNING where reading the demoted block found a SPENT to-do presented as open: "delete
          rpool/ROOT/pve-1@pre-pve-9.2.20-2026-09-28 - ask first" - the snapshot was already gone, and MEMORY.md
@@ -259,8 +278,8 @@ phases/phaseX_*.md (the working record - where the volume belongs):
 
   Also still true: demote whenever a phase closes, whatever the block count says.
 
-  a. Pick the block: the OLDEST in current_phase.md, or the largest closed/dormant-phase block in
-     MEMORY.md's CURRENT STATE.
+  a. Pick the block: the OLDEST in current_phase.md; or, if MEMORY.md core is over budget, the largest section of it that is
+     history rather than WRONG-if-missing (its old CURRENT STATE was demoted out on Nov 24, 2026).
   b. ROUTE IT - three outcomes, not one. Read the block and sort its content:
        LIVE RULE  -> it still governs behaviour today. PROMOTE it to its proper home (MEMORY.md,
                      education/METHOD.md, education/CONVENTIONS.md), do NOT bury it in a phase file.
@@ -285,7 +304,7 @@ phases/phaseX_*.md (the working record - where the volume belongs):
      found only 7 of 25. ⛔ Any script you write to justify a deletion must first be shown to find
      something it should find. A coverage number from an unvalidated tool is worse than no number,
      because it licenses a delete.
-  c. Replace the block in MEMORY.md with a PHASE INDEX row (see format below).
+  c. Leave ONE row in phases/INDEX.md for it (format below) - or none if it was COVERED or DROPPED. Never a stub block in MEMORY.md.
   d. VERIFY, from the shell, not from a read-back (this repo is on CIFS - see MEMORY.md gotcha):
        wc -l MEMORY.md
        git diff MEMORY.md | rg '^-' | rg -v '^---'     # read EVERY removed line
@@ -294,15 +313,27 @@ phases/phaseX_*.md (the working record - where the volume belongs):
   ⭐ TOOL (Sep 28, 2026): `python3 tools/demote_block.py "<heading prefix>" <dest> "<note>" "<log row>"
      "<pass N>"` stages exactly ONE block built from HEAD, appends it verbatim to <dest> and adds the
      log row. It does NOT verify for you - still read every removed line (step d) before committing.
+  ⭐ TOOLS (Nov 24, 2026): `SRC_REF=<ref> python3 tools/copy_ranges.py <dest> <a>-<b>:"label" ...` copies line ranges of MEMORY.md at a git
+     ref VERBATIM, idempotent, NEVER deletes (copy-first). `bash tools/memory_budget.sh [dir]` prints the budgets and exits 1 if over
+     (a staging dir holding MEMORY.new.md / INDEX.new.md / RESUME.new.md / MEMORY_SECRET.new.md is tested the same way).
 
 🚨 Silent loss of a hard-won finding is the worst failure mode this project has. One block at a
 time, verified, committed between steps. Never batch demotions.
+
+🔧 BULK-MOVE VARIANT (Nov 24, 2026 - the memory diet, 251 KB MEMORY.md -> 9 KB core). COPY-FIRST: (1) tag the starting commit;
+(2) copy_ranges.py each block verbatim into its destination, one commit per destination - ADDITIVE, so nothing can be lost;
+(3) an INDEPENDENT line-membership check of every copied line against its destination, with a positive control (the tool's own
+read-back is the same instrument that wrote it); (4) build the slim files in a staging dir, run the budget tool and a cold-boot
+question test; (5) ONE swap commit - the old text stays in the tag. This does not break 'never batch': batching means several
+DELETIONS sharing one commit with no intermediate state. Here the deletion is one commit AFTER a complete verified copy and a tag.
+Anything not done copy-first is still one block, one verified commit.
 
 Also demote from current_phase.md: when a new session starts, the PREVIOUS session handoff is
 appended to its phase file and removed from current_phase.md. It holds ONE handoff.
 
 
 === 3. POINTER FORMAT - a pointer must state the COST of skipping it ===
+(Rows live in phases/INDEX.md: <= 400 bytes each, <= 8 KB total - `bash tools/memory_budget.sh` enforces both.)
 
 A pointer you skip is WORSE than no pointer, because a big MEMORY.md fails safe while a skipped
 pointer makes you CONFIDENTLY WRONG. So never write "see phaseX for details" - name what breaks.
@@ -323,7 +354,9 @@ actually read, so the claim is checkable.
 - /proxmox/credentials
 - /www/ubuntu/ and /www/fedora/   (renamed from /www/scripts/ and /www/scripts_fedora/ Aug 21 2026)
 - /phases/
-- MEMORY.md PHASE INDEX - is it still accurate after this session?
+- phases/INDEX.md - is it still accurate after this session (phase added/closed/renamed)? `rg` the fact or phase-file name across
+  MEMORY.md, INDEX, RESUME and CURSOR_RULES - a fact in N places is N-1 lies after one edit.
+- bash tools/memory_budget.sh - within budget before you commit?
 
 Write what YOU need to reload context cold. No more, no less.
 
