@@ -1109,3 +1109,34 @@ openclaw gateway restart
 **Manual TODOs:**
 - [x] Configure OpenRouter API key/credits (done, working as of Mar 2026)
 - [ ] Test Telegram bot from iPhone
+
+---
+
+## COPIED VERBATIM FROM `MEMORY.md` @ `pre-memory-diet` (lines 1104–1104) — Nov 24, 2026 (memory-diet, copy-first) — CURRENT STATE: OpenClaw retired
+
+- **Phase 11 ~~COMPLETE~~ RETIRED:** OpenClaw AI Agent Server was live at `.185` (Tailscale Serve, Telegram) → ⛔ **VM destroyed Aug 19, 2026, totally gone.**
+
+---
+
+## COPIED VERBATIM FROM `MEMORY.md` @ `pre-memory-diet` (lines 2541–2561) — Nov 24, 2026 (memory-diet, copy-first) — OPENCLAW dead
+
+## OPENCLAW — ⛔ DEAD. VM DESTROYED Aug 19, 2026. (detail demoted to phase11)
+
+⛔ **`vm-openclaw-1` was destroyed on Aug 19, 2026** — `qm destroy 185 --purge`, no backup (declined
+on purpose), no snapshot had ever been taken, ZFS volumes and firewall config purged with it. **There
+is no way to restore it and that was the decision — do not go looking for one.**
+
+⭐ **VMID 185 and `192.168.1.185` now belong to JENKINS** (`vm-jenkins-1`, built Aug 20, 2026). So any
+OpenClaw-era address, port, token or URL in an old note is not merely dead — it now points at a
+DIFFERENT MACHINE. 🚨 The one that actually bites: because `.185` was reused, a stale `known_hosts`
+entry produces a host-key MISMATCH, which reads like an attack rather than like a rebuild.
+
+📖 **The full 151-line build record — gateway config and `allowedOrigins`, the v2026.3.22 packaging
+bug, the TTS schema moves across v3.28/v4.5, the SSHFS mount, the Tailscale Serve setup and the
+firewall rules — was demoted VERBATIM to `phases/phase11_openclaw.md` on Aug 20, 2026** (diffed
+identical before removal). **Cost of skipping it:** nothing, unless OpenClaw is ever rebuilt — at
+which point the upgrade traps recorded there are the entire value, and none of them are inferable
+from the software.
+
+
+---
