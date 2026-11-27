@@ -36,6 +36,7 @@ text that hid the damage, and a stale editor buffer **wiped 3 uncommitted AI edi
   `http://192.168.1.195/files/` serves untracked sibling `www-files`: **open guest access — nothing sensitive.**
 - **`.184` Traefik: every router MUST carry `entrypoints=websecure`** (or `lan` for Matomo only). An unpinned router also attaches
   to the LAN-only `lan` :8443 entrypoint (Matomo UI). Matomo owns `/s/a.js` + `/s/a.php` on the dionysus/cap hosts (`phase21`).
+  **Matomo upgrades ONLY via `/opt/matomo/upgrade.sh`** — a plain `docker compose up -d` after a tag change silently keeps the OLD code.
 - **The Proxmox host does NOT answer ping** (datacenter firewall). Use `ssh` or `nc -z .150 8006`.
 - Login user on every VM is **`agamache`**, never `andrew` (a wrong user looks exactly like a missing key).
   Host key auth works via `/root/.ssh/authorized_keys2` — **not** `authorized_keys` (a PVE-managed symlink).
@@ -88,7 +89,8 @@ text that hid the damage, and a stale editor buffer **wiped 3 uncommitted AI edi
 ## 5. Distilled principles (the house rules every phase re-derived)
 - **Verify, don't assume; a measurement is not a value.** Probe the capability you will use, not a proxy; prove the negative
   before building the positive; show an instrument can find something before trusting its "found nothing".
-- **The layer that reports is not the layer that decides** (`20auto-upgrades` says "1" on masked hosts; GUI said 71 % at 6 %).
+- **The layer that reports is not the layer that decides** (`20auto-upgrades` says "1" on masked hosts; GUI said 71 % at 6 %;
+  PVE showed `.184` at 90 % RAM with 72 % `MemAvailable` — it counts guest page cache).
 - **A fact in N places is N−1 lies after one edit** — `rg` for it before calling anything unresolved or stale.
 - **A check that runs BEFORE the thing that breaks it proves nothing** (the keyring false green).
 - **If a spec states a number, MEASURE THAT NUMBER**; a trigger that is an opinion is an optional step.

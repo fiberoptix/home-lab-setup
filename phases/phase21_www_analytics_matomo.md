@@ -13,6 +13,7 @@ T4 from OUTSIDE (`https://<WAN IP>:8443` must time out — phone on cellular).
 ## ▶️ BUILD RESULTS (Nov 27, 2026, 12:28–12:36 EST)
 - **Matomo 5.14.3** (`matomo:5-apache`) + **MariaDB 11.4.13** (`mariadb:11.4`) in `/opt/matomo` (compose project `matomo`,
   volumes `matomo_html`, `matomo_db`; DB on `matomo_internal` only). RAM: 165 MiB + 106 MiB.
+  🔁 **Now Matomo 6.0.0, new volume layout** — see ⬆️ UPGRADE below (`matomo_html` is the 5.x rollback copy only).
   Passwords: `/opt/matomo/.env` (root 600) + `PASSWORDS.md` → "Matomo visitor analytics". Super user `andrew`.
 - **Sites:** 1 = Dionysus (`https://dionysus.gothamtechnologies.com`), 2 = Capricorn (`https://cap.gothamtechnologies.com`),
   both America/New_York.
@@ -25,6 +26,38 @@ T4 from OUTSIDE (`https://<WAN IP>:8443` must time out — phone on cellular).
   `proxy_ips[] = 172.18.0.0/16`, `assume_secure_protocol = 1`, `force_ssl = 1`, `enable_browser_archiving_triggering = 0`,
   `trusted_hosts[] = "192.168.1.184:8443"` (the image pre-sets proxy host/scheme headers; a duplicate line was removed).
 - **Archiving:** `/etc/cron.d/matomo-archive` — hourly at :05, log `/var/log/matomo-archive.log`; first manual run exit 0.
+  🔁 **Changed Nov 27, 2:11 PM (Andrew: "recalculate on open AND cron every 5 minutes")** — charts lagged the live
+  Visitor Log by up to an hour. Now: cron `*/5`; browser-triggered archiving back ON (the `= 0` override was dropped —
+  Matomo deletes a `config:set` that equals the global default `1`, so the line is simply absent);
+  `time_before_today_archive_considered_outdated = 10` (today's numbers are rebuilt on view when > 10 s old).
+  ✅ Proven: today's `VisitsSummary` archives for both sites stamped **14:11:46** = the moment of an API read, not the
+  14:05 cron; report totals = raw `log_visit` (site 1: 3 visits / 9 actions; site 2: 1 / 1). First `*/5` run fired
+  14:15:01, `done: 8 req, 4167 ms, no error`. Cost per full run ~4 s.
+  Backups: `config/config.ini.php.bak-20261127` (in the container volume), `/root/matomo-archive.cron.bak-20261127`.
+  ✅ `General.default_day = "today"` (Andrew, Nov 27 2:16 PM) — Matomo's default is `yesterday`, which hid today's visits
+  from every chart. No per-user `defaultReportDate` preference overrides it (checked `matomo_option`).
+- ⚠️ **UPDATES DID NOT ARRIVE BY PULLING THE IMAGE** (found Nov 27): volume `matomo_html` held the WHOLE code tree, and the
+  image entrypoint copies code only `if [ ! -e matomo.php ]` — and the image declares `VOLUME /var/www/html`, so even an
+  anonymous volume survives a plain recreate. A new tag (even a 5.x security patch) changed nothing. → FIXED below.
+
+## ⬆️ UPGRADE 5.14.3 → 6.0.0 (Nov 27, 2026, 2:18–2:20 PM; Andrew: "Upgrade now")
+- Why now: 6.0.0 released Nov 23 (5.x LTS = security fixes only, to Nov 23, 2027); requirements met (PHP 8.4 in image,
+  MariaDB 11.4 ≥ 10.6); one day of data; nothing depends on Matomo (tracker is async — apps unaffected while it is down).
+- **Backup first:** `/opt/matomo/backup-20261127-pre6/` (root 700): `matomo-db.sql.gz` (`mariadb-dump --single-transaction`,
+  38 tables), the old `docker-compose.yml` (`5-apache` + `html` volume), `config.ini.php`.
+- **NEW LAYOUT (image tag = version):** state = DB + two bind mounts, `./data/config` → `config/` and `./data/misc` → `misc/`
+  (holds `DBIP-City.mmdb`); code = the image's anonymous volume. The entrypoint's tar extracts the new version's
+  `global.ini.php` etc. over `data/config` and leaves `config.ini.php` (not in the tarball) alone.
+- **`/opt/matomo/upgrade.sh`** = `compose pull matomo` → `up -d --renew-anon-volumes matomo` → `console core:update --yes`
+  → `core:version`. ⛔ Never a plain `up -d` after changing the tag — without `-V` the old code volume is reattached.
+- Ran in **20 s**: 17 migration steps, no errors — SEO plugin uninstalled, `TrackingSpamPrevention` activated,
+  `log_visit.consent` added, `log_page_view_time` created, `datatable_archiving_maximum_rows_actions_flat = 0` set.
+- ✅ Re-validated on 6.0.0: config (incl. `trusted_hosts` — the 6.0 proxy-hostname check did NOT trip), login, LAN 200 /
+  non-LAN 403 / forged-XFF 403, `/s/a.js` 200 JS on both hosts, app fallback for `/matomo.php`, real WAN IP + forged XFF
+  ignored + city/lat-long (test visit 7 deleted, exclusion restored), `core:archive` exit 0 (3.9 s).
+- ⚠️ `data/config` dir mode went back to 755 (the tar extract); `config.ini.php` stays 640 www-data.
+- **Rollback:** restore `backup-20261127-pre6/docker-compose.yml` (5-apache + the still-present `matomo_html` volume), load
+  the dump, `up -d`. 🔲 Delete volume `matomo_html` + the backup dir once 6.0 has run clean for a while — ask first.
 
 **Validation (measured):**
 | Trap | Test | Result |

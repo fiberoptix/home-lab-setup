@@ -40,6 +40,11 @@ Only the infra facts live here — app code, compose content and data belong to 
   SSH only from `.182`/`.195`/`.150`, ICMP from LAN; OUT drops all RFC1918 except the gateway. `:8080` (Traefik dashboard)
   is unreachable even from the LAN. Source of truth: `phase12_network_segmentation.md`.
 - Box on Nov 27: Traefik v3.6.7 (`traefik:latest`), 7.7 GiB RAM with 5.6 GiB available, `/` 62 % (18 GB free).
+- 🧠 **"184 at 90 % memory" in Proxmox is NOT pressure** (checked Nov 27, 2:24 PM, after Matomo + the 6.0 upgrade): PVE's
+  `mem` = total − free, so it counts the guest's page cache. Inside: programs 2.3 GB; `MemAvailable` 5.85 GB (72 %);
+  `Inactive(file)` 4.75 GB of cold cache; PSI memory `avg10/60/300 = 0.00`; `oom_kill 0` in every journal; `pswpin 0`,
+  `pswpout 92` pages in ~14 days; no container memory limits. Cache is DROPPED under demand, not swapped. +4 GB declined.
+  Real signals to watch: `MemAvailable` falling, PSI `some` > 0, `pswpin` climbing, any `oom-kill` in `journalctl -k`.
 - **Matomo (Phase 21, Nov 27):** `/opt/matomo` (containers `matomo`, `matomo-db`). Traefik gained entrypoint **`lan` :8443**
   (port published; `184.fw` allows it from `192.168.1.0/24` only; router does NOT forward it) — UI at
   `https://192.168.1.184:8443`. Tracker paths `/s/a.js` + `/s/a.php` on the `dionysus` and `cap` hosts route to Matomo

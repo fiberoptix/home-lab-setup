@@ -234,6 +234,8 @@ phases/phaseX_*.md (the working record - where the volume belongs):
          handoff took its place. ⭐ SIXTH PASS RUNNING the audit mattered - but INVERTED: an open item LOOKED spent (`uptime -s` = Nov 23,
          after the unit's Nov 22 creation) and was NOT; the boot journal put the boot at Nov 22 15:30, before the unit. A clock jump.
          ⛔ "Has it rebooted since X?" = `journalctl -b` first entries, never `uptime -s`.
+       Nov 27, 2026 (pass 17b, same session): 3 blocks = AT SPEC; NO demotion - the only handoff is THIS session's, so it was
+         extended in place (the "demote the previous handoff" rule fires when a NEW session starts, not on a second pass).
 
          ⭐ Pass 9 salvaged a LIVE SECURITY CAVEAT that existed in one place only: the master
          password leaked to public GitHub in June 2026 was purged from history and NEVER ROTATED.

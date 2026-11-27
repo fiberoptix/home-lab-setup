@@ -33,7 +33,8 @@ terminal file. Run every step on **control-1** (`ssh agamache@192.168.1.201`) �
 - **Node patching drill — window OPENED Nov 27, closes ~Dec 27** (60–90 days from the Sep 28 freeze); step 0 is `sudo apt update`.
 - **Phase 21 (Matomo on `.184`) — LIVE; three checks left** (`phase21` → status): Capricorn shows >1 action after switching
   modules; a visit survives an ad blocker; from a phone on cellular `https://<WAN IP>:8443` TIMES OUT. Home IP is excluded —
-  test from cellular, never from the LAN.
+  test from cellular, never from the LAN. Now **6.0.0** (Nov 27); upgrades ONLY via `/opt/matomo/upgrade.sh`. Later: delete
+  the 5.x rollback (`matomo_html` volume + `backup-20261127-pre6/`) — ask first.
 - `vm-ephemeral` boot-import check at the next HOST reboot: `journalctl -b -u 'zfs-import@vm\x2dephemeral'` (unproven).
 - Swarm chapter-8 conversion is DEFERRED — ask which Swarm features the new job actually uses.
 - Phase 20 open items for Andrew: log in, E7, delete the expired root PAT, D6 (`phase20` → 🔲 Open items).
@@ -48,7 +49,7 @@ step 5 now blocks known secret values. 🔓 The Aug 18 Swarm GitHub hold is lift
 📌 **Where the rest is:** `phases/INDEX.md` (area → file). Cluster build record, Stage 1–2 results, the four corrections that
 mislead, `c01`/`c02`/`c03` rules and the etcd/backup finding are all in `phase18`.
 
-## 📘 SESSION Nov 27, 2026 — Dionysus documented on `.184`; Traefik access log; Matomo (Phase 21) built and live
+## 📘 SESSION Nov 27, 2026 — Dionysus documented on `.184`; Traefik access log; Matomo (Phase 21) built, live, now 6.0
 
 🙋 *"Check .184 … add a web-based log and analytics dashboard only I can access … map … rich info on the person and
 session … see how often my friends use Dionysus"* + *"update docs on this project to know it's now there"*. **Not a
@@ -69,7 +70,14 @@ Phase 18 session** — RESUME HERE's Phase 18 next step is unchanged.
 5. **Snippets handed to the two app projects as prompts** (Andrew pasted them): Dionysus `05e84a4` (route-change page views),
    Capricorn `664e4c4` (no URL routing → virtual page views on `currentPath`). **Measured live 1:17 PM:** both pages load the
    tracker; Dionysus 1 visit/3 actions, Capricorn 1/1; hourly archive ran on its own.
-6. `MAKE_MEMORIES` pass 17: 17a demoted the Nov 22–24 handoff → `phase2` (`292b9e8`).
+6. `MAKE_MEMORIES` pass 17: 17a demoted the Nov 22–24 handoff → `phase2` (`292b9e8`); committed `f056283`, pushed both.
+7. **Charts near-real-time** (Andrew: *"recalculate on open AND cron every 5 minutes"*): cron `*/5`, browser-triggered
+   archiving back on, today's archive TTL 10 s, `default_day = "today"`. Proven: today's archive stamped at the moment of an
+   API read (14:11:46), not the cron; first `*/5` run 14:15.
+8. **Matomo 5.14.3 → 6.0.0** (Andrew: *"Upgrade now"*) — backup → new layout (code = image, state = `data/config` +
+   `data/misc` bind mounts + DB) → `/opt/matomo/upgrade.sh` (20 s, 17 migrations, clean) → every Phase 21 check re-run green.
+9. **"184 at 90 % memory"** (Andrew wanted +4 GB and a reboot): measured — PVE counts guest page cache; `MemAvailable` 72 %,
+   PSI 0, no OOM ever. No change made; Andrew asked only to confirm (`phase7` → 🧠).
 
 ### 🚨 Found
 - **Every pre-existing Traefik router on `.184` is pinned to `websecure`** — that is what keeps `lan` :8443 Matomo-only. An app
@@ -77,11 +85,17 @@ Phase 18 session** — RESUME HERE's Phase 18 next step is unchanged.
   Matomo's `PathPrefix(/)` on rule length — promoted to `MEMORY.md` §3.
 - `SitesManager.setGlobalExcludedIps` refuses an empty value — swap to a TEST-NET IP to test, then restore.
 - Capricorn's docs (`unified_ui_DEV_PROD_GCP/project/`) are OUTSIDE its git repo (`capricorn/`) — its Phase 31 record is untracked.
+- 🚨 **The Matomo install could not receive ANY update by pulling an image** — whole code tree in a volume, entrypoint copies
+  only into an empty `/var/www/html`, and the image's `VOLUME` keeps even an anonymous copy across recreates. Fixed by the
+  6.0 layout; promoted to `MEMORY.md` §3 ("upgrades ONLY via `upgrade.sh`").
+- ⭐ **PVE's VM memory % = total − free, cache included** — a "90 %" box had 72 % available. Same house rule as the GUI's 71 %
+  vs 6 % on the pools: the layer that reports is not the layer that decides. Example added to `MEMORY.md` §5.
 
 ### 🔲 Open — for Andrew
 - The three Phase 21 checks (RESUME HERE → Carried). Git path for the Matomo compose (`services/vm-www-1/matomo/`) — unanswered;
   the live files are only on `.184` (`/opt/matomo`) and `.184` is unbacked — a rebuild needs `phase21` + `PASSWORDS.md`.
 - 💡 The WAN IP is dynamic: if Verizon changes it, Andrew's own visits start counting — update the exclusion.
+- 🔲 Later: delete the 5.x rollback (`matomo_html` volume + `/opt/matomo/backup-20261127-pre6/`) — ask first.
 
 ## 📦 DEMOTION LOG — Aug 24 + Sep 16, 2026 (ONE block, on purpose — append a ROW, never a block)
 
