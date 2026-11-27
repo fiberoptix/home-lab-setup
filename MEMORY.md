@@ -34,6 +34,8 @@ text that hid the damage, and a stale editor buffer **wiped 3 uncommitted AI edi
 - `script-server` is started at boot by **host unit `/etc/systemd/system/script-server.service`** (not in git) —
   `restart: "no"` in compose is **deliberate**. Restart with `systemctl restart script-server` (NOT `start` after `down`).
   `http://192.168.1.195/files/` serves untracked sibling `www-files`: **open guest access — nothing sensitive.**
+- **`.184` Traefik: every router MUST carry `entrypoints=websecure`** (or `lan` for Matomo only). An unpinned router also attaches
+  to the LAN-only `lan` :8443 entrypoint (Matomo UI). Matomo owns `/s/a.js` + `/s/a.php` on the dionysus/cap hosts (`phase21`).
 - **The Proxmox host does NOT answer ping** (datacenter firewall). Use `ssh` or `nc -z .150 8006`.
 - Login user on every VM is **`agamache`**, never `andrew` (a wrong user looks exactly like a missing key).
   Host key auth works via `/root/.ssh/authorized_keys2` — **not** `authorized_keys` (a PVE-managed symlink).
@@ -65,9 +67,9 @@ text that hid the damage, and a stale editor buffer **wiped 3 uncommitted AI edi
 |---|---|---|
 | **.150** | Proxmox (HP Z6 G4, 192 GB, PVE 9.2.24) | `ssh root@…` key auth; **no ping**; Tailscale runs ON it (subnet router, `pve` 100.108.209.77) |
 | .120 | NAS (Synology, SMB) | `fiberoptix`; backups, `/mnt/DevShare` |
-| **.180** | `vm-docker-qa-1` — Capricorn QA | plain docker compose (not Swarm/k8s); VMID 200 is free |
+| **.180** | `vm-docker-qa-1` — Capricorn QA + Dionysus QA (`:5101`/`:5102`) | plain docker compose (not Swarm/k8s); VMID 200 is free |
 | .181 / .182 / .183 | GitLab / `vm-gitrun-1` (runner; `gitlab-runner-1` is only the registration name) / `vm-sonarqube-1` | |
-| **.184** | `vm-www-1` — Traefik + Capricorn PROD + splash | PROD-LOCAL, no NAS |
+| **.184** | `vm-www-1` — Traefik + Capricorn PROD + splash + **Dionysus PROD** (Nov 27, 2026) | PROD-LOCAL, no NAS, no backups (by decision); Traefik access log since Nov 27; **Matomo UI `https://192.168.1.184:8443` (LAN only)** |
 | .185 | `vm-jenkins-1` — Jenkins (Phase 17, on hold) | OpenClaw destroyed Aug 19 — nothing in `phase11` is actionable |
 | .186 | `vm-k8-redpanda-1` — k3s/Redpanda POC | FROZEN, running, `onboot 0` |
 | .187 | `vm-k3s-rancher-1` — K3s + Rancher (Phase 20) | `onboot 1`, order 4 |
@@ -96,6 +98,9 @@ text that hid the damage, and a stale editor buffer **wiped 3 uncommitted AI edi
 ## 6. Apps (not ours)
 Capricorn — GitLab `production/capricorn`, GitHub `fiberoptix/capricorn`, QA `http://192.168.1.180:5001` (auto-deploy on
 `develop`), PROD `https://cap.gothamtechnologies.com`, GCP on demand; local path `…/unified_ui_DEV_PROD_GCP/capricorn`.
+Dionysus (wine search; since Nov 27, 2026) — GitLab `production/dionysus` only (never GitHub), QA `http://192.168.1.180:5101` (auto on
+`develop`), PROD `https://dionysus.gothamtechnologies.com` on `.184` (manual button on `production`); local path `…/dionysus`.
+Infra facts: `phase7` → DIONYSUS. Its own lab notes: `../dionysus/project/LAB_REFERENCE.md`.
 
 ## 7. Where things are (this is the whole loading contract)
 `CURSOR_RULES` → this file → `phases/current_phase.md` RESUME HERE → **`phases/INDEX.md`** (area → file → cost of skipping)

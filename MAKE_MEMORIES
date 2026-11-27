@@ -230,6 +230,10 @@ phases/phaseX_*.md (the working record - where the volume belongs):
          rpool/ROOT/pve-1@pre-pve-9.2.20-2026-09-28 - ask first" - the snapshot was already gone, and MEMORY.md
          still said "kept". Checked on the host WITH a positive control (34 snapshots listed, c03 found x5) before
          believing the 0. ⛔ A carried "ask first" item is a to-do with an expiry nobody tracks: re-check it exists.
+       Nov 27, 2026 (pass 17): 3 blocks = AT SPEC before and after; 17a demoted the Nov 22-24 handoff (72 lines) -> phase2, the Nov 27
+         handoff took its place. ⭐ SIXTH PASS RUNNING the audit mattered - but INVERTED: an open item LOOKED spent (`uptime -s` = Nov 23,
+         after the unit's Nov 22 creation) and was NOT; the boot journal put the boot at Nov 22 15:30, before the unit. A clock jump.
+         ⛔ "Has it rebooted since X?" = `journalctl -b` first entries, never `uptime -s`.
 
          ⭐ Pass 9 salvaged a LIVE SECURITY CAVEAT that existed in one place only: the master
          password leaked to public GitHub in June 2026 was purged from history and NEVER ROTATED.

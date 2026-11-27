@@ -193,7 +193,7 @@ hurts most (GitLab, the runner) were in the `enabled` group.
 - **Runner:** 12 GB (upgraded from 8 GB)
 - **QA (`.180`, VMID 180, `vm-docker-qa-1`):** 12 GB (upgraded from 8 GB). Counted once — the old VMID
   200 was destroyed Sep 16, 2026.
-- **WWW:** 8 GB (Traefik + Capricorn PROD + splash)
+- **WWW:** 8 GB (Traefik + Capricorn PROD + splash; + Dionysus PROD and Matomo since Nov 27, 2026 — 5.3 GiB still available that day)
 - **~~OpenClaw:~~ 0 GB** — ⛔ **VM 185 destroyed Aug 19, 2026. The 16 GB and 12 cores are actually free
   now, not merely idle.** Phase 17's `vm-jenkins-1` takes 8 GB / 4 vCPU of it, so the lab **nets 8 GB
   and 8 cores.** Host measured **33 GB free** immediately after the destroy.

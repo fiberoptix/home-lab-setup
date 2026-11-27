@@ -189,3 +189,5 @@ the top of this file — prefer it over this list):
 | `education/k8s-cka-prep/` | CKA research: exam environment, curriculum + weights, logistics, lab-parity decisions, sources with contradictions marked |
 | `phases/phase17_jenkins.md` | ⏸️ **ON HOLD since Sep 16, 2026** (paused, not closed). Hard rules B10/B11 still bind, traps T1–T8 still unfixed. Resume at Part 4 |
 | `education/CONVENTIONS.md` + `METHOD.md` | **Both** are mandatory before any study material |
+
+📌 **The MEMORY DIET session record itself** (Nov 24, 2026 — method, numbers, approvals) is item 6 of the Nov 22–24 handoff, demoted verbatim to `phases/phase2_host_setup_automation.md` (pass 17a, Nov 27); the per-pass numbers are in `MAKE_MEMORIES` → BACKLOG.

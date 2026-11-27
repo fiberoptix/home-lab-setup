@@ -7,12 +7,54 @@
 
 ---
 
+## 🍷 DIONYSUS — second PROD app on vm-www-1 (live Nov 27, 2026; measured that day)
+
+Dionysus is an APPLICATION owned by its own project (`../dionysus`, GitLab `production/dionysus`, never GitHub).
+Only the infra facts live here — app code, compose content and data belong to that repo.
+
+- **URL:** https://dionysus.gothamtechnologies.com — Route53 `dionysus` CNAME `bullpup.ddns.net` (added Nov 16, TTL 300),
+  same router forward as `cap`/`www`. Let's Encrypt cert issued by Traefik's `letsencrypt` resolver Nov 27 (HTTP-01).
+- **Containers:** `dionysus-frontend-prod` (nginx + SPA, proxies `/api` to the backend) and `dionysus-backend-prod`
+  (FastAPI, SQLite in volume `dionysus-prod_data`). Compose project `dionysus-prod`.
+- **Location is NOT `/opt`:** `~agamache/dionysus/docker-compose.yml` + `.env` (REGISTRY, IMAGE_TAG), both written by CI.
+- **Networks:** only the frontend joins `web`; the backend sits on `dionysus-prod_internal` alone. Traefik does NOT join
+  `dionysus-prod_internal` (it does not need to — the router targets the frontend on `web`, `traefik.docker.network=web`).
+- **Router:** `dionysus@docker`, `Host(dionysus.gothamtechnologies.com)` only. `Host(192.168.1.184)` / `Host(localhost)` stay Capricorn's.
+- **Deploy:** `deploy_prod_local` job, MANUAL on `production`. PUSH model — runner `.182` pulls, then
+  `docker save | ssh .184 docker load`; `.184` still never contacts the registry. QA is `.180:5101` (frontend) / `:5102` (API).
+- **Real client IPs reach the app:** Traefik passes them in `X-Forwarded-For`; the frontend nginx logs it (last field).
+  ⚠️ That log is container stdout — it is lost on every redeploy.
+- **Traefik access log — ENABLED Nov 27, 2026 12:21 EST** (Andrew's go-ahead). Before that there was NONE and Traefik logged
+  at `DEBUG` into unrotated `json-file`, so **no visitor history exists before that minute**. Changes (backups beside each
+  file as `*.bak-20261127`):
+  - `/opt/traefik/traefik.yml`: `log.level` DEBUG → INFO; `accessLog` JSON to `/var/log/traefik/access.log`; request headers
+    dropped by default, only `User-Agent`, `Referer`, `X-Forwarded-For` kept (no cookies / Authorization in the log).
+  - `/opt/traefik/docker-compose.yml`: bind `/var/log/traefik`; container log rotation `max-size 10m`, `max-file 3`.
+  - `/etc/logrotate.d/traefik`: daily, `rotate 400`, compress, `dateext`; postrotate sends `USR1` (Traefik reopens the file).
+  - Recreated with `docker compose up -d --pull never` (same image `ebe7d3fc…`, v3.6.7): back in **2.2 s**; cap/www/dionysus
+    200 before and after; networks unchanged.
+  - ✅ **`ClientHost` is the real source IP** (Docker DNAT keeps it): a request from `.195` via the public name logged as the home
+    WAN IP `108.6.178.182` (router hairpin) — so Andrew's own LAN visits show as that IP. `127.0.0.1` tests log as a `172.19.0.1` gateway.
+  - 🔲 `logrotate` not yet observed rotating (first run tonight); `logrotate -d` parsed clean.
+- **Firewall is stricter than the Jan 22 table below** — live `/etc/pve/firewall/184.fw` (Nov 27): IN only 80/443 public,
+  SSH only from `.182`/`.195`/`.150`, ICMP from LAN; OUT drops all RFC1918 except the gateway. `:8080` (Traefik dashboard)
+  is unreachable even from the LAN. Source of truth: `phase12_network_segmentation.md`.
+- Box on Nov 27: Traefik v3.6.7 (`traefik:latest`), 7.7 GiB RAM with 5.6 GiB available, `/` 62 % (18 GB free).
+- **Matomo (Phase 21, Nov 27):** `/opt/matomo` (containers `matomo`, `matomo-db`). Traefik gained entrypoint **`lan` :8443**
+  (port published; `184.fw` allows it from `192.168.1.0/24` only; router does NOT forward it) — UI at
+  `https://192.168.1.184:8443`. Tracker paths `/s/a.js` + `/s/a.php` on the `dionysus` and `cap` hosts route to Matomo
+  (router `matomo-track`, priority 1000). The obsolete `version:` line was dropped from Traefik's compose the same day.
+  Second Traefik backups: `*.bak-20261127b`. Full record: `phase21_www_analytics_matomo.md`.
+
+---
+
 ## 🎉 IMPLEMENTATION COMPLETE - January 22, 2026
 
 **Live URLs:**
 - ✅ https://cap.gothamtechnologies.com (Capricorn PROD)
 - ✅ https://www.gothamtechnologies.com (Splash page)
 - ✅ https://192.168.1.184 (Direct IP access, internal network)
+- ✅ https://dionysus.gothamtechnologies.com (Dionysus PROD — added Nov 27, 2026; see DIONYSUS above)
 
 **Duration:** 5:30 PM - 8:45 PM EST (~3 hours including troubleshooting)
 

@@ -8,6 +8,7 @@ A pointer states the COST of skipping it; findings live in the phase file, not h
 |---|---|---|
 | 🔵 **Kubernetes / CKA — Phase 18** (`.201–.206`, `education/k8s-cka-prep/`) | `phases/phase18_k8s_cka_build.md` + `education/k8s-cka-prep/{lab-parity,exercises}.md` | Start with `scripts/lab_check.sh`; reset only via `reset_cluster.sh` (`c03` is the ready point); run kubectl on control-1; updates frozen; B9 no ingress-nginx; new baseline ⇒ `lab_check.sh --record` |
 | 🔵 **Rancher on K3s — Phase 20** (`.187`) | `phases/phase20_k3s_rancher.md` (▶️ BUILD RESULTS first) | CKA cluster never imported; kubeconfig stays on VM; community Rancher patches newest minor only; Fleet GitOps deploys |
+| 🔵 **Visitor analytics (Matomo) — Phase 21** (`.184`) | `phases/phase21_www_analytics_matomo.md` (BUILD RESULTS first) | LIVE on both apps; UI LAN-only `https://192.168.1.184:8443` (entrypoint `lan`, not forwarded); tracker `/s/a.*` on dionysus+cap; home IP excluded; `.184` unbacked by decision |
 | ⏸️ **Jenkins — Phase 17** (`.185`) | `phases/phase17_jenkins.md` | Paused at Part 4, not closed; B10; stack `capricorn-jenkins`; traps T1–T8 unfixed on purpose; spec lines marked 🔧 mechanics vs 📐 invention |
 | ✅ **Docker Swarm — Phase 16** (`.191–.193`) | `phases/phase16_docker_swarm.md` (345 KB — grep) | B1; all traps C1–C7 closed — don't "re-fix"; ledger L1–L23; ch.8 Swarm↔k8s crib sheet (provenance marks) |
 | ✅ **k3s / Redpanda — Phase 14** (`.186`) | `phases/phase14_k8s_redpanda_poc.md` | Frozen & running; never `k3s-uninstall.sh`; ~40 findings exist only in its demoted tail |
@@ -17,7 +18,7 @@ A pointer states the COST of skipping it; findings live in the phase file, not h
 | 🔧 **Proxmox host config, kernels, ZFS, email alerts** | `phases/phase13_fable_proxmox_audit.md` + `phase1b_proxmox_kernel_upgrade_safe_try.md` | Kernel pin is deliberate; `--next-boot` trial first; backups to NAS only |
 | 🔧 **Firewall, port-forwards, public exposure** | `phases/phase12_network_segmentation.md` | Perimeter closed except `.184`; some open ports are flagged for removal |
 | 🔧 **GitLab / runner / CI / SonarQube** | `phases/phase3_…`, `phase4_…`, `phase5_…`, `phase6_…` | Runner socket = root (L19); containerd image store disabled on purpose; `phase5` holds `.180` renumber + autostart |
-| **vm-www-1 `.184`, Traefik, PROD Capricorn** | `phases/phase7_local_www.md` | `.184` never contacts the registry (images arrive via `docker load`); network design is load-bearing |
+| **vm-www-1 `.184`, Traefik, PROD Capricorn + Dionysus** | `phases/phase7_local_www.md` (DIONYSUS section first) | `.184` never contacts the registry (images arrive via `docker load`); network design is load-bearing; access log since Nov 27 only; firewall truth is `phase12` |
 | **Backups (vzdump → NAS)** | `phases/phase8_backups.md` | One CIFS storage per VM; backup test-restore drill cadence is event-driven |
 | 🔵 **Education tracks / chapters / docx / highlight pass** | `education/CONVENTIONS.md` + `METHOD.md` + track `README.md`; tree moves → `phases/phase15_education_program.md` | 10 pt figure floor; docx rebuild rewrites every file (commit only yours); highlight skips tables/code; phase15 is a RECORD — re-running undoes the layout |
 | ⛔ **OpenClaw (`.185` before Aug 19)** | `phases/phase11_openclaw.md` | VM destroyed; nothing actionable; any `.185` in it means OpenClaw |

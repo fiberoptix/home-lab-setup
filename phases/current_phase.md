@@ -1,6 +1,6 @@
 # Current Phase
 
-**Updated:** November 4, 2026 - 1:40 PM EST
+**Updated:** November 27, 2026 - 1:25 PM EST
 
 📐 **Shape, and how to keep it:** `▶️ RESUME HERE` is the **first block** as of Aug 24 — it had been
 at line 389 under six stale session blocks, so the one thing you must read first was the one you had
@@ -30,12 +30,16 @@ terminal file. Run every step on **control-1** (`ssh agamache@192.168.1.201`) �
 **CKA work pushes to BOTH remotes, GitLab first** (still ask).
 
 🔲 **Carried / due:**
-- **Node patching drill due ~Nov 27 – Dec 27** (60–90 days from the Sep 28 update freeze); step 0 is `sudo apt update`.
+- **Node patching drill — window OPENED Nov 27, closes ~Dec 27** (60–90 days from the Sep 28 freeze); step 0 is `sudo apt update`.
+- **Phase 21 (Matomo on `.184`) — LIVE; three checks left** (`phase21` → status): Capricorn shows >1 action after switching
+  modules; a visit survives an ad blocker; from a phone on cellular `https://<WAN IP>:8443` TIMES OUT. Home IP is excluded —
+  test from cellular, never from the LAN.
 - `vm-ephemeral` boot-import check at the next HOST reboot: `journalctl -b -u 'zfs-import@vm\x2dephemeral'` (unproven).
 - Swarm chapter-8 conversion is DEFERRED — ask which Swarm features the new job actually uses.
 - Phase 20 open items for Andrew: log in, E7, delete the expired root PAT, D6 (`phase20` → 🔲 Open items).
 - Sep 28 `move-20x.log` files in `education/k8s-cka-prep/scratch/` — agreed: delete, **ask first**.
-- `script-server.service` (Nov 22) is **not proven across a reboot** — `journalctl -b -u script-server` after the next one;
+- `script-server.service` (Nov 22) is **not proven across a reboot** — `journalctl -b -u script-server` after the next one
+  (re-checked Nov 27: the boot predates the unit; `uptime -s` lies after a clock jump — read the boot journal);
   also test `http://192.168.1.195/files/` from a second machine.
 
 🔐 **Standing:** a real password sat on public GitHub until Nov 4 (redacted, **not rotated** — Andrew's call); `push_github.sh`
@@ -43,6 +47,41 @@ step 5 now blocks known secret values. 🔓 The Aug 18 Swarm GitHub hold is lift
 
 📌 **Where the rest is:** `phases/INDEX.md` (area → file). Cluster build record, Stage 1–2 results, the four corrections that
 mislead, `c01`/`c02`/`c03` rules and the etcd/backup finding are all in `phase18`.
+
+## 📘 SESSION Nov 27, 2026 — Dionysus documented on `.184`; Traefik access log; Matomo (Phase 21) built and live
+
+🙋 *"Check .184 … add a web-based log and analytics dashboard only I can access … map … rich info on the person and
+session … see how often my friends use Dionysus"* + *"update docs on this project to know it's now there"*. **Not a
+Phase 18 session** — RESUME HERE's Phase 18 next step is unchanged.
+
+### ✅ Done
+1. **Startup (Nov 24 boot, carried):** clean tree, `origin` 0/0, GitLab snapshot stamped `main @ 198cbcc`; pools 3/9/4 %, ONLINE.
+2. **`.184` audited (read-only)** → `phase7` 🍷 DIONYSUS section: two containers, compose in `~agamache/dionysus` (NOT `/opt`),
+   frontend on `web` + `dionysus-prod_internal`, push deploy from `.182`, LE cert Nov 27, CNAME since Nov 16. Found: **no Traefik
+   access log ever** (DEBUG to unrotated `json-file`); `184.fw` **stricter than `phase7`'s Jan table** (`phase12` is the truth);
+   `.184` has **no backup job** (July WON'T-FIX). `MEMORY.md` §4/§6 + `INDEX` + `vm_standard.md` updated.
+3. **Traefik access log ON** (Andrew: "now") — JSON `/var/log/traefik/access.log`, headers dropped except UA/Referer/XFF, INFO
+   level, container log rotation, `logrotate` 400 days. Back in 2.2 s; three sites 200 before/after. Real `ClientHost` proven.
+4. **Phase 21 planned → approved → built** (AskQuestion: Matomo; then *"open it from computers on my 192.168.1/xx network like
+   capricorn"* → SSH-tunnel design replaced by Traefik entrypoint `lan` :8443 + `184.fw` LAN rule + `ipAllowList`). Decisions: keep
+   `.184` unbacked, full IPs, exclude home WAN IP, track Dionysus + Capricorn. Installed by `curl` (IDE browser rejects the
+   self-signed cert). Real-IP + forged-XFF + exposure tests all passed (`phase21` ▶️ BUILD RESULTS).
+5. **Snippets handed to the two app projects as prompts** (Andrew pasted them): Dionysus `05e84a4` (route-change page views),
+   Capricorn `664e4c4` (no URL routing → virtual page views on `currentPath`). **Measured live 1:17 PM:** both pages load the
+   tracker; Dionysus 1 visit/3 actions, Capricorn 1/1; hourly archive ran on its own.
+6. `MAKE_MEMORIES` pass 17: 17a demoted the Nov 22–24 handoff → `phase2` (`292b9e8`).
+
+### 🚨 Found
+- **Every pre-existing Traefik router on `.184` is pinned to `websecure`** — that is what keeps `lan` :8443 Matomo-only. An app
+  router WITHOUT an `entrypoints` label would attach to `lan` too, and `Host(192.168.1.184)` (Capricorn) would outrank
+  Matomo's `PathPrefix(/)` on rule length — promoted to `MEMORY.md` §3.
+- `SitesManager.setGlobalExcludedIps` refuses an empty value — swap to a TEST-NET IP to test, then restore.
+- Capricorn's docs (`unified_ui_DEV_PROD_GCP/project/`) are OUTSIDE its git repo (`capricorn/`) — its Phase 31 record is untracked.
+
+### 🔲 Open — for Andrew
+- The three Phase 21 checks (RESUME HERE → Carried). Git path for the Matomo compose (`services/vm-www-1/matomo/`) — unanswered;
+  the live files are only on `.184` (`/opt/matomo`) and `.184` is unbacked — a rebuild needs `phase21` + `PASSWORDS.md`.
+- 💡 The WAN IP is dynamic: if Verizon changes it, Andrew's own visits start counting — update the exclusion.
 
 ## 📦 DEMOTION LOG — Aug 24 + Sep 16, 2026 (ONE block, on purpose — append a ROW, never a block)
 

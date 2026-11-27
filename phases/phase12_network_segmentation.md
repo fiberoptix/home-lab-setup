@@ -8,6 +8,11 @@
 change lives in the Capricorn project (`unified_ui_DEV_PROD_GCP`): switch the PROD-local deploy
 from "pull from registry" to "push images in."
 
+> 🆕 **Nov 27, 2026 — one INBOUND rule added to `184.fw` (Phase 21, Matomo; Andrew approved the plan):**
+> `IN ACCEPT -source 192.168.1.0/24 -p tcp -dport 8443` — the Matomo UI on Traefik entrypoint `lan`. NOT forwarded by
+> the router (still 80/443 only). OUT rules untouched, so the DMZ property (`.184` cannot reach INTO the LAN) holds.
+> Backup: `/root/184.fw.bak-20261127` on the host. Details + validation: `phase21_www_analytics_matomo.md`.
+
 ---
 
 ## 📋 Andrew's Requirements (July 1, 2026)
