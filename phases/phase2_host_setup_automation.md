@@ -1336,3 +1336,83 @@ timestamped **after** the last edit. ⭐ **Commit before testing something that 
 ## COPIED VERBATIM FROM `MEMORY.md` @ `pre-memory-diet` (lines 87–87) — Nov 24, 2026 (memory-diet, copy-first) — PHASE INDEX row: building ANY host - www/ build standard (4.9 KB)
 
 | 🔧 **Building or re-building ANY host — the `www/` build standard** | `phases/phase2_host_setup_automation.md` (Ubuntu/Debian) **+ `phases/phase2b_fedora_host_setup.md`** (Fedora, built Aug 21 2026 on `.196`) | 🔀 **RENAMED Aug 21, 2026: the trees are `www/ubuntu/` and `www/fedora/`, served from `.195` at `/ubuntu/` and `/fedora/`** (was `www/scripts/` at `/scripts/` and `www/scripts_fedora/` at `/scripts_fedora/` — ⚠️ note that this very sentence had its *historical* names silently rewritten to the new ones by an over-broad edit, and read "was `www/ubuntu/` at `/scripts/`" for a day; when you rename a thing, the prose *describing* the rename is the easiest casualty). ⭐ **Start at `http://192.168.1.195/`** — `www/index.html` carries every command with copy buttons and rewrites the address to whatever host you browsed it on, so **link the page rather than pasting commands**. **Bootstrap is TWO steps — `wget`/`curl -fsSLO` the file, THEN `bash host_setup.sh`**; a single-*line* form exists (`cd "$(mktemp -d)" && wget -q .../host_setup.sh && bash host_setup.sh`, verified) but it discards the scripts, and keeping them is the point since re-running them is the repair path. ⛔ **Never `curl \| bash` or `bash <(curl ...)`** — the first puts the script on stdin so `read -p` eats the next byte of the script itself (measured: `REPLY='e'`, run aborted, `cho: command not found`); the second makes `SCRIPT_DIR` resolve to the unwritable `/dev/fd` so every sub-script download fails. ⛔ **Do not try to make them pipe-safe:** stdin is inherited by every sub-script, and `setup_smb_mount.sh`'s own `read -rsp` would hit the same bug at the point where it writes a **wrong credential file**. ⭐ **Old `/scripts/*` URLs still work via 301s in `nginx.conf`** — kept because the old `SCRIPT_SERVER` is baked into `host_setup.sh` copies on every built host and into eight phase files' verbatim build commands, so ⚠️ **a `/scripts/` URL in a phase file is history, not a bug to fix.** They are parallel implementations of ONE standard, so ⚠️ **a fix made in one tree is not in the other — that asymmetry is the single biggest hazard here.** 🚨 **`smb_credentials` lives at `www/smb_credentials`, ABOVE both trees, and must NEVER be moved back inside one:** `docker-compose` bind-mounts `ubuntu/` and `fedora/` into nginx but not `www/`, so above the mount the NAS password cannot be served *at all* (⚠️ this clause said `scripts/`/`scripts_fedora/` until Aug 21 — a *second* rename casualty in the very row that warns about them; `index.html` is mounted as a **single file** for the same reason, since mounting `www/` as the web root would drag the credential back in). ⭐ The lesson that produced that layout is worth more than the layout: **two independent protections written months apart (an `.gitignore` absolute path and an nginx `location =`) BOTH failed the instant a second directory appeared. Path-specific safety rules silently do not cover new paths — look for that pattern elsewhere.** 🚨 **`containerd-snapshotter: false` + an `overlay2` assertion are now in BOTH `setup_docker.sh` files (Aug 21), but every host built BEFORE that date still ships the broken containerd image store** — it pushes parent-before-child OCI indexes and the GitLab registry rejects them with `blob unknown to registry`. It is a **race**, so a one-image job passes and looks like proof the daemon is fine; only `.182` was ever fixed, by hand. **Fleet retrofit is still OPEN.** Fedora-only gotchas: the bootstrap uses **`curl`, not `wget`** (wget is absent from a stock Workstation, so the documented Ubuntu one-liner fails at the very first command), and **`sshd` is not enabled by default**, so a new Fedora box needs one command typed at the console before it is reachable. ⛔ **`--no-nas` for prod-local/DMZ hosts** — a uniform build standard otherwise plants NAS credentials on hosts the network design isolates (the `.184` finding). 🚨 **NEVER run `host_setup.sh` from inside `www/ubuntu/` or `www/fedora/`** — it downloads sub-scripts next to itself and nginx serves those same inodes, so `wget -O`/`curl -o` truncate them and then read back their own zeros: **all 7 Ubuntu sub-scripts + `anysphere.gpg` hit 0 bytes in one run, Aug 21 2026.** Both trees now refuse to start there, and downloads are **atomic** (`.part` + `mv`) because *any* failed download used to leave an empty file where a working script was. 🆕 **Nov 22, 2026: the script-server container now boots via a HOST systemd unit (`script-server.service`, not in git) and `restart: "no"` in `www/docker-compose.yml` is DELIBERATE — "restoring" `unless-stopped` brings back a boot race with the CIFS mount; it also serves `/files/` (untracked sibling folder `www-files`, open guest access). Read MEMORY → *www … Restart* before touching either** |
+
+---
+
+## DEMOTED VERBATIM FROM `phases/current_phase.md` — Nov 27, 2026 (`MAKE_MEMORIES` pass 17)
+
+⚠️ **Audited at demotion (Nov 27, 2026, pass 17):** 🔲 `script-server.service` is STILL not proven across a reboot — the current boot of `.195` began Nov 22 15:30 (`mnt-DevShare.mount` in `journalctl -b`), BEFORE the unit was created at 16:55. ⚠️ `uptime -s` says Nov 23 01:34 — a clock jump, not a reboot; trust the boot journal. 🔲 `/files/` from a second machine: still untested. The `dionysus-*` containers on `.195` (5101–5103) are **Dionysus DEV** — an Andrew project that went PROD on `.184` Nov 27 (`phase7` → DIONYSUS). The memory-diet item (6) is the only session record of the diet besides the `MAKE_MEMORIES` backlog row; `reference/memory_archive.md` points here.
+
+## 📘 SESSION Nov 22–24, 2026 — `/files/` added to the www script server, and its boot order fixed
+
+🙋 *"Can you help me share a folder on my network"* → an install script to `curl` from another machine, no
+auth wanted. **Not a Phase 18 session** — the Phase 18 next step in RESUME HERE is unchanged (exercise
+chapters 09+, from `c03`; start with `lab_check.sh`).
+
+### ✅ Done
+1. **Startup (Nov 22):** clean tree, matched `origin/main`, GitLab snapshot stamped `main @ 653c51c`;
+   pools rpool 3 % · vm-critical 10 % · vm-ephemeral 4 %, all ONLINE.
+2. **Share decided with Andrew (AskQuestion):** a temporary `nginx:alpine` on 8088 first (read-only mount,
+   guest access) → then **folded into the project's script server instead**, at Andrew's request. The 8088
+   container was stopped and removed; `/tmp/temp-share.conf` deleted.
+3. **`/files/` BUILT** — `www/docker-compose.yml` mounts `../../www-files` → `/usr/share/nginx/html/files:ro`;
+   `www/nginx.conf` gains `location /files/ { alias …; autoindex on; no-store }`. Folder = `cursor-projects/
+   www-files` (a sibling of the repo, untracked; Andrew renamed it from `www`). Held `install.sh`,
+   `install-v2.sh`, `hello.txt`. 🔎 **Scanned for secrets BEFORE exposing it** (only a `1234` prompt default).
+   Tested from `.195`: `/` `/ubuntu/` `/fedora/` `/files` (301→`/files/`) `/files/install.sh` 200 and
+   byte-identical to disk; `/scripts/host_setup.sh` still 301s; `/files/smb_credentials` 403.
+   ⚠️ **Tested only from the dev box itself — not from a second machine.**
+4. **BOOT ORDER — the real finding.** Andrew asked whether it starts at boot. It would (`docker` enabled,
+   `unless-stopped`) — but **`docker.service` and `mnt-DevShare.mount` are both only `After=network-online`,
+   with no ordering between them**, and EVERY bind mount of this container lives on that CIFS share. Last boot:
+   docker 2.7 s vs mount 0.4 s — the mount probably wins, nothing guarantees it. Not reproduced. Andrew asked
+   for a ~10 s delay after the share → **authorised the one-time exception** (written approval via
+   AskQuestion) → `restart: "no"` in compose + **`/etc/systemd/system/script-server.service`**, enabled:
+   ```
+   [Unit] After=docker.service network-online.target; Requires=docker.service; RequiresMountsFor=/mnt/DevShare
+   [Service] Type=oneshot; RemainAfterExit=yes; WorkingDirectory=…/home-lab-setup/www
+             ExecStartPre=/bin/sleep 10; ExecStart=/usr/bin/docker compose up -d; ExecStop=/usr/bin/docker compose stop
+   [Install] WantedBy=multi-user.target
+   ```
+   ✅ `systemd-analyze verify` clean; ✅ `enable --now` took 11.3 s; ✅ `stop` → port 80 dead, `start` → 200.
+   🔲 **NOT PROVEN across a real reboot.** First check after the next one:
+   `journalctl -b -u script-server` and `curl -s http://192.168.1.195/files/`.
+5. **`MAKE_MEMORIES` pass 16:** demoted the Nov 4 handoff → `phase18` (commit `73939dd`); blocks 3 → **2 + log
+   (at spec)**. The `/files/` + boot-order rules are now in `MEMORY.md` §3 (hard rules) and `phase2` (SCRIPT SERVER); the stale snapshot claim was fixed.
+
+6. 🗜️ **MEMORY DIET (Nov 24, evening; Andrew's request, plan + swap approved in writing).** `MEMORY.md` 251,160 B / 2806 ln → **core
+   9,276 B**; boot context (`CURSOR_RULES` + MEMORY + RESUME + SECRET) **~303 KB → ~47 KB**. New boot order (CURSOR_RULES item 2):
+   MEMORY core → RESUME HERE → **`phases/INDEX.md`** (new pointer table, 24 rows ≤ 400 B) → `MEMORY_SECRET.md` (17.4 → 3.8 KB; employer
+   name/start date dropped). Method = COPY-FIRST: tag `pre-memory-diet` (`1a3f7a8`), every block copied verbatim into phase files /
+   new `reference/*.md` (8 files) in ~40 additive commits, independent line check **0 of 2,431 missing**, drafts tested (20/20 boot, 16/16
+   on-touch questions), then ONE swap. `CURSOR_RULES`: EDIT LOG entry 12 + HARD RULES (NEVER) section + four-file boot. `MAKE_MEMORIES`
+   retrofitted IN PLACE (12 edits; only 11 old lines changed; new: `tools/memory_budget.sh` step 0, `tools/copy_ranges.py`, INDEX upkeep,
+   bulk copy-first variant). Old RESUME block → `phase18` verbatim. **Old text of everything = tag `pre-memory-diet`**; old SECRET =
+   `working/memory-diet/MEMORY_SECRET.old` (+ the GitLab mirror). Staging drafts stay in `working/memory-diet/` (gitignored).
+
+### 🚨 Found
+- **A spent to-do, again (the fifth pass running).** The Nov 4 handoff said *"delete
+  `rpool/ROOT/pve-1@pre-pve-9.2.20-2026-09-28` — ask first"*. **It is already gone** (only
+  `…pre-pve-9.2.21-2026-10-27` remains). Instrument shown to find something first: 34 snapshots listed, `c03`
+  on 5. `MEMORY.md` said "kept" → corrected; `phase18` line ~1844 is a dated historical record, left as written.
+- 🔻 **CORRECTED Nov 24 (the AI's own error, caught during the memory-diet audit).** This entry first read
+  *"`VM-UBUNTU-01` … possibly a VM on another hypervisor … unresolved"*. **It is answered in `MEMORY.md`
+  (CURRENT STATE, ll. ~1014/1029): `.195` = `VM-UBUNTU-01`, a VMware Workstation guest on the Z8 G4** (24 vCPU).
+  The AI read the one index row saying "Not a Proxmox VM" and not the rest of the file. ⭐ A fact in N places:
+  `rg` for it before calling it unresolved.
+- 🤖 **The AI wrote `/tmp/temp-share.conf` outside the project dir** (host rule), before the share moved into
+  the script server; deleted (`rm -f`, same session). The systemd unit is the *authorised* exception.
+- **Another project's containers share this Docker daemon** (`dionysus-*` on 5101–5103). Not ours; untouched.
+
+### 🔲 Open — for Andrew
+- 🔲 **Reboot test of `script-server.service`** (above). Until then "starts at boot, after the share" is
+  design, not measurement. If the dev box is rebuilt, the unit must be recreated by hand — it is NOT in git.
+- 🔲 **Test `/files/` from a SECOND machine** (everything so far was `.195` → `.195`). Host firewall unchecked
+  (`ufw` needs root; the `docker`/iptables path worked locally).
+- 🔲 **Carried from Nov 4:** Phase 18 next = exercise chapters 09+ and the coverage matrix before a mock exam;
+  **node patching drill due by ~Nov 27–Dec 27** (60–90 days from the Sep 28 update freeze; step 0 is
+  `sudo apt update`); `vm-ephemeral` boot-import check (`journalctl -b -u 'zfs-import@vm\x2dephemeral'`) — **the
+  host has not rebooted since**; Phase 20 open items (log in, E7, delete the expired root PAT, D6); Swarm chapter 8
+  — ask which Swarm features the new job uses; Sep 28 `move-20x.log` files still in
+  `education/k8s-cka-prep/scratch/` (agreed Nov 4: delete — **ask first**).
+

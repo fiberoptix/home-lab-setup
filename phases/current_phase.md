@@ -44,79 +44,6 @@ step 5 now blocks known secret values. 🔓 The Aug 18 Swarm GitHub hold is lift
 📌 **Where the rest is:** `phases/INDEX.md` (area → file). Cluster build record, Stage 1–2 results, the four corrections that
 mislead, `c01`/`c02`/`c03` rules and the etcd/backup finding are all in `phase18`.
 
-## 📘 SESSION Nov 22–24, 2026 — `/files/` added to the www script server, and its boot order fixed
-
-🙋 *"Can you help me share a folder on my network"* → an install script to `curl` from another machine, no
-auth wanted. **Not a Phase 18 session** — the Phase 18 next step in RESUME HERE is unchanged (exercise
-chapters 09+, from `c03`; start with `lab_check.sh`).
-
-### ✅ Done
-1. **Startup (Nov 22):** clean tree, matched `origin/main`, GitLab snapshot stamped `main @ 653c51c`;
-   pools rpool 3 % · vm-critical 10 % · vm-ephemeral 4 %, all ONLINE.
-2. **Share decided with Andrew (AskQuestion):** a temporary `nginx:alpine` on 8088 first (read-only mount,
-   guest access) → then **folded into the project's script server instead**, at Andrew's request. The 8088
-   container was stopped and removed; `/tmp/temp-share.conf` deleted.
-3. **`/files/` BUILT** — `www/docker-compose.yml` mounts `../../www-files` → `/usr/share/nginx/html/files:ro`;
-   `www/nginx.conf` gains `location /files/ { alias …; autoindex on; no-store }`. Folder = `cursor-projects/
-   www-files` (a sibling of the repo, untracked; Andrew renamed it from `www`). Held `install.sh`,
-   `install-v2.sh`, `hello.txt`. 🔎 **Scanned for secrets BEFORE exposing it** (only a `1234` prompt default).
-   Tested from `.195`: `/` `/ubuntu/` `/fedora/` `/files` (301→`/files/`) `/files/install.sh` 200 and
-   byte-identical to disk; `/scripts/host_setup.sh` still 301s; `/files/smb_credentials` 403.
-   ⚠️ **Tested only from the dev box itself — not from a second machine.**
-4. **BOOT ORDER — the real finding.** Andrew asked whether it starts at boot. It would (`docker` enabled,
-   `unless-stopped`) — but **`docker.service` and `mnt-DevShare.mount` are both only `After=network-online`,
-   with no ordering between them**, and EVERY bind mount of this container lives on that CIFS share. Last boot:
-   docker 2.7 s vs mount 0.4 s — the mount probably wins, nothing guarantees it. Not reproduced. Andrew asked
-   for a ~10 s delay after the share → **authorised the one-time exception** (written approval via
-   AskQuestion) → `restart: "no"` in compose + **`/etc/systemd/system/script-server.service`**, enabled:
-   ```
-   [Unit] After=docker.service network-online.target; Requires=docker.service; RequiresMountsFor=/mnt/DevShare
-   [Service] Type=oneshot; RemainAfterExit=yes; WorkingDirectory=…/home-lab-setup/www
-             ExecStartPre=/bin/sleep 10; ExecStart=/usr/bin/docker compose up -d; ExecStop=/usr/bin/docker compose stop
-   [Install] WantedBy=multi-user.target
-   ```
-   ✅ `systemd-analyze verify` clean; ✅ `enable --now` took 11.3 s; ✅ `stop` → port 80 dead, `start` → 200.
-   🔲 **NOT PROVEN across a real reboot.** First check after the next one:
-   `journalctl -b -u script-server` and `curl -s http://192.168.1.195/files/`.
-5. **`MAKE_MEMORIES` pass 16:** demoted the Nov 4 handoff → `phase18` (commit `73939dd`); blocks 3 → **2 + log
-   (at spec)**. The `/files/` + boot-order rules are now in `MEMORY.md` §3 (hard rules) and `phase2` (SCRIPT SERVER); the stale snapshot claim was fixed.
-
-6. 🗜️ **MEMORY DIET (Nov 24, evening; Andrew's request, plan + swap approved in writing).** `MEMORY.md` 251,160 B / 2806 ln → **core
-   9,276 B**; boot context (`CURSOR_RULES` + MEMORY + RESUME + SECRET) **~303 KB → ~47 KB**. New boot order (CURSOR_RULES item 2):
-   MEMORY core → RESUME HERE → **`phases/INDEX.md`** (new pointer table, 24 rows ≤ 400 B) → `MEMORY_SECRET.md` (17.4 → 3.8 KB; employer
-   name/start date dropped). Method = COPY-FIRST: tag `pre-memory-diet` (`1a3f7a8`), every block copied verbatim into phase files /
-   new `reference/*.md` (8 files) in ~40 additive commits, independent line check **0 of 2,431 missing**, drafts tested (20/20 boot, 16/16
-   on-touch questions), then ONE swap. `CURSOR_RULES`: EDIT LOG entry 12 + HARD RULES (NEVER) section + four-file boot. `MAKE_MEMORIES`
-   retrofitted IN PLACE (12 edits; only 11 old lines changed; new: `tools/memory_budget.sh` step 0, `tools/copy_ranges.py`, INDEX upkeep,
-   bulk copy-first variant). Old RESUME block → `phase18` verbatim. **Old text of everything = tag `pre-memory-diet`**; old SECRET =
-   `working/memory-diet/MEMORY_SECRET.old` (+ the GitLab mirror). Staging drafts stay in `working/memory-diet/` (gitignored).
-
-### 🚨 Found
-- **A spent to-do, again (the fifth pass running).** The Nov 4 handoff said *"delete
-  `rpool/ROOT/pve-1@pre-pve-9.2.20-2026-09-28` — ask first"*. **It is already gone** (only
-  `…pre-pve-9.2.21-2026-10-27` remains). Instrument shown to find something first: 34 snapshots listed, `c03`
-  on 5. `MEMORY.md` said "kept" → corrected; `phase18` line ~1844 is a dated historical record, left as written.
-- 🔻 **CORRECTED Nov 24 (the AI's own error, caught during the memory-diet audit).** This entry first read
-  *"`VM-UBUNTU-01` … possibly a VM on another hypervisor … unresolved"*. **It is answered in `MEMORY.md`
-  (CURRENT STATE, ll. ~1014/1029): `.195` = `VM-UBUNTU-01`, a VMware Workstation guest on the Z8 G4** (24 vCPU).
-  The AI read the one index row saying "Not a Proxmox VM" and not the rest of the file. ⭐ A fact in N places:
-  `rg` for it before calling it unresolved.
-- 🤖 **The AI wrote `/tmp/temp-share.conf` outside the project dir** (host rule), before the share moved into
-  the script server; deleted (`rm -f`, same session). The systemd unit is the *authorised* exception.
-- **Another project's containers share this Docker daemon** (`dionysus-*` on 5101–5103). Not ours; untouched.
-
-### 🔲 Open — for Andrew
-- 🔲 **Reboot test of `script-server.service`** (above). Until then "starts at boot, after the share" is
-  design, not measurement. If the dev box is rebuilt, the unit must be recreated by hand — it is NOT in git.
-- 🔲 **Test `/files/` from a SECOND machine** (everything so far was `.195` → `.195`). Host firewall unchecked
-  (`ufw` needs root; the `docker`/iptables path worked locally).
-- 🔲 **Carried from Nov 4:** Phase 18 next = exercise chapters 09+ and the coverage matrix before a mock exam;
-  **node patching drill due by ~Nov 27–Dec 27** (60–90 days from the Sep 28 update freeze; step 0 is
-  `sudo apt update`); `vm-ephemeral` boot-import check (`journalctl -b -u 'zfs-import@vm\x2dephemeral'`) — **the
-  host has not rebooted since**; Phase 20 open items (log in, E7, delete the expired root PAT, D6); Swarm chapter 8
-  — ask which Swarm features the new job uses; Sep 28 `move-20x.log` files still in
-  `education/k8s-cka-prep/scratch/` (agreed Nov 4: delete — **ask first**).
-
 ## 📦 DEMOTION LOG — Aug 24 + Sep 16, 2026 (ONE block, on purpose — append a ROW, never a block)
 
 ⚠️ **This block exists because the first four demotions each left a marker block behind, so the block
@@ -174,6 +101,8 @@ artefact per unit of work, the artefacts become the backlog.** One log, appended
 | `🔧 BUILD STANDARD OVERHAUL — a second distro, and the script server nearly deleted itself` (Aug 21) | 50 | `phase2` (verbatim) + 1 caveat PROMOTED to `MEMORY.md` | COVERED: tree rename + 301s, landing page, `--hostname`, `www/smb_credentials`, the self-eating `wget -O` + atomic `.part`, "a 301 is a promise" (MEMORY l.~1698, `nginx.conf`), `.185` autoremove declined. 🚨 **"`--server` success path unproven on real hardware" lived ONLY here and is STILL TRUE** (no Ubuntu/Fedora host built with `host_setup.sh` since Aug 21) — promoted. **Last pre-Sep block: the file is now RESUME + one handoff + this log** |
 | **Nov 24, 2026 pass 16 ↓** | | | |
 | `📘 SESSION Nov 4, 2026` (handoff) | 67 | `phase18` (verbatim) | Replaced by the Nov 22-24 handoff. Nothing promoted - all facts already in `phase18`/`MEMORY.md`. 🚨 **Its 'delete the pve-1@pre-pve-9.2.20 snapshot - ask first' was SPENT: the snapshot is already gone** (host check Nov 24, positive control 34 snapshots / c03 x5); `MEMORY.md` and `phase18` still said 'kept' - corrected. Its other 🔲s carried into the new handoff |
+| **Nov 27, 2026 pass 17 ↓** | | | |
+| `📘 SESSION Nov 22–24, 2026` (handoff: `/files/` + boot order + MEMORY DIET) | 72 | `phase2` (verbatim) | Replaced by the Nov 27 handoff. Nothing promoted — `/files/` + unit rules already in `MEMORY.md` §3 + `phase2` SCRIPT SERVER; diet numbers in `MAKE_MEMORIES` backlog. 🚨 **Its reboot-proof item looked SPENT (`uptime -s` = Nov 23) and was NOT** — the boot journal shows the boot predates the unit; a clock jump. Carried. ⭐ Check the boot journal, not `uptime` |
 
 ⭐ **A THIRD FINDING, and it is a repeat this log had already warned about.** Pass 9 rebuilt an
 automated coverage checker, validated it with a positive control (100% on a file searched against
